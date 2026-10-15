@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/arcade.cpp
+  src/flight/arcade.h
+  src/math/attitude.cpp
+  src/math/attitude.h
   src/flight/aircraft.h
   src/flight/stores.cpp
   src/flight/stores.h
@@ -109,6 +113,16 @@ if(BUILD_TESTING)
   add_executable(mission_probe tests/mission_probe.cpp)
   target_link_libraries(mission_probe PRIVATE tfx_core)
   configure_first_party(mission_probe)
+
+  add_executable(attitude_probe tests/attitude_probe.cpp)
+  target_link_libraries(attitude_probe PRIVATE tfx_core)
+  configure_first_party(attitude_probe)
+
+  add_executable(arcade_probe tests/arcade_probe.cpp)
+  target_link_libraries(arcade_probe PRIVATE tfx_core)
+  configure_first_party(arcade_probe)
+  add_test(NAME flight.native_arcade_sequences COMMAND arcade_probe --check ${PROJECT_SOURCE_DIR}/tests/reference/arcade.txt)
+  set_tests_properties(flight.native_arcade_sequences PROPERTIES SKIP_RETURN_CODE 77)
 
   add_executable(tfx_probe tests/probe.cpp)
   target_link_libraries(tfx_probe PRIVATE tfx_core)
