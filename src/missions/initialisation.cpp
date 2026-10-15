@@ -194,16 +194,17 @@ setup initialise(std::string_view const script, inherited_setup const &inherited
         .text{optional_text(fields,source)},
       };
     } else if(command == "setbob") {
-      if(result.parameter_events.size() == maximum_parameter_events) throw std::runtime_error{"mission exceeds native parameter event limit"};
+      if(result.scenery_events.size() == maximum_scenery_events) throw std::runtime_error{"mission exceeds native scenery event limit"};
       auto const first{fields.next()};
       bool const timed{lower(first) == "time"};
       tokens value{first};
       auto const time{timed ? scaled_time(fields.integer()) : 0};
       auto const a{static_cast<uint8_t>(timed ? fields.integer() : value.integer())};
       auto const b{static_cast<uint8_t>(fields.integer())}, c{static_cast<uint8_t>(fields.integer())};
-      result.parameter_events.push_back({
+      result.scenery_events.push_back({
         .time{time},
-        .operands{a,b,c},
+        .entry{a},
+        .cell{b,c},
       });
     } else throw std::runtime_error{"unsupported mission INIT command: " + command};
   }

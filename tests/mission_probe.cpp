@@ -63,10 +63,10 @@ void state(tfx::missions::setup const &value) {
     std::cout << ']';
   }
   std::cout << "],[";
-  for(unsigned int i{0}; i != value.parameter_events.size(); ++i) {
+  for(unsigned int i{0}; i != value.scenery_events.size(); ++i) {
     if(i) std::cout << ',';
-    auto const &event{value.parameter_events[i]};
-    std::cout << '[' << event.time << ',' << static_cast<unsigned int>(event.operands.x) << ',' << static_cast<unsigned int>(event.operands.y) << ',' << static_cast<unsigned int>(event.operands.z) << ']';
+    auto const &event{value.scenery_events[i]};
+    std::cout << '[' << event.time << ',' << static_cast<unsigned int>(event.entry) << ',' << static_cast<unsigned int>(event.cell.x) << ',' << static_cast<unsigned int>(event.cell.y) << ']';
   }
   std::cout << "]]\n";
 }
