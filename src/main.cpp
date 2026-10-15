@@ -124,6 +124,8 @@ auto main(int const argc, char const *const argv[])->int try {
     return EXIT_SUCCESS;
   }
   tfx::platform::window window{scale};
+  // Wayland maps the window after its first buffer: present before waiting for focus.
+  window.present(renderer.output.colourise(colours));
   auto *const host{window.get()};
   double previous_time{glfwGetTime()}, title_time{previous_time}, last_mouse_x{0}, last_mouse_y{0}, timer_fraction{0};
   unsigned int frames{0}, interval_frames{0};
