@@ -302,4 +302,19 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   } else polygon(projected,ink_index,source.mode,texture);
 }
 
+void software_renderer::text(int x, int const y, std::string_view const message, uint8_t const colour) {
+  /// Native 0x87154 character mapping and advances, with clipped monochrome glyph writes
+  for(unsigned char const character : message) {
+    if(character == ' ') { x += 3; continue; }
+    auto const *const glyph{tables.glyph(character)};
+    if(!glyph) continue;
+    for(int row{0}; row != 6; ++row) {
+      for(int column{0}; column != 8; ++column) {
+        if(glyph->rows[static_cast<unsigned int>(row)] & (128 >> column)) ink(x + column,y + row,colour,-1);
+      }
+    }
+    x += static_cast<int>(glyph->advance);
+  }
+}
+
 } // namespace tfx::render

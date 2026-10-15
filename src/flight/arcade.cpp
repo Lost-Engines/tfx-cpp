@@ -17,7 +17,7 @@ float constexpr normalised_word{3.0518509447574615e-05f};
 float constexpr throttle_step{0.002f}, idle_throttle{0.6f};
 float constexpr mouse_angle_step{-22}, control_response{1.0f / 12};
 float constexpr speed_response{0.003f}, brake_response{0.01f}, hard_brake_response{0.02f};
-float constexpr fixed_speed_scale{256}, altitude_scale{8};
+float constexpr fixed_speed_scale{256}, altitude_scale{feet_per_world_unit};
 double constexpr feet_to_metres{0.3047999902464003}, metres_to_km{0.001};
 double constexpr world_units_per_kilometre{0.0024383999407291412f};
 float constexpr fuel_rate{0.008f};
@@ -174,14 +174,14 @@ void throttle(arcade_state &state, flight_controls const &controls, uint16_t con
   if(!state.left_engine && !state.right_engine) { state.target_speed = 0; state.hard_brake = false; }
   else if(!state.left_engine || !state.right_engine) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.5f);
   float response{speed_response};
-  if((state.landed && state.wheel_brake) || state.engine_failure) { state.target_speed = 0; response = brake_response; }
+  if((state.landed && state.wheel_brake) || state.brake_chute) { state.target_speed = 0; response = brake_response; }
   if(state.hard_brake) { state.target_speed = 0; response = hard_brake_response; }
   if(!state.landed && !(state.speed_mach > state.minimum_speed && state.minimum_speed != state.maximum_speed && state.altitude_km <= model.ceiling_km)) {
     state.speed_mach = state.minimum_speed;
     if(state.target_speed == 0) state.target_speed = static_cast<float>(static_cast<calculation>(state.minimum_speed) - 0.1f);
     recover(state,ticks);
   }
-  calculation const speed{(static_cast<calculation>(state.target_speed) - state.speed_mach) * response * (static_cast<int32_t>(state.engine_failure) + 1) * ticks + state.speed_mach};
+  calculation const speed{(static_cast<calculation>(state.target_speed) - state.speed_mach) * response * (static_cast<int32_t>(state.brake_chute) + 1) * ticks + state.speed_mach};
   state.speed_mach = static_cast<float>(speed);
   state.unrounded_speed_mach = static_cast<double>(speed);
   if(state.frozen && state.crashing) state.speed_mach = 0;
@@ -226,7 +226,7 @@ void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<
   state.filtered_control = vec2f{0,0};
   state.gear_down = landed;
   state.landed = landed;
-  state.moving_on_ground = landed;
+  state.low_speed_ground_contact = landed;
   state.left_engine = !landed;
   state.right_engine = !landed;
   state.throttle = landed ? 0 : .85f;
@@ -234,7 +234,15 @@ void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<
   state.fuel_capacity = model.fuel_capacity;
   state.extra_fuel_capacity = state.aircraft == player_aircraft::eurofighter ? model.fuel_capacity : 0;
   state.fuel = model.fuel_capacity;
-  if(landed) state.position.y = static_cast<float>(static_cast<calculation>(ground.height) - model.gear_height);
+  if(landed) {
+    float constexpr runway_start_setback{120};
+    state.position.y = static_cast<float>(static_cast<calculation>(ground.height) - model.gear_height);
+    if(ground.height >= -10) {
+      // The first native player callback places a runway start 120 world units behind the supplied cell centre.
+      state.position.x = static_cast<float>(static_cast<calculation>(state.position.x) - static_cast<calculation>(state.orientation.forward.x) * normalised_word * runway_start_setback);
+      state.position.z = static_cast<float>(static_cast<calculation>(state.position.z) - static_cast<calculation>(state.orientation.forward.z) * normalised_word * runway_start_setback);
+    }
+  }
   state.integer_position = vec3<int32_t>{state.position};
   state.angles = state.orientation.angles();
 }
@@ -242,6 +250,8 @@ void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<
 void advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const time_warp) {
   /// Native Arcade 0x8dc50: throttle/fuel, gear contact, filtered controls, coordinated bank turn, then movement
   auto const &model{parameters(state.aircraft)};
+  if(state.aircraft == player_aircraft::eurofighter && state.gear_down && state.fixed_speed > 350) state.gear_down = false;
+  if(state.landed && state.fixed_speed < 5 && state.brake_chute) { state.brake_chute = false; state.brake_chute_cut_away = true; }
   state.recovering = false;
   throttle(state,controls,elapsed);
   calculation const movement{static_cast<calculation>(state.speed_mach) * sound_speed * (1.0f / speed_metres_per_native_tick)};
@@ -251,19 +261,19 @@ void advance_arcade(arcade_state &state, flight_controls const &controls, simula
   if(state.speed_metres_per_second <= model.stall_metres_per_second) state.position.y = static_cast<float>(static_cast<calculation>(state.position.y) + static_cast<calculation>(elapsed) * 0.1f);
   float const gear_height{static_cast<float>(static_cast<calculation>(ground.height) - model.gear_height)};
   if(ground.present && state.position.y >= gear_height) {
-    if(state.gear_down && state.orientation.forward.y >= 0) {
+    if(state.gear_down && state.orientation.down.y >= 0) {
       state.position.y = gear_height;
       auto const angles{state.orientation.angles()};
       int32_t const pitch{math::signed_word(angles.x) / 2}, roll{math::signed_word(angles.z) / 2};
       rotate(state,math::rotation_axis::pitch,static_cast<float>(-pitch));
       rotate(state,math::rotation_axis::roll,static_cast<float>(-roll));
       state.landed = true;
-      state.moving_on_ground = state.fixed_speed >= 60;
+      state.low_speed_ground_contact = state.fixed_speed < 60;
     } else {
       state.position.y = ground.height;
       state.collision = 2;
     }
-  } else { state.landed = false; state.moving_on_ground = false; }
+  } else { state.landed = false; state.low_speed_ground_contact = false; }
   float pitch_change{0}, roll_change{0};
   filter_control(state.control_target.x,state.filtered_control.x,controls.pitch_delta,elapsed,pitch_change);
   if(!state.landed || state.speed_metres_per_second > model.stall_metres_per_second) rotate(state,math::rotation_axis::pitch,pitch_change);
@@ -294,6 +304,11 @@ void advance_arcade(arcade_state &state, flight_controls const &controls, simula
   }
   float const ceiling{-static_cast<float>(integer(static_cast<calculation>(model.ceiling_km) / world_units_per_kilometre))};
   state.position.y = std::max(state.position.y,ceiling);
+  // The outer callback repeats its contact check after motion; integer pose stores precede this clamp.
+  if((state.landed && state.orientation.down.y < 0) || (ground.present && state.position.y > ground.height)) {
+    state.position.y = ground.height;
+    state.collision = 2;
+  }
 }
 
 } // namespace tfx::flight

@@ -12,18 +12,23 @@ cmake --build build -j
 
 Requires CMake 3.30 or newer, a C++26 compiler and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, `libglfw3-dev` and `libgl1-mesa-dev` provide the desktop dependencies.
 
-For now this opens **a mission scene inspector**, not a playable flight simulation. It draws original terrain, assembled scenery, textures, night lights and scenery animation with a software renderer. WASD moves the camera, R/F rises/descends, arrows or right-drag look around, Shift moves faster and Escape exits. Mouse capture is released when the window loses focus.
+Direct mission launches now provide **Arcade flight** for the selected aircraft, with live steering, thrust, engines, fuel, gear and brakes. Mission aircraft groups and surface units appear in the world; surface vehicles follow their compiled routes. The default is mission 501, the first FWS engagement; `--mission=830` selects another mission.
 
-The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. `--mission=501` selects another mission scene.
+The mouse or arrow keys steer. Hold either mouse button or `=`/`-` to change thrust. `[` and `]` toggle the engines, `G` operates the gear, `W` toggles wheel brakes and `B` operates the air brakes. `P` pauses and releases the mouse; Escape exits. See `--help` for the remaining controls and options.
 
-RelWithDebInfo retains developer tools. For example, inspect a city and capture the initial scene without a window:
+The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
+
+This is still an integration build. Ground contact uses a temporary horizontal surface; terrain/building collision, other flight models, automatic recovery, airborne AI, combat, the complete cockpit/HUD, menus, campaign progression and audio remain unfinished. The current numerical flight backend also requires a `long double` with a 64-bit significand. See [implementation status](docs/implementation.md) for precise verification boundaries.
+
+RelWithDebInfo retains the developer scene inspector and headless captures:
 
 ```sh
+./build/tfx --data-dir /path/to/TFX --inspect
 ./build/tfx --data-dir /path/to/TFX --cell=136,114
-./build/tfx --data-dir /path/to/TFX --screenshot=/tmp/tfx.ppm
+./build/tfx --data-dir /path/to/TFX --flight-steps=100 --screenshot=/tmp/tfx.ppm
 ```
 
-Use `--help` for the current options. Release builds omit the developer options. Aircraft physics, moving actors, combat, menus, campaigns and audio remain to be implemented. No CI or automatic release process is configured.
+In the inspector, WASD moves, R/F rises/descends, arrows or right-drag look around and Shift moves faster. Release builds omit the developer options. No CI or automatic release process is configured.
 
 ```sh
 ctest --test-dir build --output-on-failure

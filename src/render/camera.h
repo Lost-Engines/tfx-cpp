@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math/native.h"
+#include "math/attitude.h"
 #include "render/framebuffer.h"
 
 namespace tfx::render {
@@ -15,6 +16,8 @@ struct camera {
   vec3d transform(vec3d const &world) const;
   vec2d project(vec3d const &camera_position) const;
 };
+
+camera aircraft_camera(vec3f const &position, math::attitude const &orientation);
 
 camera inspection_camera(vec3d const &position, double heading, double pitch);
 

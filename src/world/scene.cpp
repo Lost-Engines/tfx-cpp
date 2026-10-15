@@ -17,28 +17,49 @@ scene::scenery_instance::scenery_instance(definition const &source) : parts{sour
 scene::scene(environment const &environment, assets &bank) : terrain{environment}, resources{bank} {
 }
 
+scene_handle scene::create_actor(std::string const &name, vec3d const &position, vec3<math::angle> const &angles) {
+  auto const &source{resources.object(name)};
+  unsigned int const id{next_actor++};
+  actors.emplace(id,moving_instance{
+    .source{&source},
+    .state{source},
+    .position{vec3d{position}},
+    .rotation{math::rotation(angles)},
+  });
+  return {.value{id}};
+}
+
+void scene::place_actor(scene_handle const handle, vec3d const &position, vec3<math::angle> const &angles) {
+  auto &actor{actors.at(handle.value)};
+  actor.position = position;
+  actor.rotation = math::rotation(angles);
+}
+
+void scene::advance_instance(scenery_instance &instance) {
+  for(auto &stream : instance.streams) {
+    if(stream.paused || (stream.parameter && !instance.all_parameters)) continue;
+    try {
+      auto &parameter{instance.parts.at(stream.part).parameters.at(stream.parameter)};
+      auto const result{stream.player.tick(parameter)};
+      if(result.action == stream_action::event_requested) {
+        stream.paused = true;
+        warnings.insert("SSD event " + std::to_string(result.event) + " awaits the actor dispatcher; stream paused");
+      }
+    } catch(std::exception const &error) {
+      stream.paused = true;
+      warnings.insert(error.what());
+    }
+  }
+}
+
 void scene::advance(timer_ticks const elapsed) {
-  /// Advance local scenery streams at the native clock gate; mission/AI actor eligibility remains separate work
+  /// Each static or moving instance owns independent streams; the native clock gate remains shared
   bool const animate{clock.advance(elapsed)};
   if(animate) saved_jitter = working_jitter;
   else working_jitter = saved_jitter;
   if(!animate) return;
-  for(auto &[_, instance] : instances) {
-    for(auto &stream : instance.streams) {
-      if(stream.paused || (stream.parameter && !instance.all_parameters)) continue;
-      try {
-        auto &parameter{instance.parts.at(stream.part).parameters.at(stream.parameter)};
-        auto const result{stream.player.tick(parameter)};
-        if(result.action == stream_action::event_requested) {
-          stream.paused = true;
-          warnings.insert("SSD event " + std::to_string(result.event) + " awaits the actor dispatcher; stream paused");
-        }
-      } catch(std::exception const &error) {
-        stream.paused = true;
-        warnings.insert(error.what());
-      }
-    }
-  }
+  for(auto &[_, instance] : instances) advance_instance(instance);
+  for(auto &[_, actor] : actors) advance_instance(actor.state);
 }
 
 void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius) {
@@ -86,6 +107,29 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         }
       } catch(std::exception const &error) {
         warnings.insert(terrain.variant(col,row) + ": " + error.what());
+      }
+    }
+  }
+  for(auto const &[_, actor] : actors) {
+    for(auto const &draw : actor.source->draws) {
+      auto const &part{actor.state.parts.at(draw.slot)};
+      if(part.name.empty()) continue;
+      try {
+        auto const &shape{resources.shape(part.name)};
+        auto const origin{actor.position + actor.rotation * draw.anchor};
+        auto const depth{view.transform(origin).z};
+        if(depth < -cell_units || depth > view.far_distance + cell_units) continue;
+        queue.push_back({
+          .shape{&shape},
+          .part{&part},
+          .origin{vec3d{origin}},
+          .rotation{actor.rotation * math::rotation(part.rotation)},
+          .heading{0},
+          .depth{depth},
+          .sort_key{depth + shape.sort_depth_bias},
+        });
+      } catch(std::exception const &error) {
+        warnings.insert(part.name + ": " + error.what());
       }
     }
   }
