@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include "flight/aircraft.h"
 #include "math/native.h"
 #include "resources/archive.h"
 
@@ -17,7 +18,7 @@ struct terrain_tile {
   math::angle rotation;
   std::vector<std::string> variants;
 };
-enum class player_aircraft : unsigned int { eurofighter = 1, nighthawk, raptor };
+using flight::player_aircraft;
 
 struct mission_start {
   vec3<int32_t> position;

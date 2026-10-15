@@ -14,6 +14,9 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aircraft.h
+  src/flight/stores.cpp
+  src/flight/stores.h
   src/missions/rules.cpp
   src/missions/rules.h
   src/missions/initialisation.cpp
@@ -88,6 +91,16 @@ if(BUILD_TESTING)
   target_link_libraries(rules_tests PRIVATE tfx_core)
   configure_first_party(rules_tests)
   add_test(NAME missions.native_result_boundaries COMMAND rules_tests)
+
+  add_executable(stores_tests tests/stores_test.cpp)
+  target_link_libraries(stores_tests PRIVATE tfx_core)
+  configure_first_party(stores_tests)
+  add_test(NAME flight.native_store_contributions COMMAND stores_tests)
+  set_tests_properties(flight.native_store_contributions PROPERTIES SKIP_RETURN_CODE 77)
+
+  add_executable(stores_probe tests/stores_probe.cpp)
+  target_link_libraries(stores_probe PRIVATE tfx_core)
+  configure_first_party(stores_probe)
 
   add_executable(rules_probe tests/rules_probe.cpp)
   target_link_libraries(rules_probe PRIVATE tfx_core)
