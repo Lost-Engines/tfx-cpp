@@ -10,7 +10,9 @@
 #endif // _WIN32
 #include "math/native.h"
 #include "models/shape.h"
+#include "render/software_renderer.h"
 #include "resources/archive.h"
+#include "resources/executable_tables.h"
 #include "world/definition.h"
 #include "world/environment.h"
 
@@ -34,6 +36,12 @@ auto main(int const argc, char const *const argv[])->int try {
     while(std::cin >> x >> y >> z) {
       auto const matrix{tfx::math::rotation_words(vec3<tfx::math::angle>{static_cast<uint16_t>(x), static_cast<uint16_t>(y), static_cast<uint16_t>(z)})};
       for(auto const value : matrix.data) std::cout << value << ' ';
+      std::cout << '\n';
+    }
+  } else if(mode == "rounded") {
+    int32_t ax{0}, ay{0}, bx{0}, by{0}, cx{0}, cy{0};
+    while(std::cin >> ax >> ay >> bx >> by >> cx >> cy) {
+      for(auto const &v : tfx::render::rounded_corner(vec2<int32_t>{ax,ay},vec2<int32_t>{bx,by},vec2<int32_t>{cx,cy})) std::cout << v.x << ' ' << v.y << ' ';
       std::cout << '\n';
     }
   } else if(mode == "conditions") {
@@ -60,6 +68,40 @@ auto main(int const argc, char const *const argv[])->int try {
         word(entry.id);
         word(static_cast<uint32_t>(decoded.size()));
         std::cout.write(reinterpret_cast<char const*>(decoded.data()), static_cast<std::streamsize>(decoded.size()));
+      }
+    } else if(mode == "raster") {
+#ifdef _WIN32
+      _setmode(_fileno(stdout), _O_BINARY);
+#endif // _WIN32
+      tfx::resources::executable_tables const tables{tfx::resources::find_game_archive(argv[2]).parent_path() / "TFX.DAT"};
+      int drawing_mode{0};
+      unsigned int seed{0};
+      std::string kind;
+      while(std::cin >> drawing_mode >> kind >> seed) {
+        tfx::render::software_renderer renderer{tables,static_cast<uint16_t>(seed)};
+        renderer.output.pixels.fill(77);
+        if(kind == "gradient") {
+          std::array<tfx::render::screen_vertex,4> vertices{{
+            {.position{20,20}, .uv{0,0}, .shade{-1}},
+            {.position{100,20}, .uv{0,0}, .shade{-1}},
+            {.position{100,100}, .uv{0,0}, .shade{-1}},
+            {.position{20,100}, .uv{0,0}, .shade{-1}},
+          }};
+          for(auto &v : vertices) std::cin >> v.shade;
+          renderer.polygon(vertices,200);
+        } else if(kind == "circle") renderer.circle(80,80,40,200,drawing_mode);
+        else {
+          double const left{kind == "quad" ? 32.0 : 35.0}, top{kind == "quad" ? 32.0 : 37.0};
+          std::array<tfx::render::screen_vertex, 4> const vertices{{
+            {.position{left,top}, .uv{0,0}, .shade{-1}},
+            {.position{left + 96,top}, .uv{0,0}, .shade{-1}},
+            {.position{left + 96,top + 96}, .uv{0,0}, .shade{-1}},
+            {.position{left,top + 96}, .uv{0,0}, .shade{-1}},
+          }};
+          renderer.polygon(vertices,200,drawing_mode);
+        }
+        word(renderer.procedural_state());
+        std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());
       }
     } else if(mode == "definitions") {
       auto const names{tfx::world::model_names(game.read("ss/ssinfo.fn"))};

@@ -1,0 +1,38 @@
+#pragma once
+
+#include <span>
+#include <vector>
+#include "models/shape.h"
+#include "render/camera.h"
+#include "render/framebuffer.h"
+#include "resources/executable_tables.h"
+
+namespace tfx::render {
+
+struct screen_vertex {
+  vec2d position;
+  vec2d uv;
+  double shade;
+};
+
+std::array<vec2<int32_t>, 8> rounded_corner(vec2<int32_t> const &previous, vec2<int32_t> const &corner, vec2<int32_t> const &next);
+
+class software_renderer {
+private:
+  resources::executable_tables const &tables;
+  uint16_t procedural_seed{0x4321};
+  void ink(int x, int y, uint8_t colour, int mode);
+  void patterned_span(int y, double left, double right, uint8_t colour, int mode, int bottom, bool inclusive, bool paint = true);
+
+public:
+  framebuffer output;
+  software_renderer(resources::executable_tables const &tables, uint16_t procedural_seed = 0x4321);
+  uint16_t procedural_state() const;
+  void background(camera const &view, uint8_t sky, uint8_t ground);
+  void polygon(std::span<screen_vertex const> vertices, uint8_t colour, int mode = -1, std::span<uint8_t const> texture = {});
+  void circle(int x, int y, unsigned int radius, uint8_t colour, int mode = -1);
+  void line(vec2d const &a, vec2d const &b, uint8_t colour);
+  void primitive(models::primitive const &source, std::span<models::model_vertex const> camera_vertices, camera const &view, std::span<uint8_t const> texture);
+};
+
+} // namespace tfx::render
