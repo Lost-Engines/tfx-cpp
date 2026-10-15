@@ -6,6 +6,10 @@ The current executable is a scene inspector. Resource loading, model interpretat
 
 The aim is to reach a substantially complete, automatically exercised game before requesting interactive review. The order below brings the largest uncertainties—runtime timing, aerodynamics and context-dependent callbacks—into the early work. Each increment should include its verification and be committed independently.
 
+## Progress
+
+The initial timing increment is complete: a bounded relocated-original harness and headless C++ runner agree on 4,096 controlled frame sequences, including timer wrapping/poll consumption, exact stored float/double bits, previous-frame animation gating and projectile subdivision. External timer inputs and unimplemented projectile callbacks are declared. Full native mission initialisation and aircraft/session traces remain outstanding; this does not satisfy the complete-session gate. See [timing evidence](implementation.md#simulation-timing-and-headless-replay).
+
 ## 1. Establish complete-session reference capture
 
 Extend the relocated-original-code harness from isolated calls to reproducible initialisation/update sequences. Where complete DOS context is necessary, instrument scripted runs of the original through DOSBox. Original runs should use disposable writable installations so they do not alter the user's configuration or pilots.

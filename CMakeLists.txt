@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/simulation/timing.cpp
+  src/simulation/timing.h
   src/resources/executable_tables.cpp
   src/resources/executable_tables.h
   src/render/framebuffer.cpp
@@ -63,6 +65,15 @@ if(BUILD_TESTING)
   target_link_libraries(animation_tests PRIVATE tfx_core)
   configure_first_party(animation_tests)
   add_test(NAME actors.native_animation_boundaries COMMAND animation_tests)
+
+  add_executable(timing_tests tests/timing_test.cpp)
+  target_link_libraries(timing_tests PRIVATE tfx_core)
+  configure_first_party(timing_tests)
+  add_test(NAME simulation.native_timing_boundaries COMMAND timing_tests)
+
+  add_executable(tfx_replay tests/replay.cpp)
+  target_link_libraries(tfx_replay PRIVATE tfx_core)
+  configure_first_party(tfx_replay)
 
   add_executable(tfx_probe tests/probe.cpp)
   target_link_libraries(tfx_probe PRIVATE tfx_core)
