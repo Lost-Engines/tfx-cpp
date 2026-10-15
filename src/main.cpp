@@ -17,6 +17,7 @@
 #include "world/assets.h"
 #include "world/environment.h"
 #include "world/scene.h"
+#include "missions/initialisation.h"
 
 namespace {
 
@@ -93,13 +94,14 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::resources::archive const game{archive_path};
   tfx::resources::executable_tables const tables{archive_path.parent_path() / "TFX.DAT"};
   tfx::world::mission const selected{game,mission_name};
-  tfx::world::environment const environment{game,override_grid.empty() ? selected.grid_name() : override_grid,override_environment.empty() ? selected.environment : override_environment};
+  auto const mission_setup{tfx::missions::initialise(selected.script)};
+  tfx::world::environment const environment{game,override_grid.empty() ? selected.grid_name() : override_grid,override_environment.empty() ? mission_setup.environment : override_environment};
   auto const colours{tfx::render::decode_palette(game.read("colours/" + environment.palette_name + ".col"))};
   tfx::world::assets assets{game};
   tfx::world::scene scene{environment,assets};
   tfx::render::software_renderer renderer{tables};
-  vec3d position{selected.start.position};
-  if(selected.start.landed) position.y = -300;                                  // elevated inspection view; not a player ground-contact calculation
+  vec3d position{mission_setup.start.position};
+  if(mission_setup.start.landed) position.y = -300;                                  // elevated inspection view; not a player ground-contact calculation
   double heading{0}, pitch{-.12};
   if(override_cell) {
     position = vec3d{(override_cell->x + .5) * tfx::world::cell_units,-1800,(override_cell->y + .5) * tfx::world::cell_units};

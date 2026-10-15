@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/missions/initialisation.cpp
+  src/missions/initialisation.h
   src/simulation/timing.cpp
   src/simulation/timing.h
   src/resources/executable_tables.cpp
@@ -74,6 +76,15 @@ if(BUILD_TESTING)
   add_executable(tfx_replay tests/replay.cpp)
   target_link_libraries(tfx_replay PRIVATE tfx_core)
   configure_first_party(tfx_replay)
+
+  add_executable(mission_tests tests/mission_test.cpp)
+  target_link_libraries(mission_tests PRIVATE tfx_core)
+  configure_first_party(mission_tests)
+  add_test(NAME missions.native_initialisation_boundaries COMMAND mission_tests)
+
+  add_executable(mission_probe tests/mission_probe.cpp)
+  target_link_libraries(mission_probe PRIVATE tfx_core)
+  configure_first_party(mission_probe)
 
   add_executable(tfx_probe tests/probe.cpp)
   target_link_libraries(tfx_probe PRIVATE tfx_core)
