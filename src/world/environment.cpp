@@ -1,0 +1,112 @@
+#include "environment.h"
+#include <algorithm>
+#include <cctype>
+#include <sstream>
+#include <stdexcept>
+#include <utility>
+
+namespace tfx::world {
+namespace {
+
+std::string text(resources::bytes const &data) {
+  return {data.begin(), data.end()};
+}
+std::string lower(std::string value) {
+  for(auto &c : value) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return value;
+}
+
+} // anonymous namespace
+
+mission::mission(resources::archive const &game, std::string const &source_name) : name{source_name} {
+  /// Read initial scene selections only; mission expressions and completion rules remain original source text
+  script = text(game.read("missions/" + name + ".mis"));
+  std::istringstream source{script};
+  std::string line;
+  bool in_text{false};
+  while(std::getline(source, line)) {
+    if(auto const comment{line.find(';')}; comment != std::string::npos) line.erase(comment);
+    std::istringstream fields{line};
+    std::string key;
+    fields >> key;
+    key = lower(std::move(key));
+    if(key == "finish:" || key == "end:") break;
+    if(key == "end_text") { in_text = false; continue; }
+    if(in_text) continue;
+    if(key == "type") fields >> environment;
+    else if(key == "way") fields >> waypoints;
+    else if(key == "plane") fields >> aircraft;
+    else if(key == "start") {
+      std::string position;
+      std::getline(fields, position);
+      std::ranges::replace(position, ',', ' ');
+      std::istringstream coordinates{position};
+      std::string altitude;
+      if(!(coordinates >> start.x >> altitude >> start.z)) throw std::runtime_error{"invalid player start in " + name};
+      // a useful elevated inspection camera; not the player's landed/airborne flight-state initialisation
+      start.y = altitude == "landed" ? -300 : -std::stod(altitude);
+    }
+    std::string word;
+    while(fields >> word) if(lower(word) == "text") in_text = true;
+  }
+  if(environment.empty()) throw std::runtime_error{"mission lacks an environment: " + name};
+}
+
+environment::environment(resources::archive const &game, std::string source_name) : name{std::move(source_name)} {
+  /// The native grid is column-major with reversed Z; retain a convenient row-major runtime lookup
+  auto const prefix{"lev/" + name};
+  auto const low{game.read(prefix + ".lev")}, high{game.read(prefix + ".le2")};
+  if(low.size() != cells.size() || high.size() != cells.size()) throw std::runtime_error{"terrain grid extent differs from 200 by 200: " + name};
+  auto const table{game.read(prefix + ".dat")};
+  resources::binary_view const view{table};
+  auto const count{view.le16(0)};
+  size_t cursor{2};
+  for(unsigned int i{0}; i != count; ++i) {
+    terrain_tile tile{
+      .rotation{view.le16(cursor)},
+      .variants{},
+    };
+    auto const variants{view.le16(cursor + 2)};
+    cursor += 4;
+    for(unsigned int j{0}; j != variants; ++j) {
+      std::string variant;
+      while(view.byte(cursor)) variant += static_cast<char>(view.byte(cursor++));
+      ++cursor;
+      tile.variants.push_back(lower(std::move(variant)));
+    }
+    if(tile.variants.empty()) throw std::runtime_error{"terrain tile has no scenery variants"};
+    tiles.push_back(std::move(tile));
+  }
+  if(cursor != table.size()) throw std::runtime_error{"terrain variant table has unexplained trailing bytes"};
+  math::random_state random;
+  for(unsigned int x{0}; x != map_width; ++x) {
+    for(unsigned int row{0}; row != map_height; ++row) {
+      auto const source{x * map_height + row}, target{(map_height - 1 - row) * map_width + x};
+      cells[target] = static_cast<uint16_t>(low[source] | (high[source] << 8));
+      if(cells[target] >= tiles.size()) throw std::runtime_error{"terrain grid references an undefined tile in " + name};
+      choices[target] = static_cast<uint16_t>(random.next() % tiles[cells[target]].variants.size());
+    }
+  }
+  config = text(game.read(prefix + ".txt"));
+  std::istringstream settings{config};
+  std::string token;
+  while(settings >> token) {
+    token = lower(std::move(token));
+    if(token == "night") status |= night_status;
+    if(token == "night" || token == "day") settings >> palette_name;
+  }
+  if(palette_name.empty()) throw std::runtime_error{"environment has no base day/night palette: " + name};
+}
+
+terrain_tile const &environment::tile(unsigned int const x, unsigned int const z) const {
+  return tiles.at(tile_id(x, z));
+}
+std::string const &environment::variant(unsigned int const x, unsigned int const z) const {
+  return tile(x, z).variants.at(choices.at(z * map_width + x));
+}
+unsigned int environment::tile_id(unsigned int const x, unsigned int const z) const {
+  if(x >= map_width || z >= map_height) throw std::out_of_range{"world cell exceeds map dimensions"};
+  return cells[z * map_width + x];
+}
+
+} // namespace tfx::world
