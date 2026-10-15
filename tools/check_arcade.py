@@ -88,7 +88,7 @@ def main():
         expected += native
         fixture += inputs[-len(controls)-1:]
         digest = 14695981039346656037
-        for byte in ''.join(''.join(f'{word} ' for word in row) + '\n' for row in native).encode('ascii'):
+        for byte in ''.join(' '.join(map(str, row)) + '\n' for row in native).encode('ascii'):
             digest = ((digest ^ byte) * 1099511628211) & ((1 << 64) - 1)
         fixture.append(str(digest))
         origins += [(case_index, frame) for frame in range(len(controls))]
@@ -96,6 +96,7 @@ def main():
     observed = [list(map(int, line.split())) for line in result.stdout.splitlines()]
     assert len(observed) == len(expected), (len(observed), len(expected))
     for row, (actual, wanted) in enumerate(zip(observed, expected)):
+        assert len(actual) == len(wanted) == len(NAMES)
         differences = [(NAMES[i], a, b) for i, (a, b) in enumerate(zip(actual, wanted)) if a != b]
         assert not differences, (origins[row], differences)
     if args.save_fixture:
