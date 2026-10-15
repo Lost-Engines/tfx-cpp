@@ -13,12 +13,23 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/math/native.cpp
+  src/math/native.h
+  src/models/shape.cpp
+  src/models/shape.h
+  src/world/environment.cpp
+  src/world/environment.h
+  src/world/definition.cpp
+  src/world/definition.h
+  src/world/assets.cpp
+  src/world/assets.h
   src/resources/archive.cpp
   src/resources/archive.h
   src/resources/binary.h
   src/resources/ra.cpp
   src/resources/ra.h
 )
+target_compile_definitions(tfx_core PUBLIC VECTORSTORM_NO_BOOST)
 configure_first_party(tfx_core)
 
 add_executable(tfx src/main.cpp)
