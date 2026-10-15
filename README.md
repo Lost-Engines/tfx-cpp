@@ -10,9 +10,9 @@ cmake --build build -j
 ./build/tfx --data-dir /path/to/TFX
 ```
 
-Requires CMake 3.28 or newer, a C++23 compiler and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, `libglfw3-dev` and `libgl1-mesa-dev` provide the desktop dependencies.
+Requires CMake 3.30 or newer, a C++26 compiler and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, `libglfw3-dev` and `libgl1-mesa-dev` provide the desktop dependencies.
 
-For now this opens **a mission scene inspector**, not a playable flight simulation. It draws original terrain, assembled scenery, textures and night lights with a software renderer. WASD moves the camera, R/F rises/descends, arrows or right-drag look around, Shift moves faster and Escape exits. Mouse capture is released when the window loses focus.
+For now this opens **a mission scene inspector**, not a playable flight simulation. It draws original terrain, assembled scenery, textures, night lights and scenery animation with a software renderer. WASD moves the camera, R/F rises/descends, arrows or right-drag look around, Shift moves faster and Escape exits. Mouse capture is released when the window loses focus.
 
 The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. `--mission=501` selects another mission scene.
 
@@ -32,6 +32,6 @@ python3 tools/check_reference.py --build build --research ../tfx-reverse
 
 The optional reference check compares every decoded archive entry byte for byte with the independently checked research extractor. Original game data remains external to the repository. The current executable-table reader requires the reference 2.05 `TFX.DAT` as well as `DID.DAT`.
 
-Research: [tfx-reverse](https://github.com/Lost-Engines/tfx-reverse). Native comparison commands, verified behaviour and current rendering limitations are in [docs/implementation.md](docs/implementation.md).
+The research tools and captures currently live in the sibling `tfx-reverse` directory. Native comparison commands, verified behaviour and current rendering limitations are in [docs/implementation.md](docs/implementation.md).
 
 GPL-3.0-or-later; see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).

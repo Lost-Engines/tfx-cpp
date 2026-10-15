@@ -28,4 +28,10 @@ struct random_state {
   uint16_t next();
 };
 
+struct jitter_state {
+  uint16_t x{0x3141};
+  uint16_t y{0x5926};
+  int16_t perturb(int16_t coordinate, unsigned int shift);
+};
+
 } // namespace tfx::math

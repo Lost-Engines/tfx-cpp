@@ -6,7 +6,39 @@
 
 namespace tfx::world {
 
+scene::scenery_instance::scenery_instance(definition const &source) : parts{source.parts}, all_parameters{(source.flags & 0x0100) != 0} {
+  for(auto const &stream : source.streams) streams.push_back({
+    .part{stream.part},
+    .parameter{stream.parameter},
+    .player{stream.words},
+  });
+}
+
 scene::scene(environment const &environment, assets &bank) : terrain{environment}, resources{bank} {
+}
+
+void scene::advance(timer_ticks const elapsed) {
+  /// Advance local scenery streams at the native clock gate; mission/AI actor eligibility remains separate work
+  bool const animate{clock.advance(elapsed)};
+  if(animate) saved_jitter = working_jitter;
+  else working_jitter = saved_jitter;
+  if(!animate) return;
+  for(auto &[_, instance] : instances) {
+    for(auto &stream : instance.streams) {
+      if(stream.paused || (stream.parameter && !instance.all_parameters)) continue;
+      try {
+        auto &parameter{instance.parts.at(stream.part).parameters.at(stream.parameter)};
+        auto const result{stream.player.tick(parameter)};
+        if(result.action == stream_action::event_requested) {
+          stream.paused = true;
+          warnings.insert("SSD event " + std::to_string(result.event) + " awaits the actor dispatcher; stream paused");
+        }
+      } catch(std::exception const &error) {
+        stream.paused = true;
+        warnings.insert(error.what());
+      }
+    }
+  }
 }
 
 void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius) {
@@ -35,8 +67,9 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       if(camera_centre.z < -cell_units || camera_centre.z > view.far_distance + cell_units) continue;
       try {
         auto const &object{resources.object(terrain.variant(col,row))};
+        auto &instance{instances.try_emplace(row * map_width + col,object).first->second};
         for(auto const &draw : object.draws) {
-          auto const &part{object.parts.at(draw.slot)};
+          auto const &part{instance.parts.at(draw.slot)};
           if(part.name.empty()) continue;
           auto const &shape{resources.shape(part.name)};
           auto const origin{centre + math::rotate_tile(draw.anchor,tile.rotation)};
@@ -63,6 +96,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       models::shape_context context;
       std::copy(item.part->parameters.begin(),item.part->parameters.end(),context.parameters.begin());
       context.status = terrain.status;
+      context.jitter = &working_jitter;
       context.distance = static_cast<int16_t>(std::clamp(item.depth,-32768.0,32767.0));
       context.project = [&view, &placed](vec3d const &v){
         auto point{view.transform(placed(v))};
@@ -75,7 +109,11 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       for(auto const &primitive : geometry.primitives) {
         std::vector<models::model_vertex> vertices;
         vertices.reserve(primitive.vertices.size());
-        for(auto const &vertex : primitive.vertices) vertices.push_back({.position{view.transform(placed(vertex.position))}, .uv{vec2d{vertex.uv}}, .shade{vertex.shade}});
+        for(auto const &vertex : primitive.vertices) vertices.push_back({
+          .position{view.transform(placed(vertex.position))},
+          .uv{vec2d{vertex.uv}},
+          .shade{vertex.shade},
+        });
         auto const texture{primitive.texture ? resources.texture(*primitive.texture) : std::span<uint8_t const>{}};
         if(primitive.texture && texture.empty()) warnings.insert("unresolved runtime texture: " + item.part->name);
         renderer.primitive(primitive,vertices,view,texture);

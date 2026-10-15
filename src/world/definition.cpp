@@ -87,7 +87,10 @@ definition::definition(std::span<uint8_t const> const source, std::span<std::str
             if(a(1) < anchors.size()) anchor = anchors[a(1)];
           }
           auto const duplicate{std::ranges::any_of(draws, [slot, &anchor](auto const &draw){ return draw.slot == slot && draw.anchor == anchor; })};
-          if(!duplicate) draws.push_back({.slot{slot}, .anchor{vec3d{anchor}}});
+          if(!duplicate) draws.push_back({
+            .slot{slot},
+            .anchor{vec3d{anchor}},
+          });
         }
       }
       if(opcode == 14 || opcode == 31 || opcode == 49 || opcode == 50 || opcode == 64 || opcode == 65 || opcode == 80 || opcode == 81) return;

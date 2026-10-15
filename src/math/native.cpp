@@ -61,4 +61,14 @@ uint16_t random_state::next() {
   return high;
 }
 
+int16_t jitter_state::perturb(int16_t const coordinate, unsigned int const shift) {
+  /// Native vertex jitter's distinct ADD/ADC ordering at 0xbc13a, followed by word SHL/SAR
+  auto const sum{static_cast<unsigned int>(x) + y};
+  x = static_cast<uint16_t>(sum);
+  y = static_cast<uint16_t>(y + x + (sum > 65535));
+  auto const count{shift & 31};
+  int const delta{signed_word(static_cast<uint16_t>(static_cast<unsigned int>(x) << count)) >> count};
+  return signed_word(static_cast<uint16_t>(coordinate + delta));
+}
+
 } // namespace tfx::math

@@ -33,26 +33,41 @@ mission::mission(resources::archive const &game, std::string const &source_name)
     if(key == "finish:" || key == "end:") break;
     if(key == "end_text") { in_text = false; continue; }
     if(in_text) continue;
-    if(key == "type") fields >> environment;
+    if(key == "world") fields >> world_name;
+    else if(key == "type") fields >> environment;
     else if(key == "way") fields >> waypoints;
-    else if(key == "plane") fields >> aircraft;
+    else if(key == "plane") {
+      unsigned int value{0};
+      fields >> value;
+      if(value < std::to_underlying(player_aircraft::eurofighter) || value > std::to_underlying(player_aircraft::raptor)) throw std::runtime_error{"invalid player craft in " + name};
+      aircraft = static_cast<player_aircraft>(value);
+    }
     else if(key == "start") {
       std::string position;
       std::getline(fields, position);
       std::ranges::replace(position, ',', ' ');
       std::istringstream coordinates{position};
       std::string altitude;
-      if(!(coordinates >> start.x >> altitude >> start.z)) throw std::runtime_error{"invalid player start in " + name};
-      // a useful elevated inspection camera; not the player's landed/airborne flight-state initialisation
-      start.y = altitude == "landed" ? -300 : -std::stod(altitude);
+      if(!(coordinates >> start.position.x >> altitude >> start.position.z)) throw std::runtime_error{"invalid player start in " + name};
+      start.landed = altitude == "landed";
+      if(!start.landed) start.position.y = std::stoi(altitude);                   // numeric Y is already signed native world height, not positive altitude
     }
     std::string word;
     while(fields >> word) if(lower(word) == "text") in_text = true;
   }
+  if(world_name.empty()) throw std::runtime_error{"mission lacks a world: " + name};
   if(environment.empty()) throw std::runtime_error{"mission lacks an environment: " + name};
 }
 
-environment::environment(resources::archive const &game, std::string source_name) : name{std::move(source_name)} {
+std::string mission::grid_name() const {
+  /// Original world loader terminates the DOS filename after eight characters at 2.05 file 0xb0a80
+  unsigned int constexpr dos_basename_length{8};
+  return lower(world_name.substr(0,dos_basename_length));
+}
+
+environment::environment(resources::archive const &game, std::string source_name, std::string source_lighting) :
+  name{std::move(source_name)},
+  lighting_name{source_lighting.empty() ? name : std::move(source_lighting)} {
   /// The native grid is column-major with reversed Z; retain a convenient row-major runtime lookup
   auto const prefix{"lev/" + name};
   auto const low{game.read(prefix + ".lev")}, high{game.read(prefix + ".le2")};
@@ -87,7 +102,7 @@ environment::environment(resources::archive const &game, std::string source_name
       choices[target] = static_cast<uint16_t>(random.next() % tiles[cells[target]].variants.size());
     }
   }
-  config = text(game.read(prefix + ".txt"));
+  config = text(game.read("lev/" + lighting_name + ".txt"));
   std::istringstream settings{config};
   std::string token;
   while(settings >> token) {
