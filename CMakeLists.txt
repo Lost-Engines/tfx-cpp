@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/actors/program.cpp
+  src/actors/program.h
+  src/actors/surface.cpp
+  src/actors/surface.h
   src/flight/arcade.cpp
   src/flight/arcade.h
   src/math/attitude.cpp
@@ -114,6 +118,15 @@ if(BUILD_TESTING)
   target_link_libraries(mission_probe PRIVATE tfx_core)
   configure_first_party(mission_probe)
 
+  add_executable(surface_tests tests/surface_test.cpp)
+  target_link_libraries(surface_tests PRIVATE tfx_core)
+  configure_first_party(surface_tests)
+  add_test(NAME actors.native_surface_sequences COMMAND surface_tests ${PROJECT_SOURCE_DIR}/tests/reference/surface.txt)
+
+  add_executable(actor_probe tests/actor_probe.cpp)
+  target_link_libraries(actor_probe PRIVATE tfx_core)
+  configure_first_party(actor_probe)
+
   add_executable(attitude_probe tests/attitude_probe.cpp)
   target_link_libraries(attitude_probe PRIVATE tfx_core)
   configure_first_party(attitude_probe)
@@ -122,7 +135,8 @@ if(BUILD_TESTING)
   target_link_libraries(arcade_probe PRIVATE tfx_core)
   configure_first_party(arcade_probe)
   add_test(NAME flight.native_arcade_sequences COMMAND arcade_probe --check ${PROJECT_SOURCE_DIR}/tests/reference/arcade.txt)
-  set_tests_properties(flight.native_arcade_sequences PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME flight.native_ground_sequences COMMAND arcade_probe --check-ground ${PROJECT_SOURCE_DIR}/tests/reference/ground_flight.txt)
+  set_tests_properties(flight.native_arcade_sequences flight.native_ground_sequences PROPERTIES SKIP_RETURN_CODE 77)
 
   add_executable(tfx_probe tests/probe.cpp)
   target_link_libraries(tfx_probe PRIVATE tfx_core)

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Compare Arcade flight sequences to the relocated September 1994 executable.
 
-Native player initialisation, attitude, throttle, fuel and flight run unmodified.
-Only host mouse acquisition and scene/audio notifications are intercepted.
+Native player initialisation and the complete ordinary Arcade player callback run unmodified.
+Host mouse acquisition, supplied timer input and scene/audio notifications are intercepted.
 The x87 control word is the harness's controlled 0x037f, not a DOS startup capture.
 """
 import argparse
@@ -14,15 +14,18 @@ import subprocess
 from native_reference import NativeReference, r
 
 FLOAT_FIELDS = (0x13480, 0x13484, 0x13488, 0x87a0, 0x87a4, 0x8798, 0x879c, 0x86f4, 0x133f8, 0x133bc, 0x133b8, 0x133cc, 0x133e8, 0x133d8, 0x133c0)
-NAMES = ['x', 'y', 'z', 'int_x', 'int_y', 'int_z'] + [f'basis{i}' for i in range(9)] + ['pitch_remainder', 'heading_remainder', 'roll_remainder', 'pitch_target', 'roll_target', 'pitch_filtered', 'roll_filtered', 'speed', 'throttle', 'minimum', 'maximum', 'target_speed', 'metres_per_second', 'altitude', 'movement'] + ['unrounded_speed', 'fixed_speed', 'landed', 'moving_ground', 'collision', 'recovering', 'afterburner', 'fuel_readout', 'fuel', 'fuel_flow', 'pitch', 'heading', 'roll']
+NAMES = ['x', 'y', 'z', 'int_x', 'int_y', 'int_z'] + [f'basis{i}' for i in range(9)] + ['pitch_remainder', 'heading_remainder', 'roll_remainder', 'pitch_target', 'roll_target', 'pitch_filtered', 'roll_filtered', 'speed', 'throttle', 'minimum', 'maximum', 'target_speed', 'metres_per_second', 'altitude', 'movement'] + ['unrounded_speed', 'fixed_speed', 'landed', 'low_speed_ground_contact', 'collision', 'recovering', 'afterburner', 'fuel_readout', 'fuel', 'fuel_flow', 'pitch', 'heading', 'roll']
 
 
-def capture(aircraft, position, angles, speed, controls, warp=False):
+def capture(aircraft, position, angles, speed, controls, warp=False, landed=False, ground=None, engines=None):
     image = NativeReference(DATA / 'TFX.DAT')
     image.intercept(0x744e4, 'Host mouse initialisation; report no DOS mouse driver', lambda im: (im.cpu.reg_write(r.UC_X86_REG_EAX, 0), im.return_from()))
     image.intercept(0x74614, 'Host mouse range/position reset has no flight-state effect', lambda im: im.return_from())
+    image.intercept(0x8c43c, 'Frame timer supplied explicitly; flight timing has its own original-code checks', lambda im: im.return_from())
     image.intercept(0x74508, 'Mouse samples supplied explicitly before each flight step', lambda im: im.return_from())
     image.intercept(0xb52d4, 'Scenery engine event notification; no callback modifies player physics', lambda im: im.return_from())
+    image.intercept(0x7dde4, 'Warning text delivery outside this flight-only capture', lambda im: im.return_from())
+    image.intercept(0xa4dfc, 'Sound output outside this flight-only capture', lambda im: im.return_from())
     image.intercept(0xa4edc, 'Sound event output outside this flight-only capture', lambda im: im.return_from())
     image.intercept(0xa6068, 'HUD message output outside this flight-only capture', lambda im: im.return_from())
     for address, value in zip((0x13424, 0x13430, 0x1343c), position):
@@ -31,10 +34,34 @@ def capture(aircraft, position, angles, speed, controls, warp=False):
     image.write(0x86f4, '<f', speed)
     image.write(0x11b2a, '<H', aircraft - 1)
     image.write(0x1347a, '<B', 0)
-    image.write(0x11b3c, '<B', 0)
+    image.write(0x11b3c, '<B', int(landed))
+    if landed:
+        image.intercept(0xb0d80, 'Supplied runway/carrier classification for the starting cell', lambda im: (im.cpu.reg_write(r.UC_X86_REG_EAX, 0), im.return_from()))
+        image.intercept(0xb7a3c, 'Supplied starting surface type (50 runway, other carrier fallback)', lambda im: (im.cpu.reg_write(r.UC_X86_REG_EAX, 50 if ground == 0 else 0), im.return_from()))
     image.call(0x8c184, limit=2000000)
     image.call(0x8c318)
+    if landed:
+        image.write(0x7d7a, '<B', 1)  # Native HUD setup 0x7e047 marks landed-start gear down.
+        placing = True
+        def placement_complete(im):
+            nonlocal placing
+            if placing:
+                placing = False
+                frame = im.cpu.reg_read(r.UC_X86_REG_EBP)
+                previous, edx, ebx, destination = struct.unpack('<4I', im.cpu.mem_read(frame, 16))
+                for register, value in ((r.UC_X86_REG_EBP, previous), (r.UC_X86_REG_EDX, edx), (r.UC_X86_REG_EBX, ebx), (r.UC_X86_REG_ESP, frame + 16), (r.UC_X86_REG_EIP, destination)):
+                    im.cpu.reg_write(register, value)
+        image.intercept(0x8f686, 'Complete initial ground placement before supplied control-state changes; subsequent callbacks execute normally', placement_complete)
+        image.call(0x8f56c, limit=2000000)
     image.write(0xe780, '<B', int(warp))
+    image.write(0x13478, '<B', 2)
+    image.write(0x8867, '<B', 0)  # Auto-recovery mode is a separate controller, not the Arcade flight path.
+    if ground is not None:
+        image.write(0xabea, '<B', 1)
+        image.write(0xabf2, '<h', ground)
+    if engines is not None:
+        image.write(0x14880, '<d', int(engines))
+        image.write(0x14888, '<d', int(engines))
     expected = []
     previous_buttons = 0
     for ticks, pitch, roll, buttons, accelerate, decelerate in controls:
@@ -48,7 +75,7 @@ def capture(aircraft, position, angles, speed, controls, warp=False):
         # The normal outer player callback refreshes engine display flags.
         for engine, visual in ((0x14880, 0x7d72), (0x14888, 0x7d75)):
             image.write(visual, '<B', 1 if image.read(engine, '<d')[0] else 2)
-        image.call(0x8dc50, limit=2000000)
+        image.call(0x8f56c, limit=2000000)
         previous_buttons = buttons
         row = [image.read(a, '<I')[0] for a in (0x1341c, 0x13428, 0x13434)]
         row += [image.read(a, '<i')[0] for a in (0x13424, 0x13430, 0x1343c)]
@@ -60,6 +87,8 @@ def capture(aircraft, position, angles, speed, controls, warp=False):
         row += [image.read(0x1496d, '<B')[0], image.read(0x6c3c, '<h')[0]]
         row += [image.read(a, '<Q')[0] for a in (0x14858, 0x14308)]
         row += list(image.read(0x86c8, '<3H'))
+        if ground is not None:
+            row += [int(image.read(0x146d8, '<d')[0] != 0), image.read(0x14964, '<h')[0]]
         expected.append(row)
     return expected
 

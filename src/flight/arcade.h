@@ -6,6 +6,8 @@
 
 namespace tfx::flight {
 
+unsigned int constexpr feet_per_world_unit{8};
+
 struct flight_controls {
   int16_t pitch_delta{0};
   int16_t roll_delta{0};
@@ -38,7 +40,7 @@ struct arcade_state {
   double unrounded_speed_mach{0};
   int32_t fixed_speed{0};
   bool landed{false};
-  bool moving_on_ground{false};
+  bool low_speed_ground_contact{false};
   bool gear_down{false};
   bool air_brake{false};
   bool wheel_brake{false};
@@ -47,7 +49,8 @@ struct arcade_state {
   bool hard_brake{false};
   bool recovering{false};
   int16_t collision{0};
-  int16_t engine_failure{0};
+  bool brake_chute{false};
+  bool brake_chute_cut_away{false};
   bool left_engine{true};
   bool right_engine{true};
   uint8_t afterburner{0};
