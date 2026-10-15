@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include "missions/initialisation.h"
 #include "platform/window.h"
 #include "render/camera.h"
 #include "render/framebuffer.h"
@@ -17,7 +18,6 @@
 #include "world/assets.h"
 #include "world/environment.h"
 #include "world/scene.h"
-#include "missions/initialisation.h"
 
 namespace {
 

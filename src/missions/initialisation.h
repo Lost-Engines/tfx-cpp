@@ -10,7 +10,7 @@ namespace tfx::missions {
 
 using script_time = int32_t;
 script_time constexpr script_ticks_per_second{54};
-unsigned int constexpr maximum_targets{9}, maximum_flak_regions{5}, maximum_messages{10}, maximum_parameter_events{16};
+unsigned int constexpr maximum_targets{9}, maximum_flak_regions{5}, maximum_messages{10}, maximum_scenery_events{16};
 
 struct inherited_setup {
   vec3<int32_t> position{0,0,0};
@@ -36,9 +36,10 @@ struct timed_message {
   script_time time;
   std::string text;
 };
-struct parameter_event {
+struct scenery_event {
   script_time time;
-  vec3<uint8_t> operands;                                                        // SETBOB's three native bytes; gameplay ownership remains to be traced
+  uint8_t entry;
+  vec2<uint8_t> cell;
 };
 struct setup {
   std::string world{};
@@ -59,7 +60,7 @@ struct setup {
   std::optional<completion_rule> completion{};
   std::vector<flak_region> flak{};
   std::vector<timed_message> messages{};
-  std::vector<parameter_event> parameter_events{};
+  std::vector<scenery_event> scenery_events{};
 };
 
 setup initialise(std::string_view source, inherited_setup const &inherited = {});
