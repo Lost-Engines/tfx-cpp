@@ -3,12 +3,12 @@
 #include <cstdint>
 #include <span>
 #include <vector>
+#include "simulation/timing.h"
 
 namespace tfx::world {
 
-using timer_ticks = uint16_t;
-unsigned int constexpr pit_input_hz{1193182}, pit_divisor{21845};
-double constexpr timer_hz{static_cast<double>(pit_input_hz) / pit_divisor};
+using simulation::timer_ticks;
+using simulation::timer_hz;
 timer_ticks constexpr animation_interval{7}, maximum_animation_backlog{100};
 
 enum class stream_action { value_written, finished, event_requested };
