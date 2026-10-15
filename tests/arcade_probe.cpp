@@ -11,8 +11,8 @@
 namespace {
 
 void output(tfx::flight::arcade_state const &state, std::ostream &stream) {
-  auto const floating{[](float const value){ stream << std::bit_cast<uint32_t>(value) << ' '; }};
-  auto const precise{[](double const value){ stream << std::bit_cast<uint64_t>(value) << ' '; }};
+  auto const floating{[&stream](float const value){ stream << std::bit_cast<uint32_t>(value) << ' '; }};
+  auto const precise{[&stream](double const value){ stream << std::bit_cast<uint64_t>(value) << ' '; }};
   for(auto const value : {state.position.x,state.position.y,state.position.z}) floating(value);
   for(unsigned int axis{0}; axis != 3; ++axis) stream << state.integer_position[axis] << ' ';
   for(unsigned int row{0}; row != 3; ++row) stream << state.orientation.right[row] << ' ' << state.orientation.down[row] << ' ' << state.orientation.forward[row] << ' ';
