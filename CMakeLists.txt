@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.28)
 project(tfx VERSION 0.1.0 LANGUAGES CXX)
 include(CTest)
+include(cmake/dependencies.cmake)
 
 function(configure_first_party target)
   target_compile_features(${target} PUBLIC cxx_std_23)
   target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}")
-  set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF)
+  set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF CXX_SCAN_FOR_MODULES OFF)
   target_compile_options(${target} PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra;-Wpedantic;-Wconversion>
     $<$<AND:$<CONFIG:RelWithDebInfo>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-UNDEBUG>
@@ -13,10 +14,20 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/resources/executable_tables.cpp
+  src/resources/executable_tables.h
+  src/render/framebuffer.cpp
+  src/render/framebuffer.h
+  src/render/camera.cpp
+  src/render/camera.h
+  src/render/software_renderer.cpp
+  src/render/software_renderer.h
   src/math/native.cpp
   src/math/native.h
   src/models/shape.cpp
   src/models/shape.h
+  src/world/scene.cpp
+  src/world/scene.h
   src/world/environment.cpp
   src/world/environment.h
   src/world/definition.cpp
@@ -32,8 +43,12 @@ add_library(tfx_core
 target_compile_definitions(tfx_core PUBLIC VECTORSTORM_NO_BOOST)
 configure_first_party(tfx_core)
 
-add_executable(tfx src/main.cpp)
-target_link_libraries(tfx PRIVATE tfx_core)
+add_executable(tfx
+  src/main.cpp
+  src/platform/window.cpp
+  src/platform/window.h
+)
+target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)

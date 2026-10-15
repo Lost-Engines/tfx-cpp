@@ -1,0 +1,293 @@
+#include "software_renderer.h"
+#include <algorithm>
+#include <bit>
+#include <cmath>
+#include <utility>
+
+namespace tfx::render {
+namespace {
+
+models::model_vertex interpolate(models::model_vertex const &a, models::model_vertex const &b, double const t) {
+  return {
+    .position{a.position + (b.position - a.position) * t},
+    .uv{a.uv + (b.uv - a.uv) * t},
+    .shade{a.shade + (b.shade - a.shade) * t},
+  };
+}
+
+} // anonymous namespace
+
+std::array<vec2<int32_t>, 8> rounded_corner(vec2<int32_t> const &previous, vec2<int32_t> const &corner, vec2<int32_t> const &next) {
+  /// Original integer quarter-arc recurrence at 2.05 file 0xdaf50, subdivision 2
+  auto const wrap{[](int64_t const value){ return std::bit_cast<int32_t>(static_cast<uint32_t>(value)); }};
+  struct curve_axis {
+    int32_t a;
+    int32_t b;
+    int32_t base;
+  };
+  std::array<curve_axis, 2> state;
+  for(unsigned int axis{0}; axis != 2; ++axis) {
+    auto &s{state[axis]};
+    s.a = wrap(static_cast<int64_t>(corner[axis] - next[axis]) * 65536);
+    s.b = wrap(static_cast<int64_t>(corner[axis] - previous[axis]) * 65536);
+    s.base = wrap(static_cast<int64_t>(previous[axis]) * 65536 - s.a + 32768);
+    auto delta{s.b >> 7};
+    s.b = wrap(static_cast<int64_t>(s.b) - delta);
+    delta >>= 8;
+    s.b = wrap(static_cast<int64_t>(s.b) - delta);
+    delta >>= 7;
+    s.b = wrap(static_cast<int64_t>(s.b) - delta + (s.a >> 3));
+  }
+  std::array<vec2<int32_t>, 8> result;
+  for(unsigned int step{0}; step != 7; ++step) {
+    for(unsigned int axis{0}; axis != 2; ++axis) {
+      auto &s{state[axis]};
+      result[step][axis] = wrap(static_cast<int64_t>(s.base) + s.a) >> 16;
+      s.b = wrap(static_cast<int64_t>(s.b) - (s.a >> 2));
+      s.a = wrap(static_cast<int64_t>(s.a) + (s.b >> 2));
+    }
+  }
+  result.back() = next;
+  return result;
+}
+
+software_renderer::software_renderer(resources::executable_tables const &source_tables, uint16_t const seed) : tables{source_tables}, procedural_seed{seed} {
+}
+
+void software_renderer::ink(int const x, int const y, uint8_t const colour, int const mode) {
+  if(x < 0 || y < 0 || x >= screen_width || y >= screen_height) return;
+  if(mode == 0 && ((x + y) & 1) == 0) return;
+  if(mode == 1 && (x & 3) != (y & 1 ? 3 : 1)) return;
+  if(mode == 7 && (y & 1)) return;
+  auto &destination{output.pixels[static_cast<unsigned int>(y * screen_width + x)]};
+  if(mode == 10) destination ^= colour;
+  else if(mode == 11) destination &= colour;
+  else if(mode == 12) destination |= colour;
+  else destination = colour;
+}
+
+uint16_t software_renderer::procedural_state() const {
+  return procedural_seed;
+}
+
+void software_renderer::patterned_span(int const y, double const left, double const right, uint8_t const colour, int const mode, int const bottom, bool const inclusive, bool const paint) {
+  /// Preserve native VGA byte-group masks, including sparse dots beyond the nominal right edge
+  int const first{std::max(0,static_cast<int>(std::ceil(left - .5)))}, last{std::min(screen_width,inclusive ? static_cast<int>(std::floor(right)) + 1 : static_cast<int>(std::ceil(right - .5)))};
+  int const first_byte{static_cast<int>(std::floor(left / 4))}, last_byte{static_cast<int>(std::floor(right / 4))};
+  if(mode == 4) {
+    for(int byte{first_byte}; byte <= last_byte; ++byte) {
+      unsigned int const low{static_cast<unsigned int>(procedural_seed & 255)}, high{static_cast<unsigned int>(procedural_seed >> 8)};
+      auto const sum{high + low}, next_high{sum & 255}, next_low{(low + next_high + (sum > 255)) & 255};
+      procedural_seed = static_cast<uint16_t>((next_high << 8) | next_low);
+      auto const mask{next_low & (((bottom - y) & 1) ? 5u : 10u)};
+      if(!paint) continue;
+      for(unsigned int bit{0}; bit != 4; ++bit) {
+        int const x{byte * 4 + static_cast<int>(bit)};
+        if(x >= first && x < last && (mask & (1u << bit))) ink(x,y,colour,-1);
+      }
+    }
+    return;
+  }
+  if(mode == 2) {
+    if(y & 1) return;
+    int const phase{(first_byte + (((bottom & ~1) - y) / 2) + (bottom & 1)) & 1};
+    int const end{(first_byte + ((last_byte - first_byte) & ~1)) * 4 + 3};
+    for(int x{first_byte * 4}; x <= end; ++x) if((x & 7) == phase * 4 + 3) ink(x,y,colour,-1);
+    return;
+  }
+  if(mode == 3) {
+    int const row{bottom - y};
+    if(row % 3) return;
+    int const offset{(bottom & 1 ? 0 : 2) + ((row / 3) & 1) * 2};
+    int const start{(first_byte + (offset & 3)) * 4 + 3};
+    int const end{start + static_cast<int>(std::floor((last_byte - first_byte - 1) / 4.0)) * 16};
+    for(int x{start}; x <= end; x += 16) ink(x,y,colour,-1);
+    return;
+  }
+  for(int x{first}; x < last; ++x) ink(x,y,colour,mode);
+}
+
+void software_renderer::background(camera const &view, uint8_t const sky, uint8_t const ground) {
+  /// A simple horizon for scene inspection; original sky, weather and altitude palette transitions are still separate work
+  for(int y{0}; y != screen_height; ++y) {
+    auto const ray_y{view.forward.y + (y + .5 - centre_y) / focal_length * view.down.y};
+    auto const colour{ray_y > 0 ? ground : sky};
+    std::fill_n(output.pixels.begin() + y * screen_width, screen_width, colour);
+  }
+}
+
+void software_renderer::polygon(std::span<screen_vertex const> const vertices, uint8_t const colour, int const mode, std::span<uint8_t const> const texture) {
+  /// Half-open software spans; interpolate palette indices and UVs in screen space, preserving authored paint order
+  if(vertices.size() < 3) return;
+  bool const shaded{texture.empty() && std::ranges::all_of(vertices,[](auto const &v){ return v.shade >= 0; })};
+  double top{screen_height}, bottom{0};
+  for(auto const &v : vertices) { top = std::min(top, v.position.y); bottom = std::max(bottom, v.position.y); }
+  int const first{std::max(0, static_cast<int>(std::ceil(top - .5)))}, last{std::min(screen_height, static_cast<int>(std::ceil(bottom - .5)))};
+  std::vector<screen_vertex> hits;
+  hits.reserve(vertices.size());
+  int const bottom_row{static_cast<int>(std::lround(bottom))}, top_row{static_cast<int>(std::lround(top))};
+  for(int y{mode == 4 ? bottom_row : last - 1}; y >= (mode == 4 ? top_row : first); --y) {
+    double const sample{mode == 4 ? (y == bottom_row ? y - 1e-9 : y) : shaded ? y : y + .5};
+    hits.clear();
+    for(size_t i{0}; i != vertices.size(); ++i) {
+      auto const *a{&vertices[i]}, *b{&vertices[(i + 1) % vertices.size()]};
+      if(a->position.y > b->position.y) std::swap(a,b);
+      if(sample < a->position.y || sample >= b->position.y) continue;
+      auto const t{(sample - a->position.y) / (b->position.y - a->position.y)};
+      double shade{a->shade + (b->shade - a->shade) * t};
+      if(shaded) {
+        double const height{b->position.y - a->position.y};
+        int const first_colour{static_cast<int>(a->shade * 256)};
+        int const difference{math::signed_word(static_cast<uint16_t>(static_cast<int>(b->shade * 256) - first_colour))};
+        double const step{difference * 2 * std::floor(32768 / std::max(1.0,height)) / 65536};
+        shade = std::floor(first_colour + .5 + (std::abs(difference) >= height ? step / 2 : 0) + step * (y - a->position.y)) / 256;
+      }
+      hits.push_back({
+        .position{a->position + (b->position - a->position) * t},
+        .uv{a->uv + (b->uv - a->uv) * t},
+        .shade{shade},
+      });
+    }
+    std::ranges::sort(hits, {}, [](auto const &v){ return v.position.x; });
+    for(size_t pair{0}; pair + 1 < hits.size(); pair += 2) {
+      auto const &left{hits[pair]}, &right{hits[pair + 1]};
+      int const start{std::max(0, static_cast<int>(std::ceil(left.position.x - .5)))}, end{std::min(screen_width, static_cast<int>(std::ceil(right.position.x - .5)))};
+      if(mode >= 0 && texture.empty() && left.shade < 0) {
+        patterned_span(y,left.position.x,right.position.x,colour,mode,bottom_row,false,y >= first && y < last);
+        continue;
+      }
+      if(start >= end) continue;
+      int const colour_origin{static_cast<int>(std::ceil(left.position.x))};
+      double colour_start{0}, colour_step{0};
+      if(shaded) {
+        int const extent{std::max(1,static_cast<int>(std::floor(right.position.x)) - colour_origin)};
+        int const first_colour{static_cast<int>(left.shade * 256)}, last_colour{static_cast<int>(right.shade * 256)};
+        int const difference{math::signed_word(static_cast<uint16_t>(last_colour - first_colour))}, sign{difference < 0 ? -1 : 1};
+        double const product{std::abs(difference) * 2 * std::floor(32768.0 / (extent + 1))};
+        colour_step = sign * std::floor(product / 256) / 65536;
+        double const bias{std::floor((32768 + (std::abs(difference) >= extent ? sign * std::floor(product / 2) : 0)) / 256) / 65536};
+        colour_start = first_colour / 256.0 + bias;
+      }
+      double const inverse_width{1 / (right.position.x - left.position.x)};
+      for(int x{start}; x != end; ++x) {
+        auto const t{(x + .5 - left.position.x) * inverse_width};
+        uint8_t index{colour};
+        if(!texture.empty()) {
+          auto const uv{left.uv + (right.uv - left.uv) * t};
+          int const u{std::clamp(static_cast<int>(uv.x),0,255)}, v{std::clamp(static_cast<int>(uv.y),0,191)};
+          index = texture[static_cast<unsigned int>(v * 256 + u)];
+          if(!index) continue;
+        } else if(shaded) index = static_cast<uint8_t>(static_cast<int>(std::floor(colour_start + colour_step * (x - colour_origin))));
+        ink(x,y,index,mode);
+      }
+    }
+  }
+}
+
+void software_renderer::circle(int const x, int const y, unsigned int const radius, uint8_t const colour, int const mode) {
+  /// Use the actual native integer span table; the original rejects radii outside 1..99
+  auto const table{tables.circle(radius)};
+  if(table.empty()) return;
+  auto const r{static_cast<int>(radius)}, bottom{y + r};
+  for(int row{bottom}; row >= y - r; --row) {
+    int const d{std::abs(row - y)}, extent{d == 0 ? r : table[static_cast<unsigned int>(r - d)]};
+    patterned_span(row,x - extent,x + extent,colour,mode,bottom,true);
+  }
+}
+
+void software_renderer::line(vec2d const &a, vec2d const &b, uint8_t const colour) {
+  /// Integer Bresenham segments after camera clipping
+  int x{static_cast<int>(std::lround(a.x))}, y{static_cast<int>(std::lround(a.y))};
+  int const end_x{static_cast<int>(std::lround(b.x))}, end_y{static_cast<int>(std::lround(b.y))};
+  int const dx{std::abs(end_x - x)}, dy{std::abs(end_y - y)}, sx{x < end_x ? 1 : -1}, sy{y < end_y ? 1 : -1};
+  int error{dx - dy};
+  for(;;) {
+    ink(x,y,colour,-1);
+    if(x == end_x && y == end_y) return;
+    int const twice{error * 2};
+    if(twice > -dy) { error -= dy; x += sx; }
+    if(twice < dx) { error += dx; y += sy; }
+  }
+}
+
+void software_renderer::primitive(models::primitive const &source, std::span<models::model_vertex const> const camera_vertices, camera const &view, std::span<uint8_t const> const texture) {
+  /// Clip a complete authored primitive before projection, including its attributes
+  if(camera_vertices.empty()) return;
+  auto const ink_index{static_cast<uint8_t>(source.colour)};
+  if(source.kind == models::primitive_kind::point) {
+    auto const &v{camera_vertices[0].position};
+    if(v.z <= view.near_distance || v.z > view.far_distance) return;
+    auto const point{view.project(v)};
+    if(point.x < -100 || point.x > screen_width + 100 || point.y < -100 || point.y > screen_height + 100) return;
+    int const x{static_cast<int>(std::lround(point.x))}, y{static_cast<int>(std::lround(point.y))};
+    if(source.pixel_size) {
+      for(unsigned int row{0}; row != source.pixel_size; ++row) for(unsigned int col{0}; col != source.pixel_size; ++col) ink(x + static_cast<int>(col),y + static_cast<int>(row),ink_index,source.mode);
+    } else circle(x,y,static_cast<unsigned int>(source.radius * focal_length / v.z),ink_index,source.mode);
+    return;
+  }
+  if(source.kind == models::primitive_kind::line && camera_vertices.size() == 2) {
+    auto a{camera_vertices[0]}, b{camera_vertices[1]};
+    for(unsigned int plane{0}; plane != 6; ++plane) {
+      auto const distance{[&view, plane](vec3d const &v){
+        switch(plane) {
+        case 0: return v.z - view.near_distance;
+        case 1: return view.far_distance - v.z;
+        case 2: return v.x + centre_x / focal_length * v.z;
+        case 3: return -v.x + centre_x / focal_length * v.z;
+        case 4: return v.y + centre_y / focal_length * v.z;
+        default: return -v.y + centre_y / focal_length * v.z;
+        }
+      }};
+      double const da{distance(a.position)}, db{distance(b.position)};
+      if(da < 0 && db < 0) return;
+      if(da < 0) a = interpolate(a,b,da / (da - db));
+      else if(db < 0) b = interpolate(a,b,da / (da - db));
+    }
+    line(view.project(a.position),view.project(b.position),ink_index);
+    return;
+  }
+  std::vector<models::model_vertex> clipped(camera_vertices.begin(),camera_vertices.end());
+  for(unsigned int plane{0}; plane != 6; ++plane) {
+    auto const distance{[&view, plane](vec3d const &v){
+      switch(plane) {
+      case 0: return v.z - view.near_distance;
+      case 1: return view.far_distance - v.z;
+      case 2: return v.x + centre_x / focal_length * v.z;
+      case 3: return -v.x + centre_x / focal_length * v.z;
+      case 4: return v.y + centre_y / focal_length * v.z;
+      default: return -v.y + centre_y / focal_length * v.z;
+      }
+    }};
+    if(clipped.empty()) return;
+    std::vector<models::model_vertex> next;
+    auto previous{clipped.back()};
+    auto previous_distance{distance(previous.position)};
+    for(auto const &current : clipped) {
+      auto const current_distance{distance(current.position)};
+      if((previous_distance >= 0) != (current_distance >= 0)) next.push_back(interpolate(previous,current,previous_distance / (previous_distance - current_distance)));
+      if(current_distance >= 0) next.push_back(current);
+      previous = current;
+      previous_distance = current_distance;
+    }
+    clipped = std::move(next);
+  }
+  std::vector<screen_vertex> projected;
+  for(auto const &v : clipped) projected.push_back({.position{view.project(v.position)}, .uv{vec2d{v.uv}}, .shade{v.shade}});
+  if(source.kind == models::primitive_kind::line) {
+    if(projected.size() >= 2) line(projected.front().position,projected.back().position,ink_index);
+  } else if(source.rounded && projected.size() == 4) {
+    std::array<vec2<int32_t>, 4> corners, midpoints;
+    for(unsigned int i{0}; i != 4; ++i) corners[i] = vec2<int32_t>{static_cast<int32_t>(std::lround(projected[i].position.x)),static_cast<int32_t>(std::lround(projected[i].position.y))};
+    for(unsigned int i{0}; i != 4; ++i) midpoints[i] = vec2<int32_t>{(corners[i].x + corners[(i + 1) % 4].x) >> 1,(corners[i].y + corners[(i + 1) % 4].y) >> 1};
+    std::vector<screen_vertex> centre;
+    for(auto const &point : midpoints) centre.push_back({.position{vec2d{point}}, .uv{0,0}, .shade{-1}});
+    polygon(centre,ink_index,source.mode);
+    for(unsigned int i{0}; i != 4; ++i) {
+      std::vector<screen_vertex> curve;
+      for(auto const &point : rounded_corner(midpoints[(i + 3) % 4],corners[i],midpoints[i])) curve.push_back({.position{vec2d{point}}, .uv{0,0}, .shade{-1}});
+      polygon(curve,ink_index,source.mode);
+    }
+  } else polygon(projected,ink_index,source.mode,texture);
+}
+
+} // namespace tfx::render
