@@ -1,14 +1,14 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.30)
 project(tfx VERSION 0.1.0 LANGUAGES CXX)
 include(CTest)
 include(cmake/dependencies.cmake)
 
 function(configure_first_party target)
-  target_compile_features(${target} PUBLIC cxx_std_23)
+  target_compile_features(${target} PUBLIC cxx_std_26)
   target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}")
   set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF CXX_SCAN_FOR_MODULES OFF)
   target_compile_options(${target} PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra;-Wpedantic;-Wconversion>
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra;-Wpedantic;-Wconversion;-ffp-contract=off>
     $<$<AND:$<CONFIG:RelWithDebInfo>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-UNDEBUG>
   )
 endfunction()
@@ -26,6 +26,8 @@ add_library(tfx_core
   src/math/native.h
   src/models/shape.cpp
   src/models/shape.h
+  src/world/animation.cpp
+  src/world/animation.h
   src/world/scene.cpp
   src/world/scene.h
   src/world/environment.cpp
@@ -56,6 +58,11 @@ if(BUILD_TESTING)
   target_link_libraries(tfx_tests PRIVATE tfx_core)
   configure_first_party(tfx_tests)
   add_test(NAME resources.malformed_and_literal COMMAND tfx_tests)
+
+  add_executable(animation_tests tests/animation_test.cpp)
+  target_link_libraries(animation_tests PRIVATE tfx_core)
+  configure_first_party(animation_tests)
+  add_test(NAME actors.native_animation_boundaries COMMAND animation_tests)
 
   add_executable(tfx_probe tests/probe.cpp)
   target_link_libraries(tfx_probe PRIVATE tfx_core)

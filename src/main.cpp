@@ -32,7 +32,7 @@ unsigned int number(std::string_view const text) {
 auto main(int const argc, char const *const argv[])->int try {
   /// Load an original mission scene; the camera controls below are developer inspection, not aircraft flight physics
   std::filesystem::path data_directory{"."};
-  std::string mission_name{"miss830"}, override_environment;
+  std::string mission_name{"miss830"}, override_environment, override_grid;
   unsigned int scale{0}, scene_radius{6}, frame_limit{0};
   std::optional<vec2<unsigned int>> override_cell;
   std::optional<std::filesystem::path> screenshot;
@@ -55,7 +55,8 @@ auto main(int const argc, char const *const argv[])->int try {
                    "Player flight physics, mission execution and audio are not implemented yet.\n";
 #ifndef NDEBUG
       std::cout << "\nDeveloper options:\n"
-                   "  --environment NAME    Override the mission's environment\n"
+                   "  --environment NAME    Override mission lighting/weather\n"
+                   "  --grid NAME           Inspect an alternate stored terrain grid\n"
                    "  --cell X,Z            Inspect a particular terrain cell\n"
                    "  --scene-radius N      Inspection neighbourhood in tiles (default 6)\n"
                    "  --screenshot FILE     Save the initial scene as a PPM image without opening a window\n"
@@ -73,6 +74,7 @@ auto main(int const argc, char const *const argv[])->int try {
     }
 #ifndef NDEBUG
     else if(key == "--environment") override_environment = value();
+    else if(key == "--grid") override_grid = value();
     else if(key == "--cell") {
       auto const cell{value()};
       auto const comma{cell.find(',')};
@@ -91,12 +93,13 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::resources::archive const game{archive_path};
   tfx::resources::executable_tables const tables{archive_path.parent_path() / "TFX.DAT"};
   tfx::world::mission const selected{game,mission_name};
-  tfx::world::environment const environment{game,override_environment.empty() ? selected.environment : override_environment};
+  tfx::world::environment const environment{game,override_grid.empty() ? selected.grid_name() : override_grid,override_environment.empty() ? selected.environment : override_environment};
   auto const colours{tfx::render::decode_palette(game.read("colours/" + environment.palette_name + ".col"))};
   tfx::world::assets assets{game};
   tfx::world::scene scene{environment,assets};
   tfx::render::software_renderer renderer{tables};
-  vec3d position{selected.start};
+  vec3d position{selected.start.position};
+  if(selected.start.landed) position.y = -300;                                  // elevated inspection view; not a player ground-contact calculation
   double heading{0}, pitch{-.12};
   if(override_cell) {
     position = vec3d{(override_cell->x + .5) * tfx::world::cell_units,-1800,(override_cell->y + .5) * tfx::world::cell_units};
@@ -109,7 +112,7 @@ auto main(int const argc, char const *const argv[])->int try {
     scene.draw(renderer,view,scene_radius);
   }};
   draw();
-  std::cout << "TFX " << mission_name << " / " << environment.name << ": " << scene.parts_drawn << " model parts, " << scene.primitives_drawn << " drawing primitives" << std::endl;
+  std::cout << "TFX " << mission_name << " / " << environment.name << " / " << environment.lighting_name << ": " << scene.parts_drawn << " model parts, " << scene.primitives_drawn << " drawing primitives" << std::endl;
   if(!scene.warnings.empty()) {
     unsigned int printed{0};
     for(auto const &warning : scene.warnings) if(printed++ < 6) std::cerr << "Preview note: " << warning << std::endl;
@@ -122,11 +125,11 @@ auto main(int const argc, char const *const argv[])->int try {
   }
   tfx::platform::window window{scale};
   auto *const host{window.get()};
-  double previous_time{glfwGetTime()}, title_time{previous_time}, last_mouse_x{0}, last_mouse_y{0};
+  double previous_time{glfwGetTime()}, title_time{previous_time}, last_mouse_x{0}, last_mouse_y{0}, timer_fraction{0};
   unsigned int frames{0}, interval_frames{0};
   bool captured{false}, mouse_started{false};
   while(window.poll()) {
-    double const now{glfwGetTime()}, elapsed{std::clamp(now - previous_time,0.0,.1)};
+    double const now{glfwGetTime()}, real_elapsed{now - previous_time}, elapsed{std::clamp(real_elapsed,0.0,.1)};
     previous_time = now;
     if(!window.focused()) {
       captured = false;
@@ -158,12 +161,16 @@ auto main(int const argc, char const *const argv[])->int try {
     position += camera.forward * ((down(GLFW_KEY_W) - down(GLFW_KEY_S)) * movement);
     position += camera.right * ((down(GLFW_KEY_D) - down(GLFW_KEY_A)) * movement);
     position.y += (down(GLFW_KEY_F) - down(GLFW_KEY_R)) * movement;
+    timer_fraction += real_elapsed * tfx::world::timer_hz;
+    auto const timer_step{static_cast<uint64_t>(std::floor(timer_fraction))};
+    timer_fraction -= static_cast<double>(timer_step);
+    scene.advance(static_cast<tfx::world::timer_ticks>(timer_step));
     draw();
     window.present(renderer.output.colourise(colours));
     ++frames;
     ++interval_frames;
     if(now - title_time >= .5) {
-      window.title("TFX C++ — scene inspection — " + mission_name + " / " + environment.name + " — " + std::to_string(static_cast<int>(interval_frames / (now - title_time))) + " fps");
+      window.title("TFX C++ — scene inspection — " + mission_name + " / " + environment.name + " / " + environment.lighting_name + " — " + std::to_string(static_cast<int>(interval_frames / (now - title_time))) + " fps");
       title_time = now;
       interval_frames = 0;
     }

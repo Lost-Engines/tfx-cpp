@@ -272,7 +272,11 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
     clipped = std::move(next);
   }
   std::vector<screen_vertex> projected;
-  for(auto const &v : clipped) projected.push_back({.position{view.project(v.position)}, .uv{vec2d{v.uv}}, .shade{v.shade}});
+  for(auto const &v : clipped) projected.push_back({
+    .position{view.project(v.position)},
+    .uv{vec2d{v.uv}},
+    .shade{v.shade},
+  });
   if(source.kind == models::primitive_kind::line) {
     if(projected.size() >= 2) line(projected.front().position,projected.back().position,ink_index);
   } else if(source.rounded && projected.size() == 4) {
@@ -280,11 +284,19 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
     for(unsigned int i{0}; i != 4; ++i) corners[i] = vec2<int32_t>{static_cast<int32_t>(std::lround(projected[i].position.x)),static_cast<int32_t>(std::lround(projected[i].position.y))};
     for(unsigned int i{0}; i != 4; ++i) midpoints[i] = vec2<int32_t>{(corners[i].x + corners[(i + 1) % 4].x) >> 1,(corners[i].y + corners[(i + 1) % 4].y) >> 1};
     std::vector<screen_vertex> centre;
-    for(auto const &point : midpoints) centre.push_back({.position{vec2d{point}}, .uv{0,0}, .shade{-1}});
+    for(auto const &point : midpoints) centre.push_back({
+      .position{vec2d{point}},
+      .uv{0,0},
+      .shade{-1},
+    });
     polygon(centre,ink_index,source.mode);
     for(unsigned int i{0}; i != 4; ++i) {
       std::vector<screen_vertex> curve;
-      for(auto const &point : rounded_corner(midpoints[(i + 3) % 4],corners[i],midpoints[i])) curve.push_back({.position{vec2d{point}}, .uv{0,0}, .shade{-1}});
+      for(auto const &point : rounded_corner(midpoints[(i + 3) % 4],corners[i],midpoints[i])) curve.push_back({
+        .position{vec2d{point}},
+        .uv{0,0},
+        .shade{-1},
+      });
       polygon(curve,ink_index,source.mode);
     }
   } else polygon(projected,ink_index,source.mode,texture);

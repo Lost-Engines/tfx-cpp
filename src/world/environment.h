@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <string>
 #include <vector>
 #include "math/native.h"
@@ -16,14 +17,22 @@ struct terrain_tile {
   math::angle rotation;
   std::vector<std::string> variants;
 };
+enum class player_aircraft : unsigned int { eurofighter = 1, nighthawk, raptor };
+
+struct mission_start {
+  vec3<int32_t> position;
+  bool landed{false};
+};
 struct mission {
   std::string name;
+  std::string world_name;
   std::string environment;
   std::string waypoints;
-  vec3d start;
-  unsigned int aircraft{0};
+  mission_start start;
+  std::optional<player_aircraft> aircraft;
   std::string script;
   mission(resources::archive const &game, std::string const &name);
+  std::string grid_name() const;
 };
 
 class environment {
@@ -33,12 +42,13 @@ private:
 
 public:
   std::string name;
+  std::string lighting_name;
   std::string config;
   std::string palette_name;
   uint16_t status{0};
   std::vector<terrain_tile> tiles;
 
-  environment(resources::archive const &game, std::string name);
+  environment(resources::archive const &game, std::string name, std::string lighting_name = "");
   terrain_tile const &tile(unsigned int x, unsigned int z) const;
   std::string const &variant(unsigned int x, unsigned int z) const;
   unsigned int tile_id(unsigned int x, unsigned int z) const;

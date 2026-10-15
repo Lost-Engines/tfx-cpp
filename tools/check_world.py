@@ -37,11 +37,17 @@ for(const name of JSON.parse(fs.readFileSync(0,'utf8'))){
 }
 '''
 names = [e['name'] for e in environments]
+selections=[(name,name) for name in names]
+for name,lighting in [('yugoslav','yugos_n'),('columbia','colum_d'),('somalia','somal_st'),('libya','libya_tw'),('seaworld','seaclear')]:
+    environments.append(next(e for e in world['environments'] if e['name']==name))
+    names.append(name)
+    selections.append((name,lighting))
 expected = subprocess.check_output(['node','-e',expected_variants], cwd=args.research, input=json.dumps(names).encode()).splitlines()
-actual = subprocess.check_output([probe, 'environment', data_dir], input=('\n'.join(names)+'\n').encode()).splitlines()
+actual = subprocess.check_output([probe, 'environment', data_dir], input=('\n'.join(name+' '+lighting for name,lighting in selections)+'\n').encode()).splitlines()
 assert len(actual) == len(expected) == len(names)
-for environment, line, cells in zip(environments, actual, expected):
+for environment, selection, line, cells in zip(environments, selections, actual, expected):
+    lighting=next(e for e in world['environments'] if e['name']==selection[1])
     status, palette, actual_cells = json.loads(line)
-    assert status == (128 if 'night' in environment['config'].split() else 0),environment['name']
+    assert status == (128 if 'night' in lighting['config'].split() else 0),environment['name']
     assert actual_cells == json.loads(cells),environment['name']
-print(f'World comparison passed: {len(objects)} definitions, {len(names)*40000} terrain cells and variant choices')
+print(f'World comparison passed: {len(objects)} definitions, {len(names)*40000} terrain cells and variant choices across {len(names)} grid/lighting combinations')

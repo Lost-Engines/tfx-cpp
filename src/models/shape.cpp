@@ -226,16 +226,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
           vec3d value;
           for(unsigned int axis{0}; axis != 3; ++axis) {
             auto coordinate{math::signed_word(a[i + axis])};
-            if(context.jitter) {
-              // jitter's ADD/ADC ordering differs from the world generator
-              auto &noise{*context.jitter};
-              auto const sum{static_cast<unsigned int>(noise.low) + noise.high};
-              noise.low = static_cast<uint16_t>(sum);
-              noise.high = static_cast<uint16_t>(noise.high + noise.low + (sum > 65535));
-              auto const shift{jitter_shifts[axis] & 31};
-              int const delta{math::signed_word(static_cast<uint16_t>(static_cast<unsigned int>(noise.low) << shift)) >> shift};
-              coordinate = math::signed_word(static_cast<uint16_t>(coordinate + delta));
-            }
+            if(context.jitter) coordinate = context.jitter->perturb(coordinate,jitter_shifts[axis]);
             value[axis] = coordinate;
           }
           emit(matrix * value);
@@ -253,7 +244,10 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       }
       if(opcode == 21) {
         std::vector<model_vertex> vertices;
-        for(unsigned int i{0}; i != 3; ++i) if(a[i] < vertex_slots && world[a[i]]) vertices.push_back({.position{vec3d{*world[a[i]]}}, .uv{0,0}});
+        for(unsigned int i{0}; i != 3; ++i) if(a[i] < vertex_slots && world[a[i]]) vertices.push_back({
+          .position{vec3d{*world[a[i]]}},
+          .uv{0,0},
+        });
         if(context.facing && vertices.size() == 3 && determinant(vertices) >= 0) at = target;
         continue;
       }
@@ -283,7 +277,16 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         if(a[1] < vertex_slots && a[2] < vertex_slots && world[a[1]] && world[a[2]]) {
           result.primitives.push_back({
             .kind{primitive_kind::line},
-            .vertices{{.position{vec3d{*world[a[1]]}}, .uv{0,0}}, {.position{vec3d{*world[a[2]]}}, .uv{0,0}}},
+            .vertices{
+              {
+                .position{vec3d{*world[a[1]]}},
+                .uv{0,0},
+              },
+              {
+                .position{vec3d{*world[a[2]]}},
+                .uv{0,0},
+              },
+            },
             .colour{colour},
             .source_address{address},
           });
@@ -316,7 +319,10 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
           if(index >= vertex_slots || !world[index]) { result.warnings.insert("unavailable point vertex"); continue; }
           result.primitives.push_back({
             .kind{primitive_kind::point},
-            .vertices{{.position{vec3d{*world[index]}}, .uv{0,0}}},
+            .vertices{{
+              .position{vec3d{*world[index]}},
+              .uv{0,0},
+            }},
             .colour{static_cast<unsigned int>(record[offset] & 255)},
             .mode{offset ? record[0] : -1},
             .radius{record.size() > offset + 2 ? record[offset + 2] * std::abs(vertex_scales[index]) : 0},

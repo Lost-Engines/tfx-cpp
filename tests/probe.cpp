@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string_view>
 #include <utility>
@@ -13,6 +14,7 @@
 #include "render/software_renderer.h"
 #include "resources/archive.h"
 #include "resources/executable_tables.h"
+#include "world/animation.h"
 #include "world/definition.h"
 #include "world/environment.h"
 
@@ -43,6 +45,54 @@ auto main(int const argc, char const *const argv[])->int try {
     while(std::cin >> ax >> ay >> bx >> by >> cx >> cy) {
       for(auto const &v : tfx::render::rounded_corner(vec2<int32_t>{ax,ay},vec2<int32_t>{bx,by},vec2<int32_t>{cx,cy})) std::cout << v.x << ' ' << v.y << ' ';
       std::cout << '\n';
+    }
+  } else if(mode == "clock") {
+    unsigned int count{0};
+    while(std::cin >> count) {
+      tfx::world::animation_clock clock;
+      for(unsigned int i{0}; i != count; ++i) {
+        unsigned int elapsed{0};
+        std::cin >> elapsed;
+        bool const enabled{clock.advance(static_cast<uint16_t>(elapsed))};
+        std::cout << enabled << ' ' << clock.remainder() << ' ';
+      }
+      std::cout << '\n';
+    }
+  } else if(mode == "stream") {
+    unsigned int count{0}, ticks{0};
+    while(std::cin >> count >> ticks) {
+      std::vector<uint16_t> words;
+      for(unsigned int i{0}; i != count; ++i) {
+        unsigned int word{0};
+        std::cin >> word;
+        words.push_back(static_cast<uint16_t>(word));
+      }
+      tfx::world::parameter_player player{words};
+      uint8_t value{0};
+      for(unsigned int i{0}; i != ticks; ++i) {
+        auto const step{player.tick(value)};
+        if(step.action == tfx::world::stream_action::event_requested) throw std::runtime_error{"native stream probe reached an event requiring an actor dispatcher"};
+        std::cout << static_cast<unsigned int>(value) << ' ';
+      }
+      std::cout << '\n';
+    }
+  } else if(mode == "jitter") {
+    unsigned int x{0}, y{0};
+    while(std::cin >> x >> y) {
+      std::array<unsigned int,3> shifts;
+      for(auto &shift : shifts) std::cin >> shift;
+      tfx::math::jitter_state state{
+        .x{static_cast<uint16_t>(x)},
+        .y{static_cast<uint16_t>(y)},
+      };
+      for(unsigned int vertex{0}; vertex != 3; ++vertex) {
+        for(unsigned int axis{0}; axis != 3; ++axis) {
+          int coordinate{0};
+          std::cin >> coordinate;
+          std::cout << state.perturb(static_cast<int16_t>(coordinate),shifts[axis]) << ' ';
+        }
+      }
+      std::cout << state.x << ' ' << state.y << '\n';
     }
   } else if(mode == "conditions") {
     unsigned int opcode{0}, operand{0}, state{0};
@@ -82,10 +132,26 @@ auto main(int const argc, char const *const argv[])->int try {
         renderer.output.pixels.fill(77);
         if(kind == "gradient") {
           std::array<tfx::render::screen_vertex,4> vertices{{
-            {.position{20,20}, .uv{0,0}, .shade{-1}},
-            {.position{100,20}, .uv{0,0}, .shade{-1}},
-            {.position{100,100}, .uv{0,0}, .shade{-1}},
-            {.position{20,100}, .uv{0,0}, .shade{-1}},
+            {
+              .position{20,20},
+              .uv{0,0},
+              .shade{-1},
+            },
+            {
+              .position{100,20},
+              .uv{0,0},
+              .shade{-1},
+            },
+            {
+              .position{100,100},
+              .uv{0,0},
+              .shade{-1},
+            },
+            {
+              .position{20,100},
+              .uv{0,0},
+              .shade{-1},
+            },
           }};
           for(auto &v : vertices) std::cin >> v.shade;
           renderer.polygon(vertices,200);
@@ -93,15 +159,38 @@ auto main(int const argc, char const *const argv[])->int try {
         else {
           double const left{kind == "quad" ? 32.0 : 35.0}, top{kind == "quad" ? 32.0 : 37.0};
           std::array<tfx::render::screen_vertex, 4> const vertices{{
-            {.position{left,top}, .uv{0,0}, .shade{-1}},
-            {.position{left + 96,top}, .uv{0,0}, .shade{-1}},
-            {.position{left + 96,top + 96}, .uv{0,0}, .shade{-1}},
-            {.position{left,top + 96}, .uv{0,0}, .shade{-1}},
+            {
+              .position{left,top},
+              .uv{0,0},
+              .shade{-1},
+            },
+            {
+              .position{left + 96,top},
+              .uv{0,0},
+              .shade{-1},
+            },
+            {
+              .position{left + 96,top + 96},
+              .uv{0,0},
+              .shade{-1},
+            },
+            {
+              .position{left,top + 96},
+              .uv{0,0},
+              .shade{-1},
+            },
           }};
           renderer.polygon(vertices,200,drawing_mode);
         }
         word(renderer.procedural_state());
         std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());
+      }
+    } else if(mode == "missions") {
+      std::string name;
+      while(std::cin >> name) {
+        tfx::world::mission const mission{game,name};
+        auto const &p{mission.start.position};
+        std::cout << '[' << std::quoted(mission.world_name) << ',' << std::quoted(mission.grid_name()) << ',' << std::quoted(mission.environment) << ',' << std::quoted(mission.waypoints) << ',' << (mission.aircraft ? std::to_string(std::to_underlying(*mission.aircraft)) : "null") << ",[" << p.x << ',' << p.y << ',' << p.z << "]," << mission.start.landed << "]\n";
       }
     } else if(mode == "definitions") {
       auto const names{tfx::world::model_names(game.read("ss/ssinfo.fn"))};
@@ -137,9 +226,13 @@ auto main(int const argc, char const *const argv[])->int try {
         std::cout << "]]\n";
       }
     } else if(mode == "environment") {
-      std::string name;
-      while(std::cin >> name) {
-        tfx::world::environment const environment{game, name};
+      std::string specification;
+      while(std::getline(std::cin,specification)) {
+        std::istringstream fields{specification};
+        std::string name, lighting;
+        fields >> name >> lighting;
+        if(name.empty()) continue;
+        tfx::world::environment const environment{game,name,lighting};
         std::cout << '[' << environment.status << ',' << std::quoted(environment.palette_name) << ",[";
         bool first{true};
         for(unsigned int z{0}; z != tfx::world::map_height; ++z) {

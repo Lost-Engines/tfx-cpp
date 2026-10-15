@@ -66,7 +66,7 @@ struct shape_context {
   double reference_scale{1};
   bool facing{true};
   std::function<vec2d(vec3d const&)> project;
-  math::random_state *jitter{nullptr};
+  math::jitter_state *jitter{nullptr};
 };
 struct shape_geometry {
   std::vector<primitive> primitives;
