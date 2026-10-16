@@ -48,6 +48,24 @@ int16_t instance::type() const {
   return source.flags & 2 ? static_cast<int16_t>((source.flags & 255) >> 2) : -1;
 }
 
+std::vector<vec3<int16_t>> instance::damage_centres() const {
+  // Native 0xb7b90 enumerates only the leading stage/once damage boxes in collision entry 2.
+  // These are targetable sub-volumes, separate from the model draw anchors.
+  std::vector<vec3<int16_t>> result;
+  if(source.entries.size() <= 2) return result;
+  resources::binary_view const view{source.bytecode};
+  unsigned int at{source.entries[2]};
+  while(at < source.bytecode.size()) {
+    auto const opcode{static_cast<instruction>(view.le16(at))};
+    if(opcode != instruction::damage_box_once && opcode != instruction::damage_box_stages) break;
+    view.slice(at + 2,12);
+    auto const middle{[&](unsigned int const axis) { return static_cast<int16_t>((static_cast<int>(view.signed_le16(at + 2 + axis * 2)) + view.signed_le16(at + 8 + axis * 2)) / 2); }};
+    result.emplace_back(middle(0),middle(1),middle(2));
+    at += opcode == instruction::damage_box_once ? 18 : 20;
+  }
+  return result;
+}
+
 instance_result instance::execute(unsigned int const entry, instance_context const &context) {
   instance_result result;
   if(entry >= source.entries.size()) return result;

@@ -65,6 +65,28 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
             print('Private X11 controls passed: Enter/Space releases a store; cannon sentinel/F/Space fires; Escape exits cleanly')
+            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','601','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
+            deadline=time.monotonic()+10;window=None
+            while time.monotonic()<deadline and game.poll() is None:
+                found=run('xdotool','search','--onlyvisible','--name','TFX C',capture_output=True,text=True)
+                if found.stdout.strip():window=found.stdout.splitlines()[0];break
+                time.sleep(.05)
+            if window is None:raise RuntimeError('ground-targeting window did not appear')
+            run('xdotool','windowfocus','--sync',window,check=True);time.sleep(.2)
+            tap('o');tap('z')
+            zoom_a=directory/'zoom-a.png';zoom_b=directory/'zoom-b.png'
+            run('import','-window',window,str(zoom_a),check=True);tap('period')
+            run('import','-window',window,str(zoom_b),check=True)
+            def zoom_readout(path):
+                with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((100,160,150,167)).tobytes()
+            if zoom_readout(zoom_a)==zoom_readout(zoom_b):raise RuntimeError('laser-designator zoom controls did not reach the live view')
+            tap('Right');tap('z')
+            run('import','-window',window,str(store_before),check=True);tap('space')
+            run('import','-window',window,str(store_after),check=True)
+            if store_readout(store_before)==store_readout(store_after):raise RuntimeError('designating/firing did not release a ground store')
+            tap('x');tap('F1');tap('Escape');game.wait(timeout=10)
+            if game.returncode:raise RuntimeError('ground-targeting input failed')
+            print('Private X11 ground controls passed: select ground weapon, enter/zoom/aim/designate, release store, unlock and return to flight')
             game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','605','--flight-steps','1024','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+10;window=None
             while time.monotonic()<deadline and game.poll() is None:

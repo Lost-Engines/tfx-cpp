@@ -20,6 +20,7 @@ struct target_reference {
   std::optional<actor_identity> actor{};
   std::optional<projectile_id> projectile{};
   bool untargeted{false};
+  bool designated{false};
 };
 struct release {
   unsigned int weapon;
@@ -47,6 +48,7 @@ struct runtime_callbacks {
   std::function<launch_mount()> mount_state{};
   std::function<simulation::timer_ticks()> launch_elapsed{};
   std::function<vec3<int32_t>(actor_identity)> actor_position{};
+  std::function<vec3<int32_t>()> designation_position{};
   std::function<motion_context(active_projectile const&,uint16_t)> motion_inputs{};
   std::function<void(unsigned int,bool)> reset_visual{};
   std::function<void(active_projectile const&)> launched{};

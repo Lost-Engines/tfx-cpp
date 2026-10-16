@@ -52,6 +52,7 @@ public:
   void apply_actor_contact_damage(scene_handle handle, uint16_t damage);
   bool actor_destroyed(scene_handle handle) const;
   int16_t actor_type(scene_handle handle) const;
+  std::vector<vec3<int16_t>> actor_damage_centres(scene_handle handle) const;
   uint16_t actor_impact_damage(scene_handle handle) const;
   void queue_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
   instance_result actor_event(scene_handle handle, unsigned int entry);

@@ -12,9 +12,11 @@ int main(int const argc, char const *const argv[]) try {
   unsigned int frames{0},elapsed{0},dispenser{0},capacity{0};
   while(std::cin >> frames >> elapsed >> dispenser >> capacity) {
     std::vector<int32_t> events;
+    vec3<int32_t> designation{2000000,-200000,3000000};
     tfx::weapons::runtime state{tables.weapons,{
       .mount_state{[] { return tfx::weapons::launch_mount{.angles{0,12000,0},.selected{4}}; }},
       .actor_position{[](tfx::weapons::actor_identity) { return vec3<int32_t>{1000000,-300000,1000000}; }},
+      .designation_position{[&] { return vec3<int32_t>{designation}; }},
       .motion_inputs{[](tfx::weapons::active_projectile const&,uint16_t const ticks) {
         return tfx::weapons::motion_context{
           .elapsed{ticks},
@@ -42,10 +44,12 @@ int main(int const argc, char const *const argv[]) try {
         .position{2000000,-200000,3000000},
         .actor{dispenser >= 2 && dispenser <= 3 ? std::optional{tfx::weapons::actor_identity{.pool{tfx::weapons::actor_pool::aircraft}}} : std::nullopt},
         .untargeted{dispenser == 4},
+        .designated{dispenser == 5},
       },
     });
     for(unsigned int frame{0}; frame != frames; ++frame) {
       events.clear();
+      if(dispenser == 5) designation = vec3<int32_t>{2000000 + static_cast<int32_t>(frame) * 10000,-200000,3000000 - static_cast<int32_t>(frame) * 7000};
       if(dispenser >= 2 && dispenser <= 3 && frame == 2) state.countermeasure({.pool{tfx::weapons::actor_pool::aircraft}},{1000000,-300000,1000000},dispenser == 2,64,random);
       state.advance(static_cast<uint16_t>(elapsed),random,false);
       uint64_t digest{14695981039346656037ULL};

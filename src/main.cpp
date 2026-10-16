@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <format>
 #include <iostream>
+#include <numbers>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -31,6 +32,7 @@
 #include "resources/executable_tables.h"
 #include "simulation/timing.h"
 #include "sensors/air.h"
+#include "sensors/ground.h"
 #include "world/assets.h"
 #include "world/environment.h"
 #include "world/scene.h"
@@ -74,7 +76,8 @@ auto main(int const argc, char const *const argv[])->int try {
                    "\nArcade flight: mouse or arrows steer; hold left/right mouse or =/- for thrust.\n"
                    "[ and ] toggle engines; G gear; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
                    "Enter selects air-to-air weapons; Backspace/O air-to-ground; F selects cannon/navigation.\n"
-                   "C cycles radar targets; Space fires; P pauses; Escape exits.\n"
+                   "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
+                   "X clears targets; F1 returns to flight view; Space fires; P pauses; Escape exits.\n"
                    "This is a flight integration build; combat, campaign flow and audio are still in progress.\n";
 #ifndef NDEBUG
       std::cout << "\nDeveloper options:\n"
@@ -167,6 +170,15 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::sensors::air_contacts radar;
   tfx::sensors::air_lock seeker;
   std::vector<tfx::sensors::air_contact> radar_actors;
+  tfx::sensors::designator designator;
+  bool designator_view{false};
+  std::optional<tfx::weapons::target_reference> ground_designation;
+  vec3<int32_t> designated_point{0,0,0};
+  std::optional<tfx::sensors::mobile_designation> mobile_designation;
+  std::vector<tfx::sensors::surface_contact> ground_contacts;
+  int16_t radiation_cursor{0};
+  tfx::sensors::designator_controls designator_input;
+  bool designate_trigger{false};
   tfx::weapons::cannon_state cannon;
   tfx::flight::damage_state player_damage;
   auto const &player_disabled{mission_progress.player_ejected};
@@ -218,6 +230,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .mount_state{[&] { return tfx::weapons::launch_mount{.angles{vec3<tfx::math::angle>{player.angles}},.selected{static_cast<uint8_t>(armament.selected)}}; }},
     .launch_elapsed{[&] { return launch_elapsed; }},
     .actor_position{actor_position},
+    .designation_position{[&] { return vec3<int32_t>{designated_point}; }},
     .motion_inputs{[&](tfx::weapons::active_projectile const &shot,uint16_t const ticks) {
       bool const mounted{shot.owner.pool == tfx::weapons::actor_pool::player && (shot.state.motion == tfx::weapons::flight_stage::attached || shot.state.motion == tfx::weapons::flight_stage::attached_dispenser)};
       vec3<int32_t> const anchor{mounted ? tfx::math::place_anchor(vec3<int32_t>{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)},player.angles,tables.store_mounts[std::to_underlying(player.aircraft) - 1].at(shot.mount)) : vec3<int32_t>{0,0,0}};
@@ -387,13 +400,46 @@ auto main(int const argc, char const *const argv[])->int try {
   auto const initial_ground{ground};
   auto const apply_selection{[&](tfx::weapons::selection_change const &change) {
     if(change.clear_contact) radar.selected.reset();
-    if(change.clear_tracking) { seeker.tracking.reset(); seeker.guidance.reset(); }
+    if(change.clear_tracking) { seeker.tracking.reset(); seeker.guidance.reset(); ground_designation.reset(); mobile_designation.reset(); }
   }};
   auto const select_weapon{[&](tfx::weapons::weapon_role const role) {
     if(player.collision) return;
     if(armament.selected == tfx::weapons::no_pylon) armament.selected = 0;
     apply_selection(armament.select(role,true));
     armament.guns = armament.selected == tfx::weapons::no_pylon || armament.selected == tfx::weapons::cannon_pylon;
+  }};
+  auto const selected_weapon{[&]()->tfx::weapons::definition const* {
+    if(armament.guns || armament.selected < 0 || armament.selected >= tfx::weapons::cannon_pylon) return nullptr;
+    auto const index{armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
+    return index < tables.weapons.size() ? &tables.weapons[index] : nullptr;
+  }};
+  auto const refresh_ground_contacts{[&] {
+    ground_contacts.clear();
+    for(auto const &actor : surface_actors) ground_contacts.push_back({
+      .slot{actor.state.pose.slot},
+      .position{vec3<int32_t>{actor.state.pose.position}},
+      .heading{actor.state.pose.angles.y},
+      .side{actor.profile->side},
+      .flags{static_cast<uint8_t>(actor.state.pose.flags)},
+      .type{scene.actor_type(actor.visual)},
+      .damage_centres{scene.actor_damage_centres(actor.visual)},
+    });
+  }};
+  auto const surface_index{[&](unsigned int const slot) {
+    auto const found{std::ranges::find_if(surface_actors,[&](auto const &actor) { return actor.state.pose.slot == slot; })};
+    if(found == surface_actors.end()) throw std::runtime_error{"ground target refers to an absent surface slot"};
+    return static_cast<unsigned int>(found - surface_actors.begin());
+  }};
+  auto const cycle_target{[&] {
+    auto const *weapon{selected_weapon()};
+    if(!weapon || weapon->role == tfx::weapons::weapon_role::air) { radar.next(); return; }
+    if(weapon != &tables.weapons[std::to_underlying(tfx::weapons::weapon_id::harm)] && weapon != &tables.weapons[std::to_underlying(tfx::weapons::weapon_id::sidearm)]) return;
+    refresh_ground_contacts();
+    if(auto const slot{tfx::sensors::next_radiation_target(radiation_cursor,ground_contacts)}) {
+      designated_point = vec3<int32_t>{surface_actors[surface_index(*slot)].state.pose.position};
+      ground_designation.emplace(tfx::weapons::target_reference{.designated{true}});
+      mobile_designation.reset();
+    } else ground_designation.reset();
   }};
   auto const refresh_sensors{[&](tfx::simulation::timer_ticks const elapsed) {
     radar_actors.clear();
@@ -413,6 +459,22 @@ auto main(int const argc, char const *const argv[])->int try {
       });
     }
     radar.update(player.integer_position,radar_actors);
+    refresh_ground_contacts();
+    if(mobile_designation) designated_point = tfx::sensors::mobile_target_point(surface_actors[surface_index(mobile_designation->slot)].state.pose.position,mobile_designation->offset);
+    if(designator_view) {
+      if(ground_designation) tfx::sensors::follow_designation(designator,player.integer_position,ground_designation->actor ? actor_position(*ground_designation->actor) : designated_point);
+      else tfx::sensors::aim_designator(designator,player.integer_position,player.angles,player.aircraft,designator_input);
+      if(designate_trigger) {
+        designated_point = vec3<int32_t>{vec3<uint32_t>{designator.point} * static_cast<uint32_t>(tfx::actors::position_unit)};
+        auto const *weapon{selected_weapon()};
+        if(weapon == &tables.weapons[std::to_underlying(tfx::weapons::weapon_id::maverick)]) {
+          mobile_designation = tfx::sensors::nearest_mobile_target(designated_point,ground_contacts);
+          if(mobile_designation) designated_point = tfx::sensors::mobile_target_point(surface_actors[surface_index(mobile_designation->slot)].state.pose.position,mobile_designation->offset);
+        }
+        ground_designation.emplace(tfx::weapons::target_reference{.designated{true}});
+        designate_trigger = false;
+      }
+    }
     unsigned int const weapon{armament.selected < 0 ? 0u : armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
     if(weapon >= tables.weapons.size()) { seeker.clear(); return; }
     auto const view{tfx::render::aircraft_camera(player.position,player.orientation)};
@@ -446,6 +508,11 @@ auto main(int const argc, char const *const argv[])->int try {
     armament.guns = true;
     radar = {};
     seeker = {};
+    designator = {};
+    designator_view = false;
+    ground_designation.reset();
+    mobile_designation.reset();
+    radiation_cursor = 0;
     player.aircraft = mission_setup.aircraft;
     tfx::flight::initialise_arcade(player,mission_setup.start.position,mission_setup.angles,mission_setup.speed_factor,mission_setup.start.landed,ground);
   }};
@@ -460,12 +527,24 @@ auto main(int const argc, char const *const argv[])->int try {
     auto const previous{vec3<int32_t>{player.integer_position}};
     if(release_store && !player_disabled && !armament.guns && armament.selected >= 0 && armament.selected < tfx::weapons::cannon_pylon && !player.landed) {
       auto const &weapon{tables.weapons.at(armament.pylons[static_cast<unsigned int>(armament.selected)].weapon)};
-      // The Space callback requires a designation for laser/anti-ship weapons; radar missiles may be released without a lock.
+      // Native Space first acquires a ship for Harpoon; a subsequent press releases it. Laser stores require a designation.
       auto const status{player_damage.condition(tfx::flight::aircraft_system::weapons)};
       bool const trigger_available{status != tfx::flight::system_condition::failed && (status != tfx::flight::system_condition::intermittent || air_simulation.random_stream().next() <= 3000)};
-      if(trigger_available && (weapon.role != tfx::weapons::weapon_role::ground || (weapon.category != 3 && weapon.category != 13))) {
+      bool acquired_ship{false};
+      if(trigger_available && weapon.category == 13 && !ground_designation) {
+        refresh_ground_contacts();
+        if(auto const slot{tfx::sensors::nearest_ship(player.integer_position,ground_contacts,tables.ship_target_types)}) ground_designation.emplace(tfx::weapons::target_reference{
+          .actor{tfx::weapons::actor_identity{
+            .pool{tfx::weapons::actor_pool::surface},
+            .index{surface_index(*slot)},
+          }},
+        });
+        acquired_ship = true;
+      }
+      if(trigger_available && !acquired_ship && (weapon.role != tfx::weapons::weapon_role::ground || ground_designation || (weapon.category != 3 && weapon.category != 13))) {
         tfx::weapons::target_reference target{.untargeted{true}};
-        if(seeker.guidance) target = {
+        if(weapon.role == tfx::weapons::weapon_role::ground && ground_designation) target = *ground_designation;
+        else if(seeker.guidance) target = {
           .actor{tfx::weapons::actor_identity{
             .pool{tfx::weapons::actor_pool::aircraft},
             .index{*seeker.guidance},
@@ -572,6 +651,10 @@ auto main(int const argc, char const *const argv[])->int try {
   bool paused{false};
   auto const draw{[&]{
     auto view{inspect ? tfx::render::inspection_camera(position,heading,pitch) : tfx::render::aircraft_camera(player.position,player.orientation)};
+    if(!inspect && designator_view) {
+      double constexpr radians_per_angle{2 * std::numbers::pi / 65536};
+      view = tfx::render::inspection_camera(vec3d{designator.camera},designator.heading * radians_per_angle,-tfx::math::signed_word(designator.pitch) * radians_per_angle);
+    }
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
     for(auto const &[_,shot] : projectiles.projectiles()) if(!shot->spent) scene.queue_actor(weapon_visuals[shot->state.weapon][shot->state.secondary],vec3d{shot->state.position} / tfx::actors::position_unit,shot->state.angles);
@@ -599,7 +682,13 @@ auto main(int const argc, char const *const argv[])->int try {
         auto const count{std::ranges::count_if(armament.pylons,[&](auto const &slot) { return slot.weapon == weapon && slot.count; })};
         renderer.text(5,41,std::format("{} X{}",tables.weapons[weapon].label,count),hud_colour);
       }
-      if(seeker.tracking) {
+      if(designator_view) {
+        renderer.line({150,100},{170,100},hud_colour);
+        renderer.line({160,90},{160,110},hud_colour);
+        renderer.text(100,150,ground_designation ? "DESIGNATED" : "Z TO DESIGNATE",hud_colour);
+        renderer.text(100,160,std::format("ZOOM {}",designator.zoom),hud_colour);
+      } else if(ground_designation) renderer.text(100,160,"GROUND TARGET",hud_colour);
+      if(seeker.tracking && !designator_view) {
         vec2d const aim{seeker.reticle.x / 256.0,seeker.reticle.y / 256.0};
         renderer.line(aim + vec2d{-5,-5},aim + vec2d{5,-5},hud_colour);
         renderer.line(aim + vec2d{5,-5},aim + vec2d{5,5},hud_colour);
@@ -694,7 +783,26 @@ auto main(int const argc, char const *const argv[])->int try {
       if(pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER)) select_weapon(tfx::weapons::weapon_role::air);
       if(pressed(GLFW_KEY_BACKSPACE) || pressed(GLFW_KEY_O)) select_weapon(tfx::weapons::weapon_role::ground);
       if(pressed(GLFW_KEY_F)) armament.guns = true;
-      if(pressed(GLFW_KEY_C)) radar.next();
+      if(pressed(GLFW_KEY_C)) cycle_target();
+      if(pressed(GLFW_KEY_Z)) {
+        if(designator_view) designate_trigger = true;
+        else if(auto const *weapon{selected_weapon()}; weapon && weapon->category == 3) {
+          designator_view = true;
+          designator.pitch = 0x500;
+          designator.heading = player.angles.y;
+          designator.zoom = 0;
+        }
+      }
+      if(pressed(GLFW_KEY_X)) { ground_designation.reset(); mobile_designation.reset(); radar.selected.reset(); seeker.clear(); }
+      if(pressed(GLFW_KEY_F1)) designator_view = false;
+      if(pressed(GLFW_KEY_COMMA) && designator_view && designator.zoom) --designator.zoom;
+      if(pressed(GLFW_KEY_PERIOD) && designator_view && designator.zoom < 10) ++designator.zoom;
+      designator_input = {
+        .up{down(GLFW_KEY_UP)},
+        .down{down(GLFW_KEY_DOWN)},
+        .left{down(GLFW_KEY_LEFT)},
+        .right{down(GLFW_KEY_RIGHT)},
+      };
       if(pressed(GLFW_KEY_SPACE)) store_trigger = true;
       if(!player.collision && !player_disabled) {
         if(pressed(GLFW_KEY_LEFT_BRACKET)) player.left_engine = !player.left_engine;
@@ -717,8 +825,10 @@ auto main(int const argc, char const *const argv[])->int try {
       auto const step{flight_clock.poll(counter)};
       if(step) {
         // Keyboard supplies a relative stick input until the full native device adapter is restored.
-        pitch_input += (down(GLFW_KEY_UP) - down(GLFW_KEY_DOWN)) * step->world_ticks * 4;
-        roll_input += (down(GLFW_KEY_RIGHT) - down(GLFW_KEY_LEFT)) * step->world_ticks * 4;
+        if(!designator_view) {
+          pitch_input += (down(GLFW_KEY_UP) - down(GLFW_KEY_DOWN)) * step->world_ticks * 4;
+          roll_input += (down(GLFW_KEY_RIGHT) - down(GLFW_KEY_LEFT)) * step->world_ticks * 4;
+        }
         auto const input_word{[](double const value){ return static_cast<int16_t>(std::clamp(value,-32768.0,32767.0)); }};
         tfx::flight::flight_controls const controls{
           .pitch_delta{input_word(pitch_input)},

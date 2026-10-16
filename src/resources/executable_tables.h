@@ -27,6 +27,7 @@ public:
   std::vector<weapons::definition> weapons;
   weapons::arming_tables arming;
   std::string timer_expired_message;
+  std::vector<int16_t> ship_target_types;
   std::array<vec3<int16_t>,2> cannon_mounts;
   std::array<std::array<vec3<int16_t>,10>,3> store_mounts;
   std::array<actors::formation_offset,actors::aircraft_per_group> formations;

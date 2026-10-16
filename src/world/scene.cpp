@@ -113,6 +113,10 @@ int16_t scene::actor_type(scene_handle const handle) const {
   return actors.at(handle.value).state.type();
 }
 
+std::vector<vec3<int16_t>> scene::actor_damage_centres(scene_handle const handle) const {
+  return actors.at(handle.value).state.damage_centres();
+}
+
 uint16_t scene::actor_impact_damage(scene_handle const handle) const {
   return actors.at(handle.value).state.impact_damage;
 }
