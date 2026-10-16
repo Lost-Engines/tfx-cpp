@@ -302,7 +302,7 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   } else polygon(projected,ink_index,source.mode,texture);
 }
 
-void software_renderer::text(int x, int const y, std::string_view const message, uint8_t const colour) {
+void software_renderer::text(int x, int const y, std::string_view const message, uint8_t const colour, framebuffer *const coverage) {
   /// Native 0x87154 character mapping and advances, with clipped monochrome glyph writes
   for(unsigned char const character : message) {
     if(!character) break;
@@ -311,7 +311,10 @@ void software_renderer::text(int x, int const y, std::string_view const message,
     if(!glyph) continue;
     for(int row{0}; row != 6; ++row) {
       for(int column{0}; column != 8; ++column) {
-        if(glyph->rows[static_cast<unsigned int>(row)] & (128 >> column)) ink(x + column,y + row,colour,-1);
+        if(glyph->rows[static_cast<unsigned int>(row)] & (128 >> column)) {
+          ink(x + column,y + row,colour,-1);
+          if(coverage && x + column >= 0 && x + column < screen_width && y + row >= 0 && y + row < screen_height) coverage->pixels[static_cast<unsigned int>((y + row) * screen_width + x + column)] = 255;
+        }
       }
     }
     x += static_cast<int>(glyph->advance);

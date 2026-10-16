@@ -16,6 +16,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   pilot_assets = std::make_unique<presentation::pilot_assets>(source);
   score_data = std::make_unique<presentation::score_assets>(source);
   arming_data = std::make_unique<presentation::arming_assets>(source);
+  instrument_data = std::make_unique<cockpit::instrument_assets>(source);
   widget_font_data = std::make_unique<presentation::widget_font>(source);
   planner_art_data = std::make_unique<planner_artwork>(source);
   font_data = std::make_unique<presentation::fonts>(source);
@@ -86,6 +87,9 @@ presentation::score_assets const &executable_tables::scores() const {
 }
 presentation::arming_assets const &executable_tables::arming_art() const {
   return *arming_data;
+}
+cockpit::instrument_assets const &executable_tables::instruments() const {
+  return *instrument_data;
 }
 presentation::pilot_assets const &executable_tables::pilots() const {
   return *pilot_assets;
