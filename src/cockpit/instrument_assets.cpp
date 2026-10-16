@@ -16,13 +16,17 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
     }
     throw std::runtime_error{"unterminated original instrument string"};
   }};
+  auto const resource{[&](unsigned int const address) {
+    auto name{string(address)};
+    std::ranges::replace(name,'\\','/');
+    if(name.starts_with('/')) name.erase(0,1);
+    return name;
+  }};
   auto const real{[&](unsigned int const address) {
     return std::bit_cast<double>(static_cast<uint64_t>(source.le32(data + address)) | (static_cast<uint64_t>(source.le32(data + address + 4)) << 32));
   }};
   for(unsigned int index{0}; index != character_map.size(); ++index) character_map[index] = source.byte(data + 0x7688 + index);
-  font_bank = string(0x166c);
-  std::ranges::replace(font_bank,'\\','/');
-  if(font_bank.starts_with('/')) font_bank.erase(0,1);
+  font_bank = resource(0x166c);
   unsigned_clock_formats = {string(0x17e4),string(0x17ec)};
   signed_clock_formats = {string(0x17f0),string(0x17f8)};
   fuel_format = string(0x17fc);
@@ -33,9 +37,12 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   ecm_label = string(0x1828);
   stealth_label = string(0x182c);
   decoy_formats = {string(0x1838),string(0x1834)};
-  display_bank = string(0x1694);
-  std::ranges::replace(display_bank,'\\','/');
-  if(display_bank.starts_with('/')) display_bank.erase(0,1);
+  warning_banks = {resource(0x15b4),resource(0x15c8)};
+  for(unsigned int index{0}; index != condition_frames.size(); ++index) condition_frames[index] = source.byte(data + 0x7626 + index);
+  auxiliary_banks = {resource(0x16a4),resource(0x1658),resource(0x1648)};
+  engine_lamp_cache = {source.byte(data + 0x7157),source.byte(data + 0x7156)};
+  for(unsigned int index{0}; index != ammunition_pips.size(); ++index) ammunition_pips[index] = {source.signed_le16(data + 0x6c44 + index * 4),source.signed_le16(data + 0x6c46 + index * 4)};
+  display_bank = resource(0x1694);
   for(unsigned int index{0}; index != display_origins.size(); ++index) display_origins[index] = {source.signed_le16(data + 0x7c98 + index * 8),source.signed_le16(data + 0x7c9a + index * 8)};
   std::array<unsigned int,9> constexpr bitmap_fields{0x7b84,0x7b8c,0x7b93,0x7b9a,0x7ba1,0x7ba9,0x7bb1,0x7bb7,0x7bcc};
   for(unsigned int index{0}; index != masks.size(); ++index) {
