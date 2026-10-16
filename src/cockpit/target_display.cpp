@@ -17,6 +17,18 @@ vec2<int> shifted(vec2<int> const &point, vec2<int16_t> const &offset) { return 
 
 target_display::target_display(instrument_assets const &source) : assets{source} {
 }
+void target_display::heading(render::software_renderer &renderer, math::angle const target, math::angle const player, vec2<int16_t> const &offset, vec2<int> const &minimum, vec2<int> const &maximum, render::framebuffer *const coverage) const {
+  // Native 0x7e4e0 rotates the authored two-segment heading chevron.
+  std::array<vec2<int>,3> vertices;
+  for(unsigned int index{0}; index != vertices.size(); ++index) {
+    auto const rotated{math::rotate_words(assets.target_heading_shape[index],static_cast<math::angle>(target - player))};
+    vertices[index] = shifted({160 + rotated.x,56 + rotated.y},offset);
+  }
+  for(unsigned int index{0}; index != 2; ++index) {
+    presentation::draw_clipped_line(renderer.output,vec2<int>{vertices[index]},vec2<int>{vertices[index + 1]},minimum,maximum,6);
+    if(coverage) presentation::draw_clipped_line(*coverage,vec2<int>{vertices[index]},vec2<int>{vertices[index + 1]},minimum,maximum,255);
+  }
+}
 void target_display::information(render::software_renderer &renderer, air_target_reading const &target, target_display_state const &state, render::framebuffer *const coverage) const {
   // Native 0x7f59c/0x7ddb0: the uppercased first word, then four data rows.
   std::string name{target.name.substr(0,std::min(target.name.find(' '),target.name.find('\0')))};

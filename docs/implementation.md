@@ -888,3 +888,18 @@ python3 tools/check_target_display.py
 The original target-information painter (`0x7f59c`) retains the uppercased first word of the aircraft name, signed-word speed conversion, heading scaled by 360/65,536, unsigned altitude and horizontal range steps. The direction cue (`0x7f000`) preserves wrapped matrix products and native angle-helper behavior, including phase zero when either reduced input is within -1..1. Both sizes of primary/acquired masks are decoded directly from the executable. The edge-marker helper (`0x7ee9c`) clips toward the secondary marker's top-left corner before painting it; its caller uses this while the seeker is acquiring, rather than as a general minimum-range indicator.
 
 **1,600 complete native pixel/coverage frames agree**, covering all five painter paths, names, signed telemetry, matrix overflow, projected/tracking points, eight cockpit offsets and four clip rectangles. The external aircraft-name lookup supplies text; native name conversion, formatting, geometry and VGA painters execute. Decimal readout formatting is shared with the already verified upper-HUD painter, and line clipping is exposed without changing its verified arithmetic. Live target-state composition follows separately.
+
+
+### Live target composition and lock animation
+
+```sh
+python3 tools/check_target_tracking.py
+```
+
+The forward HUD now combines the original selected-aircraft data, heading chevron, target/direction markers and seeker-acquisition/lock overlays. The chevron rotates its three authored points by target heading minus player heading. The controller owns the retained normal/compact sight selection, nine-frame lock blink and previous-lock latch. Navigation draws retain this state rather than updating the latch. Failed/intermittent HUD gating remains in the calling flight host.
+
+**1,024 original forward-HUD frames agree in pixels, coverage, retained animation and lock-cue requests** across selected/missing contacts, acquisition, confirmed/lost locks, suppressed radar cues, weapon changes, navigation, ground designation, offsets and resets. Original layout/controller/text/raster code executes. Sensor/selection state, world-screen projection and cannon/impact samples are supplied at their separately checked boundaries; audio/voice requests are observed without playback. These are supplied-state sequences, not complete simulated engagements.
+
+The ground outline retains the original fixed X clipping limits and category-11 anti-radiation exclusion. Live flight binds actor profile names, Q8 position, heading, Q16 speed, player orientation and verified seeker state to these painters, replacing the temporary white tracking box and ground-target footer. Native navigation-contact cues, landing-approach guidance, timed launch notices and other view callbacks still need their own consumers. Lock-cue effects are returned for the pending audio backend.
+
+The target-controller comparison passes in development, Release and ASan/UBSan, as do the 1,600 standalone target-painter frames. The existing 768 forward-composition frames still agree under sanitizers. All 44 CTests pass; private-window checks cover firing, display controls, paused target state and result handoff, and all 128 retail missions run 1,024 simulation steps under sanitizers.

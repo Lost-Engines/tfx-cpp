@@ -38,6 +38,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
       source.signed_le16(data + 0x721e + index * 24 + vertex * 4),
     };
   }
+  for(unsigned int index{0}; index != target_heading_shape.size(); ++index) target_heading_shape[index] = {source.signed_le16(data + 0x714a + index * 4),source.signed_le16(data + 0x714c + index * 4)};
   in_range_label = string(0x179c);
   radio_padding = string(0x17cc);
   aiming_bank = resource(0x1634);

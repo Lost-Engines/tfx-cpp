@@ -481,6 +481,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     cannon = {};
     player_damage = {};
     display_selection = instrument_setup.displays;
+    aiming.reset_tracking();
     player_damage.systems = instrument_setup.systems;
     ground_target_page = 0;
     fuel_display = instrument_setup.fuel;
@@ -772,11 +773,11 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .aircraft{player.aircraft},
       .weapon{weapon.label},
       .range{weapon.range},
+      .category{weapon.category},
       .cannon{weapon_index == 0},
       .ammunition{cannon.ammunition},
       .air_lock{seeker.guidance.has_value()},
       .ground_lock{ground_designation.has_value()},
-      .contact_visible{radar.selected.has_value()},
       .attitude{
         .angles{vec3<tfx::math::angle>{player.angles}},
         .projection_angles{static_cast<tfx::math::angle>(-player.angles.x),static_cast<tfx::math::angle>(-player.angles.z)},
@@ -796,6 +797,29 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         .offset{vec2<int16_t>{offset}},
       },
     };
+    if(radar.selected && air_simulation.aircraft()[*radar.selected]) {
+      auto const &actor{air_simulation.aircraft()[*radar.selected]->flight.pose};
+      auto const profile{std::ranges::find(profiles,actor.profile_id,&tfx::actors::profile::id)};
+      state.air_target.emplace(tfx::cockpit::air_target_cue{
+        .reading{
+          .name{profile->name},
+          .position_q8{vec3<int32_t>{actor.position}},
+          .heading{actor.angles.y},
+          .speed_q16{actor.speed},
+        },
+        .orientation{player.orientation},
+        .projected{vec2<int16_t>{seeker.projected}},
+        .tracking_q8{vec2<int32_t>{seeker.reticle}},
+        .acquiring{seeker.tracking.has_value()},
+      });
+    }
+    if(state.mode == tfx::cockpit::aiming_mode::ground && ground_designation) {
+      auto const point{view.transform(vec3d{designated_point} / tfx::actors::position_unit)};
+      if(point.z > 0) {
+        auto const screen{view.project(point)};
+        state.ground_marker.emplace(static_cast<int16_t>(std::clamp(screen.x,-32000.0,32000.0)),static_cast<int16_t>(std::clamp(screen.y,-32000.0,32000.0)));
+      }
+    }
     if(state.mode == tfx::cockpit::aiming_mode::navigation || state.cannon || weapon.category == tfx::weapons::bomb_impact_category) {
       vec3<int32_t> const origin{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)};
       auto const anchor{tfx::math::place_anchor(origin,player.angles,tables.sight_mount(player.aircraft,armament.selected))};
@@ -841,24 +865,16 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       if(!designator_view) draw_aiming(view);
       if(!designator_view) cockpit_frame.paint(renderer.output,tfx::cockpit::forward_cockpit,cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value()));
       draw_instruments();
-      // Target outlines retain their integration adapter pending the original cue painters.
+      // The separate designator-view labels await their native camera callback.
       uint8_t constexpr hud_colour{15};
       if(designator_view) {
         renderer.line({150,100},{170,100},hud_colour);
         renderer.line({160,90},{160,110},hud_colour);
         renderer.text(100,150,ground_designation ? "DESIGNATED" : "Z TO DESIGNATE",hud_colour);
         renderer.text(100,160,std::format("ZOOM {}",designator.zoom),hud_colour);
-      } else if(ground_designation) renderer.text(100,160,"GROUND TARGET",hud_colour);
-      if(seeker.tracking && !designator_view) {
-        vec2d const aim{seeker.reticle.x / 256.0,seeker.reticle.y / 256.0};
-        renderer.line(aim + vec2d{-5,-5},aim + vec2d{5,-5},hud_colour);
-        renderer.line(aim + vec2d{5,-5},aim + vec2d{5,5},hud_colour);
-        renderer.line(aim + vec2d{5,5},aim + vec2d{-5,5},hud_colour);
-        renderer.line(aim + vec2d{-5,5},aim + vec2d{-5,-5},hud_colour);
       }
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
       if(player_disabled) renderer.text(120,92,"AIRCRAFT LOST",hud_colour);
-      else if(player_damage.accumulated != 0) renderer.text(5,50,"SYSTEM DAMAGE",hud_colour);
       flight_frame = renderer.output;
     }
   }};
