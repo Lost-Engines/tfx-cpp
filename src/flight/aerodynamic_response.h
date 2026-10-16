@@ -37,11 +37,11 @@ struct aerodynamic_response_context {
   double elevator{0};
   double roll_control_gradient{0};
   double pitch_control_gradient{0};
-  double throttle{0};
+  double engine_thrust{0};
   double thrust_moment_scale{0};
   double angle_of_attack{0};
   double pitch_rate_bias{0};
-  double auxiliary_vertical_force{0};
+  double ground_vertical_force{0};
   bool time_warp{false};
   bool landed{false};
   bool autopilot{false};
