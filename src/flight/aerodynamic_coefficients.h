@@ -16,7 +16,7 @@ struct aerodynamic_coefficient_parameters {
   double pitch_damping_mach_gradient{0};
   double pitch_damping_base{0};
   double elevator_moment_gradient{0};
-  double flap_lift_gradient{0};
+  double elevator_lift_gradient{0};
   double roll_damping_gradient{0};
   double aileron_gradient{0};
 };
@@ -28,14 +28,14 @@ struct aerodynamic_coefficients {
   double pitch_stability{0};
   double pitch_damping{0};
   double elevator_moment{0};
-  double flap_lift{0};
+  double elevator_lift{0};
   double roll_damping{0};
   double roll_sideslip{0};
   double aileron_effectiveness{0};
 };
 
 // Native 0x99bc0: transonic drag and aircraft-specific Mach lift curves,
-// followed by the original pitch, flap, roll and aileron derivatives.
+// followed by the original pitch, elevator-lift, roll and aileron derivatives.
 aerodynamic_coefficients update_aerodynamic_coefficients(player_aircraft aircraft, double mach, aerodynamic_coefficient_parameters const &parameters);
 
 } // namespace tfx::flight

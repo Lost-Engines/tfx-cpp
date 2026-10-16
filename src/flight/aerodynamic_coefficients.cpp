@@ -64,7 +64,7 @@ aerodynamic_coefficients update_aerodynamic_coefficients(player_aircraft const a
   result.pitch_stability = static_cast<double>((static_cast<calculation>(p.pitch_stability_base) + p.pitch_stability_correction) * combined);
   result.pitch_damping = static_cast<double>(((static_cast<calculation>(damping_mach_reference) - speed) * p.pitch_damping_mach_gradient * one_third + p.pitch_damping_base) * combined);
   result.elevator_moment = static_cast<double>(static_cast<calculation>(p.elevator_moment_gradient) * result.lift_slope);
-  result.flap_lift = static_cast<double>(static_cast<calculation>(p.flap_lift_gradient) * result.lift_slope);
+  result.elevator_lift = static_cast<double>(static_cast<calculation>(p.elevator_lift_gradient) * result.lift_slope);
   result.roll_damping = static_cast<double>(static_cast<calculation>(p.roll_damping_gradient) * result.lift_slope);
   result.aileron_effectiveness = static_cast<double>(static_cast<calculation>(result.lift_slope) * p.aileron_gradient);
   return result;
