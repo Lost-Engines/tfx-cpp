@@ -26,7 +26,7 @@ int main(int const argc, char const *const argv[]) try {
         for(auto const &node : function.statements) {
           word(node.source_offset);word(std::to_underlying(node.kind));
           if(auto const entry{std::get_if<tfx::presentation::clip>(&node.data)}) {
-            string(entry->resource);word(entry->fade_in);word(entry->fade_out);word(entry->frame_delay);word(entry->wait_ticks);word(entry->play_until_end);word(entry->text.has_value());
+            string(entry->resource);word(entry->fade_in);word(entry->fade_out);word(entry->frame_delay);word(entry->wait_ticks);word(entry->play_until_end);word(entry->default_text_palette);word(entry->text.has_value());
             if(entry->text) { auto const &text{*entry->text};word(text.position.x);word(text.position.y);word(text.alignment);word(text.shadow);word(text.reveal);word(text.font);word(text.colour);string(text.text); }
           } else if(auto const entry{std::get_if<tfx::presentation::branch>(&node.data)}) {
             word(entry->conditional);word(entry->variable);word(entry->comparison);word(entry->value);word(entry->subroutine);word(entry->target.function);word(entry->target.statement);

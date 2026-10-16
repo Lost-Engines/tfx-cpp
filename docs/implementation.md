@@ -432,3 +432,20 @@ python3 tools/check_presentation_timing.py --save-fixture tests/reference/presen
 Scene input (`0xb1128`), wait countdowns, animation playback (`0xc9fac`) and six-bit DAC fades now have native comparisons: **4,096 input cases, 4,096 countdown decisions, 65,536 animation updates and 240 complete palette uploads**. Compact synthetic cases run through CTest without game assets. Images hold their wait timer while text is revealing; animations do not, and text-only waits test the previous count rather than the decremented value. Space finishes an incomplete caption before advancing; mouse-button priority, Escape sequence skipping and Shift+Q retain their native ordering.
 
 Animation clocks advance at most one block per callback and discard accumulated backlog. The initial frame plays once; repetitions resume at the second stored block over the retained final pixels. Declared frame count controls playback even when additional blocks are stored. Palette ramps scale the original six-bit DAC entries before display expansion, preserving integer rounding. These verified kernels are being connected to the native scene host; complete front-end execution remains outstanding.
+
+### Integrated scene playback
+
+```sh
+python3 tools/check_scene_player.py
+./build-san/player_probe --corpus /path/to/TFX
+python3 tools/check_presentation_window.py --data-dir /path/to/TFX
+./build/tfx --data-dir /path/to/TFX --presentation cdintro
+```
+
+The scene player joins media, text, input, countdowns and DAC ramps. The graph session retains nested-parser return positions, numeric state, sequence skipping and per-node key/reveal resets. Text-only scenes retain their pre-fade reveal clock; image/movie captions begin after their fade. Static captions compose before fade-in, and animation repetitions retain the previous pixels while resuming from block two. All ten font styles remain indexed software drawing. The retained text-only palette selector distinguishes the embedded palette from the caller's logical palette; fade uploads remain separate from logical palette storage.
+
+**193 complete original still/text handlers match across 1,157 composed content frames**, including caption preparation/reveal, Space consumption, Escape termination and the surrounding scene loops. Asset loading, supplied timer samples, display flips/retraces and palette output are declared boundaries; decoding, fades and animation clocks have the separate complete comparisons above. The test reproduces the original parser caller's per-node reveal reset rather than carrying the previous caption count into an isolated handler. This does not establish a complete original front-end session or its inherited palette/clock state.
+
+A sanitizer run completes **592 scene/language cases and 194,404 content/ramp iterations**, covering every one of the 372 retail visual nodes and all five languages for external captions. Those full playback runs establish resource and lifetime coverage, separately from native output agreement. Private X11 tests verify that Space advances one scene while Escape and Shift+Q finish the presentation cleanly. All 37 CTests pass in development, Release and ASan/UBSan builds.
+
+The developer `--presentation NAME[:FUNCTION]` entry runs original graph scenes in the native window; `--frames N --screenshot FILE` provides deterministic headless captures at virtual 70 Hz. Audio actions are explicitly deferred. Menus, pilot persistence, waypoint planning and game launches remain host boundaries; reaching an unfinished host action reports it rather than fabricating campaign progress.

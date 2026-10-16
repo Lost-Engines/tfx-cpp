@@ -74,6 +74,7 @@ program::program(std::span<uint8_t const> const source) {
           entry.fade_in = payload.byte(9);
           entry.fade_out = payload.byte(10);
         }
+        if(standalone) entry.default_text_palette = payload.byte(2) == 1;
         entry.wait_ticks = payload.signed_le16(standalone ? 3 : animation ? 14 : 11);
         if(animation) {
           entry.frame_delay = payload.le16(11);
