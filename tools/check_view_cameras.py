@@ -26,10 +26,11 @@ im.write(0x13b04,'<B',0);im.cpu.mem_map(0x300000,4096);im.cpu.mem_map(0x310000,4
 im.write(0xe774,'<B',0);im.write(0x8840,'<I',0);im.write(0x1351c,'<I',0)
 rng=random.Random(0x92144);cases=[]
 identity=[32767,0,0,0,32767,0,0,0,32767]
-modes=[0,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,20,23,24,25,26,27,28]
+modes=[0,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,20,21,23,24,25,26,27,28]
 for mode in modes:
     for variant in range(4):
         position=[rng.randrange(200000),rng.randrange(-8000,-32),rng.randrange(200000)]
+        if mode==21:position[1]=[-1000,-81,-80,-1][variant]
         angles=[rng.randrange(65536) for _ in range(3)]
         im.cpu.mem_write(0x300000,struct.pack('<9h',*identity))
         for entry,angle in zip((0xccf4c,0xcd058,0xcd15c),angles):im.call(entry,eax=0x300000,edx=angle)
@@ -68,7 +69,8 @@ for index,(row,line) in enumerate(zip(cases,output)):
     im.cpu.mem_write(0x310000,struct.pack('<3i',tx,ty,tz));im.cpu.mem_write(0x310100,struct.pack('<3i',ox,oy,oz))
     for field,value in zip((0x13424,0x13430,0x1343c),position):im.write(field,'<i',value)
     im.write(0x10f28,'<3i',*q8);im.write(0x86c8,'<3H',*angles);im.write(0x13476,'<H',elapsed);im.write(0x1358a,'<H',pan);im.write(0xabf2,'<h',ground);im.write(0xa4ea,'<B',low)
-    im.cpu.mem_write(base+0x47c38,struct.pack('<9h',*basis))
+    im.cpu.mem_write(base+0x47c38,struct.pack('<9h',*basis));im.write(0x1345e,'<9h',*basis)
+    for field,value in zip((0x1341c,0x13428,0x13434),q8):im.write(field,'<f',value/256)
     model_entries.clear()
     im.call(0x92144,limit=2000000)
     want=[]

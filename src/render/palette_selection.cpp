@@ -19,7 +19,7 @@ std::optional<palette_bank> palette_selection::advance(palette_context const &co
       case view_mode::approach_cockpit:
       case view_mode::depart_cockpit:
       case view_mode::fly_past:
-      case view_mode::recovery:
+      case view_mode::ejection:
       case view_mode::turning_recovery:
       case view_mode::impact_orbit:
         break;

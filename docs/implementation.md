@@ -1108,3 +1108,17 @@ The pilot (`0x8f198`) has distinct seat launch, powered-seat flight, fall, parac
 Pilot descent and its camera use duplicate native down-axis builders (`0x8e86c` and `0x91c48`). One shared C++ implementation retains their float normalization and cross-product stores, separately from the existing integer attitude normalizer. **4,096 complete original matrix updates agree across both copies**, including rejected small/degenerate axes; **121 cases** run without game data. Both comparisons pass in development, Release and ASan/UBSan, and all 51 CTests pass.
 
 These are controller kernels. The Escape input sequence, animation-triggered player/pilot handoff, abandoned-aircraft motion, ejection camera, recovery-region classification and live outcome selection are the next integration consumers; this evidence does not establish a complete ejection session.
+
+
+### Escape input, ejection camera and actor handoff
+
+```sh
+python3 tools/check_ejection_sequence.py
+python3 tools/check_view_cameras.py --refuelling
+```
+
+The original two-press Escape handler now has a typed sequence controller. Confirmation clears refuelling enable, requests aircraft entry 11 twice, prepares the fixed camera position and emits the original camera/voice/sample requests. Seat release is a later SSD animation event, rather than an immediate change to pilot physics. The frame boundary snapshots the abandoned aircraft's Q8 position and basis, switches to the pilot and continues the aircraft's straight-line motion independently.
+
+**4,096 complete original key/frame-boundary cases agree** in Escape wrapping/counts, ejection stage, handle-switch decision, fixed camera, abandoned-aircraft pose and ordered model/camera/audio requests. The full key handler, movement/bearing helpers and native `0x70ec8` execute. Player physics and the SSD seat-release event are supplied at their separately checked boundaries; resource identities and output consumers remain explicit.
+
+Viewport 21 is now named for ejection. Its camera uses the real float player position, the original twelve-unit setback and final Q8-to-Q16 shift, including near-ground down-axis alignment. Both the player-data basis and renderer basis are explicitly supplied in the native harness. **24 modes and 12,288 persistent camera updates agree**, retaining all prior camera and refuelling-phase coverage. Key/handoff and camera comparisons pass in development, Release and ASan/UBSan. Live Escape, animation-event delivery and the remaining recovery/outcome consumers are still being connected.

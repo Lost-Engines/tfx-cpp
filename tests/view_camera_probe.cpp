@@ -18,6 +18,7 @@ int main(int const argc, char const *const argv[]) {
     bool tracked, observed;
     vec3<int32_t> target, observer;
     std::cin >> tracked >> target.x >> target.y >> target.z >> observed >> observer.x >> observer.y >> observer.z >> context.speed >> context.landing;
+    context.position_f32 = vec3f{context.position_q8} / 256.0f;
     if(tracked) context.tracking_target_q8.emplace(vec3<int32_t>{target});
     if(observed) context.observed_target_q8.emplace(vec3<int32_t>{observer});
     else if(tracked) context.observed_target_q8.emplace(vec3<int32_t>{target});
