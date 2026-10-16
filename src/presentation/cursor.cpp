@@ -1,4 +1,5 @@
 #include "cursor.h"
+#include "render/sprites.h"
 #include <algorithm>
 #include <stdexcept>
 
@@ -25,19 +26,6 @@ std::array<pointer_style,2> load_pointers(std::span<uint8_t const> const executa
   return result;
 }
 void draw_pointer(render::framebuffer &target, pointer_shape const &shape, vec2<int16_t> const &position) {
-  // Native 0xd20d8 supplies the adjusted sprite centre to 0xc0ef8; index zero is transparent here.
-  int const left{position.x + shape.adjustment.x - static_cast<int>(shape.image.size.x / 2)};
-  int const top{position.y + shape.adjustment.y - static_cast<int>(shape.image.size.y / 2)};
-  // The original clips right overflow in four-pixel VGA groups, retaining the starting plane phase.
-  int const width{static_cast<int>(shape.image.size.x)};
-  int const clipped_right{left >= 0 && left + width >= render::screen_width - 1
-    ? (left / 4 + width / 4 - (left + width - (render::screen_width - 1)) / 4) * 4
-    : left + width};
-  for(int y{std::max(0,top)}; y < std::min(render::screen_height,top + static_cast<int>(shape.image.size.y)); ++y) {
-    for(int x{std::max(0,left)}; x < std::min(render::screen_width,clipped_right); ++x) {
-      auto const pixel{shape.image.pixels.at(static_cast<unsigned int>(y - top) * shape.image.size.x + static_cast<unsigned int>(x - left))};
-      if(pixel) target.pixels[static_cast<unsigned int>(y * render::screen_width + x)] = pixel;
-    }
-  }
+  render::draw_sprite(target,shape.image,vec2<int>{position} + vec2<int>{shape.adjustment});
 }
 } // namespace tfx::presentation

@@ -646,3 +646,13 @@ Headless pointer flows select, place and retain the intended paired stores on al
 These comparisons establish the controlled subsystem boundaries above. They do not yet establish a complete original 3D arming-frame match. Full modal quit handling and input-release timing remain separate work, as do the broader flight-renderer and loadout/aerodynamics integrations.
 
 The assembled-screen comparisons, three pointer flows and all 43 CTests pass in development, Release and ASan/UBSan. The private custom-arming window flow passes in development and Release. The shared capture changes also preserve all ninety complete planner map pages and 576 HUD-font frames, and all 128 retail mission starts still render successfully.
+
+### HUD sprite and embedded-mask painters
+
+```sh
+python3 tools/check_hud_images.py
+```
+
+Shared sprite painting now serves the menu pointers and cockpit instruments. The original four-pixel right-edge clipping, transparent sprite index zero, MSB-first monochrome rows and explicitly painted black pixels are retained. Embedded masks use rounded-up byte strides, including widths that are not multiples of eight.
+
+**572 complete native pixel-and-coverage frames agree** across all frames in eighteen recovered HUD banks and thirty-two embedded mask addresses, including edge clipping and black ink. The 144 menu-pointer frames still agree after sharing the painter. These comparisons and all 43 CTests pass in development, Release and ASan/UBSan. This verifies the instrument drawing primitives; live HUD composition is the next integration step.

@@ -10,6 +10,12 @@ struct indexed_image {
   vec2<unsigned int> size;
   bytes pixels;
 };
+struct monochrome_image {
+  vec2<unsigned int> size;
+  bytes rows;
+};
+monochrome_image decode_monochrome(std::span<uint8_t const> source);
+
 struct screen_image {
   render::framebuffer image;
   render::palette colours;

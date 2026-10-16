@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 #include "resources/media.h"
+#include "render/sprites.h"
 
 namespace {
 
@@ -64,6 +65,17 @@ int main() try {
   rejects([] { tfx::resources::decode_animation_block({}); });
   rejects([] { tfx::resources::decode_screen({}); });
   rejects([] { tfx::resources::decode_sprites(tfx::resources::bytes{1,3,0,2,2,0}); });
+  auto const bitmap{tfx::resources::decode_monochrome(tfx::resources::bytes{9,2,0x80,0x80,0x40,0})};
+  require(bitmap.size == vec2<unsigned int>{9,2},"monochrome dimensions lost a partial final byte");
+  tfx::render::framebuffer ink, coverage;
+  ink.pixels.fill(99);
+  tfx::render::draw_monochrome(ink,bitmap,{0,0},0,&coverage);
+  require(ink.pixels[0] == 0 && ink.pixels[8] == 0 && ink.pixels[321] == 0 && ink.pixels[1] == 99,"monochrome bit order, row stride or opaque black differs");
+  require(coverage.pixels[0] == 255 && coverage.pixels[8] == 255 && coverage.pixels[321] == 255 && coverage.pixels[1] == 0,"monochrome coverage lost black ink or filled a transparent bit");
+  rejects([] { tfx::resources::decode_monochrome({}); });
+  rejects([] { tfx::resources::decode_monochrome(tfx::resources::bytes{0,1}); });
+  rejects([] { tfx::resources::decode_monochrome(tfx::resources::bytes{9,2,0x80,0x80,0x40}); });
+  rejects([] { tfx::resources::decode_monochrome(tfx::resources::bytes{8,1,0x80,0}); });
   std::cout << "Native planar images, literal refills, retained-background deltas and malformed boundaries passed\n";
   return EXIT_SUCCESS;
 } catch(std::exception const &error) {

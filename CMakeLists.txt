@@ -129,6 +129,8 @@ add_library(tfx_core
   src/render/framebuffer.h
   src/render/camera.cpp
   src/render/camera.h
+  src/render/sprites.cpp
+  src/render/sprites.h
   src/render/software_renderer.cpp
   src/render/software_renderer.h
   src/math/native.cpp
@@ -328,6 +330,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(sprite_probe tests/sprite_probe.cpp)
+  target_link_libraries(sprite_probe PRIVATE tfx_core)
+  configure_first_party(sprite_probe)
 
   add_executable(arming_preview_probe tests/arming_preview_probe.cpp)
   target_link_libraries(arming_preview_probe PRIVATE tfx_core)
