@@ -6,6 +6,10 @@
 
 namespace tfx::cockpit {
 
+struct missile_camera_pose {
+  vec3<int32_t> position_q8{0,0,0};
+  vec3<math::angle> angles{0,0,0};
+};
 struct view_camera_context {
   vec3<int32_t> position{0,0,0};
   vec3<int32_t> position_q8{0,0,0};
@@ -19,6 +23,9 @@ struct view_camera_context {
   int32_t speed{0};
   std::optional<vec3<int32_t>> tracking_target_q8{};
   std::optional<vec3<int32_t>> observed_target_q8{};
+  std::optional<missile_camera_pose> missile{};
+  std::optional<vec3<int32_t>> impact_target_q8{};
+  vec2<int32_t> height_bounds{-8192,-32};
 };
 struct view_pose {
   vec3<int32_t> anchor{0,0,0};
@@ -37,6 +44,7 @@ struct view_motion_state {
   int16_t orbit_roll{0};
   int32_t previous_floor_offset{0};
   uint16_t pan{0};
+  missile_camera_pose last_missile{};
 };
 
 class view_camera {

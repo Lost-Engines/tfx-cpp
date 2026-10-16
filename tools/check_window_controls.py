@@ -54,6 +54,11 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             def store_readout(path):
                 with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((55,132,112,170)).tobytes()
             if store_readout(store_before)==store_readout(store_after):raise RuntimeError('Enter/Space did not change the carried-weapon inventory readout')
+            # The latest player store supplies F8; a second press enters its nose camera.
+            tap('F8');missile_path=directory/'missile.png';run('import','-window',window,str(missile_path),check=True)
+            with Image.open(store_after) as a,Image.open(missile_path) as b:
+                if a.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((270,187,288,199)).tobytes()==b.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((270,187,288,199)).tobytes():raise RuntimeError('F8 did not leave the instrument cockpit after firing')
+            tap('F8');tap('F1')
             # Three distinct type changes reach the cannon sentinel after the first missile release.
             for _ in range(3):tap('Return')
             tap('f')
@@ -82,7 +87,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('xdotool','key','Escape',check=True);game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
-            print('Private X11 controls passed: Enter/Space releases a store; cannon sentinel/F/Space fires; Escape exits cleanly')
+            print('Private X11 controls passed: a store fires; F8 follow/nose and F1 return work; cannon fires; Escape exits cleanly')
             game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','601','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+10;window=None
             while time.monotonic()<deadline and game.poll() is None:

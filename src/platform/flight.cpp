@@ -119,6 +119,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   tfx::sensors::designator designator;
   bool designator_view{false};
   bool navigation_mode{true};
+  std::optional<tfx::weapons::projectile_id> camera_missile;
+  std::optional<unsigned int> impact_aircraft;
   std::optional<tfx::weapons::target_reference> ground_designation;
   vec3<int32_t> designated_point{0,0,0};
   std::optional<tfx::sensors::mobile_designation> mobile_designation;
@@ -177,6 +179,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     return std::max(std::abs(static_cast<int64_t>(delta(a.x,b.x))),std::abs(static_cast<int64_t>(delta(a.z,b.z))));
   }};
   auto const fatal_aircraft{[&](unsigned int const index) {
+    if(!impact_aircraft) impact_aircraft = index;
     if(radar.selected == index) { radar.selected.reset(); seeker.guidance.reset(); }
     for(auto const &request : air_simulation.fatal_damage(index)) if(auto const event{std::get_if<tfx::actors::air_scenery_event>(&request.data)}) scene.actor_event(*air_visuals[index],event->entry);
   }};
@@ -202,6 +205,10 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     }},
     .reset_visual{[&](unsigned int const weapon,bool const secondary) { scene.actor_event(weapon_visuals[weapon][secondary],0); }},
     .launched{[&](tfx::weapons::active_projectile const &shot) {
+      if(shot.owner.pool == tfx::weapons::actor_pool::player &&
+         shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::cannon) &&
+         shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::chaff) &&
+         shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::flare)) camera_missile = shot.id;
       if(!shot.target.actor || shot.target.actor->pool != tfx::weapons::actor_pool::aircraft) return;
       auto const index{shot.target.actor->index};
       auto const &actor{air_simulation.aircraft()[index].value()};
@@ -351,6 +358,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       if(!actor) continue;
       auto const visual{*air_visuals[index]};
       auto const &pose{actor->flight.pose};
+      if(impact_aircraft == index && ((pose.flags & std::to_underlying(tfx::actors::air_flag::retired)) || actor->actions == std::to_underlying(tfx::actors::air_action::retire_crashed))) impact_aircraft.reset();
       scene.place_actor(visual,vec3d{pose.position} / tfx::actors::position_unit,pose.angles);
       scene.show_actor(visual,(pose.flags & std::to_underlying(tfx::actors::air_flag::retired)) == 0 && actor->actions != std::to_underlying(tfx::actors::air_action::retire_crashed));
     }
@@ -384,10 +392,19 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .pan{view_pan},
       .ground_height{ground.present ? ground.height : int16_t{0}},
       .speed{player.fixed_speed},
+      .height_bounds{vec2<int32_t>{tables.instruments().camera_height_bounds}},
     };
     if(ground_designation) context.tracking_target_q8.emplace(vec3<int32_t>{designated_point});
+    else if(seeker.guidance && air_simulation.aircraft()[*seeker.guidance]) context.tracking_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*seeker.guidance]->flight.pose.position});
     else if(radar.selected && air_simulation.aircraft()[*radar.selected]) context.tracking_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*radar.selected]->flight.pose.position});
-    if(context.tracking_target_q8) context.observed_target_q8.emplace(vec3<int32_t>{*context.tracking_target_q8});
+    if(impact_aircraft && air_simulation.aircraft()[*impact_aircraft]) context.impact_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*impact_aircraft]->flight.pose.position});
+    if(context.impact_target_q8) context.observed_target_q8.emplace(vec3<int32_t>{*context.impact_target_q8});
+    else if(seeker.guidance && air_simulation.aircraft()[*seeker.guidance]) context.observed_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*seeker.guidance]->flight.pose.position});
+    else if(context.tracking_target_q8) context.observed_target_q8.emplace(vec3<int32_t>{*context.tracking_target_q8});
+    if(camera_missile) if(auto const shot{projectiles.projectiles().find(*camera_missile)}; shot != projectiles.projectiles().end() && !shot->second->spent) context.missile.emplace(tfx::cockpit::missile_camera_pose{
+      .position_q8{vec3<int32_t>{shot->second->state.position}},
+      .angles{vec3<tfx::math::angle>{shot->second->state.angles}},
+    });
     return context;
   }};
   auto const forward_pose{[&] {
@@ -523,6 +540,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     armament.guns = true;
     navigation_mode = true;
     radio.clear();
+    camera_missile.reset();
+    impact_aircraft.reset();
     radar = {};
     seeker = {};
     designator = {};
@@ -878,7 +897,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       return;
     }
     if(!inspect && !designator_view) {
-      if(view_index() == tfx::cockpit::forward_cockpit) cockpit_position.move_to(cockpit_frame.clamp(view_index(),cockpit_position.value()));
+      if(!tables.instruments().viewports[view_index()].panel.empty()) cockpit_position.move_to(cockpit_frame.clamp(view_index(),cockpit_position.value()));
       views.offset(cockpit_position.value());
       if(!view_motion.advance(views,camera_context())) throw std::runtime_error{"unimplemented flight camera"};
       auto const entry{view_motion.last_pose().player_model_entry};
@@ -904,13 +923,14 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       renderer.text(25,115,std::format("SCORE {}  RESULT {}",campaign["score"],campaign["miss_val"]),15);
       renderer.text(40,160,"ENTER OR ESCAPE TO CLOSE",15);
     } else if(!inspect) {
-      auto const radio_window{radio.advance(launch_elapsed)};
       auto const callback{tables.instruments().viewports[view_index()].callback_file};
+      auto const radio_window{callback == 0x80704 ? std::optional<std::string>{} : radio.advance(launch_elapsed)};
       if(!designator_view && (callback == 0x806dc || callback == 0x80718 || callback == 0x80758)) draw_aiming(view,callback != 0x80758);
       if(!designator_view && view_index() == tfx::cockpit::forward_cockpit) {
         cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
         draw_instruments(radio_window);
-      } else if(radio_window) instruments.draw_radio(renderer,*radio_window);
+      } else if(!designator_view && callback == 0x80704) cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
+      else if(radio_window) instruments.draw_radio(renderer,*radio_window);
       // The separate designator-view labels await their native camera callback.
       uint8_t constexpr hud_colour{15};
       if(designator_view) {
@@ -1040,11 +1060,12 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         .position{vec3<int32_t>{player.integer_position}},
         .angles{vec3<tfx::math::angle>{player.angles}},
         .height_bounds{vec2<int32_t>{tables.instruments().camera_height_bounds}},
+        .missile_available{context.missile.has_value()},
         .target_available{context.observed_target_q8.has_value()},
-        .target_is_ground{ground_designation.has_value()},
+        .target_is_ground{ground_designation.has_value() && !seeker.guidance && !context.impact_target_q8},
         .tracking_available{context.tracking_target_q8.has_value()},
       };
-      std::array<std::pair<int,tfx::cockpit::view_key>,9> constexpr view_bindings{{
+      std::array<std::pair<int,tfx::cockpit::view_key>,10> constexpr view_bindings{{
         {GLFW_KEY_F1,tfx::cockpit::view_key::front},
         {GLFW_KEY_F2,tfx::cockpit::view_key::left},
         {GLFW_KEY_F3,tfx::cockpit::view_key::right},
@@ -1052,6 +1073,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         {GLFW_KEY_F5,tfx::cockpit::view_key::chase},
         {GLFW_KEY_F6,tfx::cockpit::view_key::fly_past},
         {GLFW_KEY_F7,tfx::cockpit::view_key::tactical},
+        {GLFW_KEY_F8,tfx::cockpit::view_key::missile},
         {GLFW_KEY_F9,tfx::cockpit::view_key::target},
         {GLFW_KEY_F10,tfx::cockpit::view_key::virtual_cockpit},
       }};
