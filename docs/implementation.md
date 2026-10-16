@@ -1463,3 +1463,13 @@ The outer game caller (0x8f98c..0x8f996) acknowledges the current model after th
 All 11,520 persistent original updates agree across 120 complete-initialized 96-frame scenes: 7,819 guided updates, 6,452 speed-recovery calls, 26 automatic recovery engagements, 19 restorations, 240 entry resets, 36 descent warnings and 262 reheat changes. The full original initializer, callbacks and numerical dependencies execute; original outer-marker acknowledgement occurs between updates. Every one of the 314 snapshot fields and returned output events agrees. Gear-deployed/retracted starts, all aircraft/models/modes, varied attitudes and key-triggered transitions are included.
 
     python3 tools/check_aerodynamic_autopilot.py --persistent
+
+### ILS aerodynamic approach references
+
+The complete 0x99a30 routine supplies reference flap fraction, lift, angle of attack and current flight-path angle while ILS is enabled. Its authored seven-degree reference and flap-failure/Nighthawk rules are retained. All 8,192 complete original reference updates agree, including 2,048 retained flight-path cases and 123 compact captures. Hardware FCOS/FPATAN adapters are the only intercepted numerical dependencies.
+
+    python3 tools/check_aerodynamic_approach_reference.py
+
+This reference calculation is joined at its original boundary after coefficients/fuel/faults and before automatic recovery and input. Toggling ILS on and off during all 11,520 persistent advanced-flight updates also agrees, now checking 319 numerical/navigation/approach/ground/view/recovery fields and output events. This calculation supplies reference values; the separate scripted automatic-landing callback remains to be reconstructed.
+
+    python3 tools/check_aerodynamic_autopilot.py --persistent --ils

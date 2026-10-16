@@ -93,6 +93,19 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   damage.systems[std::to_underlying(aircraft_system::left_engine)] = powerplant.engine_condition[0];
   damage.systems[std::to_underlying(aircraft_system::right_engine)] = powerplant.engine_condition[1];
 
+  if(context.approach_reference_enabled) {
+    update_aerodynamic_approach_reference(state.approach,{
+      .data{data},
+      .motion{motion},
+      .coefficients{state.coefficients},
+      .geometry{geometry},
+      .aircraft{craft},
+      .low_speed_reference{aircraft.low_speed_reference},
+      .flaps_condition{damage.condition(aircraft_system::flaps)},
+    });
+    state.response.previous_pitch_rate = state.approach.ground_speed;
+  }
+
   manual.air_brake_condition = damage.condition(aircraft_system::air_brake);
   auto const predicted{check_aerodynamic_recovery(state.autopilot.recovery,manual.controls,powerplant,manual.air_brake_condition,{
     .eligibility{
@@ -333,6 +346,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   if(realistic && ground.contact.force.x != 0) motion.velocity_ned.z = 0;
   autopilot.guidance.ground_speed = state.response.previous_pitch_rate;
   autopilot.guidance.roll_angle = state.ground.roll_angle;
+  state.approach.ground_speed = state.response.previous_pitch_rate;
   return events;
 }
 

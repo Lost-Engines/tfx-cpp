@@ -19,6 +19,7 @@ from aerodynamic_snapshot import fields,tail,snapshot
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
+p.add_argument('--ils',action='store_true',help='Toggle ILS reference calculations during the trace')
 p.add_argument('--persistent',action='store_true',help='Continue all modes through 96 ticks, including original outer-marker acknowledgment and key-triggered resets')
 a=p.parse_args();path=a.research/'installs/cd_1994_09/TFX/TFX.DAT';im=NativeReference(path);im.call(0xde851);im.cpu.mem_map(0x300000,0x4000);backends=(hardware_fpatan(im,a.build),hardware_sine_cosine(im,a.build),hardware_tangent(im,a.build));rng=random.Random(0x9ac9c)
 data_size=(im.layout['objects'][2]['virtual_size']+4095)&~4095;baseline=bytes(im.cpu.mem_read(im.data,data_size));events=[];guided=[];recovering=[];recovery_changes=[];resets=[]
@@ -62,7 +63,7 @@ for scene in range(120 if a.persistent else 1200):
  for tick in range(96 if a.persistent else 4):
   base=[bits(.02),scene%3,0,0,0,0,0,0,0,0,0,0,0,tick%2,scene%2,scene%3==0,0,0,0,1,0]
   requested_mode=65534 if a.persistent and tick in (40,80) else 65535 if tick>3 else mode if tick==3 else 0
-  auto=[requested_mode,int(tick==3),rng.randrange(65536),bits(rng.uniform(-19000,-305)),bits(rng.uniform(100,600)),-32768 if tick>3 else rng.choice([0,1,len(cells)//2]),rng.randrange(65536),(scene//30)%2,len(cells)//2,*cells,*target]
+  auto=[requested_mode,int(tick==3),rng.randrange(65536),bits(rng.uniform(-19000,-305)),bits(rng.uniform(100,600)),-32768 if tick>3 else rng.choice([0,1,len(cells)//2]),rng.randrange(65536),(scene//30)%2,len(cells)//2,int(a.ils and tick%3!=0),*cells,*target]
   ticks.append(base+auto)
  scenes.append((start,ticks))
 requests=[]
@@ -78,25 +79,26 @@ for scene,(start,ticks) in enumerate(scenes):
  for field in guide_fields:
   if field not in (0x143c8,0x14300):im.write(field,'<Q',0)
  im.write(0x14920,'<3i',0,0,0);im.write(0x1492c,'<3i',0,0,0)
+ for field in (0x14280,0x142b0,0x14290,0x142a8):im.write(field,'<Q',0)
  for tick,row in enumerate(ticks):
   dt,source,up,left,down,right,alt,accelerate,decelerate,joyx,joyy,mx,my,wind,warp,pressure,braking,crashing,wet,gear_damage,surface=row[:21]
-  mode,enabled,heading,target_down,target_speed,index,pitch,followed,count=row[21:30];cells=row[30:30+count*2];target=row[30+count*2:]
+  mode,enabled,heading,target_down,target_speed,index,pitch,followed,count,ils=row[21:31];cells=row[31:31+count*2];target=row[31+count*2:]
   im.write(0x142c0,'<Q',dt);im.write(0x13478,'<B',source);im.cpu.mem_write(0x300038,bytes([alt]))
   for f,v in zip((0x13256,0x13258,0x1325c,0x1325e,0x1325a,0x13260),(up,left,down,right,accelerate,decelerate)):im.write(f,'<H',v)
   im.write(0xac60,'<2h',joyx,joyy);im.write(0x5964,'<2h',mx,my)
-  for f,v,fmt in ((0x8e25,wind,'<B'),(0xe780,warp,'<B'),(0x8f32,int(pressure),'<B'),(0x146b0,float(braking),'<d'),(0x8e22,crashing,'<B'),(0x8f31,wet,'<B'),(0x8e23,gear_damage,'<B'),(0xe75e,surface,'<H'),(0x11108,0x302000 if followed else 0,'<I'),(0x5978,0x301000,'<I')):im.write(f,fmt,v)
+  for f,v,fmt in ((0x8f82,ils,'<B'),(0x8e25,wind,'<B'),(0xe780,warp,'<B'),(0x8f32,int(pressure),'<B'),(0x146b0,float(braking),'<d'),(0x8e22,crashing,'<B'),(0x8f31,wet,'<B'),(0x8e23,gear_damage,'<B'),(0xe75e,surface,'<H'),(0x11108,0x302000 if followed else 0,'<I'),(0x5978,0x301000,'<I')):im.write(f,fmt,v)
   if mode==65534:im.call(0x85a7c)
   elif mode!=65535:
    for f,v,fmt in ((0x14960,mode,'<H'),(0x14958,enabled,'<H'),(0x1493a,heading,'<H'),(0x14348,target_down,'<Q'),(0x8d40,target_speed,'<Q')):im.write(f,fmt,v)
   if index!=-32768:im.write(0x597c,'<h',index);im.write(0x14938,'<H',pitch)
   im.cpu.mem_write(0x301000,struct.pack('<H',count)+bytes(cells));im.cpu.mem_write(0x302000,struct.pack('<3i',*target[:3]));im.cpu.mem_write(0x30200e,struct.pack('<H',12345));im.cpu.mem_write(0x302012,struct.pack('<i',target[3]))
   events.clear();recovery_changes.clear();resets.clear();im.call(0x9fe50 if model else 0x9fe14,limit=2000000)
-  expected=snapshot(im)+autopilot_snapshot();actual=list(map(int,output[at].split()));at+=1
-  assert actual[:314]==expected,(scene,tick,craft,model,[(i,hex(fields[i][0]) if i<len(fields) else hex(tail[i-260][0]) if 260<=i<282 else 'autopilot',x,y) for i,(x,y) in enumerate(zip(actual[:314],expected)) if x!=y],len(expected))
+  expected=snapshot(im)+autopilot_snapshot()+[im.read(f,'<Q')[0] for f in (0x14280,0x142b0,0x14290,0x142a8,0x143c8)];actual=list(map(int,output[at].split()));at+=1
+  assert actual[:319]==expected,(scene,tick,craft,model,[(i,hex(fields[i][0]) if i<len(fields) else hex(tail[i-260][0]) if 260<=i<282 else 'autopilot',x,y) for i,(x,y) in enumerate(zip(actual[:319],expected)) if x!=y],len(expected))
   gear=sum(e[0]=='gear' for e in events);bump=int(any(e[0]=='bump' for e in events));changes=[e[1] for e in events if e[0]=='reheat'];change=recovery_changes[-1] if recovery_changes else 0;warning=int(any(e[0]=='warning' for e in events))
-  assert actual[314:]==[gear,bump,len(changes),*changes,change,warning],(scene,tick,'outputs',actual[314:],events)
+  assert actual[319:]==[gear,bump,len(changes),*changes,change,warning],(scene,tick,'outputs',actual[319:],events)
   updates+=1;restores+=recovery_changes.count(2);engages+=recovery_changes.count(1);reheat+=len(changes);warnings+=warning;reset_updates+=len(resets)
   im.write(0x1347b,'<B',6 if model else 1) # Original outer caller 0x8f98c, after snapshot.
 assert len(guided)>100 and len(recovering)>100
 if a.persistent:assert engages>10 and reset_updates>10
-print(f'{updates} joined flight updates agree in {len(scenes)} complete original-initialized scenes: {len(guided)} guided branches, {len(recovering)} speed recoveries, {engages} automatic engagements, {restores} recovery restorations, {reset_updates} entry resets, {warnings} descent warnings, {reheat} reheat changes; all 314 snapshot fields and outputs')
+print(f'{updates} joined flight updates agree in {len(scenes)} complete original-initialized scenes: {len(guided)} guided branches, {len(recovering)} speed recoveries, {engages} automatic engagements, {restores} recovery restorations, {reset_updates} entry resets, {warnings} descent warnings, {reheat} reheat changes; all 319 snapshot fields and outputs')
