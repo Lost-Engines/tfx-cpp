@@ -371,3 +371,14 @@ python3 tools/check_surface_combat.py --save-fixture tests/reference/surface_com
 Mobile surface units now execute their nearby-aircraft firing requests (`0x7be44`) and authored ground-attack requests (`0x7bee8`) through the live projectile system. Enemy/neutral units consider the player first, then scan the allied aircraft pool backwards; allied units scan the enemy pool. The original retains different player/nonplayer range boundaries, F-117 detection reduction, per-unit player shot count, one-in-sixty random firing check, minimum launch speed and vertical anti-air launch angle. Ground attacks use their separate authored launch pitch and only fire at an existing intact terrain assembly.
 
 Surface route requests now deliver synchronously before movement. Returning requests and consuming them afterwards would launch from the next position. The native comparison includes **512 complete route sequences**, alongside isolated acquisition/ground-attack cases, for **4,096 scenarios / 135,492 updates / 1,759 weapon constructor requests**. Original enumerators, bearing calculations, route/controller/movement code and random calls execute; terrain presence/destruction and the projectile constructor are explicit boundaries. A compact subset of synthetic cases runs through CTest without game data. These checks establish surface-unit firing, not the separate mission-area flak controller or a completed ground-attack mission.
+
+### Native presentation media
+
+```sh
+python3 tools/check_media.py
+python3 tools/check_media.py --build build-san
+```
+
+The C++ media library now decodes original `war ` screen images, four-plane sprites and the word-bit compressed delta animations (`0xde8cc`) directly from external archive resources. It keeps indexed pixels and the original palette, validates each delta run within its VGA plane and can retain the preceding screen as a delta background. Stored animation blocks and the declared playback frame count remain separate: three original resources contain extra stored blocks, whose playback meaning must be handled by the presentation caller rather than guessed by the decoder.
+
+All **116 indexed screens, 39 sprite resources and 40 animations / 1,606 compressed blocks** compare byte for byte with independent extraction. Every animation block also executes in the original x86 decoder before final composed pixels and written coverage are compared. The complete corpus passes with ASan/UBSan, alongside synthetic literal-refill, retained-background and malformed-stream tests. No game artwork or original instructions are bundled. This establishes the media layer; original presentation scheduling, fades, fonts, menus and campaign dispatch are still being connected.
