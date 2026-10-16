@@ -268,7 +268,7 @@ Native gun stages at `0xa422c` and `0xa42bc` have identical motion but different
 
 AI request delivery is synchronous: a newly launched missile can become an incoming threat before the next aircraft is updated in the same tick. Chaff/flare diversion clears the previous threat association immediately and points guidance at the decoy's current position. Decoy expiry changes diverted missiles to the native coasting callback with its 30,000-tick lifetime. The live aircraft and projectile systems share one gameplay random stream; procedural vertex jitter remains separate.
 
-All **128 retail missions** run 1,024 integrated four-tick steps and render under AddressSanitizer/UndefinedBehaviorSanitizer with live aircraft weapon releases and contacts. This is a robustness sweep, not a claim that every mission or end condition has been completed. Explosion/impact effect spawning, complete player damage, ground/designator targeting, flak/surface targeting and the mission-result bridge still need integration.
+All **128 retail missions** run 1,024 integrated four-tick steps and render under AddressSanitizer/UndefinedBehaviorSanitizer with live aircraft weapon releases and contacts. This is a robustness sweep, not a claim that every mission or end condition has been completed. Explosion/impact effect spawning, complete player death/results presentation, ground/designator targeting, flak/surface targeting and the mission-result bridge still need integration.
 
 ### Player cannon and mounting geometry
 
@@ -302,3 +302,20 @@ Radar acquisition (`0x836ac`, `0x8296c`, `0x828b0`) preserves 20 contact slots a
 **1,024 persistent radar frames and 4,096 acquisition/lock states** agree with original execution. Screen projection and sound/radio output are supplied boundaries in this comparison; it does not prove the graphics projection or the separate laser, anti-radiation, cruise and anti-ship controllers. Native contact-buffer overflow beyond the supported 20 slots is not reproduced as memory corruption.
 
 The live build connects Enter, Backspace/O, F, C and Space to selection, target cycling, cannon and finite carried-store release. The private X11 smoke test verifies both the store count and cannon ammunition change through actual keyboard input. All 128 retail missions initialise their default loadout, run 1,024 four-tick integration steps and render under AddressSanitizer/UndefinedBehaviorSanitizer. Complete cockpit radar drawing, ground/designator acquisition, separate mouse-trigger handling and missile-lock audio remain outstanding.
+
+### Player system damage and disabled flight
+
+```sh
+python3 tools/check_damage.py --save-fixture tests/reference/damage.txt
+python3 tools/check_disabled.py --save-fixture tests/reference/disabled.txt
+```
+
+The SSD percentage-damage opcode delivers its callback synchronously, before testing the fatal branch. This matters when the callback changes that SSD's state or animation. Player reports now execute entry 13 and the native system-damage calculation (`0x8f460`/`0x8f3ec`) on the same gameplay generator used by aircraft and projectiles. Solid contacts also debit the querying player's health and deliver the native 100-percent report. A regression exercises a re-entrant restoration callback before the fatal decision.
+
+The native calculation samples eleven system slots in its authored order, even for repeated/zero reports. It distinguishes intermittent faults (14), failed systems (11), normal/active states and invulnerability. Intermittent faults clear strictly after 1,080 ticks in `0x871d4`; the word repair clock retains wrap/signed comparisons. **8,192 cases** agree in all system bytes, clocks, random state, stored damage double and notification count. Some slot purposes remain numbered until their cockpit consumers are established; no purpose is invented from proximity.
+
+A lost player now enters the translated disabled/ejected flight branch (`0x8e5a8`) rather than staying flyable or freezing in mid-air. It retains automatic levelling, the special Mach 0.5 request, roll, matrix normalisation cadence, descent, supplied ground contacts and integer/float handoff. **4,608 complete callback steps** match original execution across the three aircraft, beginning with 64 ordinary flight frames before entering the disabled state. These sequence cases run through CTest without original assets. This establishes the motion branch, not the complete ejection camera, crash-effects lifetime or front-end result sequence; those remain to be joined.
+
+Weapon-system faults participate in Space-edge store release, while the separate held-key cannon branch retains its original nonzero-byte checks. Engine display states are refreshed from the engine fields at the original frame boundary. The Arcade model's original handling is retained; physical-model damage effects and complete cockpit fault displays are still outstanding.
+
+After joining these paths, all 128 retail missions again run 1,024 integrated four-tick steps under AddressSanitizer/UndefinedBehaviorSanitizer. All 24 CTests pass in normal, sanitizer and Release builds; private-window weapon input also passes. These are bounded subsystem/robustness checks, not completed-mission or end-to-end campaign proofs.

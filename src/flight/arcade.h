@@ -63,6 +63,7 @@ struct arcade_state {
 };
 
 void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<math::angle> const &angles, float speed, bool landed, ground_contact ground = {});
+void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {});
 void advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {}, bool time_warp = false);
 
 } // namespace tfx::flight

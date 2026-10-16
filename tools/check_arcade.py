@@ -17,7 +17,7 @@ FLOAT_FIELDS = (0x13480, 0x13484, 0x13488, 0x87a0, 0x87a4, 0x8798, 0x879c, 0x86f
 NAMES = ['x', 'y', 'z', 'int_x', 'int_y', 'int_z'] + [f'basis{i}' for i in range(9)] + ['pitch_remainder', 'heading_remainder', 'roll_remainder', 'pitch_target', 'roll_target', 'pitch_filtered', 'roll_filtered', 'speed', 'throttle', 'minimum', 'maximum', 'target_speed', 'metres_per_second', 'altitude', 'movement'] + ['unrounded_speed', 'fixed_speed', 'landed', 'low_speed_ground_contact', 'collision', 'recovering', 'afterburner', 'fuel_readout', 'fuel', 'fuel_flow', 'pitch', 'heading', 'roll']
 
 
-def capture(aircraft, position, angles, speed, controls, warp=False, landed=False, ground=None, engines=None):
+def capture(aircraft, position, angles, speed, controls, warp=False, landed=False, ground=None, engines=None, disabled=False):
     image = NativeReference(DATA / 'TFX.DAT')
     image.intercept(0x744e4, 'Host mouse initialisation; report no DOS mouse driver', lambda im: (im.cpu.reg_write(r.UC_X86_REG_EAX, 0), im.return_from()))
     image.intercept(0x74614, 'Host mouse range/position reset has no flight-state effect', lambda im: im.return_from())
@@ -27,7 +27,7 @@ def capture(aircraft, position, angles, speed, controls, warp=False, landed=Fals
     image.intercept(0x7dde4, 'Warning text delivery outside this flight-only capture', lambda im: im.return_from())
     image.intercept(0xa4dfc, 'Sound output outside this flight-only capture', lambda im: im.return_from())
     image.intercept(0xa4edc, 'Sound event output outside this flight-only capture', lambda im: im.return_from())
-    image.intercept(0xa6068, 'HUD message output outside this flight-only capture', lambda im: im.return_from())
+    image.intercept(0xa6068, 'Optional external-device output; no device is supplied in this flight-only capture', lambda im: im.return_from())
     for address, value in zip((0x13424, 0x13430, 0x1343c), position):
         image.write(address, '<i', value)
     image.write(0x86c8, '<3H', *angles)
@@ -64,7 +64,8 @@ def capture(aircraft, position, angles, speed, controls, warp=False, landed=Fals
         image.write(0x14888, '<d', int(engines))
     expected = []
     previous_buttons = 0
-    for ticks, pitch, roll, buttons, accelerate, decelerate in controls:
+    for frame, (ticks, pitch, roll, buttons, accelerate, decelerate) in enumerate(controls):
+        if disabled: image.write(0x86ce, '<B', int(frame >= 64))
         image.write(0x13476, '<H', ticks)
         image.write(0x10bf2, '<h', pitch)
         image.write(0x10bf0, '<h', roll)
