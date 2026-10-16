@@ -26,6 +26,7 @@
 #include "missions/timeline.h"
 #include "missions/progress.h"
 #include "platform/window.h"
+#include "platform/arming.h"
 #include "platform/flight.h"
 #include "render/camera.h"
 #include "render/framebuffer.h"
@@ -97,6 +98,11 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     fixed_scenery.push_back(handle);
   }
   tfx::weapons::armament armament{mission_setup.aircraft,tables.weapons,tables.arming};
+  armament.fit_default(mission_setup.weapons);
+  if(campaign_flight && !inspect && !mission_setup.default_weapons) {
+    if(!arm_mission(*shared_window,game,tables,armament,mission_setup.aircraft,mission_setup.weapons)) return false;
+  }
+  auto const initial_stores{armament.pylons};
   tfx::sensors::air_contacts radar;
   tfx::sensors::air_lock seeker;
   std::vector<tfx::sensors::air_contact> radar_actors;
@@ -449,7 +455,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     player = {};
     cannon = {};
     player_damage = {};
-    armament.fit_default(mission_setup.weapons);
+    armament.pylons = initial_stores;
     armament.selected = 0;
     armament.select(mission_setup.aircraft == tfx::flight::player_aircraft::nighthawk ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false);
     armament.guns = true;

@@ -8,7 +8,13 @@ vec3d camera::transform(vec3d const &world) const {
   return {relative.dot(right), relative.dot(down), relative.dot(forward)};
 }
 vec2d camera::project(vec3d const &point) const {
-  return {projection_origin.x + point.x * focal_length / point.z,projection_origin.y + point.y * focal_length / point.z};
+  if(projection == projection_mode::original_model) {
+    // Native 0xb9434: signed Q16 X/Y shifted by eight, divided by the signed
+    // integer depth, then added to the viewport origin. IDIV truncates toward zero.
+    double const depth{std::floor(point.z)};
+    return projection_origin + vec2d{std::trunc(std::floor(point.x * 256) / depth),std::trunc(std::floor(point.y * 256) / depth)};
+  }
+  return {projection_origin.x + point.x * focal_distance / point.z,projection_origin.y + point.y * focal_distance / point.z};
 }
 
 camera aircraft_camera(vec3f const &position, math::attitude const &orientation) {
@@ -30,6 +36,7 @@ camera orbit_camera(vec3<math::angle> const &angles, int32_t const distance, vec
   int const pitch{angles.x >> 6}, yaw{angles.y >> 6}, roll{angles.z >> 6};
   auto const sp{sine(pitch)}, s{sine(yaw + roll)}, t{sine(yaw - roll)}, c{cosine(yaw + roll)}, d{cosine(yaw - roll)};
   auto const multiply{[](int32_t const a, int32_t const b) { return (a * b) >> math::matrix_fraction_bits; }};
+  // This setter stores rows, unlike the component generator's column-major output.
   mat3<int32_t> matrix;
   matrix.data = {
     (-multiply(d - c,sp) + c + d) >> 1,
@@ -52,10 +59,12 @@ camera orbit_camera(vec3<math::angle> const &angles, int32_t const distance, vec
   vec3<int32_t> const position{doubled(sine(reverse_yaw),horizontal),doubled(sine(reverse_pitch),distance),doubled(cosine(reverse_yaw),horizontal)};
   return {
     .position{vec3d{position} / 65536},
-    .right{vec3d{vec3<int32_t>{matrix.data[0],matrix.data[3],matrix.data[6]}} / math::matrix_unit},
-    .down{vec3d{vec3<int32_t>{matrix.data[1],matrix.data[4],matrix.data[7]}} / math::matrix_unit},
-    .forward{vec3d{vec3<int32_t>{matrix.data[2],matrix.data[5],matrix.data[8]}} / math::matrix_unit},
+    .right{vec3d{vec3<int32_t>{matrix.data[0],matrix.data[1],matrix.data[2]}} / math::matrix_unit},
+    .down{vec3d{vec3<int32_t>{matrix.data[3],matrix.data[4],matrix.data[5]}} / math::matrix_unit},
+    .forward{vec3d{vec3<int32_t>{matrix.data[6],matrix.data[7],matrix.data[8]}} / math::matrix_unit},
     .projection_origin{vec2d{projection_origin}},
+    .focal_distance{256},
+    .projection{projection_mode::original_model},
   };
 }
 

@@ -32,6 +32,10 @@ add_library(tfx_core
   src/presentation/score_player.h
   src/presentation/scores.cpp
   src/presentation/scores.h
+  src/presentation/arming_preview.cpp
+  src/presentation/arming_preview.h
+  src/presentation/arming_screen.cpp
+  src/presentation/arming_screen.h
   src/presentation/arming_widgets.cpp
   src/presentation/arming_widgets.h
   src/presentation/arming_controller.cpp
@@ -156,6 +160,8 @@ configure_first_party(tfx_core)
 
 add_executable(tfx
   src/main.cpp
+  src/platform/arming.cpp
+  src/platform/arming.h
   src/platform/flight.cpp
   src/platform/flight.h
   src/platform/presentations.cpp
@@ -322,6 +328,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(arming_preview_probe tests/arming_preview_probe.cpp)
+  target_link_libraries(arming_preview_probe PRIVATE tfx_core)
+  configure_first_party(arming_preview_probe)
 
   add_executable(arming_controls_probe tests/arming_controls_probe.cpp)
   target_link_libraries(arming_controls_probe PRIVATE tfx_core)

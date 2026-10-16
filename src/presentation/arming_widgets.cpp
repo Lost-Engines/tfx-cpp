@@ -1,5 +1,6 @@
 #include "arming_widgets.h"
 #include <cstdio>
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
 
@@ -23,6 +24,45 @@ void outline(render::software_renderer &renderer, std::array<vec2<int16_t>,4> co
 }
 
 } // anonymous namespace
+
+namespace {
+void panel(render::software_renderer &renderer, std::array<vec2<int16_t>,4> const &corners, uint8_t const colour, vec2<int16_t> const &offset) {
+  // The native UI rectangle includes both far edges, unlike the inspection polygon painter.
+  int left{render::screen_width}, right{-1}, top{render::screen_height}, bottom{-1};
+  for(auto const &corner : corners) {
+    left = std::min(left,corner.x + offset.x);
+    right = std::max(right,corner.x + offset.x);
+    top = std::min(top,corner.y + offset.y);
+    bottom = std::max(bottom,corner.y + offset.y);
+  }
+  left = std::max(left,0);
+  right = std::min(right,render::screen_width - 1);
+  top = std::max(top,0);
+  bottom = std::min(bottom,render::screen_height - 1);
+  if(left > right || top > bottom) return;
+  for(int y{top}; y <= bottom; ++y) std::fill_n(renderer.output.pixels.begin() + y * render::screen_width + left,right - left + 1,colour);
+}
+} // anonymous namespace
+
+void draw_arming_unavailable(render::software_renderer &renderer, arming_assets const &assets) {
+  panel(renderer,assets.unavailable_box,0,{0,0});
+  panel(renderer,assets.unavailable_box,76,{-1,-1});
+  renderer.text(127,96,assets.unavailable[0],15);
+  renderer.text(127,106,assets.unavailable[1],15);
+  renderer.text(126,95,assets.unavailable[0],56);
+  renderer.text(126,105,assets.unavailable[1],56);
+}
+void draw_arming_store_label(render::software_renderer &renderer, std::string const &label, vec2<int> const &position) {
+  int const half_width{static_cast<int>(label.size()) * 3};
+  auto const x{static_cast<int16_t>(position.x)}, y{static_cast<int16_t>(position.y)};
+  auto const left{static_cast<int16_t>(x - half_width - 4)}, right{static_cast<int16_t>(x + half_width + 2)};
+  auto const top{static_cast<int16_t>(y - 2)}, bottom{static_cast<int16_t>(y + 6)};
+  std::array<vec2<int16_t>,4> const corners{{{left,top},{right,top},{right,bottom},{left,bottom}}};
+  panel(renderer,corners,0,{0,0});
+  panel(renderer,corners,76,{1,1});
+  renderer.text(x + 2 - half_width,y + 2,label,15);
+  renderer.text(x + 1 - half_width,y + 1,label,56);
+}
 
 flight::store_effects draw_arming_widgets(render::software_renderer &renderer, arming_assets const &assets,
   arming_state const &state, weapons::armament const &inventory, std::span<weapons::definition const> const weapons,

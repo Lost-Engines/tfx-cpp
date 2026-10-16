@@ -26,6 +26,7 @@ struct arming_assets {
   std::array<std::string,14> categories;
   std::string inertia_format, drag_format, internal, maximum, mass_format, store_mass_format, store_drag_format;
   std::array<std::string,2> unavailable;
+  std::array<vec2<int16_t>,4> unavailable_box;
   std::vector<arming_region> regions;
   std::array<arming_region,6> rows;
   std::array<unsigned int,flight::store_slots> paired;

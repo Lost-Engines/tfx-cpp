@@ -41,15 +41,37 @@ with tempfile.TemporaryDirectory(prefix='tfx-frontend-window-') as temporary:
                         window=found.stdout.splitlines()[0];run('xdotool','windowfocus','--sync',window);time.sleep(1);return window
                     time.sleep(.05)
                 log.seek(0);raise RuntimeError('front-end window did not appear:\n'+log.read()[-4000:])
+            def arm_fws(window):
+                # Let the original forty-stage fade complete, then use the first
+                # weapon row and the dedicated SSD's mount-1 selection volume.
+                time.sleep(1)
+                def click(x,y,button=1):
+                    run('xdotool','mousemove','--window',window,str(x),str(y));time.sleep(.15)
+                    run('xdotool','mousedown',str(button));time.sleep(.1);run('xdotool','mouseup',str(button));time.sleep(.15)
+                click(500,72)     # Logical pointer (250,30): AIM 9S.
+                click(452,370)    # Logical pointer (226,154): paired mounts 1/6.
+                click(452,370,3)  # End placement, retaining the selected stores.
+                run('import','-window',window,'/tmp/tfx-arming-window.png')
+                click(394,475)    # Original DONE button hotspot.
+                deadline=time.monotonic()+10
+                while time.monotonic()<deadline and game.poll() is None:
+                    log.seek(0)
+                    if 'TFX miss501 /' in log.read():return
+                    time.sleep(.1)
+                log.seek(0);raise RuntimeError('arming DONE did not launch flight: '+run('xdotool','getwindowname',window).stdout+'\n'+log.read()[-4000:])
             def enter_fws(window):
                 log.seek(0);log.truncate();
                 # Original 4:3 viewport mapping: logical (120,76) -> (240,182).
                 run('xdotool','mousemove','--window',window,'240','182');run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(1)
                 deadline=time.monotonic()+15
+                armed=False
                 while time.monotonic()<deadline and game.poll() is None:
-                    tap('Escape')
+                    if not armed and 'Arming' in run('xdotool','getwindowname',window).stdout:
+                        arm_fws(window);armed=True
+                    else:tap('Escape')
                     log.seek(0)
                     if 'TFX miss501 /' in log.read():
+                        if not armed:raise RuntimeError('training skipped its authored arming screen')
                         time.sleep(.3);tap('Escape');return
                 run('import','-window',window,'/tmp/tfx-frontend-failure.png')
                 title=run('xdotool','getwindowname',window).stdout
@@ -96,7 +118,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-frontend-window-') as temporary:
             window=start();tap('Down');tap('Return');tap('Return');time.sleep(1.5)
             enter_tour(window);game.wait(timeout=10)
             if game.returncode:raise RuntimeError('Tour pilot did not enter/exit flight cleanly')
-            print('Private X11 front end: edited names, Control qualification, DOS save, main menu, FWS briefing/flight saved-pilot reload and Tour squadron/route-review/flight passed')
+            print('Private X11 front end: edited names, Control qualification, DOS save, main menu, FWS briefing/custom arming/flight, saved-pilot reload and Tour squadron/route-review/flight passed')
     finally:
         if game and game.poll() is None:game.kill();game.wait()
         display.terminate();display.wait(timeout=5)

@@ -222,7 +222,7 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
     int const x{static_cast<int>(std::lround(point.x))}, y{static_cast<int>(std::lround(point.y))};
     if(source.pixel_size) {
       for(unsigned int row{0}; row != source.pixel_size; ++row) for(unsigned int col{0}; col != source.pixel_size; ++col) ink(x + static_cast<int>(col),y + static_cast<int>(row),ink_index,source.mode);
-    } else circle(x,y,static_cast<unsigned int>(source.radius * focal_length / v.z),ink_index,source.mode);
+    } else circle(x,y,static_cast<unsigned int>(source.radius * view.focal_distance / v.z),ink_index,source.mode);
     return;
   }
   if(source.kind == models::primitive_kind::line && camera_vertices.size() == 2) {
@@ -232,10 +232,10 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
         switch(plane) {
         case 0: return v.z - view.near_distance;
         case 1: return view.far_distance - v.z;
-        case 2: return v.x + view.projection_origin.x / focal_length * v.z;
-        case 3: return -v.x + (screen_width - view.projection_origin.x) / focal_length * v.z;
-        case 4: return v.y + view.projection_origin.y / focal_length * v.z;
-        default: return -v.y + (screen_height - view.projection_origin.y) / focal_length * v.z;
+        case 2: return v.x + view.projection_origin.x / view.focal_distance * v.z;
+        case 3: return -v.x + (screen_width - view.projection_origin.x) / view.focal_distance * v.z;
+        case 4: return v.y + view.projection_origin.y / view.focal_distance * v.z;
+        default: return -v.y + (screen_height - view.projection_origin.y) / view.focal_distance * v.z;
         }
       }};
       double const da{distance(a.position)}, db{distance(b.position)};
@@ -252,10 +252,10 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
       switch(plane) {
       case 0: return v.z - view.near_distance;
       case 1: return view.far_distance - v.z;
-      case 2: return v.x + view.projection_origin.x / focal_length * v.z;
-      case 3: return -v.x + (screen_width - view.projection_origin.x) / focal_length * v.z;
-      case 4: return v.y + view.projection_origin.y / focal_length * v.z;
-      default: return -v.y + (screen_height - view.projection_origin.y) / focal_length * v.z;
+      case 2: return v.x + view.projection_origin.x / view.focal_distance * v.z;
+      case 3: return -v.x + (screen_width - view.projection_origin.x) / view.focal_distance * v.z;
+      case 4: return v.y + view.projection_origin.y / view.focal_distance * v.z;
+      default: return -v.y + (screen_height - view.projection_origin.y) / view.focal_distance * v.z;
       }
     }};
     if(clipped.empty()) return;
