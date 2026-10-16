@@ -23,6 +23,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-ejection-') as temporary:
         if not select.select([read],[],[],5)[0]:raise RuntimeError('private X11 display did not start')
         number=os.read(read,64).decode().strip();os.close(read)
         env=dict(os.environ,DISPLAY=':'+number,LIBGL_ALWAYS_SOFTWARE='1',XDG_RUNTIME_DIR=temporary,XMODIFIERS='@im=none')
+        # LeakSanitizer cannot inspect a process under GDB/ptrace; separate
+        # sanitizer runs retain leak checking outside this observer test.
+        env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
         for name in ('WAYLAND_DISPLAY','XDG_SESSION_TYPE','DBUS_SESSION_BUS_ADDRESS'):env.pop(name,None)
         def run(*command):return subprocess.run(command,env=env,timeout=5,check=True,capture_output=True,text=True)
         def tap(key,settle=.4):
