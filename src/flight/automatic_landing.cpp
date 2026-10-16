@@ -81,6 +81,7 @@ void prepare(automatic_landing &landing, aerodynamic_flight &flight, damage_stat
   data.fixed_speed = 0;
   flight.view.position.y = 0;
   events.score_change = landing_score_change;
+  events.clear_basic_speed = true;
 }
 void finish(automatic_landing &landing, aerodynamic_flight &flight, automatic_landing_context const &context, automatic_landing_events &events) {
   events.ordered.push_back(automatic_landing_event::stopped);

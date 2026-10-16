@@ -24,6 +24,7 @@ struct automatic_landing_context {
 struct automatic_landing_events {
   std::vector<automatic_landing_event> ordered{};
   int32_t score_change{0};
+  bool clear_basic_speed{false}; // Setup also clears the separate Arcade/Simple speed and target caches.
 };
 
 // Complete native 0x9feb4, including setup 0xa0494, scripted approach,

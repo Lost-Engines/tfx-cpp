@@ -92,7 +92,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .gear_fraction{state.gear_fraction},
     .gear_condition{damage.condition(aircraft_system::landing_gear)},
   })};
-  events.recovery = predicted.recovery.change;
+  if(predicted.recovery.change != aerodynamic_recovery_change::none) events.recovery_changes.push_back(predicted.recovery.change);
   events.descent_warning = predicted.descent_warning;
   events.afterburner.insert(events.afterburner.end(),predicted.recovery.afterburner.begin(),predicted.recovery.afterburner.end());
   damage.systems[std::to_underlying(aircraft_system::air_brake)] = manual.air_brake_condition;
@@ -166,7 +166,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .navigation{context.navigation},
   })};
   events.afterburner.insert(events.afterburner.end(),controlled.afterburner.begin(),controlled.afterburner.end());
-  if(controlled.recovery != aerodynamic_recovery_change::none) events.recovery = controlled.recovery;
+  if(controlled.recovery != aerodynamic_recovery_change::none) events.recovery_changes.push_back(controlled.recovery);
   state.response.previous_pitch_rate = autopilot.guidance.ground_speed;
   state.ground.roll_angle = autopilot.guidance.roll_angle;
   damage.systems[std::to_underlying(aircraft_system::air_brake)] = manual.air_brake_condition;

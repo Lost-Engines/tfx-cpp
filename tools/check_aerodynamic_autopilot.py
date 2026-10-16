@@ -94,8 +94,8 @@ for scene,(start,ticks) in enumerate(scenes):
   events.clear();recovery_changes.clear();resets.clear();im.call(0x9fe50 if callback==2 or (callback==0 and model==1) else 0x9fe14,limit=2000000)
   expected=snapshot(im)+autopilot_snapshot(im)+[im.read(f,'<Q')[0] for f in (0x14280,0x142b0,0x14290,0x142a8,0x143c8)];actual=list(map(int,output[at].split()));at+=1
   assert actual[:319]==expected,(scene,tick,craft,model,[(i,hex(fields[i][0]) if i<len(fields) else hex(tail[i-260][0]) if 260<=i<282 else 'autopilot',x,y) for i,(x,y) in enumerate(zip(actual[:319],expected)) if x!=y],len(expected))
-  gear=sum(e[0]=='gear' for e in events);bump=int(any(e[0]=='bump' for e in events));changes=[e[1] for e in events if e[0]=='reheat'];change=recovery_changes[-1] if recovery_changes else 0;warning=int(any(e[0]=='warning' for e in events))
-  assert actual[319:]==[gear,bump,len(changes),*changes,change,warning],(scene,tick,'outputs',actual[319:],events)
+  gear=sum(e[0]=='gear' for e in events);bump=int(any(e[0]=='bump' for e in events));changes=[e[1] for e in events if e[0]=='reheat'];warning=int(any(e[0]=='warning' for e in events))
+  assert actual[319:]==[gear,bump,len(changes),*changes,len(recovery_changes),*recovery_changes,warning],(scene,tick,'outputs',actual[319:],events)
   updates+=1;restores+=recovery_changes.count(2);engages+=recovery_changes.count(1);reheat+=len(changes);warnings+=warning;reset_updates+=len(resets)
   im.write(0x1347b,'<B',(1,6,0,2)[model]) # Original outer caller 0x8f98c, after snapshot.
 assert len(guided)>100 and len(recovering)>100

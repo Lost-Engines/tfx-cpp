@@ -49,7 +49,7 @@ inline void trace_automatic_landing(tfx::flight::aerodynamic_flight &flight, tfx
     std::cout << static_cast<unsigned int>(landing.phase) << ' ';
     for(auto const *vector : {&landing.approach.destination_metres,&landing.approach.player_metres}) for(auto const value : *vector) std::cout << static_cast<uint32_t>(value) << ' ';
     std::cout << std::bit_cast<uint64_t>(landing.approach.distance_km) << ' ' << std::bit_cast<uint64_t>(landing.approach.pitch_degrees) << ' ' << landing.approach.flaring << ' ';
-    std::cout << static_cast<uint32_t>(events.score_change) << ' ' << events.ordered.size() << ' ';
+    std::cout << static_cast<uint32_t>(events.score_change) << ' ' << events.clear_basic_speed << ' ' << events.ordered.size() << ' ';
     for(auto const event : events.ordered) std::cout << std::to_underlying(event) << ' ';
     std::cout << '\n';
   }
