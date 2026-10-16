@@ -13,8 +13,10 @@ struct aerodynamic_follow_target {
   int32_t speed_q16{0};
 };
 struct aerodynamic_navigation {
-  vec3<int32_t> player_world{0,0,0};
-  vec3<int32_t> target_world{0,0,0};
+  // East/Down/North: world units during route guidance; native automatic
+  // landing reuses these retained coordinates in metres at its handover.
+  vec3<int32_t> player_position{0,0,0};
+  vec3<int32_t> target_position{0,0,0};
   int16_t route_index{1}; // Original one-based selection; invalid requests retain it.
   math::angle target_pitch{0};
   double route_distance{0}; // Thousands of world units, not kilometres.

@@ -15,6 +15,7 @@ from native_reference import NativeReference,r
 from native_x87 import hardware_fpatan,hardware_sine_cosine,hardware_tangent
 from aerodynamic_reference import initialise_reference
 from aerodynamic_snapshot import fields,tail,snapshot
+from aerodynamic_autopilot_snapshot import guide_fields,snapshot as autopilot_snapshot
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
@@ -45,10 +46,6 @@ im.intercept(0x9d64d,'Observe cockpit bump; instruction executes',lambda image:e
 im.intercept(0x9adae,'Observe guided branch entry; instruction executes',lambda image:guided.append(1))
 im.intercept(0x9ab78,'Observe low-speed recovery entry; instruction executes',lambda image:recovering.append(1))
 bits=lambda v:struct.unpack('<Q',struct.pack('<d',v))[0];fbits=lambda v:struct.unpack('<I',struct.pack('<f',v))[0]
-guide_fields=[0x14378,0x143c8,0x14390,0x143b0,0x143a8,0x14370,0x14388,0x143a0,0x14300,0x142f8,0x142f0,0x14340,0x14318,0x13d00,0x14398,0x14380]
-recovery_fields=[(0x14962,'<H'),(0x1327a,'<H'),(0x1327c,'<H'),(0x1327e,'<H'),(0x13278,'<H'),(0x13270,'<Q'),(0x13269,'<B')]
-def autopilot_snapshot():
- return [im.read(f,'<Q')[0] for f in guide_fields]+[v&0xffffffff for f in (0x14920,0x1492c) for v in im.read(f,'<3i')]+[im.read(0x597c,'<H')[0],im.read(0x14938,'<H')[0]]+[im.read(f,fmt)[0] for f,fmt in recovery_fields]+[int(im.read(0x1347b,'<B')[0]==255)]
 identity=[32767,0,0,0,32767,0,0,0,32767];scenes=[]
 for scene in range(120 if a.persistent else 1200):
  craft=1+scene%3;model=(scene//3)%2;mode=(scene//6)%5
@@ -93,7 +90,7 @@ for scene,(start,ticks) in enumerate(scenes):
   if index!=-32768:im.write(0x597c,'<h',index);im.write(0x14938,'<H',pitch)
   im.cpu.mem_write(0x301000,struct.pack('<H',count)+bytes(cells));im.cpu.mem_write(0x302000,struct.pack('<3i',*target[:3]));im.cpu.mem_write(0x30200e,struct.pack('<H',12345));im.cpu.mem_write(0x302012,struct.pack('<i',target[3]))
   events.clear();recovery_changes.clear();resets.clear();im.call(0x9fe50 if model else 0x9fe14,limit=2000000)
-  expected=snapshot(im)+autopilot_snapshot()+[im.read(f,'<Q')[0] for f in (0x14280,0x142b0,0x14290,0x142a8,0x143c8)];actual=list(map(int,output[at].split()));at+=1
+  expected=snapshot(im)+autopilot_snapshot(im)+[im.read(f,'<Q')[0] for f in (0x14280,0x142b0,0x14290,0x142a8,0x143c8)];actual=list(map(int,output[at].split()));at+=1
   assert actual[:319]==expected,(scene,tick,craft,model,[(i,hex(fields[i][0]) if i<len(fields) else hex(tail[i-260][0]) if 260<=i<282 else 'autopilot',x,y) for i,(x,y) in enumerate(zip(actual[:319],expected)) if x!=y],len(expected))
   gear=sum(e[0]=='gear' for e in events);bump=int(any(e[0]=='bump' for e in events));changes=[e[1] for e in events if e[0]=='reheat'];change=recovery_changes[-1] if recovery_changes else 0;warning=int(any(e[0]=='warning' for e in events))
   assert actual[319:]==[gear,bump,len(changes),*changes,change,warning],(scene,tick,'outputs',actual[319:],events)

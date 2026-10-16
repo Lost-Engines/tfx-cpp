@@ -4,12 +4,14 @@
 #include "flight/aerodynamic_step.h"
 #include "aerodynamic_snapshot.h"
 #include "aerodynamic_autopilot_snapshot.h"
+#include "automatic_landing_capture.h"
 #include "weapons/definition.h"
 
 int main(int const argc, char const *const argv[]) try {
+  bool const landing_trace{argc == 3 && std::string_view{argv[2]} == "--landing-trace"};
   bool const autopilot_trace{argc == 3 && std::string_view{argv[2]} == "--autopilot-trace"};
   bool const trace{autopilot_trace || (argc == 3 && std::string_view{argv[2]} == "--trace")};
-  if(argc != 2 && !trace) throw std::runtime_error{"expected TFX.DAT [--trace|--autopilot-trace]"};
+  if(argc != 2 && !trace && !landing_trace) throw std::runtime_error{"expected TFX.DAT [--trace|--autopilot-trace|--landing-trace]"};
   auto const source{tfx::resources::read_file(argv[1])};
   auto const frames{tfx::flight::load_aerodynamic_airframes(source)};
   auto const wind{tfx::flight::load_aerodynamic_wind_parameters(source)};
@@ -64,6 +66,7 @@ int main(int const argc, char const *const argv[]) try {
     auto state{tfx::flight::initialise_aerodynamic_flight(frames.at(craft - 1),stores,initial,wind[0],damage,random)};
     for(auto const value : aerodynamic_snapshot(state,damage,random)) std::cout << value << ' ';
     std::cout << '\n';
+    if(landing_trace) trace_automatic_landing(state,damage,random,std::cin);
     if(trace) {
       unsigned int count; std::cin >> count;
       for(unsigned int tick{0}; tick != count; ++tick) {

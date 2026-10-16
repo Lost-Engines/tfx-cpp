@@ -17,13 +17,13 @@ int32_t truncate(calculation const value) {
   return static_cast<int32_t>(value);
 }
 void measure_route_distance(aerodynamic_navigation &state) {
-  calculation const x{static_cast<calculation>(state.target_world.x) - state.player_world.x};
-  calculation const z{static_cast<calculation>(state.target_world.z) - state.player_world.z};
+  calculation const x{static_cast<calculation>(state.target_position.x) - state.player_position.x};
+  calculation const z{static_cast<calculation>(state.target_position.z) - state.player_position.z};
   double const squared{static_cast<double>(z * z + x * x)};
   state.route_distance = static_cast<double>(std::sqrt(static_cast<calculation>(squared)) * route_distance_scale);
 }
 void update_bearing(aerodynamic_navigation &state, aerodynamic_autopilot_targets &targets) {
-  auto const bearing{math::bearing(state.player_world,state.target_world)};
+  auto const bearing{math::bearing(state.player_position,state.target_position)};
   state.target_pitch = bearing.x;
   targets.heading = bearing.y;
 }
@@ -42,14 +42,14 @@ bool select_player_route(aerodynamic_navigation &state, std::span<vec2<uint8_t> 
   if(index < 1 || static_cast<unsigned int>(index) > cells.size()) return false;
   auto const &cell{cells[static_cast<unsigned int>(index - 1)]};
   state.route_index = index;
-  state.target_world.x = cell.x * map_cell_width + map_cell_centre;
-  state.target_world.z = cell.y * map_cell_width + map_cell_centre;
+  state.target_position.x = cell.x * map_cell_width + map_cell_centre;
+  state.target_position.z = cell.y * map_cell_width + map_cell_centre;
   return true;
 }
 
 void update_aerodynamic_navigation(aerodynamic_navigation &state, aerodynamic_guidance &guidance, aerodynamic_autopilot_targets &targets, aerodynamic_motion const &motion, aerodynamic_navigation_context const &context) {
   math::floating_environment const environment;
-  state.player_world = {
+  state.player_position = {
     truncate(static_cast<calculation>(motion.pose.metres_ned.y) * world_units_per_metre),
     truncate(static_cast<calculation>(motion.pose.metres_ned.z) * world_units_per_metre),
     truncate(static_cast<calculation>(motion.pose.metres_ned.x) * world_units_per_metre),
@@ -59,9 +59,9 @@ void update_aerodynamic_navigation(aerodynamic_navigation &state, aerodynamic_gu
   guidance.saved_roll_rate = motion.angular_rate.x;
   if(targets.mode == follow_mode && context.followed_aircraft) {
     auto const &followed{*context.followed_aircraft};
-    for(unsigned int axis{0}; axis != 3; ++axis) state.target_world[axis] = followed.position_q8[axis] >> 8;
+    for(unsigned int axis{0}; axis != 3; ++axis) state.target_position[axis] = followed.position_q8[axis] >> 8;
     update_bearing(state,targets);
-    targets.down_metres = static_cast<double>(static_cast<calculation>(state.target_world.y) * metres_per_foot * feet_per_world_unit);
+    targets.down_metres = static_cast<double>(static_cast<calculation>(state.target_position.y) * metres_per_foot * feet_per_world_unit);
     measure_route_distance(state);
     int16_t const fixed_speed{math::signed_word(static_cast<uint16_t>(followed.speed_q16 >> 16))};
     guidance.ground_speed = static_cast<double>(static_cast<calculation>(fixed_speed) * speed_metres_per_second);

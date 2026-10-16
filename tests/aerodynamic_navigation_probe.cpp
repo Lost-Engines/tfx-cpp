@@ -21,7 +21,7 @@ int main(int const argc, char const *const argv[]) try {
     tfx::flight::aerodynamic_navigation state;
     state.route_index = static_cast<int16_t>(index);
     state.target_pitch = static_cast<tfx::math::angle>(pitch);
-    for(auto *vector : {&state.target_world,&state.player_world}) for(auto &value : *vector) input >> value;
+    for(auto *vector : {&state.target_position,&state.player_position}) for(auto &value : *vector) input >> value;
     tfx::flight::aerodynamic_follow_target target;
     for(auto &value : target.position_q8) input >> value;
     input >> target.speed_q16;
@@ -44,7 +44,7 @@ int main(int const argc, char const *const argv[]) try {
     };
     tfx::flight::update_aerodynamic_navigation(state,guidance,targets,motion,context);
     std::vector<uint64_t> values{static_cast<uint16_t>(state.route_index),targets.heading,state.target_pitch};
-    for(auto const *vector : {&state.target_world,&state.player_world}) for(auto const value : *vector) values.push_back(static_cast<uint32_t>(value));
+    for(auto const *vector : {&state.target_position,&state.player_position}) for(auto const value : *vector) values.push_back(static_cast<uint32_t>(value));
     for(auto const value : {state.route_distance,state.followed_speed_radians,guidance.desired_flight_path,guidance.saved_roll_rate,guidance.ground_speed,targets.down_metres}) values.push_back(std::bit_cast<uint64_t>(value));
     if(argc == 2) {
       unsigned int field{0};
