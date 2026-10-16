@@ -14,6 +14,8 @@ The original presentation graph, media/font/text paths, scene timing and options
 
 Original arming is now integrated between the normal briefing/review and flight. Its screen uses the dedicated aircraft models, original store masks and exclusion rules, paired mounting, native SSD mount picking, loadout statistics, bay animations and palette ramps. Custom pointer flows run for all three aircraft, and private-window tests enter live training through custom arming and the original DONE button. Original widget, controller, picking, camera and ramp comparisons are detailed in the implementation notes. Complete native 3D-frame equivalence and remaining modal/input-wait details are still separate verification work.
 
+Cockpit reconstruction now has verified shared sprite/mask painters, clock/fuel/throttle/countermeasure readouts, and seven MFD page painters. Complete original pixel/coverage comparisons cover eighteen sprite banks, embedded masks, all aircraft and both outer displays; native page selection and text measurement are checked independently. Scene-dependent displays, warnings, viewport composition and live flight integration remain in progress.
+
 ## 1. Establish complete-session reference capture
 
 Extend the relocated-original-code harness from isolated calls to reproducible initialisation/update sequences. Where complete DOS context is necessary, instrument scripted runs of the original through DOSBox. Original runs should use disposable writable installations so they do not alter the user's configuration or pilots.

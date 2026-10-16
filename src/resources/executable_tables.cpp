@@ -1,6 +1,6 @@
 #include "executable_tables.h"
-#include <stdexcept>
 #include <algorithm>
+#include <stdexcept>
 
 namespace tfx::resources {
 
@@ -61,6 +61,12 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
       .forward_distance{std::bit_cast<int32_t>(view.le32(at + 2))},
     };
   }
+  // Native 0x87114 measures the full byte without the painter's &63 mapping.
+  for(unsigned int character{0}; character != measured_advances.size(); ++character) {
+    int const index{std::bit_cast<int8_t>(view.byte(mapping + character))};
+    // MOVZX AX retains the upper word of the sign-extended index in EAX.
+    measured_advances[character] = (index < 0 ? 0xffff0000u : 0u) + view.byte(static_cast<unsigned int>(static_cast<int>(advances) + index)) + 1u;
+  }
   for(unsigned int i{0}; i != character_map.size(); ++i) character_map[i] = view.byte(mapping + i);
   for(unsigned int i{0}; i != glyphs.size(); ++i) {
     auto const at{glyph_file + i * 8};
@@ -99,6 +105,10 @@ std::span<uint8_t const> executable_tables::circle(unsigned int const radius) co
   /// The native constructor rejects zero and radii at or beyond its table limit
   if(radius >= circles.size()) return {};
   return circles[radius];
+}
+
+unsigned int executable_tables::glyph_measure(unsigned char const character) const {
+  return character == ' ' ? 3u : measured_advances[character];
 }
 
 hud_glyph const *executable_tables::glyph(unsigned char const character) const {
