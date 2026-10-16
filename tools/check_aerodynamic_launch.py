@@ -20,6 +20,7 @@ from aerodynamic_autopilot_snapshot import snapshot as autopilot_snapshot
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
+p.add_argument('--all-models',action='store_true')
 a=p.parse_args();path=a.research/'installs/cd_1994_09/TFX/TFX.DAT';im=NativeReference(path);im.call(0xde851);im.cpu.mem_map(0x300000,0x4000);backends=(hardware_fpatan(im,a.build),hardware_sine_cosine(im,a.build),hardware_tangent(im,a.build));rng=random.Random(0x8c184)
 data_size=(im.layout['objects'][2]['virtual_size']+4095)&~4095;baseline=bytes(im.cpu.mem_read(im.data,data_size));terrain_type=[50]
 im.intercept(0x744e4,'Host mouse availability is supplied without a DOS driver',lambda image:(image.cpu.reg_write(r.UC_X86_REG_EAX,0),image.return_from()))
@@ -27,14 +28,15 @@ im.intercept(0x74614,'Host mouse setup/reset delivery',lambda image:image.return
 im.intercept(0xb0d80,'Supply start-cell terrain lookup, not placement arithmetic',lambda image:(image.cpu.reg_write(r.UC_X86_REG_EAX,0),image.return_from()))
 im.intercept(0xb7a3c,'Supply checked runway/carrier start classification',lambda image:(image.cpu.reg_write(r.UC_X86_REG_EAX,terrain_type[0]),image.return_from()))
 cases=[]
-for i in range(768):
- craft=1+i%3;model=(i//3)%2;landed=(i//6)%2;height=0 if (i//12)%2 else -20
+model_count=4 if a.all_models else 2
+for i in range(768*model_count//2):
+ craft=1+i%3;model=(i//3)%model_count;landed=(i//(3*model_count))%2;height=0 if (i//(6*model_count))%2 else -20
  cases.append([craft,model,landed,height,rng.choice([0,1,2,15]),rng.randrange(10),rng.randrange(27),(i//24)%2,rng.randrange(65536),rng.randrange(65536),rng.randrange(-10000,410000),rng.choice([-10000,-800,0,5]),rng.randrange(-10000,410000),rng.randrange(65536),rng.randrange(65536),rng.randrange(65536),(i//48)%2,rng.randrange(-20,51),(i//96)%2,(i//192)%2])
 output=subprocess.check_output([str((a.build/'aerodynamic_launch_probe').resolve()),str(path)],input=('\n'.join(' '.join(map(str,row)) for row in cases)+'\n').encode()).decode().splitlines();assert len(output)==len(cases)
 for case,(row,line) in enumerate(zip(cases,output)):
  craft,model,landed,height,count,slot,weapon,occupied,low,high=row[:10];position=row[10:13];angles=row[13:16];temperature,celsius,terrain_boost,weather_boost=row[16:]
  im.cpu.mem_write(im.data,baseline);terrain_type[0]=50 if height==0 else 0
- for field,value,fmt in ((0x11b2a,craft-1,'<H'),(0x1347a,6 if model else 1,'<B'),(0x11b3c,landed,'<B'),(0x1347b,255,'<B'),(0x8f30,temperature,'<B'),(0x14956,0,'<H'),(0x8c98,celsius,'<h'),(0xe762,terrain_boost,'<H'),(0xe774,128 if weather_boost else 0,'<B')):im.write(field,fmt,value)
+ for field,value,fmt in ((0x11b2a,craft-1,'<H'),(0x1347a,(1,6,0,2)[model],'<B'),(0x11b3c,landed,'<B'),(0x1347b,255,'<B'),(0x8f30,temperature,'<B'),(0x14956,0,'<H'),(0x8c98,celsius,'<h'),(0xe762,terrain_boost,'<H'),(0xe774,128 if weather_boost else 0,'<B')):im.write(field,fmt,value)
  for field,value in zip((0x13424,0x13430,0x1343c),position):im.write(field,'<i',value)
  im.write(0x86c8,'<3H',*angles)
  for system in range(12):im.write(0x7d70+system,'<B',1 if (system in (2,5) and not landed) or (system==10 and landed) else 2)

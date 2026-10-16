@@ -38,7 +38,7 @@ struct aerodynamic_ground_context {
   double metres_per_second{0};
   double seconds{.02};
   float throttle{0};
-  bool advanced_model{true};
+  bool non_arcade_model{true};
   bool carrier_surface{false};
   bool arrestor_hook_down{false};
 };

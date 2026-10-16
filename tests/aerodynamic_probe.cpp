@@ -61,7 +61,7 @@ int main(int const argc, char const *const argv[]) try {
     };
     tfx::flight::aerodynamic_initial_context const initial{
       .placement{context},
-      .model{model ? tfx::flight::aerodynamic_model::realistic : tfx::flight::aerodynamic_model::military_spec},
+      .model{aerodynamic_test_model(model)},
       .wind{wind_context},
       .surface_celsius{temperature ? std::optional<int16_t>{static_cast<int16_t>(celsius)} : std::nullopt},
     };
@@ -78,11 +78,11 @@ int main(int const argc, char const *const argv[]) try {
         if(!(std::cin >> seconds >> source >> up >> left >> down >> right >> alt >> accelerate >> decelerate >> joystick_x >> joystick_y >> mouse_x >> mouse_y >> wind_enabled >> warp >> pressure >> braking >> crashing >> wet >> gear_damage >> surface)) throw std::runtime_error{"truncated aerodynamic trace input"};
         tfx::flight::aerodynamic_navigation_context navigation;
         std::vector<vec2<uint8_t>> cells;
-        unsigned int ils{0};
+        unsigned int ils{0},callback{0};
         if(autopilot_trace) {
           unsigned int mode,enabled,heading,pitch,count,followed; int route_index;
           uint64_t target_down,target_speed;
-          std::cin >> mode >> enabled >> heading >> target_down >> target_speed >> route_index >> pitch >> followed >> count >> ils;
+          std::cin >> mode >> enabled >> heading >> target_down >> target_speed >> route_index >> pitch >> followed >> count >> ils >> callback;
           auto &targets{state.manual.controls.autopilot};
           if(mode == 65534) {
             // A key-triggered request precedes the callback, unlike automatic
@@ -147,6 +147,7 @@ int main(int const argc, char const *const argv[]) try {
           .navigation{navigation},
           .recovery_available{true},
           .approach_reference_enabled{ils != 0},
+          .callback{static_cast<tfx::flight::aerodynamic_callback>(callback)},
         };
         auto const events{tfx::flight::advance_aerodynamic_flight(state,damage,random,wind[0],step)};
         for(auto const value : aerodynamic_snapshot(state,damage,random)) std::cout << value << ' ';

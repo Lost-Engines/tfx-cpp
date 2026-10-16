@@ -6,6 +6,8 @@
 
 namespace tfx::flight {
 
+enum class aerodynamic_callback { configured, military, realistic };
+
 struct aerodynamic_tick_input {
   control_source source{control_source::keyboard};
   direction_keys keys{};
@@ -38,6 +40,7 @@ struct aerodynamic_tick_context {
   bool recovery_inhibited{false};
   bool ejected{false};
   bool approach_reference_enabled{false};
+  aerodynamic_callback callback{aerodynamic_callback::configured};
 };
 struct aerodynamic_tick_events {
   std::vector<afterburner_change> afterburner{};
