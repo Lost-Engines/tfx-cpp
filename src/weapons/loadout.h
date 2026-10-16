@@ -51,6 +51,8 @@ public:
   int16_t last_released{no_pylon};
   bool guns{true};
   armament(flight::player_aircraft aircraft, std::span<definition const> definitions, arming_tables const &tables);
+  bool can_fit(unsigned int slot, weapon_id weapon) const;
+  void assign(unsigned int slot, std::optional<weapon_id> weapon);
   void fit_default(unsigned int index);
   selection_change select(weapon_role requested, bool different_type);
   std::optional<release> fire(store_context const &context, std::span<vec3<int16_t> const> mounts, selection_change &selection, std::function<void(release const&)> const &emit = {});

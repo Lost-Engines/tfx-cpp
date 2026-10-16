@@ -159,6 +159,10 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(hud_font_probe tests/hud_font_probe.cpp)
+  target_link_libraries(hud_font_probe PRIVATE tfx_core)
+  configure_first_party(hud_font_probe)
+
   add_executable(widget_font_probe tests/widget_font_probe.cpp)
   target_link_libraries(widget_font_probe PRIVATE tfx_core)
   configure_first_party(widget_font_probe)
@@ -305,6 +309,11 @@ if(BUILD_TESTING)
   target_link_libraries(sensors_probe PRIVATE tfx_core)
   configure_first_party(sensors_probe)
   add_test(NAME sensors.native_air_radar_and_seeker COMMAND sensors_probe ${PROJECT_SOURCE_DIR}/tests/reference/sensors.txt)
+
+  add_executable(arming_probe tests/arming_probe.cpp)
+  target_link_libraries(arming_probe PRIVATE tfx_core)
+  configure_first_party(arming_probe)
+  add_test(NAME weapons.native_mount_permissions_and_assignment COMMAND arming_probe --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/reference/arming.txt)
 
   add_executable(loadout_probe tests/loadout_probe.cpp)
   target_link_libraries(loadout_probe PRIVATE tfx_core)

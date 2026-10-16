@@ -19,6 +19,37 @@ armament::armament(flight::player_aircraft const aircraft, std::span<definition 
   if(cursor != 0) throw std::runtime_error{"unterminated pylon selection ring"};
 }
 
+bool armament::can_fit(unsigned int const slot, weapon_id const weapon) const {
+  if(slot >= flight::store_slots) throw std::out_of_range{"mount permission requires a store slot"};
+  auto const candidate{std::to_underlying(weapon)};
+  if(candidate >= definitions.size()) throw std::out_of_range{"mount permission requires a weapon definition"};
+  auto const mask{definitions[candidate].mount_masks.at(std::to_underlying(aircraft) - 1)};
+  if(!(mask & (1u << slot))) return false;
+  if(aircraft == flight::player_aircraft::eurofighter) return true;
+  // Native 0x89c08 shares these mutually exclusive attachment positions in
+  // F-117 and F-22. Model presence (including a temporary preview) matters,
+  // independently of the carried quantity or weapon byte.
+  uint16_t constexpr blocked_by_slots_0_and_7{(1u << 3) | (1u << 4) | (1u << 8) | (1u << 9)};
+  uint16_t constexpr blocked_by_slots_3_4_8_9{(1u << 0) | (1u << 7)};
+  std::array<uint16_t,flight::store_slots> constexpr conflicts{
+    blocked_by_slots_0_and_7,0,0,blocked_by_slots_3_4_8_9,blocked_by_slots_3_4_8_9,
+    0,0,blocked_by_slots_0_and_7,blocked_by_slots_3_4_8_9,blocked_by_slots_3_4_8_9,
+  };
+  for(unsigned int other{0}; other != flight::store_slots; ++other)
+    if((conflicts[slot] & (1u << other)) && pylons[other].visible) return false;
+  return true;
+}
+void armament::assign(unsigned int const slot, std::optional<weapon_id> const weapon) {
+  if(slot >= flight::store_slots) throw std::out_of_range{"arming requires a store slot"};
+  if(weapon && std::to_underlying(*weapon) >= definitions.size()) throw std::out_of_range{"arming requires a weapon definition"};
+  // Native 0x8b3d4 is the setter; permission checks belong to its interactive caller.
+  pylons[slot] = {
+    .weapon{weapon ? std::to_underlying(*weapon) : empty_pylon},
+    .count{static_cast<uint8_t>(weapon.has_value())},
+    .visible{weapon.has_value()},
+  };
+}
+
 void armament::fit_default(unsigned int const index) {
   auto const &fit{tables.defaults.at(std::to_underlying(aircraft) - 1).at(index)};
   std::array<std::array<unsigned int,2>,pylon_pairs> constexpr pairs{{{0,7},{1,6},{2,5},{3,4},{8,9}}};

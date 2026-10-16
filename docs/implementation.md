@@ -580,3 +580,18 @@ The animated line painter uses signed 16.16 DDA sampling and excludes its final 
 Translated `.way` files overlay notes by key rather than replacing all English waypoint instructions. **150 live introductory screens match the original pixel for pixel**, covering every retail review in English, French, German, Italian and Spanish. The check also verifies that Enter/Escape do not dismiss the C++ note and Space does. Notes retain their raw blocks until requested, matching native delayed widget decoding. This matters for French mission 829: a stray `3` block is replaced by a later note before it can be displayed. Eager decoding would reject valid gameplay. Asset-free tests cover this replacement and translated overlays retaining other keys.
 
 Pilot integration now follows the original main menu, Tour squadron choice, mission 801's review, its flight-launch boundary, a supplied successful result, and mission 802's review/launch. The supplied result tests campaign continuation independently of combat. All thirty text player routes also agree with their compiled flight waypoint lists. Editable authoring modes and loadout selection remain separate work. The segment/review/language comparisons and pilot integration pass in development, Release and ASan/UBSan; all 41 CTests pass in each configuration. A private X11 test also enters live FWS and Tour flight through the actual Release window, including pilot reload and held-right-button review dismissal.
+
+### Arming permissions and HUD glyphs
+
+```sh
+python3 tools/check_arming.py
+python3 tools/check_hud_font.py
+```
+
+Original weapon records now expose all three aircraft's mounting masks. The typed inventory supports direct assignment/clearing separately from interactive permission checks, as native `0x8b3d4` does. Native `0x89c08` also makes slots 0/7 mutually exclusive with 3/4/8/9 in the F-117 and F-22. This checks model presence, including temporary placement previews, rather than remaining ammunition. Eurofighter uses its masks without those additional exclusions.
+
+**11,624 complete native states agree** across original and synthetic mask tables, all occupied-slot pairs, unrelated stores, emptying a slot and direct assignments that an interactive permission check would reject. Eighty-four compact original oracle cases also run without game assets in CTest. Existing default-fit, pylon-cycling and release checks still agree across **6,192 cases**.
+
+The existing HUD glyph painter agrees with native `0x87154` across **576 complete frames**, including every byte code, black/white ink, all horizontal plane phases, clipping and embedded NUL. The C++ painter now stops at NUL, matching original strings. This font also draws the arming screen's small labels. Native VGA capture permits writes to each page's unused physical padding while retaining only visible pixels; all ninety planner map-page comparisons still pass.
+
+Both new comparisons and all 42 CTests pass in development, Release and ASan/UBSan. These changes provide inventory permissions and glyph rendering for the arming interface; its interactive controller and 3D preview remain in progress.

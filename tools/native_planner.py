@@ -32,12 +32,17 @@ class PlannerVideo(VgaCapture):
         return self.pages[(selector - 0xe000) // 0x400]
 
     def _write(self, cpu, access, address, size, value, unused):
-        if 0xe0000 <= address < 0xf0000:
-            number, offset = divmod(address - 0xe0000, 0x4000)
-            assert offset + size <= 16000, (hex(address), size)
-            for plane in range(4):
-                if self.mask & (1 << plane):
-                    self.pages[number][plane][offset:offset+size] = value.to_bytes(size, 'little')
+        # Each physical VGA page has 384 bytes of padding after its visible
+        # 16000-byte plane. Drawing there is legal but contributes no pixels.
+        if address+size<=0xe0000 or address>=0xf0000:return
+        raw=(value&((1<<(size*8))-1)).to_bytes(size,'little')
+        for index,byte in enumerate(raw):
+            location=address+index
+            if 0xe0000 <= location < 0xf0000:
+                number,offset=divmod(location-0xe0000,0x4000)
+                if offset>=16000:continue
+                for plane in range(4):
+                    if self.mask & (1<<plane):self.pages[number][plane][offset]=byte
 
     def pixels(self):
         return self._deplane(self.page(self.get(0x55907)))

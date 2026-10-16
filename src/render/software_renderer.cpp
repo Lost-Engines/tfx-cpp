@@ -305,6 +305,7 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
 void software_renderer::text(int x, int const y, std::string_view const message, uint8_t const colour) {
   /// Native 0x87154 character mapping and advances, with clipped monochrome glyph writes
   for(unsigned char const character : message) {
+    if(!character) break;
     if(character == ' ') { x += 3; continue; }
     auto const *const glyph{tables.glyph(character)};
     if(!glyph) continue;
