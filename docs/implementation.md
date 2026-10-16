@@ -1211,3 +1211,24 @@ The Realistic and Military Spec pipeline retains a North/East/Down physical fram
 All 8,192 complete original cases agree in normalized physical basis, both exported bases, exact float bits, integer coordinates and angles, without intercepted dependencies. Coverage includes arbitrary rotations, all three aircraft, signed-zero positions, variable viewpoint offsets and the original integer-indefinite result for out-of-range conversion. There are 123 compact asset-free captures. This is the shared pose bridge; the aerodynamic integrator is still being reconstructed.
 
     python3 tools/check_aerodynamic_pose.py
+
+### Aerodynamic atmosphere and physical motion
+
+The original atmosphere stage (0x992fc) is reconstructed with its altitude-dependent density correction, the floor applied only above ten kilometres, optional surface temperature, capped temperature lapse and temperature-derived sound speed. It preserves the original 273-degree Celsius offset and each double storage boundary. All 8,192 complete original density/temperature/sound cases agree without intercepted dependencies, including both temperature settings and altitude/lapse boundaries.
+
+Both physical motion callbacks (0x9f9d4 and 0x9fbec) retain the half-acceleration position correction, airborne-only fivefold time warp, original crash-disabled fallback, distinct roll/pitch/yaw rotation paths and double roll/pitch remainders. The simplified branch still rotates by the commanded roll even when its stored roll rate is inhibited, as the original does. All 8,192 complete original position, velocity, rate, remainder, collision and Q15-frame cases agree without intercepted dependencies. Force, command and timestep production remain explicit input boundaries; these local comparisons do not establish a complete Realistic/Military Spec session yet.
+
+    python3 tools/check_atmosphere.py
+    python3 tools/check_aerodynamic_motion.py
+
+### Aerodynamic load summation, inertia and x87 verification boundary
+
+Native 0x9f128 sums aerodynamic, ground and auxiliary body forces/moments, adds gravity through the physical NED basis and exports the world force and G load. It retains the refuelling connection's levelling moment and the fully arrested carrier branch, including its signed-zero body-velocity stores and retained down motion. Native 0x9f3b0 then derives linear and angular acceleration, including the fuel-squared roll-inertia term. All 8,192 complete original force, moment, acceleration, G-load and arrested-velocity cases agree with the declared hardware FPATAN boundary below; 123 compact captures are retained.
+
+This exposed a limitation of the installed Unicorn build: its helper_fpatan_x86_64 narrows both operands to binary64, calls the host double atan2, then widens its result. Disassembly of that library and direct 80-bit-register captures establish this independently of the game's equations. The capture adapter now replaces only the four Watcom FPATAN instruction sites with a real host x87 instruction, preserving register words, tags, TOP and the controlled FPU word. All surrounding original Watcom range reduction, square root and force arithmetic still executes. The current x87 backend uses the same instruction and the original asin-via-atan evaluation order; no binary64 emulator artefact is deliberately added to the game. The shared verification adapter is test-only, with no runtime game dependency.
+
+    python3 tools/check_aerodynamic_forces.py
+
+Full aerodynamic force producers, control response, ground suspension and initialized Realistic/Military Spec trajectories remain subsequent consumers of these verified stages.
+
+All 61 CTests pass in development, Release and ASan/UBSan. The atmosphere, motion and force stage comparisons also pass in all three builds. These captures retain the controlled 0x037f FPU environment; tracing the actual Watcom startup environment remains necessary before claiming full-session arithmetic agreement.
