@@ -10,13 +10,18 @@
 
 namespace tfx::cockpit {
 
-enum class centre_display : unsigned int { horizontal_radar, bvr_radar, moving_map };
+enum class centre_display : uint16_t { horizontal_radar, bvr_radar, moving_map };
 struct hud_selection {
-  unsigned int left{0};
+  uint16_t left{0};
   centre_display centre{centre_display::horizontal_radar};
-  unsigned int right{0};
-  unsigned int horizontal_range{0};
-  unsigned int bvr_range{0};
+  uint16_t right{0};
+  uint16_t horizontal_range{0};
+  uint16_t bvr_range{0};
+  void cycle_left(bool has_ground_targets);
+  void cycle_centre(flight::player_aircraft aircraft);
+  void cycle_right(flight::player_aircraft aircraft, uint8_t weapon_category);
+  void cycle_range();
+  void normalise();
 };
 struct hud_contacts {
   std::span<radar_aircraft const> enemy_aircraft;
@@ -83,7 +88,7 @@ private:
 public:
   hud(instrument_assets const &assets, resources::archive const &game, std::span<weapons::definition const> weapons, std::string const &schematic);
   hud_animation animation() const;
-  hud_effects draw(render::software_renderer &renderer, hud_selection const &selection, hud_state const &state, math::random_state &random, render::framebuffer *coverage = nullptr, scene_display const &scene = {});
+  hud_effects draw(render::software_renderer &renderer, hud_selection &selection, hud_state const &state, math::random_state &random, render::framebuffer *coverage = nullptr, scene_display const &scene = {});
 };
 
 } // namespace tfx::cockpit

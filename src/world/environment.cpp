@@ -107,7 +107,16 @@ environment::environment(resources::archive const &game, std::string source_name
   while(settings >> token) {
     token = lower(std::move(token));
     if(token == "night") status |= night_status;
-    if(token == "night" || token == "day") settings >> palette_name;
+    if(token == "night" || token == "day") {
+      settings >> palette_name;
+      // Native 0x747fc reads five distance boundaries around four higher-altitude
+      // palettes, followed by the infrared palette and the map sprite basename.
+      unsigned int constexpr upper_palette_count{4};
+      int distance{0};std::string palette, infrared;
+      for(unsigned int index{0}; index != upper_palette_count; ++index) settings >> distance >> palette;
+      if(!(settings >> distance >> infrared >> schematic_name)) throw std::runtime_error{"environment lacks its schematic binding: " + lighting_name};
+      break;
+    }
   }
   if(palette_name.empty()) throw std::runtime_error{"environment has no base day/night palette: " + name};
 }

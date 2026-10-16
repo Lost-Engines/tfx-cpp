@@ -1,23 +1,42 @@
 #include <cstdlib>
 #include <iostream>
+#include <utility>
 #include "cockpit/hud.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 3) throw std::runtime_error{"usage: hud_probe DATA_DIRECTORY MAP_NAME"};
+  if(argc < 3 || argc > 4) throw std::runtime_error{"usage: hud_probe DATA_DIRECTORY MAP_NAME"};
   auto const archive{tfx::resources::find_game_archive(argv[1])};
   tfx::resources::archive const game{archive};
   tfx::resources::executable_tables const tables{archive.parent_path() / "TFX.DAT"};
   tfx::render::software_renderer renderer{tables};
   tfx::cockpit::hud hud{tables.instruments(),game,tables.weapons,argv[2]};
+  if(argc == 4 && std::string_view{argv[3]} == "--controls") {
+    unsigned int centre{0}, action{0}, aircraft{0}, category{0};bool targets{false};
+    tfx::cockpit::hud_selection selected;
+    while(std::cin >> selected.left >> centre >> selected.right >> selected.horizontal_range >> selected.bvr_range >> action >> aircraft >> targets >> category) {
+      selected.centre = static_cast<tfx::cockpit::centre_display>(centre);
+      auto const plane{static_cast<tfx::flight::player_aircraft>(aircraft + 1)};
+      switch(action) {
+      case 0: selected.cycle_left(targets);break;
+      case 1: selected.cycle_centre(plane);break;
+      case 2: selected.cycle_right(plane,static_cast<uint8_t>(category));break;
+      case 3: selected.cycle_range();break;
+      case 4: selected.normalise();break;
+      default: throw std::runtime_error{"unknown display-control probe action"};
+      }
+      std::cout << selected.left << ' ' << std::to_underlying(selected.centre) << ' ' << selected.right << ' ' << selected.horizontal_range << ' ' << selected.bvr_range << '\n';
+    }
+    return EXIT_SUCCESS;
+  }
   unsigned int index{0};
   while(std::cin >> index) {
-    unsigned int constexpr left_pages[]{0,1,2,3,4,5,8}, right_pages[]{0,1,2,3,4,5,7,8};
+    uint16_t constexpr left_pages[]{0,1,2,3,4,5,8}, right_pages[]{0,1,2,3,4,5,7,8};
     tfx::cockpit::hud_selection selection{
       .left{left_pages[(index / 3) % 7]},
       .centre{static_cast<tfx::cockpit::centre_display>(index % 3)},
       .right{right_pages[(index / 21) % 8]},
-      .horizontal_range{index % 4},
-      .bvr_range{index % 3},
+      .horizontal_range{static_cast<uint16_t>(index % 4)},
+      .bvr_range{static_cast<uint16_t>(index % 3)},
     };
     auto const aircraft{static_cast<tfx::flight::player_aircraft>((index / 168) % 3 + 1)};
     tfx::weapons::armament inventory{aircraft,tables.weapons,tables.arming};
