@@ -11,6 +11,7 @@ struct attitude {
   vec3<int32_t> forward{0,0,32767};
   void rotate(rotation_axis axis, angle amount);
   void normalise();
+  bool align_down(vec3f const &direction);
   attitude transposed() const;
   vec3<angle> angles() const;
 };
