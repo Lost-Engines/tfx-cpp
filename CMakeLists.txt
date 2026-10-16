@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aerodynamic_wind.cpp
+  src/flight/aerodynamic_wind.h
   src/flight/aerodynamic_start.cpp
   src/flight/aerodynamic_start.h
   src/flight/aerodynamic_commands.cpp
@@ -461,6 +463,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_wind_probe tests/aerodynamic_wind_probe.cpp)
+  target_link_libraries(aerodynamic_wind_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_wind_probe)
+  add_test(NAME flight.native_aerodynamic_wind COMMAND aerodynamic_wind_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_wind.txt")
 
   add_executable(aerodynamic_start_probe tests/aerodynamic_start_probe.cpp)
   target_link_libraries(aerodynamic_start_probe PRIVATE tfx_core)
