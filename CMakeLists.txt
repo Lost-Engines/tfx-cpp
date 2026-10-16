@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/cockpit/external_display.cpp
+  src/cockpit/external_display.h
   src/render/point_projection.cpp
   src/render/point_projection.h
   src/cockpit/view_camera.cpp
@@ -381,6 +383,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(external_display_probe tests/external_display_probe.cpp)
+  target_link_libraries(external_display_probe PRIVATE tfx_core)
+  configure_first_party(external_display_probe)
 
   add_executable(point_projection_probe tests/point_projection_probe.cpp)
   target_link_libraries(point_projection_probe PRIVATE tfx_core)

@@ -930,7 +930,7 @@ The camera dispatcher now retains the original head lift, yaw/pitch limits, head
 
 The comparison passes in development, Release and ASan/UBSan, as do all 9,690 view-selector updates. All 29 viewport records and the existing 198 cockpit-composition frames still agree. The existing 12,860 arming mount picks and 60 native arming-animation draws also pass after the shared-math change. Private-window checks cover chase/full/head/rear/tactical/target/virtual keys, cockpit-offset restoration, paused-frame retention, existing firing/MFD/designator controls and result handoff.
 
-Live flight selects the appropriate forward-HUD callback, preserves radio placement in other views and restores cockpit offsets after transitions. F1–F10 are connected, including the missile extension below; recovery/ejection cameras, the external-view information painter and complete frame/session verification remain open. Inspection also exposed the model-scale clipping limitation corrected below.
+Live flight selects the appropriate forward-HUD callback, preserves radio placement in other views and restores cockpit offsets after transitions. F1–F10 are connected, including the missile extension below; recovery/ejection cameras, the separately restored external-view information painter and complete frame/session verification are described below. Inspection also exposed the model-scale clipping limitation corrected below.
 
 All 44 CTests pass after rebuilding every development target. These camera-state checks remain distinct from complete world-frame equivalence.
 
@@ -973,6 +973,19 @@ The F8 camera follows the latest player-fired store, excluding cannon and counte
 
 The expanded native dispatcher comparison covers **23 modes and 11,776 persistent updates**, including live/missing missiles, valid nose views, impact contacts, queued fallback, all previously covered camera modes and their model selections. All **9,690 selector updates** still agree. These comparisons pass in development, Release and ASan/UBSan. All 46 CTests pass, and private-window checks now fire a store, enter both F8 views, return with F1 and continue the existing cannon/MFD/designator/result checks.
 
-One original unsafe case is handled explicitly: the nose-camera dispatcher queues its follow-view fallback when the missile is missing, then continues to read through the null missile pointer. The C++ host retains the last valid camera pose during that handoff. This boundary is covered by an asset-free lifecycle regression rather than claimed as a defined native-memory comparison. The original infrared palette, other lighting changes and the external-view information painter remain separate renderer work.
+One original unsafe case is handled explicitly: the nose-camera dispatcher queues its follow-view fallback when the missile is missing, then continues to read through the null missile pointer. The C++ host retains the last valid camera pose during that handoff. This boundary is covered by an asset-free lifecycle regression rather than claimed as a defined native-memory comparison. The original infrared palette, other lighting changes and remaining camera artwork remain separate renderer work.
 
 The preceding native world-point integration also passes the full 128-mission, 1,024-step ASan/UBSan run after its live caller changes.
+
+
+### External-view flight information
+
+```sh
+python3 tools/check_external_display.py
+```
+
+The external-camera callback now draws its original altitude/speed/heading strip. The panel retains underlying palette bits through AND-15 / OR-128 operations, then paints the original borders and seven-row fixed-font labels with one-pixel shadows. Altitude and speed products retain their original stored-double formatting boundary. This uses the presentation fixed font, independently of the smaller forward-HUD font. Live chase, tactical, fly-past, target and impact views receive the current player telemetry.
+
+**512 complete original pixel/coverage frames agree**, including enabled/disabled strips, positive/negative telemetry, heading wrap and all 256 background indices. The original polygon scanner, VGA logical operations, formatter and fixed-font painters execute; the already checked radio consumer is disabled at its own boundary. The comparison covers the full 320×200 external viewport, rather than claiming arbitrary clipped-panel behavior.
+
+The comparison passes in development, Release and ASan/UBSan. All 46 CTests pass, and private-window checks exercise the external view transitions and telemetry strip alongside cockpit restoration and paused-frame retention.

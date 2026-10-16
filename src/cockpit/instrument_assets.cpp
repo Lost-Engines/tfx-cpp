@@ -46,6 +46,8 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   brake_messages = {string(0x171c),string(0x1728),string(0x1734)};
   hud_number_formats = {string(0x1768),string(0x1770),string(0x1778),string(0x1780),string(0x1784)};
   target_formats = {string(0x1748),string(0x1750),string(0x1758),string(0x1760)};
+  external_number_formats = {string(0x17a4),string(0x17b0),string(0x17bc)};
+  external_altitude_scale = std::bit_cast<float>(source.le32(data + 0x17c4));
   hud_altitude_scale = std::bit_cast<float>(source.le32(data + 0x178b));
   hud_throttle_scale = std::bit_cast<float>(source.le32(data + 0x178f));
   unsigned_clock_formats = {string(0x17e4),string(0x17ec)};
