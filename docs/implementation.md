@@ -1407,3 +1407,13 @@ All 9,216 persistent updates agree across 36 complete original-initialized traje
 This first corpus retains deployed gear, so it excludes the separate airborne automatic-recovery/autopilot producer. It uses ordinary manual control and does not claim autopilot, full automatic landing or connected live-host integration.
 
     python3 tools/check_aerodynamic_trajectories.py
+
+### Advanced recovery engagement and restoration
+
+Native 0x85a7c now retains recovery eligibility, saved control configuration, autopilot mode/enable, throttle, air-brake condition and afterburner state. Restoring recovery preserves ordered reheat-handler requests and the physical-model reset request. Engagement's sound/radio request remains an output event. The shared manual/autopilot control-limit suffix is factored without changing the complete manual law or connected manual trajectories.
+
+All 8,192 complete original recovery toggles agree: 2,575 engagements, 1,286 restorations and 726 ordered reheat changes. Original startup, recovery and afterburner handlers execute; only sound/radio/model output delivery is intercepted and observed. There are 123 compact captures.
+
+The original restoration loop cannot terminate if the saved afterburner state is no longer reachable, for example after fuel runs out. A bounded original execution confirms that loop; the translation diagnoses it instead of hanging. This state has no terminating original output to compare. The finite comparison corpus restricts saved reheat to reachable settings and separately checks that diagnostic.
+
+    python3 tools/check_aerodynamic_recovery.py
