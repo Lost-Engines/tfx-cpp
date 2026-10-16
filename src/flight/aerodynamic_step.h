@@ -42,11 +42,13 @@ struct aerodynamic_tick_events {
   std::vector<afterburner_change> afterburner{};
   aerodynamic_ground_events ground{};
   aerodynamic_recovery_change recovery{aerodynamic_recovery_change::none};
+  bool descent_warning{false};
 };
 
 // Joined 0x9fe14 / 0x9fe50 callbacks, including manual/autopilot control.
-// Automatic recovery engagement, pending model resets and automatic landing
-// remain separate producers to be joined.
+// Automatic recovery and entry-time model resets are included; automatic
+// landing remains a separate callback. The outer caller must acknowledge the
+// prior-model marker after this callback, as native 0x8f98c does.
 aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, damage_state &damage, math::random_state &random, aerodynamic_wind_parameters const &wind_parameters, aerodynamic_tick_context const &context);
 
 } // namespace tfx::flight

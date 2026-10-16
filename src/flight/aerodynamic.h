@@ -32,6 +32,7 @@ struct aerodynamic_flight {
   aerodynamic_commands commands{};
   aerodynamic_autopilot autopilot{};
   aerodynamic_wind wind{};
+  loadout mounted_stores{};
   store_effects stores{};
   aerodynamic_view view{};
   aerodynamic_model model{aerodynamic_model::military_spec};
@@ -41,6 +42,7 @@ struct aerodynamic_flight {
   bool arrestor_hook_down{false};
   bool chute_deployed{false};
   bool chute_cutaway{false};
+  bool cold_start{false};
 };
 
 struct aerodynamic_initial_context {

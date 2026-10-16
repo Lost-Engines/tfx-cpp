@@ -1,5 +1,5 @@
 #include "aerodynamic_step.h"
-#include <stdexcept>
+#include "flight/aerodynamic_recovery_trigger.h"
 #include <utility>
 #include "math/floating_environment.h"
 
@@ -23,6 +23,43 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   auto const craft{aircraft.stores_and_mounts.stores.aircraft};
   bool const realistic{state.model == aerodynamic_model::realistic};
   state.seconds = context.seconds;
+  // Native 0x9fe14/0x9fe50 checks the prior-model marker only on entry.
+  // The enclosing game loop acknowledges it AFTER this callback (0x8f98c),
+  // so a request raised within this update does not cause a later reset.
+  if(state.autopilot.recovery.model_reset_requested) {
+    aerodynamic_start_state start{
+      .motion{motion},
+      .stores{state.stores},
+      .engine_factor{vec2d{powerplant.engine_factor}},
+      .fuel_kg{powerplant.fuel},
+      .mass_kg{data.mass_kg},
+      .seconds{state.seconds},
+      .g_load{state.response.g_load},
+      .track_heading{data.track_heading},
+      .ground_steering{ground.ground_steering},
+    };
+    initialise_aerodynamic_motion(start,state.aircraft,state.mounted_stores,{
+      .orientation{state.view.orientation},
+      .position{vec3f{state.view.position}},
+      .fixed_speed{data.fixed_speed},
+      .heading{state.view.angles.y},
+      .ground_elevation_steps{context.ground_elevation_steps},
+      .landed{ground.landed},
+      .cold_start{state.cold_start},
+      .terrain_present{context.terrain_present},
+    });
+    motion = start.motion;
+    state.stores = start.stores;
+    powerplant.engine_factor = start.engine_factor;
+    powerplant.fuel = start.fuel_kg;
+    data.mass_kg = start.mass_kg;
+    state.seconds = start.seconds;
+    state.response.g_load = start.g_load;
+    data.track_heading = start.track_heading;
+    ground.ground_steering = start.ground_steering;
+    state.coefficient_parameters.wing_area = state.aircraft.surfaces.wing_area;
+  }
+  double const seconds{state.seconds};
 
   state.wind.simulation_seconds = data.simulation_seconds;
   if(context.wind_enabled) update_aerodynamic_wind(state.wind,wind_parameters,random,{
@@ -36,7 +73,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .empty_mass_kg{aircraft.empty_mass_kg},
     .fuel_kg{powerplant.fuel},
     .stores_kg{state.stores.mass_kg},
-    .seconds{context.seconds},
+    .seconds{seconds},
     .atmosphere{aircraft.atmosphere},
     .surface_celsius{context.surface_celsius},
   });
@@ -44,7 +81,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   state.coefficients = update_aerodynamic_coefficients(craft,data.mach,state.coefficient_parameters);
   aerodynamic_powerplant_context const engine_context{
     .altitude_km{data.altitude_km},
-    .seconds{context.seconds},
+    .seconds{seconds},
     .time_warp{context.time_warp},
   };
   powerplant.engine_condition = {
@@ -56,12 +93,33 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   damage.systems[std::to_underlying(aircraft_system::left_engine)] = powerplant.engine_condition[0];
   damage.systems[std::to_underlying(aircraft_system::right_engine)] = powerplant.engine_condition[1];
 
+  manual.air_brake_condition = damage.condition(aircraft_system::air_brake);
+  auto const predicted{check_aerodynamic_recovery(state.autopilot.recovery,manual.controls,powerplant,manual.air_brake_condition,{
+    .eligibility{
+      .afterburner_stages{aircraft.powerplant.afterburner_stages},
+      .available{context.recovery_available},
+      .inhibited{context.recovery_inhibited},
+      .crashed{motion.collision != 0},
+      .ejected{context.ejected},
+      .landed{ground.landed},
+    },
+    .down_metres{motion.pose.metres_ned.z},
+    .down_velocity{motion.velocity_ned.z},
+    .metres_per_second{data.metres_per_second},
+    .gear_fraction{state.gear_fraction},
+    .gear_condition{damage.condition(aircraft_system::landing_gear)},
+  })};
+  events.recovery = predicted.recovery.change;
+  events.descent_warning = predicted.descent_warning;
+  events.afterburner.insert(events.afterburner.end(),predicted.recovery.afterburner.begin(),predicted.recovery.afterburner.end());
+  damage.systems[std::to_underlying(aircraft_system::air_brake)] = manual.air_brake_condition;
+
   aerodynamic_control_context const control_context{
     .source{context.input.source},
     .keys{context.input.keys},
     .joystick{vec2<int16_t>{context.input.joystick}},
     .mouse{vec2<int16_t>{context.input.mouse}},
-    .seconds{context.seconds},
+    .seconds{seconds},
     .metres_per_second{data.metres_per_second},
     .pitch_gain{realistic && ground.landed ? realistic_ground_pitch_gain : state.input_gains.pitch},
     .roll_gain{state.input_gains.roll},
@@ -104,7 +162,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   aerodynamic_guidance_context const guidance_context{
     .law{manual_context},
     .engine{aircraft.powerplant},
-    .seconds{context.seconds},
+    .seconds{seconds},
     .roll_moment{state.stores.total_moment_a},
     .pitch_moment{state.stores.total_moment_b},
     .previous_drag{state.surfaces.drag},
@@ -125,7 +183,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .navigation{context.navigation},
   })};
   events.afterburner.insert(events.afterburner.end(),controlled.afterburner.begin(),controlled.afterburner.end());
-  events.recovery = controlled.recovery;
+  if(controlled.recovery != aerodynamic_recovery_change::none) events.recovery = controlled.recovery;
   state.response.previous_pitch_rate = autopilot.guidance.ground_speed;
   state.ground.roll_angle = autopilot.guidance.roll_angle;
   damage.systems[std::to_underlying(aircraft_system::air_brake)] = manual.air_brake_condition;
@@ -137,7 +195,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .engine_pitch_arm{aircraft.powerplant.pitch_thrust_arm},
     .body_forward_force{state.forces.body_force.x},
     .body_down_force{state.forces.body_force.z},
-    .seconds{context.seconds},
+    .seconds{seconds},
     .stick_pressure{context.stick_pressure},
   });
   update_aerodynamic_surfaces(state.surfaces,geometry,{
@@ -177,7 +235,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .engine_factor{vec2d{powerplant.engine_factor}},
     .gear_fraction{state.gear_fraction},
     .metres_per_second{data.metres_per_second},
-    .seconds{context.seconds},
+    .seconds{seconds},
     .throttle{powerplant.throttle},
     .carrier_surface{context.carrier_surface},
     .arrestor_hook_down{state.arrestor_hook_down},
@@ -237,7 +295,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
       .pitch_thrust_arm{aircraft.powerplant.pitch_thrust_arm},
       .maximum_elevator_angle{geometry.maximum_elevator_angle},
     },
-    .seconds{context.seconds},
+    .seconds{seconds},
     .metres_per_second{data.metres_per_second},
     .density{data.atmosphere.density},
     .stall_metres_per_second{aircraft.stall_metres_per_second},
@@ -260,7 +318,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   });
   ground.cable_speed = state.response.previous_pitch_rate;
   advance_aerodynamic_motion(motion,{
-    .seconds{context.seconds},
+    .seconds{seconds},
     .time_warp{context.time_warp},
     .landed{ground.landed},
     .crashing{context.crashing},

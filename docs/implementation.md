@@ -1448,4 +1448,18 @@ Both advanced callbacks now consume autopilot targets and supplied route/followe
 
     python3 tools/check_aerodynamic_autopilot.py
 
-This corpus ends after the autopilot update. Automatic recovery engagement, the requested next-frame physical reset, automatic landing and live-host selection remain to be joined; this is not yet a claim that the advanced models are ready for interactive play.
+This first corpus ends after the autopilot update. The following persistent corpus additionally covers automatic recovery and model-transition resets; automatic landing and live-host selection remain open.
+
+### Automatic descent recovery and persistent advanced flight
+
+Native 0x991e9..0x992f8 predicts crossing zero physical height from downward velocity when gear is retracted. It preserves the original five/seven/eight-second warning/recovery boundaries, eligibility guards and gear/speed distinction. It does not query terrain height. All 8,192 bounded original prediction cases agree, including 25 engagements and 201 warnings, with exact threshold-neighbour cases and 123 compact captures.
+
+    python3 tools/check_aerodynamic_recovery_trigger.py
+
+Both complete advanced callbacks now include this producer and their entry-time physical model reset. The owning flight state retains its mounted stores for the original reset-time load recalculation. A reset preserves the original retained fields, uses the existing view/frame, and replaces the current update's timestep with 0.01 seconds as native 0x954fc does.
+
+The outer game caller (0x8f98c..0x8f996) acknowledges the current model after the callback returns. Thus a recovery request made by a key before the callback triggers its entry reset; a request raised inside the callback is acknowledged afterward and does not trigger a later reset. The callback returns its marker and events, and its outer caller must perform that acknowledgement. This corrects the earlier assumption that every recovery request resets the following frame.
+
+All 11,520 persistent original updates agree across 120 complete-initialized 96-frame scenes: 7,819 guided updates, 6,452 speed-recovery calls, 26 automatic recovery engagements, 19 restorations, 240 entry resets, 36 descent warnings and 262 reheat changes. The full original initializer, callbacks and numerical dependencies execute; original outer-marker acknowledgement occurs between updates. Every one of the 314 snapshot fields and returned output events agrees. Gear-deployed/retracted starts, all aircraft/models/modes, varied attitudes and key-triggered transitions are included.
+
+    python3 tools/check_aerodynamic_autopilot.py --persistent
