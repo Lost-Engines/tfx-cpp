@@ -111,8 +111,18 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   gauge_fuel_scale = real(0x1ba6);
   gauge_throttle_scale = std::bit_cast<float>(source.le32(data + 0x1bae));
   engine_percent = real(0x1bcb);
-  initial_fuel_gauge = source.signed_le16(data + 0x6c3c);
-  initial_fuel_burn = source.signed_le16(data + 0x6c3a);
+  for(unsigned int index{0}; index != viewports.size(); ++index) {
+    unsigned int const at{data + 0x5da4 + index * 20};
+    auto const panel{source.le32(at + 2)}, overlay{source.le32(at + 8)}, callback{source.le32(at + 16)};
+    viewports[index] = {
+      .projection_centre_y{source.signed_le16(at)},
+      .panel{panel ? resource(panel) : ""},
+      .overlay{overlay ? resource(overlay) : ""},
+      .bottom{source.signed_le16(at + 14)},
+      .callback_file{callback ? 0x70aa4 + callback : 0},
+    };
+  }
+  for(unsigned int index{0}; index != cockpit_steps.size(); ++index) cockpit_steps[index] = source.signed_le16(data + 0x6018 + index * 2);
 }
 
 } // namespace tfx::cockpit

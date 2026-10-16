@@ -42,6 +42,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             if window is None:
                 log.seek(0);raise RuntimeError('game window did not appear:\n'+log.read()[-4000:])
             run('xdotool','windowfocus','--sync',window,check=True);time.sleep(.5)
+            tap('Prior') # Raise the animated cockpit before comparing its MFD windows.
             before_path=directory/'before.png';after_path=directory/'after.png'
             run('import','-window',window,str(before_path),check=True)
             tap('Return')
