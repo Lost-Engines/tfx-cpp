@@ -11,6 +11,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   for(auto const byte : source) checksum = (checksum ^ byte) * 1099511628211ull;
   if(source.size() != 1032503 || checksum != 0xcc1e305ba7e177f0ull) throw std::runtime_error{"this reconstruction currently requires the September 1994 TFX 2.05 executable (TFX.DAT)"};
   weapons = weapons::load_definitions(source);
+  pointers = presentation::load_pointers(source);
   font_data = std::make_unique<presentation::fonts>(source);
   binary_view const view{source};
   unsigned int constexpr circle_base{0x70aa4 + 0x65a84}, circle_limit_field{0x70aa4 + 0x66ea0};

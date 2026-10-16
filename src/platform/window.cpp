@@ -8,6 +8,19 @@
 #endif // _WIN32
 
 namespace tfx::platform {
+namespace {
+struct display_area { vec2<int> position; vec2<int> size; };
+display_area viewport(int const width, int const height) {
+  double const available{std::min(width / static_cast<double>(render::display_width),height / static_cast<double>(render::display_height))};
+  double const fit{available >= 1 ? std::floor(available) : available};
+  vec2<int> const fitted{std::max(1,static_cast<int>(render::display_width * fit)),std::max(1,static_cast<int>(render::display_height * fit))};
+  return {
+    .position{(width - fitted.x) / 2,(height - fitted.y) / 2},
+    .size{vec2<int>{fitted}},
+  };
+}
+} // anonymous namespace
+
 
 glfw_runtime::glfw_runtime() {
   glfwSetErrorCallback([](int const code, char const *const message){ std::cerr << "ERROR: GLFW " << code << ": " << message << std::endl; });
@@ -78,6 +91,19 @@ bool window::poll() {
   glfwPollEvents();
   return !glfwWindowShouldClose(handle.get());
 }
+std::optional<vec2<int16_t>> window::cursor_position() const {
+  int width{0}, height{0}, framebuffer_width{0}, framebuffer_height{0};
+  glfwGetWindowSize(handle.get(),&width,&height);
+  glfwGetFramebufferSize(handle.get(),&framebuffer_width,&framebuffer_height);
+  if(width <= 0 || height <= 0 || framebuffer_width <= 0 || framebuffer_height <= 0) return {};
+  double x{0}, y{0};
+  glfwGetCursorPos(handle.get(),&x,&y);
+  auto const area{viewport(framebuffer_width,framebuffer_height)};
+  x = x * framebuffer_width / width - area.position.x;
+  y = y * framebuffer_height / height - area.position.y;
+  if(x < 0 || y < 0 || x >= area.size.x || y >= area.size.y) return {};
+  return vec2<int16_t>{static_cast<int16_t>(x * render::screen_width / area.size.x),static_cast<int16_t>(y * render::screen_height / area.size.y)};
+}
 void window::title(std::string const &text) {
   glfwSetWindowTitle(handle.get(),text.c_str());
 }
@@ -85,13 +111,11 @@ void window::present(std::span<render::rgba_pixel const> const pixels) {
   int width{0}, height{0};
   glfwGetFramebufferSize(handle.get(),&width,&height);
   if(width <= 0 || height <= 0) return;
-  double const available{std::min(width / static_cast<double>(render::display_width),height / static_cast<double>(render::display_height))};
-  double const fit{available >= 1 ? std::floor(available) : available};
-  int const fitted_width{std::max(1,static_cast<int>(render::display_width * fit))}, fitted_height{std::max(1,static_cast<int>(render::display_height * fit))};
+  auto const area{viewport(width,height)};
   glViewport(0,0,width,height);
   glClearColor(0,0,0,1);
   glClear(GL_COLOR_BUFFER_BIT);
-  glViewport((width - fitted_width) / 2,(height - fitted_height) / 2,fitted_width,fitted_height);
+  glViewport(area.position.x,area.position.y,area.size.x,area.size.y);
   glBindTexture(GL_TEXTURE_2D,texture);
   glTexSubImage2D(GL_TEXTURE_2D,0,0,0,render::screen_width,render::screen_height,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
   glBegin(GL_TRIANGLE_STRIP);

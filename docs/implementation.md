@@ -449,3 +449,22 @@ The scene player joins media, text, input, countdowns and DAC ramps. The graph s
 A sanitizer run completes **592 scene/language cases and 194,404 content/ramp iterations**, covering every one of the 372 retail visual nodes and all five languages for external captions. Those full playback runs establish resource and lifetime coverage, separately from native output agreement. Private X11 tests verify that Space advances one scene while Escape and Shift+Q finish the presentation cleanly. All 37 CTests pass in development, Release and ASan/UBSan builds.
 
 The developer `--presentation NAME[:FUNCTION]` entry runs original graph scenes in the native window; `--frames N --screenshot FILE` provides deterministic headless captures at virtual 70 Hz. Audio actions are explicitly deferred. Menus, pilot persistence, waypoint planning and game launches remain host boundaries; reaching an unfinished host action reports it rather than fabricating campaign progress.
+
+### Original options menus and pointers
+
+```sh
+python3 tools/check_menus.py
+python3 tools/check_cursors.py
+python3 tools/check_presentation_window.py --data-dir /path/to/TFX
+./build/tfx --data-dir /path/to/TFX --menu mastopts
+```
+
+All eight shipped `.opt` scripts now load directly from the selected archive. Typed choices retain authored click bounds and declaration order, label destinations and numeric assignments. The supported script subset also retains bitmap/animation selection, cursor style and the no-selection-box flag; unsupported custom commands fail explicitly. No retail menu is replaced by a newly authored list.
+
+The original interpreter agrees on **eight menu setups, 43 complete label/assignment paths and 17,104 mouse positions**. Tokenisation, original box registration, label lookup, numeric writes/returns and hit testing execute unchanged; file loading, graphics/pointer output, selection-box drawing and the interactive display loop are declared boundaries. CTest adds asset-free checks of overlapping inclusive bounds, signed dword writes and invalid labels.
+
+Both embedded cursor styles and their active/idle sprites load from `TFX.DAT`. **144 pointer frames match original VGA sprite drawing**, including the four clipped corners, transparent holes and supplied positions. Right-edge clipping preserves the blitter's four-pixel group quirk. This checks pointer pixels independently from menu script semantics; it is not a complete native-menu frame comparison.
+
+The menu host uses original indexed artwork, looping flag animation, palette fades and pointers. It applies a choice on press and waits for release before fading, matching the native `0xd5750` branch sequence. Asset-free tests cover held clicks and single assignment. A private X11 test clicks the FWS box through the corrected 4:3 viewport, checks that holding does not exit early, then releases and verifies the chosen index and clean exit. Pointer coordinates share the same fitted rectangle as final display, including framebuffer/window scale differences.
+
+Options nodes now suspend/resume the graph session through this host. Direct developer `--menu NAME` launches allow checking individual scripts before pilot and mission dispatch are complete. Full original pilot/save/load/planner flow remains outstanding; this work does not fabricate those state transitions.

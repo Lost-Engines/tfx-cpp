@@ -85,6 +85,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "This is a flight integration build; combat, campaign flow and audio are still in progress.\n";
 #ifndef NDEBUG
       std::cout << "\nDeveloper options:\n"
+                   "  --menu NAME            Run an original options menu\n"
                    "  --presentation NAME[:FUNCTION]  Play an original presentation graph\n"
                    "  --inspect             Free scene camera: WASD, R/F, arrows/right-drag, Shift\n"
                    "  --flight-steps N      Advance N four-tick flight steps before initial capture\n"
@@ -111,6 +112,7 @@ auto main(int const argc, char const *const argv[])->int try {
       if(scale > 16) throw std::runtime_error{"window scale must be between 0 (automatic) and 16"};
     }
 #ifndef NDEBUG
+    else if(key == "--menu") presentation = "menu:" + std::string{value()};
     else if(key == "--presentation") {
       auto const selection{value()};
       auto const colon{selection.find(':')};

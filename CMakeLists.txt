@@ -14,6 +14,12 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/menu_player.cpp
+  src/presentation/menu_player.h
+  src/presentation/cursor.cpp
+  src/presentation/cursor.h
+  src/presentation/menu.cpp
+  src/presentation/menu.h
   src/presentation/session.cpp
   src/presentation/session.h
   src/presentation/player.cpp
@@ -125,6 +131,19 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(cursor_probe tests/cursor_probe.cpp)
+  target_link_libraries(cursor_probe PRIVATE tfx_core)
+  configure_first_party(cursor_probe)
+
+  add_executable(menu_probe tests/menu_probe.cpp)
+  target_link_libraries(menu_probe PRIVATE tfx_core)
+  configure_first_party(menu_probe)
+
+  add_executable(menu_tests tests/menu_test.cpp)
+  target_link_libraries(menu_tests PRIVATE tfx_core)
+  configure_first_party(menu_tests)
+  add_test(NAME presentation.menu_scripts_and_clicks COMMAND menu_tests)
+
   add_executable(player_tests tests/player_test.cpp)
   target_link_libraries(player_tests PRIVATE tfx_core)
   configure_first_party(player_tests)
