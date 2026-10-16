@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/cockpit/radar.cpp
+  src/cockpit/radar.h
   src/cockpit/moving_map.cpp
   src/cockpit/moving_map.h
   src/cockpit/auxiliary.cpp
@@ -143,6 +145,8 @@ add_library(tfx_core
   src/render/framebuffer.h
   src/render/camera.cpp
   src/render/camera.h
+  src/render/markers.cpp
+  src/render/markers.h
   src/render/clipping.h
   src/render/sprites.cpp
   src/render/sprites.h
@@ -345,6 +349,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(radar_probe tests/radar_probe.cpp)
+  target_link_libraries(radar_probe PRIVATE tfx_core)
+  configure_first_party(radar_probe)
 
   add_executable(map_display_probe tests/map_display_probe.cpp)
   target_link_libraries(map_display_probe PRIVATE tfx_core)

@@ -726,3 +726,15 @@ The moving-map painter owns its schematic and blink state, borrowing typed Q8 ai
 **320 complete native pixel/coverage/blink/clip frames agree** across all five original regional schematics and the centre/right display rectangles. The native actor-enumeration boundaries receive supplied lists; map projection, filtering, sprite drawing and marker painting execute unchanged. The shared signed-word planar rotation also agrees in **5,120 native cases**, covering every lookup-table phase and extreme inputs; the existing direction, basis rotation, normalisation and angle checks remain unchanged and still agree.
 
 These comparisons and all 44 CTests pass in development, Release and ASan/UBSan. Binding the environment schematic and live flight contacts into the assembled HUD remains part of cockpit integration.
+
+### Horizontal and beyond-visual-range radar
+
+```sh
+python3 tools/check_radar.py
+```
+
+Both central radar views now use their original display sprites, range/divisor tables, signed-word rotation and authored BVR envelope. Supplied aircraft/surface/projectile records preserve native Q8 positions. The horizontal view retains role and stealth filtering, selected-aircraft blocks, blinking radiating defence sites (`defop1`–`defop3`, type 56), projectile ownership colours and excluded cannon/decoy records. The BVR painter has its own filtering rules and does not apply the horizontal painter's failed-radar early return. This is a statement about these drawing routines, not a complete damaged-flight session.
+
+Intermittent-radar samples consume the shared gameplay generator in original draw order. Allied surface markers bypass that sample in the horizontal view, while BVR samples them. Projectile cross arms remain visible independently of the sampled blinking centre. The horizontal pulse changes even when a subsequent stealth/failure gate suppresses contacts; BVR does not advance that pulse.
+
+**640 complete native pixel/coverage/pulse/random-state frames agree**, covering both modes, every range, all aircraft, system conditions, selected contacts, surface types, projectiles and viewport offsets. Native actor-enumeration and fixed definition-type lookups receive declared input records; original projection, filtering, formatting and VGA drawing execute. Shared one-pixel and 2×2 marker painting also preserves all 512 auxiliary frames. The radar, auxiliary, map and MFD comparisons and all 44 CTests pass in development, Release and ASan/UBSan.

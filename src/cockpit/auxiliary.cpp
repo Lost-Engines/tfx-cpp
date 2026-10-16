@@ -1,6 +1,7 @@
 #include "auxiliary.h"
 #include <stdexcept>
 #include <utility>
+#include "render/markers.h"
 #include "render/sprites.h"
 
 namespace tfx::cockpit {
@@ -31,14 +32,7 @@ void auxiliary_lamps::draw(render::framebuffer &target, auxiliary_state const &s
       // CD889 consumes two independent colour/X/Y points, painting each as a 2x2 marker.
       // Horizontal overflow follows the native linear VGA address into the next row.
       for(unsigned int point{0}; point != 2; ++point) {
-        unsigned int const x{static_cast<uint16_t>(position.x + state.offset.x + point * 2)};
-        unsigned int const y{static_cast<uint16_t>(position.y + state.offset.y)};
-        for(unsigned int row{0}; row != 2; ++row) for(unsigned int column{0}; column != 2; ++column) {
-          unsigned int const destination{(y + row) * render::screen_width + x + column};
-          if(destination >= target.pixels.size()) continue;
-          target.pixels[destination] = 14;
-          if(coverage) coverage->pixels[destination] = 255;
-        }
+        render::draw_marker(target,{static_cast<uint16_t>(position.x + state.offset.x + point * 2),static_cast<uint16_t>(position.y + state.offset.y)},14,render::marker_kind::block,coverage);
       }
     }
     --animation.ammunition_refresh;
