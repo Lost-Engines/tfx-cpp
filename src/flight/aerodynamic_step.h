@@ -37,6 +37,7 @@ struct aerodynamic_tick_context {
   bool recovery_available{false};
   bool recovery_inhibited{false};
   bool ejected{false};
+  bool approach_reference_enabled{false};
 };
 struct aerodynamic_tick_events {
   std::vector<afterburner_change> afterburner{};

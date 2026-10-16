@@ -1,6 +1,7 @@
 #pragma once
 
 #include "flight/aerodynamic_commands.h"
+#include "flight/aerodynamic_approach_reference.h"
 #include "flight/aerodynamic_autopilot.h"
 #include "flight/aerodynamic_realistic_ground.h"
 #include "flight/aerodynamic_response.h"
@@ -31,6 +32,7 @@ struct aerodynamic_flight {
   aerodynamic_force_result forces{};
   aerodynamic_commands commands{};
   aerodynamic_autopilot autopilot{};
+  aerodynamic_approach_reference approach{};
   aerodynamic_wind wind{};
   loadout mounted_stores{};
   store_effects stores{};

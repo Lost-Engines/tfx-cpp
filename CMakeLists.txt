@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aerodynamic_approach_reference.cpp
+  src/flight/aerodynamic_approach_reference.h
   src/flight/aerodynamic_recovery_trigger.cpp
   src/flight/aerodynamic_recovery_trigger.h
   src/flight/aerodynamic_autopilot.cpp
@@ -479,6 +481,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_approach_reference_probe tests/aerodynamic_approach_reference_probe.cpp)
+  target_link_libraries(aerodynamic_approach_reference_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_approach_reference_probe)
+  add_test(NAME flight.native_aerodynamic_approach_reference COMMAND aerodynamic_approach_reference_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_approach_reference.txt")
 
   add_executable(aerodynamic_navigation_probe tests/aerodynamic_navigation_probe.cpp)
   target_link_libraries(aerodynamic_navigation_probe PRIVATE tfx_core)

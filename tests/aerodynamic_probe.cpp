@@ -72,10 +72,11 @@ int main(int const argc, char const *const argv[]) try {
         if(!(std::cin >> seconds >> source >> up >> left >> down >> right >> alt >> accelerate >> decelerate >> joystick_x >> joystick_y >> mouse_x >> mouse_y >> wind_enabled >> warp >> pressure >> braking >> crashing >> wet >> gear_damage >> surface)) throw std::runtime_error{"truncated aerodynamic trace input"};
         tfx::flight::aerodynamic_navigation_context navigation;
         std::vector<vec2<uint8_t>> cells;
+        unsigned int ils{0};
         if(autopilot_trace) {
           unsigned int mode,enabled,heading,pitch,count,followed; int route_index;
           uint64_t target_down,target_speed;
-          std::cin >> mode >> enabled >> heading >> target_down >> target_speed >> route_index >> pitch >> followed >> count;
+          std::cin >> mode >> enabled >> heading >> target_down >> target_speed >> route_index >> pitch >> followed >> count >> ils;
           auto &targets{state.manual.controls.autopilot};
           if(mode == 65534) {
             // A key-triggered request precedes the callback, unlike automatic
@@ -139,10 +140,14 @@ int main(int const argc, char const *const argv[]) try {
           .weather_wind_boost{boost != 0},
           .navigation{navigation},
           .recovery_available{true},
+          .approach_reference_enabled{ils != 0},
         };
         auto const events{tfx::flight::advance_aerodynamic_flight(state,damage,random,wind[0],step)};
         for(auto const value : aerodynamic_snapshot(state,damage,random)) std::cout << value << ' ';
-        if(autopilot_trace) for(auto const value : aerodynamic_autopilot_snapshot(state.autopilot)) std::cout << value << ' ';
+        if(autopilot_trace) {
+          for(auto const value : aerodynamic_autopilot_snapshot(state.autopilot)) std::cout << value << ' ';
+          for(auto const value : {state.approach.flap_fraction,state.approach.lift_coefficient,state.approach.angle_of_attack,state.approach.flight_path_degrees,state.approach.ground_speed}) std::cout << std::bit_cast<uint64_t>(value) << ' ';
+        }
         std::cout << events.ground.gear_impacts << ' ' << events.ground.cockpit_bump << ' ' << events.afterburner.size() << ' ';
         for(auto const change : events.afterburner) std::cout << std::to_underlying(change) << ' ';
         if(autopilot_trace) std::cout << std::to_underlying(events.recovery) << ' ' << events.descent_warning << ' ';
