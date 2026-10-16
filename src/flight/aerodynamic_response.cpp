@@ -13,7 +13,6 @@ double constexpr fuel_roll_inertia{.004166666666666667};
 // Native inverse-degrees literal is one double ULP below rounded 1/180.
 double constexpr native_pi{3.14159}, inverse_degrees_per_half_turn{.005555555555555555};
 double constexpr engine_angle{native_pi * 20 * inverse_degrees_per_half_turn};
-double constexpr elevator_scale{.2};
 
 } // anonymous namespace
 
@@ -68,7 +67,7 @@ void update_aerodynamic_response(aerodynamic_response_state &state, aerodynamic_
   if(pitch_damping < -1 && speed > minimum_damping_speed) {
     calculation const thrust{math::x87::sin(engine_angle) * (static_cast<calculation>(context.engine_thrust) * context.thrust_moment_scale) * p.pitch_thrust_arm * 2};
     calculation const dynamic{static_cast<calculation>(context.density) * speed * speed * p.wing_area * p.mean_chord};
-    calculation const control{(thrust / dynamic + static_cast<calculation>(context.pitch_control_gradient) * elevator_scale) * context.elevator + p.zero_pitch_moment};
+    calculation const control{(thrust / dynamic + static_cast<calculation>(context.pitch_control_gradient) * p.maximum_elevator_angle) * context.elevator + p.zero_pitch_moment};
     motion.angular_rate.y = static_cast<double>((-control / p.pitch_stability - context.angle_of_attack) / seconds);
     if(context.stick_pressure) motion.angular_rate.y = static_cast<double>(static_cast<calculation>(context.pitch_rate_bias) + motion.angular_rate.y);
     motion.angular_acceleration.y = 0;

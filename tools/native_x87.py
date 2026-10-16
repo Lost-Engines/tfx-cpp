@@ -54,3 +54,24 @@ def hardware_sine_cosine(image,build):
     image.intercept(0xd22f2,'Use actual 80-bit FSIN for bounded angles; Unicorn narrows to binary64',lambda im:replace(im,0))
     image.intercept(0xd22dd,'Use actual 80-bit FCOS for bounded angles; Unicorn narrows to binary64',lambda im:replace(im,1))
     return library
+
+
+def hardware_tangent(image,build):
+    library=ctypes.CDLL(str((Path(build)/'libnative_x87_backend.so').resolve()))
+    operation=library.tfx_tangent
+    operation.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_ushort]
+    operation.restype=None
+    def replace(im):
+        status=im.cpu.reg_read(r.UC_X86_REG_FPSW);top=(status>>11)&7;newtop=(top-1)&7
+        register=getattr(r,'UC_X86_REG_FP'+str(top));value=im.cpu.reg_read(register)
+        incoming=ctypes.create_string_buffer(struct.pack('<QH',*value));out=ctypes.create_string_buffer(10)
+        operation(incoming,out,im.cpu.reg_read(r.UC_X86_REG_FPCW))
+        result=struct.unpack('<QH',out.raw);im.cpu.reg_write(register,result)
+        im.cpu.reg_write(getattr(r,'UC_X86_REG_FP'+str(newtop)),(1<<63,0x3fff))
+        tag=1 if result[0]==0 and result[1]&0x7fff==0 else 0
+        tags=im.cpu.reg_read(r.UC_X86_REG_FPTAG)&~((3<<(top*2))|(3<<(newtop*2)));tags|=tag<<(top*2)
+        im.cpu.reg_write(r.UC_X86_REG_FPTAG,tags)
+        im.cpu.reg_write(r.UC_X86_REG_FPSW,(status&~0x3e00)|(newtop<<11))
+        im.cpu.reg_write(r.UC_X86_REG_EIP,im.cpu.reg_read(r.UC_X86_REG_EIP)+2)
+    image.intercept(0xd23be,'Use actual 80-bit FPTAN for bounded angles; Unicorn narrows to binary64',replace)
+    return library
