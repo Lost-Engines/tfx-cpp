@@ -13,6 +13,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   weapons = weapons::load_definitions(source);
   pointers = presentation::load_pointers(source);
   pilot_assets = std::make_unique<presentation::pilot_assets>(source);
+  score_data = std::make_unique<presentation::score_assets>(source);
   font_data = std::make_unique<presentation::fonts>(source);
   binary_view const view{source};
   unsigned int constexpr circle_base{0x70aa4 + 0x65a84}, circle_limit_field{0x70aa4 + 0x66ea0};
@@ -70,6 +71,9 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
 
 presentation::fonts const &executable_tables::presentation_fonts() const { return *font_data; }
 
+presentation::score_assets const &executable_tables::scores() const {
+  return *score_data;
+}
 presentation::pilot_assets const &executable_tables::pilots() const {
   return *pilot_assets;
 }

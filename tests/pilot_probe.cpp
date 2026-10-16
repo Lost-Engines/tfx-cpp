@@ -99,7 +99,30 @@ int main(int const argc, char const *const argv[]) try {
   step(qualified,50);
   qualified.press(0x1c,false);qualified.press(0x1c,false);qualified.press(0x1c,false);qualified.press(0x1c,false);
   require(std::get<uint32_t>(qualified.values().at("rank")) == 1,"completed training did not qualify a new pilot");
-  std::cout << "Pilot creation, Control qualification, DOS slot storage/load/replacement, native resume, training entry/continuation and qualification marker passed in a private directory\n";
+  first.values()["score"] = uint32_t{150};
+  auto const click{[&](int16_t const x, int16_t const y) {
+    input.mouse_buttons = 1;
+    first.advance({ticks++,ticks * 3},input,vec2<int16_t>{x,y});
+    input.mouse_buttons = 0;
+    step(first,100);
+  }};
+  click(145,62); // Arcade from the original main menu.
+  require(first.function_name() == "arcade","Arcade menu did not open");
+  require(!store.read(0,true,schema).resume,"Arcade log unexpectedly stored a resume position");
+  click(150,123); // The original view-scores action also submits the current pilot's score.
+  auto const scores{store.load_scores(tables.scores().defaults)};
+  require(scores.front().score == 150 && scores.front().callsign == "INFERNO","Arcade score action did not persist the current pilot");
+  require(!first.pointer_visible(),"high-score view did not suspend the original menu");
+  first.press(0x39,false);step(first,100);
+  require(first.pointer_visible(),"high-score dismissal did not return to Arcade options");
+  click(150,147);
+  require(first.function_name() == "main","Arcade log restore did not return to the original main menu");
+  require(std::get<uint32_t>(first.values().at("score")) == 150,"Arcade log restore lost saved pilot statistics");
+  auto corrupt{tfx::resources::read_file(scratch.path / "tfx.hs")};corrupt[17] ^= 1;
+  { std::ofstream file{scratch.path / "tfx.hs",std::ios::binary};file.write(reinterpret_cast<char const*>(corrupt.data()),corrupt.size()); }
+  require(store.load_scores(tables.scores().defaults) == tables.scores().defaults,"invalid score checksum did not restore the original roster");
+  require(tfx::presentation::decode_scores(tfx::resources::read_file(scratch.path / "tfx.hs")) == tables.scores().defaults,"invalid score file was not repaired");
+  std::cout << "Pilot creation/load/replacement, training flow, native resume/log restore, original Arcade score display/storage and qualification marker passed in a private directory\n";
   return EXIT_SUCCESS;
 } catch(std::exception const &error) {
   std::cerr << "ERROR: " << error.what() << '\n';

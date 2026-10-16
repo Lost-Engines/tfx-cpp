@@ -497,3 +497,19 @@ Pilot artwork, embedded arrow, labels, rank/status names and scan-code character
 Enrolment saves, `slog`, `rlog`, `spos` and completed-training storage now connect to the native save codec. Existing lower-case DOS filenames are reused instead of creating case-only duplicates. Loading restores the saved parser statement and call stack before completing the enrolment/load host action. The new isolated test checks creation, qualification, persistence, load/replacement, native resume positions, completed-training markers and authored 501-to-502 training progression with a **supplied flight-result boundary**. That supplied result is a parser integration check, not proof of completing those engagements through combat.
 
 The private X11 check uses a temporary installation containing links only to `DID.DAT` and `TFX.DAT`. It types names, qualifies/saves a pilot, chooses training, skips its briefings, enters live mission 501, exits, then reloads the pilot and enters again. It never modifies the reference installation or sends desktop input. Existing private flight weapon/targeting/results checks still pass. Development and Release builds pass all 39 CTests; the pilot integration check also passes in Release and ASan/UBSan. Full original enrolment-frame comparison, planner/loadout, high-score consumers and complete flight/campaign-session equivalence remain separate work.
+
+
+### Original high scores and Arcade return
+
+```sh
+python3 tools/check_scores.py
+python3 tools/check_score_frames.py
+```
+
+The original high-score roster, signed ordering, display and `tfx.hs` storage now run through the front-end host. `sscore` displays the table; `vscore` also inserts the current pilot's score, including the authored Arcade menu's view-scores path. Strictly greater scores qualify, so tied entries retain their existing precedence. Missing files use the embedded defaults; failed checksums restore and rewrite them, matching the original loader. Names come from executable tables and current pilot variables; no default roster or captured screen is bundled.
+
+The 670-byte payload contains ten 67-byte records: three 21-byte names and a signed score. Native `0xa69b0`/`0xa6a10` use a privately reset original random sequence for byte XOR and the following checksum contribution. **512 complete encoding/checksum/decoding cases, 512 corrupted files and 1,024 native insertion cases agree**, including signed extremes and ties. New string padding is zeroed rather than copying old buffer contents. Asset-free tests check every corrupted byte, every truncated prefix, trailing data, name bounds and stable ranking.
+
+The complete original high-score handler `0xa6c3c` agrees across **274 VGA frames**: the expanding text clip, exact labels/numbers, font pixels, shadows and all thirty selected-row highlight colours. Background decoding, display pages/retraces, cached palette and final mouse exit are explicit supplied boundaries. Native formatting, clip setup, fonts and screen-loop control run together. The right clip edge is exclusive; the bottom edge is inclusive. The display and highlight retain the original retrace-driven timing.
+
+The isolated pilot/front-end test additionally chooses Arcade, writes its temporary log without a resume position, submits/displays a score, dismisses the table, returns through `rlog` to the main menu and checks repair of a corrupt score file. All files remain in a private temporary directory. Development, Release and ASan/UBSan builds pass 40 CTests and the extended pilot integration test. Planner/loadout and complete campaign-flight-session equivalence remain outstanding.

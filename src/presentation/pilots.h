@@ -3,6 +3,7 @@
 #include <array>
 #include "presentation/cursor.h"
 #include "presentation/save.h"
+#include "presentation/scores.h"
 
 namespace tfx::presentation {
 
@@ -41,6 +42,8 @@ public:
   std::array<std::optional<saved_state>,pilot_slots> list(program const &schema) const;
   void write(unsigned int slot, bool log, program const &schema, saved_state const &saved) const;
   saved_state read(unsigned int slot, bool log, program const &schema) const;
+  score_table load_scores(score_table const &defaults) const;
+  void save_scores(score_table const &scores) const;
   bool trained() const;
   void complete_training() const;
 };
