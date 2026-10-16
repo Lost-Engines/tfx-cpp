@@ -28,7 +28,7 @@ enum class view_mode : int16_t {
   centre_head,
   designator,
   fly_past,
-  recovery,
+  ejection,
   turning_recovery,
   look_far_right,
   look_far_left,

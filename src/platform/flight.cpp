@@ -444,6 +444,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     tfx::cockpit::view_camera_context context{
       .position{vec3<int32_t>{player.integer_position}},
       .position_q8{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
+      .position_f32{vec3f{player.position}},
       .angles{vec3<tfx::math::angle>{player.angles}},
       .basis{player.orientation},
       .elapsed{launch_elapsed},

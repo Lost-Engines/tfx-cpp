@@ -419,6 +419,26 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     views.ready();
     break;
   }
+  case view_mode::ejection: {
+    // Native 0x91f00 uses the actual float pose and drops the final eight
+    // fraction bits after applying its twelve-world-unit camera setback.
+    auto basis{context.basis};
+    int32_t constexpr level_near_ground{-80};
+    if(context.position.y >= level_near_ground) basis.align_down({0,1,0});
+    basis.rotate(math::rotation_axis::heading,0x6000);
+    basis.rotate(math::rotation_axis::pitch,0x0aaa);
+    state.smoothed_angles = basis.angles();
+    pose.anchor = vec3<int32_t>{context.position};
+    float constexpr normalised_word{3.0518509447574615e-05f}, setback{12}, position_unit{256};
+    for(unsigned int axis{0}; axis != 3; ++axis) {
+      long double const offset{static_cast<long double>(math::signed_word(static_cast<uint16_t>(basis.forward[axis]))) * normalised_word * setback * position_unit};
+      int32_t const coordinate{static_cast<int32_t>(static_cast<long double>(context.position_f32[axis]) * position_unit - offset)};
+      pose.position_q16[axis] = wrap(static_cast<uint32_t>(coordinate) << 8);
+    }
+    set_angles({negative(state.smoothed_angles.x),negative(state.smoothed_angles.y),negative(state.smoothed_angles.z)});
+    pose.player_model_entry = 21u + context.refuel_phase;
+    break;
+  }
   case view_mode::unbanked_chase: {
     control.distance = 500;
     player_origin(context);

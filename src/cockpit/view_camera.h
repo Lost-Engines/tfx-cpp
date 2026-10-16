@@ -13,6 +13,7 @@ struct missile_camera_pose {
 struct view_camera_context {
   vec3<int32_t> position{0,0,0};
   vec3<int32_t> position_q8{0,0,0};
+  vec3f position_f32{0,0,0};
   vec3<math::angle> angles{0,0,0};
   math::attitude basis{};
   simulation::timer_ticks elapsed{0};

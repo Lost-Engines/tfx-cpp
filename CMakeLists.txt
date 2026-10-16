@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/ejection_sequence.cpp
+  src/flight/ejection_sequence.h
   src/flight/ejection.cpp
   src/flight/ejection.h
   src/flight/landing.cpp
@@ -398,6 +400,9 @@ if(BUILD_TESTING)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
 
+  add_executable(ejection_sequence_probe tests/ejection_sequence_probe.cpp)
+  target_link_libraries(ejection_sequence_probe PRIVATE tfx_core)
+  configure_first_party(ejection_sequence_probe)
   add_executable(ejection_probe tests/ejection_probe.cpp)
   target_link_libraries(ejection_probe PRIVATE tfx_core)
   configure_first_party(ejection_probe)
