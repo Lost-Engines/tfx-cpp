@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/simple_ground.cpp
+  src/flight/simple_ground.h
   src/flight/simple_turn.cpp
   src/flight/simple_turn.h
   src/flight/simple_controls.cpp
@@ -405,6 +407,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(simple_ground_probe tests/simple_ground_probe.cpp)
+  target_link_libraries(simple_ground_probe PRIVATE tfx_core)
+  configure_first_party(simple_ground_probe)
+  add_test(NAME flight.native_simple_ground_contact COMMAND simple_ground_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/simple_ground.txt")
 
   add_executable(simple_turn_probe tests/simple_turn_probe.cpp)
   target_link_libraries(simple_turn_probe PRIVATE tfx_core)

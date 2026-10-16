@@ -1157,3 +1157,11 @@ All 8,192 complete original matrix/residual/correction/speed/G cases agree witho
     python3 tools/check_simple_turn.py
 
 The coordinated-turn and control-response stages are still being assembled with ground handling and the outer Simple flight dispatch.
+
+### Simple low-speed attitude and touchdown
+
+The native stall-pitch stage (0x8d6e8) updates the visible basis separately from the body orientation, retaining its signed-word pitch, per-tick movement and distinct extended/double/float comparison boundaries. Ground contact (0x8d970) preserves sink below stall, gear clearance, inverted/gear-up impacts, filtered touchdown pitch/roll, previous-landed state, low-speed rolling contact and the surface-specific brake-chute cutaway latch.
+
+All 8,192 complete original cases agree in both matrices, rotation residuals, altitude, contact/landing flags, signed words and speed/reference stores, without intercepted dependencies. The cases include independent and consecutive stage calls, gear-height boundaries, stall/reference thresholds, maximum elapsed words and prior contact state. Development, Release and ASan/UBSan checks pass; 123 compact native cases bring the normal CTest suite to 54 passing tests.
+
+    python3 tools/check_simple_ground.py
