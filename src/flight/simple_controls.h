@@ -33,7 +33,7 @@ struct simple_control_context {
   bool landed{false};
   bool low_speed_ground_contact{false};
   bool pitch_inhibited{false};
-  bool direct_rudder{false};
+  bool alt{false}; // Native raw-key table scan code 0x38 enables rudder steering.
 };
 
 // Native 0x8cfa0; returns the effective direction keys set by joystick thresholding.

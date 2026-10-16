@@ -15,7 +15,7 @@ struct simple_ground_state {
   bool previous_landed{false};
   bool low_speed_ground_contact{false};
   int16_t collision{0};
-  bool brake_chute_cut_away{false};
+  bool arrested{false};
   double indicated_speed{0};
   double low_speed_reference{0};
 };
@@ -34,7 +34,7 @@ struct simple_ground_context {
   bool pitch_inhibited{false};
   bool pitch_down{false};
   int16_t surface_type{0};
-  bool brake_chute{false};
+  bool arrestor_hook{false};
 };
 
 // Native 0x8d6e8 only changes the visible basis and retained stall pitch.
