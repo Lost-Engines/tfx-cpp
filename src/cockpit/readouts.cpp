@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 #include <stdexcept>
+#include <utility>
 #include "render/sprites.h"
 
 namespace tfx::cockpit {
@@ -42,7 +43,7 @@ bool clear_panel(render::software_renderer &renderer, vec2<int> const &minimum, 
 
 } // anonymous namespace
 
-readouts::readouts(instrument_assets const &source, resources::archive const &game) : assets{source}, digits{resources::decode_sprites(game.read(assets.font_bank))} {
+readouts::readouts(instrument_assets const &source, resources::archive const &game) : assets{source}, digits{resources::decode_sprites(game.read(assets.font_bank))}, autopilot_lamp{resources::decode_sprites(game.read(assets.autopilot_bank))} {
 }
 void readouts::number(render::software_renderer &renderer, vec2<int> const &position, std::string_view const text, render::framebuffer *const coverage) const {
   // Native 0x826b4 uses a coloured sprite font with a fixed four-pixel advance.
@@ -57,6 +58,16 @@ void readouts::number(render::software_renderer &renderer, vec2<int> const &posi
     render::draw_sprite(renderer.output,digits.at(index),centre,coverage,renderer.clipping);
     x += 4;
   }
+}
+void readouts::draw_autopilot(render::software_renderer &renderer, autopilot_display_state const &state, vec2<int16_t> const &offset, render::framebuffer *const coverage) const {
+  // Native 0x7e1f4 always prints the selected mode number, including while disengaged.
+  if(state.enabled) {
+    auto const position{shifted({22,140},offset)};
+    render::draw_sprite(renderer.output,autopilot_lamp.at(0),{static_cast<uint16_t>(position.x),static_cast<uint16_t>(position.y)},coverage,renderer.clipping);
+  }
+  auto const position{shifted({26,138},offset)};
+  int const mode{math::signed_word(std::to_underlying(state.mode)) + 1};
+  renderer.text(position.x,position.y,formatted(assets.autopilot_number_format,mode),1,coverage);
 }
 fuel_warning readouts::draw(render::software_renderer &renderer, readout_state const &state, render::framebuffer *const coverage) const {
   // Native 0x813c4: a wrapping sum, then hours/minutes/seconds at 54 ticks per second.

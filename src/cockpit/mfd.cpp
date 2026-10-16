@@ -9,10 +9,10 @@
 namespace tfx::cockpit {
 namespace {
 
-template<typename Value>
-std::string formatted(std::string const &format, Value const value) {
+template<typename... Values>
+std::string formatted(std::string const &format, Values const... values) {
   std::array<char,128> buffer{};
-  int const length{std::snprintf(buffer.data(),buffer.size(),format.c_str(),value)};
+  int const length{std::snprintf(buffer.data(),buffer.size(),format.c_str(),values...)};
   if(length < 0 || static_cast<unsigned int>(length) >= buffer.size()) throw std::runtime_error{"MFD number exceeds its display buffer"};
   return {buffer.data(),static_cast<unsigned int>(length)};
 }
@@ -43,7 +43,7 @@ display_page outer_page(display_side const side, unsigned int const selection) {
 }
 
 mfd::mfd(instrument_assets const &source, resources::archive const &game, std::span<weapons::definition const> const definitions)
-  : assets{source}, weapons{definitions}, backgrounds{resources::decode_sprites(game.read(assets.display_bank))} {
+  : assets{source}, weapons{definitions}, backgrounds{resources::decode_sprites(game.read(assets.display_bank))}, control_backgrounds{resources::decode_sprites(game.read(assets.controls_bank))} {
 }
 void mfd::draw(render::software_renderer &renderer, display_side const side, display_page const page, mfd_state const &state, render::framebuffer *const coverage) const {
   auto const &origin{assets.display_origins[side == display_side::left ? 0 : 2]};
@@ -164,6 +164,59 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
     mask(instrument_mask::lower_flap,{7,27},status(flight::aircraft_system::flaps));
     mask(instrument_mask::lower_flap,{34,27},status(flight::aircraft_system::flaps));
     break;
+  case display_page::controls: {
+    auto const centre{point({28,18})};
+    render::draw_sprite(renderer.output,control_backgrounds.at(0),{static_cast<uint16_t>(centre.x),static_cast<uint16_t>(centre.y)},coverage,renderer.clipping);
+    if(state.aircraft != flight::player_aircraft::raptor) {
+      fill({2,1},{18,11},5);
+      fill({2,13},{18,17},3);
+    }
+    if(state.aircraft != flight::player_aircraft::nighthawk) {
+      auto const pointer{[&](int const x, int const length, int const degrees) {
+        // Original truncates to a signed word, wraps the 16.16 numerator, then
+        // discards the six angle bits absent from its 1,024-entry sine table.
+        int32_t const numerator{std::bit_cast<int32_t>(static_cast<uint32_t>(degrees) * 65536u)};
+        auto const angle{static_cast<math::angle>(numerator / 360) & uint16_t{0xffc0}};
+        auto const delta{math::rotate_words({0,static_cast<int16_t>(-length)},static_cast<math::angle>(angle))};
+        auto const from{point({x,5})};
+        vec2<int> const to{math::signed_word(static_cast<uint16_t>(from.x + delta.x)),math::signed_word(static_cast<uint16_t>(from.y + delta.y))};
+        presentation::draw_line(renderer.output,vec2<int>{from},to,6);
+        if(coverage) presentation::draw_line(*coverage,vec2<int>{from},to,255);
+      }};
+      auto const deflection{[&](double const value) { return math::signed_word(static_cast<uint16_t>(static_cast<int>(static_cast<long double>(value) * assets.surface_scale))); }};
+      pointer(43,10,90 + deflection(state.controls.surface_deflection.x));
+      pointer(32,5,-90 - deflection(state.controls.surface_deflection.y));
+      if(state.aircraft == flight::player_aircraft::raptor) {
+        double const scale{assets.raptor_degrees / assets.raptor_radians};
+        for(unsigned int index{0}; index != 2; ++index) {
+          auto const base{point({index ? 12 : 6,6})};
+          int const row{static_cast<int>(static_cast<long double>(base.y) + static_cast<long double>(state.controls.raptor_deflection[index]) * scale * assets.raptor_pointer_scale)};
+          auto const shape{index ? instrument_mask::throttle : instrument_mask::fuel};
+          render::draw_monochrome(renderer.output,assets.masks[std::to_underlying(shape)],{static_cast<uint16_t>(base.x),static_cast<uint16_t>(row)},1,coverage,renderer.clipping);
+        }
+      }
+    }
+    auto const &autopilot{state.controls.autopilot};
+    if(autopilot.enabled) {
+      text({27,13},assets.autopilot_label,2);
+      auto const mode{std::to_underlying(autopilot.mode)};
+      if(mode >= assets.autopilot_mode_labels.size()) break;
+      auto const &label{assets.autopilot_mode_labels[mode]};
+      long const heading{static_cast<unsigned int>(autopilot.heading) * 360u >> 16};
+      if(autopilot.mode == autopilot_mode::waypoint) text({2,20},formatted(label,static_cast<int>(autopilot.waypoint),heading),2);
+      else if(autopilot.mode == autopilot_mode::heading) text({2,20},formatted(label,heading),2);
+      else text({2,20},label,2);
+      double const speed{static_cast<double>(static_cast<long double>(autopilot.speed) * assets.autopilot_speed_scale)};
+      if(autopilot.mode == autopilot_mode::waypoint || autopilot.mode == autopilot_mode::heading) {
+        double const height{static_cast<double>(-static_cast<long double>(autopilot.height) * assets.autopilot_height_scale)};
+        text({2,27},formatted(assets.autopilot_height_speed_format,height,speed),2);
+      } else if(autopilot.mode != autopilot_mode::recover) text({2,27},formatted(assets.autopilot_speed_format,speed),2);
+    } else {
+      auto const configuration{std::to_underlying(state.controls.configuration)};
+      if(configuration < assets.configuration_labels.size()) text({2,20},assets.configuration_labels[configuration],2);
+    }
+    break;
+  }
   default: throw std::runtime_error{"this MFD page still needs its native scene/input integration"};
   }
 }
