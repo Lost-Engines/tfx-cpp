@@ -1244,3 +1244,23 @@ The numerical flight entry points now scope that native environment and restore 
 Under the executed startup settings, complete Simple ordinary and disabled trajectories each retain exact agreement for 15,360 updates; Arcade retains 4,608 ordinary and 4,608 disabled updates, plus 9,216 ground-start/takeoff updates. The basic-model trajectory fixtures and affected stage captures are regenerated from the original under that environment. Development and Release each pass all 62 CTests, including explicit precision, nesting, host-restoration and exception-restoration checks.
 
 The same startup-precision audit passes all 62 tests and both complete 15,360-update Simple comparisons in ASan/UBSan as well. Release repeats of the advanced atmosphere, force and motion comparisons remain exact.
+
+### Aerodynamic velocity response and stiff damping
+
+The complete native 0x9f41c response stage now advances NED velocity and roll/pitch rates, updates or retains sideslip at the original forward-speed threshold, distinguishes rolling rudder response, reprojects ground/body velocity and preserves the Realistic model's below-stall ground constraint. The original velocity time-warp gate at 20 km and autopilot exclusion remain separate from the later airborne positional warp. The stiff roll/pitch fallbacks preserve their aerodynamic derivatives, control/engine contributions, previous-pitch-rate store and stick-pressure adjustment. Yaw retains the original positive/negative ten-degree cap and the stored approximate inverse-degree constant.
+
+All 8,192 complete original updates agree, including 2,705 roll and 2,952 pitch damping fallbacks. The original startup environment executes. FPATAN and the bounded FSIN/FCOS instructions use actual host x87 instructions instead of Unicorn's binary64 approximations; all surrounding original response code executes. Coefficients, controls, loads, basis and prior state are explicit stage inputs. There are 123 compact captures. This stage has not yet been integrated into an initialized advanced-model session.
+
+    python3 tools/check_aerodynamic_response.py
+
+### Aerodynamic air data and atmosphere integration
+
+The native 0x98ebc..0x991cc prefix refreshes the physical double basis, projects both ground and wind-relative velocities into local forward/right/down, retains track and angle of attack below their separate movement thresholds, and computes altitude, atmosphere, mass, true airspeed, fixed speed, Mach, pressure and elapsed simulation time. Its square-root argument and all original double/float storage boundaries remain explicit. The same atmosphere stage is used by this connected prefix and its isolated checks.
+
+All 8,192 original-prefix cases agree, including arbitrary rotations, retained angles, signed zero, cached wind, all temperature choices, altitude boundaries and integer-indefinite conversion for excessive indicated speed. Original startup, normalization, projection, angle, square-root and full atmosphere routines execute. FPATAN uses the hardware adapter, and the capture ends explicitly before the next separately owned Mach-coefficient/fuel/failure stages; wind generation is supplied at its cached-value boundary. There are 123 compact captures.
+
+    python3 tools/check_aerodynamic_airdata.py
+
+The complete response comparison also passes in Release and ASan/UBSan, with all 8,192 cases and both stiff-damping branches exercised.
+
+Both the complete response and connected air-data comparisons pass in development, Release and ASan/UBSan. Their two stage-fixture tests pass in each relevant configured build.

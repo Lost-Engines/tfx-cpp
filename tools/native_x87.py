@@ -33,3 +33,24 @@ def hardware_fpatan(image,build):
     for file in (0xd2469,0xd248b,0xd2498,0xd24b2):
         image.intercept(file,'Use actual 80-bit host FPATAN; installed Unicorn narrows both operands and result to binary64',replace)
     return library
+
+
+def hardware_sine_cosine(image,build):
+    library=ctypes.CDLL(str((Path(build)/'libnative_x87_backend.so').resolve()))
+    operation=library.tfx_sine_cosine
+    operation.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_ushort,ctypes.c_uint]
+    operation.restype=None
+    def replace(im,cosine):
+        status=im.cpu.reg_read(r.UC_X86_REG_FPSW);top=(status>>11)&7
+        register=getattr(r,'UC_X86_REG_FP'+str(top));value=im.cpu.reg_read(register)
+        incoming=ctypes.create_string_buffer(struct.pack('<QH',*value));out=ctypes.create_string_buffer(10)
+        operation(incoming,out,im.cpu.reg_read(r.UC_X86_REG_FPCW),cosine)
+        result=struct.unpack('<QH',out.raw);im.cpu.reg_write(register,result)
+        tag=1 if result[0]==0 and result[1]&0x7fff==0 else 0
+        tags=im.cpu.reg_read(r.UC_X86_REG_FPTAG)&~(3<<(top*2));tags|=tag<<(top*2)
+        im.cpu.reg_write(r.UC_X86_REG_FPTAG,tags)
+        im.cpu.reg_write(r.UC_X86_REG_FPSW,status&~0x600)
+        im.cpu.reg_write(r.UC_X86_REG_EIP,im.cpu.reg_read(r.UC_X86_REG_EIP)+2)
+    image.intercept(0xd22f2,'Use actual 80-bit FSIN for bounded angles; Unicorn narrows to binary64',lambda im:replace(im,0))
+    image.intercept(0xd22dd,'Use actual 80-bit FCOS for bounded angles; Unicorn narrows to binary64',lambda im:replace(im,1))
+    return library

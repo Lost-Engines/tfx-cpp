@@ -16,4 +16,23 @@ inline long double atan2(long double const y, long double const x) {
 #endif
 }
 
+inline long double sin(long double const value) {
+#if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
+  long double result;
+  __asm__("fsin" : "=t"(result) : "0"(value));
+  return result;
+#else
+  return std::sin(value);
+#endif
+}
+inline long double cos(long double const value) {
+#if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
+  long double result;
+  __asm__("fcos" : "=t"(result) : "0"(value));
+  return result;
+#else
+  return std::cos(value);
+#endif
+}
+
 } // namespace tfx::math::x87
