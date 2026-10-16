@@ -134,6 +134,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
   std::optional<texture_binding> texture;
   std::vector<vec2d> texture_uvs;
   shape_geometry result;
+  std::optional<unsigned int> attachment_slot;
   auto const project{[&context](vec3d const &v){ return context.project ? context.project(v) : vec2d{-v.x, v.y}; }};
   auto const determinant{[&project](std::vector<model_vertex> const &vertices){
     auto const a{project(vertices[0].position)}, b{project(vertices[1].position)}, c{project(vertices[2].position)};
@@ -162,6 +163,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       .texture{textured ? texture : std::nullopt},
       .rounded{rounded},
       .source_address{address},
+      .attachment_slot{attachment_slot},
     };
     for(size_t i{0}; i != indices.size(); ++i) {
       auto const index{indices[i]};
@@ -178,12 +180,12 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
     if(context.facing && p.vertices.size() >= 3 && determinant(p.vertices) < 0) return;
     result.primitives.push_back(std::move(p));
   }};
-  auto const run{[&](auto const &self, unsigned int at, unsigned int const depth)->void {
+  auto const run{[&](auto const &self, shape const &active, unsigned int at, unsigned int const depth)->void {
     if(depth > maximum_depth) throw std::runtime_error{"shape helper nesting exceeds limit"};
     for(;;) {
       if(++result.steps > maximum_steps) throw std::runtime_error{"shape instruction limit exceeded"};
-      auto const found{program.instructions.find(at)};
-      if(found == program.instructions.end()) throw std::runtime_error{"shape branch misses instruction at " + std::to_string(at)};
+      auto const found{active.instructions.find(at)};
+      if(found == active.instructions.end()) throw std::runtime_error{"shape branch misses instruction at " + std::to_string(at)};
       auto const &instruction{found->second};
       auto const opcode{instruction.opcode};
       std::span<uint16_t const> const a{instruction.operands};
@@ -192,7 +194,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       auto const target{a.empty() ? 0 : static_cast<unsigned int>(static_cast<int>(at - 2) + math::signed_word(a.back()))};
       if(opcode == 0 || opcode == 65535) return;
       if(opcode == 7) { at = target; continue; }
-      if(opcode == 8) { self(self, target, depth + 1); continue; }
+      if(opcode == 8) { self(self, active, target, depth + 1); continue; }
       if(opcode == 98) {
         cursor = a[0];
         emit(matrix * vec3d{vec3<int16_t>{math::signed_word(a[1]), math::signed_word(a[2]), math::signed_word(a[3])}});
@@ -237,7 +239,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       if(opcode == 72) { state = context.parameters.at(a[0]); continue; }
       if(is_condition(opcode)) {
         if(condition(opcode, a[0], state, context.distance, context.status)) {
-          if(condition_calls(opcode)) self(self, target, depth + 1);
+          if(condition_calls(opcode)) self(self, active, target, depth + 1);
           else at = target;
         }
         continue;
@@ -259,10 +261,32 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         auto const old_scale{camera_scale};
         origin = *world[index];
         if(opcode == 73) matrix = matrix * math::rotation(vec3<math::angle>{a[0],a[1],a[2]});
-        self(self, target, depth + 1);
+        self(self, active, target, depth + 1);
         origin = old_origin;
         matrix = old_matrix;
         camera_scale = old_scale;
+        continue;
+      }
+      if(opcode == 81) {
+        // The second disk operand is a byte offset into the native table of 16-bit model handles.
+        if(a[1] % sizeof(uint16_t)) throw std::runtime_error{"unaligned carried-model slot"};
+        unsigned int const slot{static_cast<unsigned int>(a[1] / sizeof(uint16_t))};
+        if(slot >= context.attachments.size() || !context.attachments[slot]) continue;
+        if(a[0] >= vertex_slots || !world[a[0]]) { result.warnings.insert("unavailable carried-model anchor"); continue; }
+        auto const old_origin{vec3d{origin}};
+        auto const old_scale{camera_scale};
+        auto const old_state{state};
+        auto const old_slot{attachment_slot};
+        origin = *world[a[0]];
+        state = 0xf9; // Native 0xbc94c seeds carried stores independently of the parent condition byte.
+        if(!attachment_slot) attachment_slot = slot;
+        auto const &child{*context.attachments[slot]};
+        // Vertex storage and drawing state remain shared, as in the original. Only translation and condition are restored.
+        self(self, child, child.levels.at(0), depth + 1);
+        origin = old_origin;
+        camera_scale = old_scale;
+        state = old_state;
+        attachment_slot = old_slot;
         continue;
       }
       if(opcode == 48 || opcode == 54 || opcode == 55) {
@@ -289,6 +313,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
             },
             .colour{colour},
             .source_address{address},
+            .attachment_slot{attachment_slot},
           });
         }
         continue;
@@ -303,7 +328,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         texture = texture_binding{
           .source{opcode == 71 ? texture_source::global : texture_source::model},
           .slot{a[0]},
-          .name{program.texture_name},
+          .name{active.texture_name},
         };
         texture_uvs.clear();
         for(size_t i{2}; i < a.size(); i += 2) texture_uvs.emplace_back(a[i], a[i + 1]);
@@ -328,6 +353,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
             .radius{record.size() > offset + 2 ? record[offset + 2] * std::abs(vertex_scales[index]) : 0},
             .pixel_size{opcode == 51 ? 1u : opcode == 52 ? 2u : 0u},
             .source_address{address},
+            .attachment_slot{attachment_slot},
           });
         }
         continue;
@@ -352,7 +378,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       result.warnings.insert("shape opcode " + std::to_string(opcode) + " requires runtime context");
     }
   }};
-  run(run, program.levels.at(context.level), 0);
+  run(run, program, program.levels.at(context.level), 0);
   return result;
 }
 

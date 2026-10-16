@@ -56,6 +56,7 @@ struct primitive {
   unsigned int pixel_size{0};
   bool rounded{false};
   unsigned int source_address{0};
+  std::optional<unsigned int> attachment_slot;
 };
 struct shape_context {
   std::array<uint8_t, 256> parameters{0};
@@ -65,8 +66,9 @@ struct shape_context {
   uint8_t initial_state{0};
   double reference_scale{1};
   bool facing{true};
-  std::function<vec2d(vec3d const&)> project;
+  std::function<vec2d(vec3d const&)> project{};
   math::jitter_state *jitter{nullptr};
+  std::span<shape const *const> attachments{};
 };
 struct shape_geometry {
   std::vector<primitive> primitives;
