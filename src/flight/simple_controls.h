@@ -1,17 +1,11 @@
 #pragma once
 
 #include "math/attitude.h"
+#include "flight/control_input.h"
 #include "simulation/timing.h"
 
 namespace tfx::flight {
 
-enum class control_source : uint8_t { keyboard, joystick, mouse };
-struct direction_keys {
-  bool up{false};
-  bool left{false};
-  bool down{false};
-  bool right{false};
-};
 struct simple_control_state {
   vec3f angular_rate{0,0,0}; // Pitch, heading and roll in the native angle units.
   float negative_pitch_limit{0};

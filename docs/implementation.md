@@ -1296,3 +1296,15 @@ All 8,192 complete original updates agree, including 2,217 stalls, all three air
     python3 tools/check_aerodynamic_surfaces.py
 
 The surface and Mach-coefficient comparisons also pass exactly in Release and ASan/UBSan. The 0x141d0 derivative is now named elevator lift, following its actual 0x148a0 elevator consumer; physical flap derivatives remain separate.
+
+### Advanced-model device input, throttle and autopilot targets
+
+The complete native 0x9a104 handler now retains each device's distinct control targets and limiting rules: keyboard pitch/roll accumulation, Alt/ground rudder behaviour and speed gating, centered mouse dead zones/cubic response, joystick pitch/roll scaling, and mutable mouse limits. The native mouse branch updates a rudder key target without copying it to actual rudder; that retained-state distinction is preserved. Throttle keeps its per-update increments, engine-off and afterburner rules. Autopilot target altitude, heading and speed retain their original mode gates, bounds, priority and word wrapping.
+
+Input source and direction keys now live in a shared input header rather than the Simple model's header. Device acquisition remains outside numerical input. The powerplant owns its afterburner-stop invariant, shared by fuel exhaustion and input-driven shutdown, while output delivery remains separate.
+
+All 8,192 complete original input/control/throttle/target updates agree, including every source, device threshold edges, opposing keys, Alt, ground/speed gates, engine states and autopilot modes. They include 382 exact ordered afterburner-stop request pairs. Original startup and the full numerical handler execute; mouse range/reset/acquisition and sound/model delivery are explicit boundaries. There are 123 compact captures. The complete powerplant comparison still agrees in all 8,192 cases after sharing the stop operation.
+
+    python3 tools/check_aerodynamic_controls.py
+
+All 68 CTests, complete advanced-input cases and complete powerplant cases pass in development, Release and ASan/UBSan.

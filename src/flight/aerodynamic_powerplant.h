@@ -32,6 +32,7 @@ struct aerodynamic_powerplant {
   int16_t fuel_readout{0};
   uint8_t afterburner_control{0};
   uint8_t afterburner_display{0};
+  bool stop_afterburner();
 };
 struct aerodynamic_powerplant_context {
   double altitude_km{0};
