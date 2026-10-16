@@ -513,3 +513,19 @@ The 670-byte payload contains ten 67-byte records: three 21-byte names and a sig
 The complete original high-score handler `0xa6c3c` agrees across **274 VGA frames**: the expanding text clip, exact labels/numbers, font pixels, shadows and all thirty selected-row highlight colours. Background decoding, display pages/retraces, cached palette and final mouse exit are explicit supplied boundaries. Native formatting, clip setup, fonts and screen-loop control run together. The right clip edge is exclusive; the bottom edge is inclusive. The display and highlight retain the original retrace-driven timing.
 
 The isolated pilot/front-end test additionally chooses Arcade, writes its temporary log without a resume position, submits/displays a score, dismisses the table, returns through `rlog` to the main menu and checks repair of a corrupt score file. All files remain in a private temporary directory. Development, Release and ASan/UBSan builds pass 40 CTests and the extended pilot integration test. Planner/loadout and complete campaign-flight-session equivalence remain outstanding.
+
+
+### Editable planner documents
+
+```sh
+python3 tools/check_planning_documents.py
+python3 tools/check_planning_documents.py --build build-san
+```
+
+The planner's text `.WAY` resources now load into owned route/waypoint structures with retained commands, map/world/palette metadata, mission parameters and original briefing bytes. These are separate from the compiled `.WAY` programs used in flight. The data layer does not yet replace the pending planner host action or provide its interactive map/loadout screen.
+
+Native `0xa7dc0` executes its complete line reader, scanning, path construction and command constructors with a bounded supplied allocator. **180 original loads agree across 8,916 waypoint records**, including all **30 retail Tour of Duty planner sources**. The compared fields are all sixteen resulting parameter words, map/world/palette names, route labels, waypoint ordinals/coordinates and the exact remaining briefing byte range. Source commands are preserved verbatim by C++; their planner compilation/editing semantics are a separate consumer, not claimed by this comparison.
+
+The original header uses fifteen dword `%d` destinations spaced two bytes apart. Following fields overwrite preceding high halves, while a partial header leaves its final high-half write in the next word. The typed parameter loader preserves this effect, including legacy headers that provide only a format tag and retain initial defaults. Fields whose consumers are still unresolved remain explicitly retained. Native coordinate scanning also narrows to signed words; C++ does so without overflowing a waypoint allocation.
+
+Two retained version-1000 Somalia sources, `somal_n.way` and `somal_dc.way`, omit their first route name. They are outside the thirty retail planner actions. The 2.05 reader misinterprets the following lines; `somal_n` reaches a null command-pointer write. C++ rejects these malformed route headers explicitly. The comparison checks those rejections separately from the 180 matching valid loads. Asset-free tests cover preserved commands/briefing bytes, native header overlap/spill, omitted defaults, signed coordinate narrowing and all truncated prefixes before the final route terminator. All 41 CTests pass in development, Release and ASan/UBSan; the full document comparison also passes with the sanitizer-built loader.

@@ -1,0 +1,41 @@
+#include <cstdlib>
+#include <iostream>
+#include <stdexcept>
+#include "planning/document.h"
+
+namespace {
+void require(bool const condition, char const *const message) {
+  if(!condition) throw std::runtime_error{message};
+}
+} // anonymous namespace
+int main() try {
+  std::string const source{
+    "1010 1 305419896 2\r\nfirst.lbm\r\nTESTWORLD\r\nsecond.lbm\r\nworld.col\r\nthird.lbm\r\n"
+    "2 = number of paths\r\nPLAYER\r\nWP1 61 23\r\n-endcmnd-\r\nWP2 94 51\r\n11 9000\r\n-endcmnd-\r\n=ENDPATH=\r\n"
+    "WINGMAN\r\nWP1 -1 32768\r\n14 1 4 8\r\n-endcmnd-\r\n=ENDPATH=\r\nBriefing\033\r\n"
+  };
+  tfx::planning::document const plan{source};
+  require(plan.format == 1010 && plan.routes.size() == 2 && plan.routes[0].points.size() == 2,"planner route/header count differs");
+  require(plan.parameters.aircraft_index == 1 && plan.parameters.departure_cell == 0x5678 && plan.parameters.primary_target_cell == 2 && plan.parameters.additional_target_count == 0,"overlapping native dword header writes differ");
+  require(plan.parameters.additional_targets.front() == 0xffff && plan.parameters.weather_index == -1,"omitted authoring parameters lost their native defaults");
+  require(plan.routes[1].points[0].cell.x == -1 && plan.routes[1].points[0].cell.y == -32768,"native waypoint word narrowing differs");
+  require(plan.routes[0].points[1].commands == std::vector<std::string>{"11 9000"},"planner discarded an authored command");
+  require(plan.notes == "Briefing\033\r\n" && plan.map_images[2] == "third.lbm" && plan.world == "TESTWORLD","planner lost metadata or original briefing bytes");
+  auto const end{source.rfind("=ENDPATH=") + std::string_view{"=ENDPATH="}.size()};
+  for(unsigned int length{0}; length != end; ++length) {
+    bool rejected{false};
+    try { tfx::planning::document incomplete{std::string_view{source}.substr(0,length)}; } catch(std::runtime_error const&) { rejected = true; }
+    require(rejected,"truncated planner document was accepted");
+  }
+  tfx::planning::document const old{"1000 WAYPOINT MISSION FILE\na\nb\nc\nd\ne\n0 = number of paths\n"};
+  require(old.parameters.aircraft_index == -1 && old.parameters.additional_target_count == 0 && old.parameters.retained.back() == 0xffff,"legacy header defaults differ");
+  std::array<int32_t,15> complete{};
+  complete.back() = 0x12345678;
+  tfx::planning::mission_parameters const parameters{complete};
+  require(parameters.retained[2] == 0x5678 && parameters.retained[3] == 0x1234,"last native header dword lost its spill word");
+  std::cout << "Planner metadata, editable routes/commands, original briefing bytes, overlapping scanf writes and truncation bounds passed\n";
+  return EXIT_SUCCESS;
+} catch(std::exception const &error) {
+  std::cerr << "ERROR: " << error.what() << '\n';
+  return EXIT_FAILURE;
+}

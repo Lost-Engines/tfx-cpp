@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/planning/document.cpp
+  src/planning/document.h
   src/presentation/score_player.cpp
   src/presentation/score_player.h
   src/presentation/scores.cpp
@@ -145,6 +147,15 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(planning_tests tests/planning_test.cpp)
+  target_link_libraries(planning_tests PRIVATE tfx_core)
+  configure_first_party(planning_tests)
+  add_test(NAME planning.native_document_layout_and_bounds COMMAND planning_tests)
+
+  add_executable(planning_probe tests/planning_probe.cpp)
+  target_link_libraries(planning_probe PRIVATE tfx_core)
+  configure_first_party(planning_probe)
+
   add_executable(score_probe tests/score_probe.cpp)
   target_link_libraries(score_probe PRIVATE tfx_core)
   configure_first_party(score_probe)
