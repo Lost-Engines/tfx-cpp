@@ -117,7 +117,7 @@ void runtime::advance(simulation::timer_ticks const elapsed, math::random_state 
       else {
         auto context{callbacks.motion_inputs(shot,*ticks)};
         context.elapsed = *ticks;
-        context.target = shot.target.actor ? callbacks.actor_position(*shot.target.actor) : shot.target.untargeted ? vec3<int32_t>{untargeted_point} : vec3<int32_t>{shot.target.position};
+        context.target = shot.target.actor ? callbacks.actor_position(*shot.target.actor) : shot.target.untargeted ? vec3<int32_t>{untargeted_point} : shot.target.designated ? callbacks.designation_position() : vec3<int32_t>{shot.target.position};
         if(shot.target.projectile) {
           auto const found{active.find(*shot.target.projectile)};
           if(found != active.end()) context.target = found->second->state.position;

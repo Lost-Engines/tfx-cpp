@@ -29,6 +29,32 @@ vec2<angle> bearing(vec3<int32_t> const &from, vec3<int32_t> const &to) {
   return {angle_to(y,std::max(magnitude(x),magnitude(z))),angle_to(x,z)};
 }
 
+int32_t distance_estimate(vec3<int32_t> const &from, vec3<int32_t> const &to) {
+  // Native 0x7d208: largest absolute component plus one quarter of the other two, with dword wrapping.
+  auto const magnitude{[](uint32_t const value) { return std::bit_cast<int32_t>(std::bit_cast<int32_t>(value) < 0 ? 0u - value : value); }};
+  vec3<int32_t> const offset{magnitude(static_cast<uint32_t>(from.x) - static_cast<uint32_t>(to.x)),magnitude(static_cast<uint32_t>(from.y) - static_cast<uint32_t>(to.y)),magnitude(static_cast<uint32_t>(from.z) - static_cast<uint32_t>(to.z))};
+  int32_t const longest{std::max({offset.x,offset.y,offset.z})};
+  uint32_t const remainder{static_cast<uint32_t>(offset.x) + static_cast<uint32_t>(offset.y) + static_cast<uint32_t>(offset.z) - static_cast<uint32_t>(longest)};
+  return std::bit_cast<int32_t>(static_cast<uint32_t>(longest) + static_cast<uint32_t>(std::bit_cast<int32_t>(remainder) >> 2));
+}
+
+void advance_position(vec3<int32_t> &position, vec3<angle> const &angles, int32_t const distance, int32_t const minimum_y, int32_t const maximum_y) {
+  // Shared arithmetic of native 0xc0560 (Q8 actors) and 0xc03f4 (integer camera, signed-word distance).
+  auto const &sine{sine_table()};
+  unsigned int const pitch{static_cast<unsigned int>(static_cast<uint16_t>(-angles.x)) >> 6}, heading{static_cast<unsigned int>(static_cast<uint16_t>(-angles.y)) >> 6};
+  int32_t const cp{sine[(pitch + 256) % 1024]};
+  vec3<int16_t> const direction{
+    signed_word(static_cast<uint16_t>(-((sine[heading] * cp) >> 15))),
+    signed_word(static_cast<uint16_t>(-sine[pitch])),
+    signed_word(static_cast<uint16_t>((sine[(heading + 256) % 1024] * cp) >> 15)),
+  };
+  for(unsigned int axis{0}; axis != 3; ++axis) {
+    int32_t const product{std::bit_cast<int32_t>(static_cast<uint32_t>(direction[axis]) * static_cast<uint32_t>(distance))};
+    position[axis] = std::bit_cast<int32_t>(static_cast<uint32_t>(position[axis]) + static_cast<uint32_t>(product >> 15));
+  }
+  position.y = std::clamp(position.y,minimum_y,maximum_y);
+}
+
 int16_t distance_word(vec3<int16_t> const &offset) {
   /// Native 0xcbe94 / 0xd14b4: floor of the unsigned squared magnitude, returned in a signed word.
   auto const square{[](int32_t const value) { return static_cast<uint32_t>(value * value); }};

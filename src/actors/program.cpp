@@ -102,18 +102,7 @@ std::vector<profile> profiles(std::span<uint8_t const> const source) {
 }
 
 void move(vec3<int32_t> &position, vec3<math::angle> const &angles, int32_t const distance, int const minimum_y, int const maximum_y) {
-  /// Native 0xc0560 moves the actor's Q8 position, using wrapped 32-bit products and quantised negative phases
-  auto const &sine{math::sine_table()};
-  unsigned int const pitch{static_cast<unsigned int>(static_cast<uint16_t>(-angles.x)) >> 6}, heading{static_cast<unsigned int>(static_cast<uint16_t>(-angles.y)) >> 6};
-  int32_t const cp{sine[(pitch + 256) % 1024]};
-  int32_t const x{math::signed_word(static_cast<uint16_t>(-((sine[heading] * cp) >> 15)))};
-  int32_t const y{math::signed_word(static_cast<uint16_t>(-sine[pitch]))};
-  int32_t const z{math::signed_word(static_cast<uint16_t>((sine[(heading + 256) % 1024] * cp) >> 15))};
-  auto const step{[distance](int32_t const direction){ return wrap(static_cast<int64_t>(direction) * distance) >> 15; }};
-  position.x = wrap(static_cast<int64_t>(position.x) + step(x));
-  position.y = wrap(static_cast<int64_t>(position.y) + step(y));
-  position.z = wrap(static_cast<int64_t>(position.z) + step(z));
-  position.y = std::clamp(position.y,minimum_y * position_unit,maximum_y * position_unit);
+  math::advance_position(position,angles,distance,minimum_y * position_unit,maximum_y * position_unit);
 }
 
 std::vector<initial_actor> initialise(program const &source, std::span<profile const> const profiles, std::span<formation_offset const> const offsets) {

@@ -56,6 +56,7 @@ int main() try {
   std::array<std::string,2> const names{"intact","damaged"};
   tfx::world::definition const source{program(),names};
   tfx::world::instance first{source}, second{source};
+  require(first.damage_centres().size() == 1 && first.damage_centres()[0] == vec3<int16_t>{0,0,0},"damage centres must enumerate the leading collision boxes");
   require(first.parts[0].name == "intact" && first.custom[0] == 10,"initial SSD state differs");
   for(unsigned int tick{0}; tick != 5; ++tick) first.animate();
   require(first.parts[0].parameters[0] == 2 && !first.stream_cursor(0,0),"parameter stream endpoint differs");

@@ -14,6 +14,12 @@ int main(int const argc, char const *const argv[]) try {
   while(std::cin >> id >> commands) {
     tfx::world::definition const definition{game.read(id),names};
     tfx::world::instance state{definition};
+    if(!commands) {
+      auto const centres{state.damage_centres()};
+      std::cout << centres.size();
+      for(auto const &centre : centres) std::cout << ' ' << centre.x << ' ' << centre.y << ' ' << centre.z;
+      std::cout << '\n';
+    }
     for(unsigned int command{0}; command != commands; ++command) {
       unsigned int entry{0}, animate{0}, player{0}, enabled{0}, damage{0}, status{0};
       int distance{0};

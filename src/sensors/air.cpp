@@ -69,10 +69,7 @@ void advance_air_lock(air_lock &state, air_contacts &radar, std::span<air_contac
   if(found == contacts.end()) { state.clear(context.centre); radar.selected.reset(); return; }
   auto const position{integer_position(*found)};
   auto const offset{vec3<int32_t>{magnitude(subtract(position.x,context.position.x)),magnitude(subtract(position.y,context.position.y)),magnitude(subtract(position.z,context.position.z))}};
-  int32_t const longest{std::max({offset.x,offset.y,offset.z})};
-  uint32_t const sum{static_cast<uint32_t>(offset.x) + static_cast<uint32_t>(offset.y) + static_cast<uint32_t>(offset.z) - static_cast<uint32_t>(longest)};
-  int32_t const approximate_distance{std::bit_cast<int32_t>(static_cast<uint32_t>(longest) + static_cast<uint32_t>(std::bit_cast<int32_t>(sum) >> 2))};
-  state.too_close = approximate_distance < weapon.minimum_range;
+  state.too_close = math::distance_estimate(position,context.position) < weapon.minimum_range;
   auto const direction{math::bearing(context.position,position)};
   int constexpr acquisition_cone{0x1200}, rear_aspect{0x2000};
   if(weapon.category == 0 && magnitude(static_cast<int32_t>(math::signed_word(context.angles.y)) - math::signed_word(found->heading)) > rear_aspect) state.clear(context.centre);

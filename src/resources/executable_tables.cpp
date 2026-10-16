@@ -21,6 +21,12 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
     timer_expired_message.push_back(static_cast<char>(character));
     if(index == 511) throw std::runtime_error{"unterminated native timer message"};
   }
+  for(unsigned int index{0}; index != 64; ++index) {
+    auto const type{view.signed_le16(data_file + 0x884c + index * 2)};
+    if(type == -1) break;
+    ship_target_types.push_back(type);
+    if(index == 63) throw std::runtime_error{"unterminated native ship target list"};
+  }
   auto const anchor{[&](unsigned int const address) { return vec3<int16_t>{view.signed_le16(data_file + address),view.signed_le16(data_file + address + 2),view.signed_le16(data_file + address + 4)}; }};
   unsigned int constexpr empty_record{data_file + 0x809c + weapons::empty_pylon * 48};
   arming.empty_role = static_cast<weapons::weapon_role>(view.byte(empty_record + 20));

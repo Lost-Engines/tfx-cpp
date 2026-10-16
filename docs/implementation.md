@@ -342,3 +342,22 @@ Compiled type-17 fixed placements also load, preserve authored initial events an
 The private X11 input check additionally reaches a result through the live mission 605 combat path, verifies the result image stays stable after termination and closes it with Enter. Ground/designator targeting, complete permissions/court-martial handling, water/aftermath crash effects, moving-deck velocity transfer, the refuelling-aircraft collision path and original front-end result artwork remain outstanding. Direct launches currently use Arcade scoring eligibility; persistent game-mode configuration belongs to the pending front end.
 
 All 28 CTests pass in normal, Release and sanitizer builds. All 128 retail missions again run 1,024 integrated four-tick steps under ASan/UBSan; the sweep checks that any reached FINISH handoff occurs exactly once. Mission 605 reaches its loss/result path naturally in this bounded run. Carrier-start mission 504 remains parked after the actor-surface fix. Full original/C++ mission traces remain a separate verification gate.
+
+### Ground designation and weapon targeting
+
+```sh
+python3 tools/check_ground_sensors.py --save-fixture tests/reference/ground_sensors.txt
+python3 tools/check_damage_centres.py
+python3 tools/check_projectile_runtime.py
+python3 tools/check_window_controls.py --data-dir /path/to/TFX
+```
+
+The live ground view uses the original unlocked gimbal/intersection (`0x92c24`, `0x93040`) and locked following camera (`0x92a34`). The F-117's relative gimbal limits, signed-word intersection radius, frame-based keyboard steps, ten zoom levels and different search/follow camera strides remain distinct. Z enters the designator and designates a point; arrows aim, comma/period zoom, X clears acquisition and F1 returns to the aircraft view. This is the retail 2.05 Z binding; the earlier manual's Y description differs. Display overlays/projection are still diagnostic rather than a complete original HUD.
+
+Anti-radiation C selection (`0x7c828`) cycles live radar-emitter types and captures their current position. Harpoon's first Space press selects the nearest eligible ship (`0x7cb5c`, `0x9323c`); the next releases it with a live actor reference. Ship-type eligibility loads from the selected original executable. Laser-guided stores use the shared mutable designation point, rather than freezing a separate copy for every missile. Selecting a later point can therefore change guidance for an earlier release, as in the original.
+
+Maverick selection (`0x7ca24`) searches eligible mobile damage zones near the designated point, preserving slot/zone ordering, strict range/tie comparisons and native wrapped squared distances. Its tracking point deliberately ignores actor heading and anchor height (`0x7c998`). The zone centres come from leading damage-once/staged boxes in SSD collision entry 2 (`0xb7b90`), separate from the visual model anchors. All **703 original SSD definitions / 698 targetable boxes** agree with native enumeration at the moving-instance orientation zero.
+
+Original-code comparisons cover **8,192 unlocked designator/intersection states, 2,048 locked camera states, 4,096 wrapped distance estimates and 4,096 surface selections**. Mobile tests supply separately verified SSD centres; camera cases stop at the graphics boundary. A compact one-in-eight subset of synthetic inputs is replayed by CTest without game data. Projectile population checks now cover **3,864 frames**, including a moving shared designation, constructors, dispenser births, recycling and decoys. The private X11 check additionally selects a ground weapon, opens/zooms/aims/locks the designator and releases a store through real keyboard input.
+
+Complete ground HUD/MFD artwork, target-planner interaction, cruise target programming, separate mouse-trigger handling and end-to-end native targeting-session traces remain outstanding. The current aircraft-view projection is still a supplied boundary in subsystem comparisons; matching acquisition arithmetic is not a claim of pixel-identical HUD output.

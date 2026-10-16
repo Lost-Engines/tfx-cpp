@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/sensors/ground.cpp
+  src/sensors/ground.h
   src/actors/contact_region.cpp
   src/actors/contact_region.h
   src/actors/scenery.cpp
@@ -103,6 +105,11 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(ground_probe tests/ground_probe.cpp)
+  target_link_libraries(ground_probe PRIVATE tfx_core)
+  configure_first_party(ground_probe)
+  add_test(NAME sensors.native_ground_geometry_and_selection COMMAND ground_probe ${PROJECT_SOURCE_DIR}/tests/reference/ground_sensors.txt)
+
   add_executable(world_contacts_probe tests/world_contacts_probe.cpp)
   target_link_libraries(world_contacts_probe PRIVATE tfx_core)
   configure_first_party(world_contacts_probe)
