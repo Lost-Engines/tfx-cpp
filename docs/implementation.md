@@ -1027,3 +1027,19 @@ Tracing the upload also corrected an earlier research interpretation of `HUDCOL`
 Y/U now change brightness at the original flight-input cadence and preserve the native dirty-palette request even when both keys cancel each other. Private-window checks observe the default green level and both clamps in the displayed HUD, alongside night-vision/camera palette handoffs. Atmospheric geometry, weather, colour remaps, effect-state producers and complete world-frame/session equivalence remain separate work.
 
 The palette and DAC comparisons pass in development, Release and ASan/UBSan. All 48 development CTests pass. All 128 retail missions run 1,024 simulation steps and draw under sanitizers with the new live palette path.
+
+
+### Temporary BINGO and PULL UP HUD warnings
+
+```sh
+python3 tools/check_hud_alerts.py
+python3 tools/check_target_tracking.py --alerts
+```
+
+The temporary HUD line tables previously described as launch notices are the authored **BINGO** and **PULL UP** messages. Their owned state retains the selected shape and original 108-tick timer. A request replaces the current shape and restarts that timer. Each actual draw subtracts its supplied elapsed word, with wrapping before the signed expiry test; a skipped HUD draw does not consume time. The original painter sends direct VGA lines without clipping, so comparison offsets are restricted to valid physical-screen positions. Changing the line viewport does not clip these messages.
+
+**512 complete original frames agree in pixels, written coverage, selected message and retained timer**, covering both shapes, the fuel threshold and adjacent doubles, repeated/no draws, requests, valid offsets, ignored viewports, expiry and long-tick wrapping. The original BINGO request executes before the failed/intermittent HUD gate and uses the executable-backed fuel threshold of 500. The native unsafe out-of-screen line-write context is excluded explicitly.
+
+Another **1,024 complete original forward-HUD frames agree** with warning requests, paint order and timer included alongside all existing target/lock animation and event checks. NAV paints its warning inside its own layout, before the outer brake/chute message repeat; AA/AG paint it at the end. Refuelling contact selection and terrain-risk producers remain separate. Live flight now supplies low fuel before its HUD-fault gate and elapsed ticks to the painter. The PULL UP shape/request/painter is verified, while its actual terrain-risk trigger still needs its native selecting consumer.
+
+The warning painter and full-composition comparisons pass in development, Release and ASan/UBSan. All 48 CTests and private-window camera/pause checks pass. All 128 retail missions run 1,024 simulation steps and draw under sanitizers after the live BINGO integration.

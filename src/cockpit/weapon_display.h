@@ -3,6 +3,7 @@
 #include <optional>
 #include "cockpit/attitude_display.h"
 #include "cockpit/hud_text.h"
+#include "cockpit/hud_alerts.h"
 #include "cockpit/target_display.h"
 #include "flight/aircraft.h"
 
@@ -40,6 +41,7 @@ struct weapon_display_state {
   bool ground_lock{false};
   bool navigation_contact_visible{false};
   bool limited{true};
+  simulation::timer_ticks elapsed{0};
   attitude_display_state attitude;
   hud_text_state flight;
   std::array<vec2<int16_t>,5> cannon_path{};
@@ -53,6 +55,7 @@ private:
   attitude_display attitude;
   hud_text numbers;
   target_display targets;
+  hud_alerts alerts;
   target_animation tracking;
   resources::indexed_image framing;
 
@@ -60,6 +63,9 @@ public:
   weapon_display(instrument_assets const &assets, resources::archive const &game);
   void reset_tracking();
   target_animation animation() const;
+  void check_fuel(double fuel);
+  void show_alert(hud_alert alert);
+  hud_alert_state alert_state() const;
   weapon_effects draw_forward(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *coverage = nullptr);
   void draw(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *coverage = nullptr, vec2<int> const &line_limit = {319,199}) const;
 };

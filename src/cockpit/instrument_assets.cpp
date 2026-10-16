@@ -44,6 +44,21 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   aiming_bank = resource(0x1634);
   aiming_labels = {string(0x16f0),string(0x1710),string(0x1744),string(0x16f8),string(0x1718),string(0x1704),string(0x170c)};
   brake_messages = {string(0x171c),string(0x1728),string(0x1734)};
+  // Native 0x7dde4/0x7de00 select authored vertex/segment tables, not font glyphs.
+  std::array<unsigned int,2> constexpr alert_vertices{0x6fbe,0x6f12}, alert_segments{0x702e,0x6f72};
+  for(unsigned int alert{0}; alert != hud_alert_shapes.size(); ++alert) {
+    for(unsigned int entry{alert_segments[alert]}; source.signed_le16(data + entry) != -1; entry += 4) {
+      auto const point{[&](unsigned int const field) {
+        auto const index{source.le16(data + entry + field)};
+        return vec2<int16_t>{source.signed_le16(data + alert_vertices[alert] + index * 4),source.signed_le16(data + alert_vertices[alert] + index * 4 + 2)};
+      }};
+      hud_alert_shapes[alert].push_back({
+        .from{point(0)},
+        .to{point(2)},
+      });
+    }
+  }
+  bingo_fuel = real(0x1793);
   hud_number_formats = {string(0x1768),string(0x1770),string(0x1778),string(0x1780),string(0x1784)};
   target_formats = {string(0x1748),string(0x1750),string(0x1758),string(0x1760)};
   external_number_formats = {string(0x17a4),string(0x17b0),string(0x17bc)};
