@@ -1338,3 +1338,11 @@ The selected executable's original preset data now supplies named surface geomet
 The aircraft owner computes its initial pitch-stability correction and Mach-dependent damping from the original initializer equations. The retained prior flap-lift offset is an explicit input, rather than an accidental global dependency. All three complete decoded profiles agree word for word with the full original 0x95f3c initialization in fresh images. Another 384 full-initializer calibration cases agree with varied preceding flap offsets. Original startup, preset, mass/store setup and initialization execute; only FPTAN uses the hardware adapter. The compact asset-free suite retains 55 calibration captures; the complete profile check reads the user's selected reference executable.
 
     python3 tools/check_aerodynamic_airframes.py
+
+### Advanced wheel/body ground contact
+
+Native 0x9d734 evaluates gear and body contact points in physical North/East/Down space. The translation retains terrain-height projection, angular point velocity, spring/damper reactions, lateral and rolling friction, speed/weather-dependent wheel braking, progressive gear/brake failure, body-contact damage and rough-ground random bumps. Working caches remain explicit because successive contact points share them. The original force/torque accumulation order, early returns, cleared yaw rate and one-point delay between brake failure and changed braking force are preserved.
+
+All 8,192 complete original contact-point cases agree, including 2,028 reactions, 851 random bumps and 109 failed-gear impact notification requests. Original startup, arithmetic, native square roots and random generator execute without numerical interception. Only the failed-gear output notification is intercepted and its request is observed. There are 123 compact asset-free captures.
+
+    python3 tools/check_aerodynamic_contact.py
