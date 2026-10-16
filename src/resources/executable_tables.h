@@ -8,6 +8,7 @@
 #include "actors/program.h"
 #include "actors/air_motion.h"
 #include "weapons/definition.h"
+#include "weapons/loadout.h"
 
 namespace tfx::resources {
 
@@ -24,6 +25,7 @@ private:
 
 public:
   std::vector<weapons::definition> weapons;
+  weapons::arming_tables arming;
   std::array<vec3<int16_t>,2> cannon_mounts;
   std::array<std::array<vec3<int16_t>,10>,3> store_mounts;
   std::array<actors::formation_offset,actors::aircraft_per_group> formations;

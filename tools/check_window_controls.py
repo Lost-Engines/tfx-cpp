@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise Space-key firing and Escape on a private X11 display.
+"""Exercise weapon selection, store/cannon firing and Escape on a private X11 display.
 
 Requires Xvfb, xdotool, ImageMagick import and Pillow. The private runtime
 prevents GLFW from discovering an unrelated desktop Wayland socket.
@@ -41,6 +41,15 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('xdotool','windowfocus','--sync',window,check=True);time.sleep(.5)
             before_path=directory/'before.png';after_path=directory/'after.png'
             run('import','-window',window,str(before_path),check=True)
+            run('xdotool','key','Return',check=True);time.sleep(.3)
+            store_before=directory/'store-before.png';store_after=directory/'store-after.png'
+            run('import','-window',window,str(store_before),check=True)
+            run('xdotool','key','space',check=True);time.sleep(.3)
+            run('import','-window',window,str(store_after),check=True)
+            def store_readout(path):
+                with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((5,41,150,48)).tobytes()
+            if store_readout(store_before)==store_readout(store_after):raise RuntimeError('Enter/Space did not change the carried-weapon inventory readout')
+            run('xdotool','key','f',check=True);time.sleep(.1)
             run('xdotool','keydown','space',check=True);time.sleep(1.5)
             run('xdotool','keyup','space',check=True);time.sleep(.2)
             run('import','-window',window,str(after_path),check=True)
@@ -50,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('xdotool','key','Escape',check=True);game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
-            print('Private X11 controls passed: Space updates ammunition; Escape exits cleanly')
+            print('Private X11 controls passed: Enter/Space releases a store; F/Space fires cannon; Escape exits cleanly')
     finally:
         for process in (game,display):
             if process is not None and process.poll() is None:

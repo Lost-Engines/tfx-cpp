@@ -1,0 +1,99 @@
+#include "loadout.h"
+#include <stdexcept>
+#include <utility>
+
+namespace tfx::weapons {
+
+armament::armament(flight::player_aircraft const aircraft, std::span<definition const> const definitions, arming_tables const &tables) : aircraft{aircraft}, definitions{definitions}, tables{tables} {
+  if(definitions.size() != weapon_count) throw std::runtime_error{"arming requires the complete weapon definitions"};
+  cannon_role = definitions[0].role;
+  pylons[cannon_pylon].weapon = std::to_underlying(weapon_id::cannon);
+  // Verify the authored successor table is one complete ring, including the cannon sentinel.
+  unsigned int cursor{0};
+  std::array<bool,flight::store_slots + 1> seen{};
+  for(unsigned int count{0}; count != seen.size(); ++count) {
+    if(cursor >= seen.size() || seen[cursor]) throw std::runtime_error{"invalid pylon selection ring"};
+    seen[cursor] = true;
+    cursor = tables.next[cursor];
+  }
+  if(cursor != 0) throw std::runtime_error{"unterminated pylon selection ring"};
+}
+
+void armament::fit_default(unsigned int const index) {
+  auto const &fit{tables.defaults.at(std::to_underlying(aircraft) - 1).at(index)};
+  std::array<std::array<unsigned int,2>,pylon_pairs> constexpr pairs{{{0,7},{1,6},{2,5},{3,4},{8,9}}};
+  for(unsigned int pair{0}; pair != pairs.size(); ++pair) {
+    auto const weapon{fit[pair]};
+    if(weapon < -1 || weapon >= static_cast<int>(definitions.size())) throw std::runtime_error{"invalid default pylon weapon"};
+    for(auto const slot : pairs[pair]) pylons[slot] = {
+      .weapon{static_cast<uint8_t>(weapon)},
+      .count{static_cast<uint8_t>(weapon >= 0)},
+      .visible{weapon >= 0},
+    };
+  }
+}
+
+weapon_role armament::role(unsigned int const slot) const {
+  if(pylons.at(slot).weapon == std::to_underlying(weapon_id::cannon)) return cannon_role;
+  return pylons[slot].weapon == empty_pylon ? tables.empty_role : definitions[pylons[slot].weapon].role;
+}
+
+uint8_t armament::category(unsigned int const slot) const {
+  return pylons.at(slot).weapon == empty_pylon ? tables.empty_category : definitions[pylons[slot].weapon].category;
+}
+
+selection_change armament::select(weapon_role const requested, bool const different_type) {
+  // 0x8b9c4 skips another pylon with the same weapon; 0x8bba0 is the automatic post-release advance.
+  selection_change result;
+  if(selected == no_pylon) return {.clear_contact{true},.clear_tracking{true}};
+  auto const original{static_cast<unsigned int>(selected)};
+  unsigned int next{original};
+  do {
+    next = tables.next[next];
+    if(next == original || (next == cannon_pylon && aircraft != flight::player_aircraft::nighthawk)) break;
+    if(role(next) == requested && pylons[next].count && (!different_type || pylons[next].weapon != pylons[original].weapon)) break;
+  } while(next != original);
+  // Harpoon's separate designated contact is discarded even when the selected type is unchanged.
+  if(category(original) == 13 || (category(next) != category(original) && role(next) == weapon_role::ground)) result = {.clear_contact{true},.clear_tracking{true}};
+  if(next == cannon_pylon) {
+    cannon_role = requested;
+    guns = true;
+  } else if(next == original || role(next) != requested || !pylons[next].count) {
+    selected = no_pylon;
+    result.clear_contact = true;
+  }
+  if(selected != no_pylon) selected = static_cast<int16_t>(next);
+  if(selected == no_pylon || next == cannon_pylon || pylons[next].weapon != pylons[original].weapon) result.clear_tracking = true;
+  return result;
+}
+
+std::optional<release> armament::fire(store_context const &context, std::span<vec3<int16_t> const> const mounts, selection_change &selection, std::function<void(release const&)> const &emit) {
+  // Native 0x8bd8c is a release primitive; its caller performs trigger, landing and target-lock checks.
+  if(context.inhibited || context.ejected || context.protected_player || selected == no_pylon) return {};
+  if(selected == cannon_pylon || mounts.size() != flight::store_slots) throw std::runtime_error{"store release requires a carried pylon"};
+  auto const slot{static_cast<unsigned int>(selected)};
+  if(pylons[slot].weapon >= definitions.size()) throw std::runtime_error{"store release has no weapon"};
+  auto const origin{vec3<int32_t>{vec3<uint32_t>{context.position} * static_cast<uint32_t>(actors::position_unit)}};
+  release shot{
+    .weapon{pylons[slot].weapon},
+    .position{math::place_anchor(origin,context.angles,mounts[slot])},
+    .angles{vec3<math::angle>{context.angles}},
+    .speed{context.speed},
+    .owner{
+      .pool{actor_pool::player},
+    },
+    .target{context.target},
+    .mount{static_cast<uint8_t>(slot)},
+  };
+  if(emit) emit(shot); // Construction observes the current pylon before post-release selection changes it.
+  last_released = selected;
+  if(!context.unlimited) --pylons[slot].count; // Byte underflow is retained: eligibility belongs to the caller.
+  if(!pylons[slot].count && pylons[slot].weapon != std::to_underlying(weapon_id::jp233)) pylons[slot].visible = false;
+  if(!context.unlimited) {
+    selection = select(role(slot),false);
+    if(selected == no_pylon) guns = true;
+  }
+  return shot;
+}
+
+} // namespace tfx::weapons
