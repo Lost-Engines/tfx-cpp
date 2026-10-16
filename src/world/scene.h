@@ -8,6 +8,7 @@
 #include "world/assets.h"
 #include "world/environment.h"
 #include "world/instance.h"
+#include "flight/landing.h"
 
 namespace tfx::world {
 
@@ -52,6 +53,8 @@ public:
   void apply_actor_contact_damage(scene_handle handle, uint16_t damage);
   bool actor_destroyed(scene_handle handle) const;
   int16_t actor_type(scene_handle handle) const;
+  std::optional<flight::landing_port> terrain_landing_port(vec2<int16_t> const &cell);
+  std::optional<flight::landing_port> actor_landing_port(scene_handle handle) const;
   std::vector<vec3<int16_t>> actor_damage_centres(scene_handle handle) const;
   uint16_t actor_impact_damage(scene_handle handle) const;
   void queue_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);

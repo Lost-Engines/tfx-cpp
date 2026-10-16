@@ -2,6 +2,7 @@
 #include <utility>
 #include "presentation/drawing.h"
 #include "render/sprites.h"
+#include "cockpit/landing_display.h"
 
 namespace tfx::cockpit {
 namespace {
@@ -152,10 +153,12 @@ void weapon_display::draw(render::software_renderer &renderer, weapon_display_st
   auto const cannon_label{[&](unsigned int const prefix) { text({96,91},assets.aiming_labels[prefix] + std::to_string(state.ammunition)); }};
   auto const pitch{[&] { if(state.limited) attitude.draw_pitch(renderer,state.attitude,coverage,state.mode == aiming_mode::navigation ? vec2<int>{319,199} : vec2<int>{line_limit}); }};
   if(state.mode == aiming_mode::navigation) {
-    // Native 0x7ecb4: the ammunition and NAV labels remain in navigation mode.
+    // Native 0x7ecb4 replaces ammunition/NAV labels with active ILS guidance.
     full_clip();pitch();full_clip();numbers.draw_messages(renderer,state.flight,coverage);
-    if(state.aircraft != flight::player_aircraft::nighthawk) cannon_label(0);
-    right(225,assets.aiming_labels[2]);frame();
+    if(!state.landing && state.aircraft != flight::player_aircraft::nighthawk) cannon_label(0);
+    if(!state.landing) right(225,assets.aiming_labels[2]);
+    frame();
+    if(state.landing) draw_landing_cue(renderer,assets,*state.landing,offset,coverage);
     auto const low{point({89,2})}, high{point({231,96})};
     for(unsigned int index{0}; index != 4; ++index) line(vec2<int>{state.cannon_path[index]},vec2<int>{state.cannon_path[index + 1]},low,high);
     return;

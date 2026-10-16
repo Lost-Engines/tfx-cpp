@@ -40,6 +40,10 @@ struct instrument_assets {
   std::array<std::string,3> brake_messages;
   std::array<std::vector<hud_segment>,2> hud_alert_shapes;
   double bingo_fuel;
+  std::array<resources::monochrome_image,2> landing_masks;
+  std::array<std::string,2> landing_heading_formats;
+  std::array<std::string,3> landing_height_labels;
+  std::array<std::string,4> landing_radio_messages;
   std::array<std::string,5> hud_number_formats;
   std::array<std::string,4> target_formats;
   std::array<std::string,3> external_number_formats;

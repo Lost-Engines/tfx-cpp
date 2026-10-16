@@ -6,6 +6,7 @@
 #include "cockpit/hud_alerts.h"
 #include "cockpit/target_display.h"
 #include "flight/aircraft.h"
+#include "flight/landing.h"
 
 namespace tfx::cockpit {
 
@@ -35,6 +36,7 @@ struct weapon_display_state {
   std::optional<vec2<int16_t>> ground_marker{};
   std::optional<air_target_cue> air_target{};
   std::optional<air_target_cue> navigation_target{};
+  std::optional<flight::landing_cue> landing{};
   bool cannon{true};
   int16_t ammunition{0};
   bool suppressed{false};

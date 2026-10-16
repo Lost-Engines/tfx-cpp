@@ -1061,3 +1061,23 @@ The original apostrophe handler now opens/closes the player aircraft's refuellin
 The camera comparison also agrees across **11,776 updates in 23 modes with four supplied refuelling phases**, preserving the original phase addition to player model entries. The live tanker HUD now draws its direction cue, telemetry and marker before weapon acquisition, sharing the retained projected point and sight. This optional path consumes its own BINGO/PULL UP warning draw before the later weapon layout. **1,024 complete original composed HUD frames agree** in pixels, coverage, target/lock state, warning timers and events with this contact path enabled. Sensor/render lifetime ordering outside this supplied sequence remains a separate gate.
 
 Controller, camera and HUD comparisons pass in development, Release and ASan/UBSan. Private-window checks exercise real apostrophe input, forced NAV, saved AA/AG restoration, pause and camera return. All 48 CTests pass. The complete 128-mission sanitizer pass still advances 1,024 steps per mission and draws. Live sample/voice playback awaits the audio backend; ILS, automatic landing and non-Arcade flight models remain separate work.
+
+
+### Instrument landing system
+
+```sh
+python3 tools/check_landing.py --selection
+python3 tools/check_landing.py
+python3 tools/check_target_tracking.py --alerts --navigation --landing
+python3 tools/check_window_landing.py --data-dir /path/to/TFX
+```
+
+I/backslash now uses the original ILS toggle, including its inhibition gates, NAV selection, control-setting results and gear-dependent voice request. The destination selector checks the player route's last point, then its first. It accepts a runway SSD at that cell or searches allied surface slots in descending order for an eligible carrier. Actor retirement and the carrier SSD's destroyed state are distinct checks. Destroyed-carrier and missing-runway messages retain their native order. Landing ports use the first three initialized SSD custom words; the approach beacon uses the original integer movement helper and 20,480-unit setback.
+
+**1,536 complete original key/selection executions agree**, including all three aircraft, ordinary/realistic control coefficients, gates, empty routes, missing runways, destroyed carriers, exact control-setting bits and voice/radio requests. The native waypoint accessor and surface enumerator execute. Terrain handles, initialized SSD port/type/damage fields and audio requests are declared external boundaries. This comparison includes 252 runway and 654 carrier selections; it does not claim a complete native world-load/session trace.
+
+The HUD first directs the player to the beacon, then computes the original lateral and vertical corrections for runway approach. The retained corrections and height status follow actual HUD draws. Land-based offsets use the native extended-precision product and truncation; carriers retain their authored offsets. **1,024 complete native guidance frames agree** in every pixel, written coverage, state word, projected-point input and radio request. They include 308 beacon-to-runway transitions and directed high, low and aligned approaches. The world-point projector is supplied at its independently verified boundary. A compact set of **61 original state captures** runs in CTest without game assets.
+
+The combined forward-HUD comparison also agrees across **1,024 complete frames** with targets, refuelling contacts, BINGO/PULL UP warnings and ILS enabled together. It checks the original removal of NAV/ammunition labels, guidance placement, warning timing and retained landing state. Live flight binds original route data and SSD custom fields to this path. Private-window checks exercise both keys, forced NAV, subsequent weapon modes, pause and external-view return. Automatic landing, remaining flight-model consumers of the returned control coefficients and the autopilot's speed/altitude request producer are still separate work; audio requests await playback.
+
+The ILS controller, complete guidance and combined HUD comparisons pass in development, Release and ASan/UBSan. All 49 CTests pass. All 128 retail missions also advance 1,024 steps and draw under sanitizers after integration.

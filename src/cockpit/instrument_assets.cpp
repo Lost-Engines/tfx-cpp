@@ -59,6 +59,14 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
     }
   }
   bingo_fuel = real(0x1793);
+  for(unsigned int index{0}; index != landing_masks.size(); ++index) {
+    unsigned int const at{data + (index ? 0x8f4b : 0x8f34)};
+    unsigned int const size{2u + ((source.byte(at) + 7u) / 8u) * source.byte(at + 1)};
+    landing_masks[index] = resources::decode_monochrome(source.slice(at,size));
+  }
+  landing_heading_formats = {string(0x32bc),string(0x32d8)};
+  landing_height_labels = {string(0x32fc),string(0x3308),string(0x32f4)};
+  landing_radio_messages = {string(0x323c),string(0x3258),string(0x3270),string(0x3294)};
   hud_number_formats = {string(0x1768),string(0x1770),string(0x1778),string(0x1780),string(0x1784)};
   target_formats = {string(0x1748),string(0x1750),string(0x1758),string(0x1760)};
   external_number_formats = {string(0x17a4),string(0x17b0),string(0x17bc)};

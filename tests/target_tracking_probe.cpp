@@ -6,11 +6,12 @@
 #include "weapons/impact_prediction.h"
 
 int main(int const argc, char const *const argv[]) try {
-  bool alerts_mode{false}, navigation_mode{false};
+  bool alerts_mode{false}, navigation_mode{false}, landing_mode{false};
   if(argc < 2) throw std::runtime_error{"target tracking probe requires original data directory"};
   for(int argument{2}; argument != argc; ++argument) {
     if(std::string_view{argv[argument]} == "--alerts") alerts_mode = true;
     else if(std::string_view{argv[argument]} == "--navigation") navigation_mode = true;
+    else if(std::string_view{argv[argument]} == "--landing") landing_mode = true;
     else throw std::runtime_error{"unknown target tracking probe mode"};
   }
   auto const archive{tfx::resources::find_game_archive(argv[1])};
@@ -38,6 +39,20 @@ int main(int const argc, char const *const argv[]) try {
         .projected{vec2<int16_t>{cue.projected}},
       });
     }
+    std::optional<tfx::flight::landing_system> landing;
+    state.landing.reset();
+    if(landing_mode) {
+      tfx::flight::landing_state initial;unsigned int height;
+      std::cin >> initial.enabled >> initial.carrier >> initial.beacon >> initial.cell.x >> initial.cell.y >> initial.port.offset.x >> initial.port.offset.y >> initial.port.heading >> initial.beacon_position.x >> initial.beacon_position.y >> initial.bearing.x >> initial.bearing.y >> initial.correction.x >> initial.correction.y >> initial.pitch_error >> height;
+      initial.height = static_cast<tfx::flight::approach_height>(height);
+      landing.emplace(std::move(initial));
+      if(landing->value().enabled && mode == 0) state.landing.emplace(landing->advance(state.flight.position,false,[&](auto const&) {
+        return tfx::flight::landing_projection{
+          .valid{ground != 0},
+          .point{vec2<int16_t>{ground_point}},
+        };
+      }));
+    }
     if(request >= 0) display.show_alert(static_cast<tfx::cockpit::hud_alert>(request));
     display.check_fuel(fuel);
     state.mode = static_cast<tfx::cockpit::aiming_mode>(mode);
@@ -56,6 +71,11 @@ int main(int const argc, char const *const argv[]) try {
     auto const animation{display.animation()};
     std::array<int32_t,6> const header{animation.blink,animation.had_lock,animation.sight == tfx::cockpit::target_sight::compact,effects.lock_acquired,static_cast<int32_t>(std::to_underlying(display.alert_state().alert)),display.alert_state().remaining};
     std::cout.write(reinterpret_cast<char const*>(header.data()),(alerts_mode ? 6 : 4) * sizeof(int32_t));
+    if(landing) {
+      auto const &value{landing->value()};
+      std::array<int32_t,16> const words{value.enabled,value.carrier,value.beacon,value.cell.x,value.cell.y,value.port.offset.x,value.port.offset.y,value.port.heading,value.beacon_position.x,value.beacon_position.y,value.bearing.x,value.bearing.y,value.correction.x,value.correction.y,value.pitch_error,static_cast<int32_t>(std::to_underlying(value.height))};
+      std::cout.write(reinterpret_cast<char const*>(words.data()),sizeof(words));
+    }
     std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());
     std::cout.write(reinterpret_cast<char const*>(coverage.pixels.data()),coverage.pixels.size());
   }
