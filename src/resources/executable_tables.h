@@ -1,6 +1,8 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
+#include "presentation/fonts.h"
 #include <array>
 #include <span>
 #include <vector>
@@ -20,6 +22,7 @@ struct hud_glyph {
 class executable_tables {
 private:
   std::vector<bytes> circles;
+  std::unique_ptr<presentation::fonts const> font_data;
   std::array<uint8_t,64> character_map;
   std::array<hud_glyph,51> glyphs;
 
@@ -33,6 +36,7 @@ public:
   std::array<actors::formation_offset,actors::aircraft_per_group> formations;
   std::array<uint8_t,actors::envelope_bytes> aircraft_envelopes;
   executable_tables(std::filesystem::path const &path);
+  presentation::fonts const &presentation_fonts() const;
   std::span<uint8_t const> circle(unsigned int radius) const;
   hud_glyph const *glyph(unsigned char character) const;
 };
