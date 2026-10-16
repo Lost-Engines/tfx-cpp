@@ -13,6 +13,9 @@
 namespace tfx::world {
 
 struct scene_handle { unsigned int value; };
+struct scene_events {
+  bool eject_player{false};
+};
 
 class scene {
 private:
@@ -28,7 +31,7 @@ private:
   std::map<unsigned int,moving_instance> actors;
   unsigned int next_actor{0};
   instance &terrain_instance(unsigned int x, unsigned int z);
-  void advance_instance(instance &state);
+  bool advance_instance(instance &state);
   struct actor_submission {
     scene_handle handle;
     vec3d position;
@@ -53,6 +56,7 @@ public:
   void apply_actor_contact_damage(scene_handle handle, uint16_t damage);
   bool actor_destroyed(scene_handle handle) const;
   int16_t actor_type(scene_handle handle) const;
+  int16_t terrain_type(vec3<int32_t> const &position);
   std::optional<flight::landing_port> terrain_landing_port(vec2<int16_t> const &cell);
   std::optional<flight::landing_port> actor_landing_port(scene_handle handle) const;
   std::vector<vec3<int16_t>> actor_damage_centres(scene_handle handle) const;
@@ -61,7 +65,7 @@ public:
   instance_result actor_event(scene_handle handle, unsigned int entry);
   void prepare_terrain_cell(unsigned int x, unsigned int z);
   instance_result terrain_event(unsigned int x, unsigned int z, unsigned int entry);
-  void advance(timer_ticks elapsed);
+  scene_events advance(timer_ticks elapsed);
   void draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius);
 };
 

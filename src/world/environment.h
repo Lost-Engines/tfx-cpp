@@ -44,6 +44,7 @@ struct lighting_configuration {
   std::string infrared_palette_name;
   std::string schematic_name;
   uint16_t status{0};
+  bool water_world{false};
   lighting_configuration(resources::archive const &game, std::string const &name);
 };
 

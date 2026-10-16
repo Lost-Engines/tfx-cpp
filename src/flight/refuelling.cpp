@@ -54,6 +54,8 @@ refuel_assets::refuel_assets(std::span<uint8_t const> const executable) {
 refuelling::refuelling(refuel_assets const &source, refuel_state initial) : assets{source}, state{std::move(initial)} {}
 refuel_state const &refuelling::value() const { return state; }
 void refuelling::reset() { state = {}; }
+void refuelling::disengage() { state.enabled = false; }
+
 refuel_toggle refuelling::toggle(uint8_t const weapon_mode, bool const inhibited, bool const crashed, bool const ejected) {
   refuel_toggle result{
     .weapon_mode{weapon_mode},

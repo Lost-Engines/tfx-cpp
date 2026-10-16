@@ -57,6 +57,7 @@ escape_result ejection_sequence::escape(vec3<int32_t> const &position, vec3<math
   result.fixed_camera.emplace(std::move(camera));
   return result;
 }
+void ejection_sequence::collision(int16_t const collision) { state.pilot.collision = collision; }
 pilot_update ejection_sequence::advance_pilot(pilot_context const &context) {
   return flight::advance_pilot(state.pilot,context);
 }

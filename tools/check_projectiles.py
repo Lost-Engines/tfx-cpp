@@ -18,7 +18,7 @@ KINDS={v:i for i,v in enumerate(CALLBACKS)}
 
 
 def original(data_dir,row,synthetic):
-    weapon,ticks,elapsed,owned,target_player,invulnerable,decoys,distance,x,y,z,pitch,heading,roll,speed,tx,ty,tz,category,motion=row
+    weapon,ticks,elapsed,owned,target_player,ejected,decoys,distance,x,y,z,pitch,heading,roll,speed,tx,ty,tz,category,motion=row
     image=NativeReference(data_dir/'TFX.DAT');cpu=image.cpu
     cpu.mem_map(0x300000,0x40000)
     address=0x300000;target=image.data+0x10f28 if target_player else 0x310000
@@ -26,7 +26,7 @@ def original(data_dir,row,synthetic):
     table=0x809c+weapon*48
     image.write(table+16,'<2H',10,11)
     image.write(0xac58,'<i',-16384);image.write(0xac5c,'<i',0)
-    image.write(0x13476,'<H',elapsed);image.write(0xabe9,'<B',invulnerable);image.write(0x12f29,'<B',decoys)
+    image.write(0x13476,'<H',elapsed);image.write(0xabe9,'<B',ejected);image.write(0x12f29,'<B',decoys)
     image.write(0x86c8,'<3H',pitch,heading,roll);image.write(0x13444,'<i',speed)
     image.write(0x13424,'<i',x>>8);image.write(0x13430,'<i',y>>8);image.write(0x1343c,'<i',z>>8)
     if synthetic:

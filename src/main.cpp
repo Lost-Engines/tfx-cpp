@@ -58,7 +58,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "[ and ] toggle engines; G gear; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
                    "Enter selects air-to-air weapons; Backspace/O air-to-ground; F selects cannon/navigation.\n"
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
-                   "X clears targets; F1 returns to flight view; Space fires; P pauses; Escape exits.\n"
+                   "X clears targets; F1 returns to flight view; Space fires; P pauses; double Escape ejects; Shift+Q quits.\n"
                    "1/2/3 cycle the MFDs; R changes radar range; N selects the ground-target preview.\n"
                    "Shift+N toggles infrared night vision; Y/U adjust HUD brightness; apostrophe opens/closes the refuelling hookup.\n"
                    "I or backslash toggles the instrument landing system.\n"

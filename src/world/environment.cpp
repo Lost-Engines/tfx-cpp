@@ -71,6 +71,7 @@ lighting_configuration::lighting_configuration(resources::archive const &game, s
   std::string token;
   while(settings >> token) {
     token = lower(std::move(token));
+    if(token == "sea" || token == "seastorm") water_world = true;
     if(token == "night") status |= night_status;
     if(token == "night" || token == "day") {
       settings >> palette_name;

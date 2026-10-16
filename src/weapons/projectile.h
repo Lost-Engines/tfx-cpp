@@ -29,7 +29,7 @@ struct motion_context {
   vec3<math::angle> player_angles{0,0,0};
   int32_t player_speed{0};
   bool target_is_player{false};
-  bool player_invulnerable{false};
+  bool player_ejected{false};
   bool player_decoys{false};
   int32_t player_distance{0};
   vec2<int32_t> height_bounds{actors::minimum_world_y,actors::maximum_world_y};

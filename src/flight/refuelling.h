@@ -78,6 +78,7 @@ public:
   explicit refuelling(refuel_assets const &assets, refuel_state initial = {});
   refuel_state const &value() const;
   void reset();
+  void disengage(); // Ejection clears enable without restoring the previous weapon mode.
   refuel_toggle toggle(uint8_t weapon_mode, bool inhibited = false, bool crashed = false, bool ejected = false);
   refuel_update advance(refuel_player &player, refuel_registry &allies, simulation::timer_ticks elapsed);
   refuel_transfer transfer(double fuel, double capacity, bool afterburner) const;

@@ -129,7 +129,7 @@ motion_result advance_motion(projectile &state, definition const &weapon, motion
     {
       bool const sea_skimming{state.motion == flight_stage::sea_skimming};
       if(state.weapon == harpoon_weapon && state.position.y <= -20480) state.position.y = wrap(static_cast<int64_t>(state.position.y) + elapsed * 512);
-      if(context.target_is_player && context.player_invulnerable) state.motion = flight_stage::decoyed;
+      if(context.target_is_player && context.player_ejected) state.motion = flight_stage::decoyed;
       if(context.target_is_player && context.player_decoys && weapon.category == 1 && (random.next() & 127) < 60 && context.player_distance > 1000) state.motion = flight_stage::decoyed;
       auto const desired{math::bearing(state.position,context.target)};
       auto const error{[](math::angle const a, math::angle const b) {

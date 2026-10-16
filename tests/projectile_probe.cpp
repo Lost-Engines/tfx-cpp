@@ -41,9 +41,9 @@ auto main(int const argc, char const *const argv[])->int try {
   std::istream &input{check ? fixture : std::cin};
   std::unique_ptr<tfx::resources::executable_tables> tables;
   if(!synthetic) tables = std::make_unique<tfx::resources::executable_tables>(std::filesystem::path{argv[1]} / "TFX.DAT");
-  unsigned int id{0},ticks{0},elapsed{0},owned{0},target_player{0},invulnerable{0},decoys{0},pitch{0},heading{0},roll{0},cases{0};
+  unsigned int id{0},ticks{0},elapsed{0},owned{0},target_player{0},ejected{0},decoys{0},pitch{0},heading{0},roll{0},cases{0};
   int32_t distance{0},x{0},y{0},z{0},speed{0},tx{0},ty{0},tz{0},category{0},motion{0};
-  while(input >> id >> ticks >> elapsed >> owned >> target_player >> invulnerable >> decoys >> distance >> x >> y >> z >> pitch >> heading >> roll >> speed >> tx >> ty >> tz >> category >> motion) {
+  while(input >> id >> ticks >> elapsed >> owned >> target_player >> ejected >> decoys >> distance >> x >> y >> z >> pitch >> heading >> roll >> speed >> tx >> ty >> tz >> category >> motion) {
     tfx::weapons::definition definition{
       .carried{},
       .fired{},
@@ -69,7 +69,7 @@ auto main(int const argc, char const *const argv[])->int try {
       .player_angles{static_cast<tfx::math::angle>(pitch),static_cast<tfx::math::angle>(heading),static_cast<tfx::math::angle>(roll)},
       .player_speed{speed},
       .target_is_player{target_player != 0},
-      .player_invulnerable{invulnerable != 0},
+      .player_ejected{ejected != 0},
       .player_decoys{decoys != 0},
       .player_distance{distance},
     };

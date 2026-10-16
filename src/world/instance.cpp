@@ -14,7 +14,7 @@ enum class instruction : uint16_t {
   animate_0, animate_1, animate_2, animate_3, animate_4, animate_5, animate_6, animate_7,
   zone_box, player_zone_box,
   damage_box_call = 31,
-  mark = 33,
+  eject_player = 33,
   destroy_box = 35,
   if_custom_equal = 37,
   if_primary_equal, if_primary_equal_alt, if_primary_equal_2, if_primary_equal_3, if_primary_equal_4, if_primary_equal_5, if_primary_equal_6, if_primary_equal_7,
@@ -288,7 +288,7 @@ void instance::interpret(unsigned int at, instance_context &context, instance_re
     case instruction::set_category: category = static_cast<uint8_t>(a(0) & 15); modified = true; break;
     case instruction::set_impact_damage: impact_damage = a(0); modified = true; break;
     case instruction::set_health: health = a(0); modified = true; break;
-    case instruction::mark: result.marked = true; break;
+    case instruction::eject_player: result.ejection_requested = true; break;
     case instruction::message: result.message = a(0); break;
     case instruction::measure_anchor:
       if(!context.anchor_distance) throw std::runtime_error{"SSD distance test needs a world placement"};

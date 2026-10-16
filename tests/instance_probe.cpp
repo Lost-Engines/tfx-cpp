@@ -50,7 +50,7 @@ int main(int const argc, char const *const argv[]) try {
         for(auto const value : part.parameters) word(value);
         for(unsigned int parameter{0}; parameter != tfx::world::part_parameters; ++parameter) word(state.stream_cursor(index,parameter).value_or(0));
       }
-      word(result.collisions); word(result.volume_hit); word(result.marked); word(result.surface_present); word(result.surface_height); word(result.zone); word(result.player_zone); word(result.message);
+      word(result.collisions); word(result.volume_hit); word(result.ejection_requested); word(result.surface_present); word(result.surface_height); word(result.zone); word(result.player_zone); word(result.message);
       word(result.draws.size());
       for(auto const &draw : result.draws) { word(draw.slot); word(draw.anchor.x); word(draw.anchor.y); word(draw.anchor.z); word(std::to_underlying(draw.kind)); }
       word(result.requests.size());

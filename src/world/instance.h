@@ -29,7 +29,7 @@ struct instance_result {
   std::vector<scene_request> requests;
   unsigned int collisions{0};
   bool volume_hit{false};
-  bool marked{false};
+  bool ejection_requested{false};
   bool surface_present{false};
   int16_t surface_height{0};
   int16_t zone{-1};
