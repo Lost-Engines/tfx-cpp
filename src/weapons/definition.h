@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <string>
 #include <vector>
 #include "resources/binary.h"
@@ -25,6 +26,7 @@ struct definition {
   weapon_role role{weapon_role::air};
   uint8_t category{0};
   int16_t mass{0};
+  std::array<uint16_t,3> mount_masks{}; // Eurofighter, F-117, F-22; one bit per store slot.
   int32_t range{0};
   int16_t minimum_range{0};
   int16_t launch_speed{0};

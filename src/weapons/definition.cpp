@@ -48,6 +48,7 @@ std::vector<definition> load_definitions(std::span<uint8_t const> const executab
       .role{static_cast<weapon_role>(source.byte(at + 20))},
       .category{source.byte(at + 29)},
       .mass{source.signed_le16(at + 31)},
+      .mount_masks{source.le16(at + 23),source.le16(at + 27),source.le16(at + 25)},
       .range{std::bit_cast<int32_t>(source.le32(at + 35))},
       .minimum_range{source.signed_le16(at + 33)},
       .launch_speed{source.signed_le16(at + 41)},
