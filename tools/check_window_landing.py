@@ -81,7 +81,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-landing-') as temporary:
             tap('f');check('NAV')
             tap('backslash');check_landing()
             tap('i');check('NAV')
-            tap('Escape');game.wait(timeout=10)
+            tap('Shift_L+q');game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
             print('Private X11 ILS controls passed: I/backslash, beacon heading, NAV forcing, AA/AG handoffs, pause and camera restoration')

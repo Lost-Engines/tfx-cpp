@@ -91,6 +91,7 @@ public:
   view_control_state const &value() const;
   void offset(vec2<int16_t> const &position);
   void clear_queue();
+  void fixed_position(vec3<int32_t> const &position);
   void enqueue(view_mode view, int32_t speed);
   void ready();
   void consume();

@@ -16,7 +16,7 @@ requests=[];expected=[]
 for row in cases:
     map_name=row['schematic'].replace('\\','/').rsplit('/',1)[-1].removesuffix('.spr')
     requests.append(grids[map_name]+' '+row['environment'])
-    expected.append([int(row['night_flag'])*128,row['banks'][0]['name'].rsplit('/',1)[-1].removesuffix('.col'),map_name])
+    expected.append([int(row['night_flag'])*128,row['banks'][0]['name'].rsplit('/',1)[-1].removesuffix('.col'),map_name,int(int(str(row['flags']),0)&64!=0)])
 output=subprocess.check_output([str((args.build/'tfx_probe').resolve()),'environment_bindings',str(directory)],input=('\n'.join(requests)+'\n').encode()).splitlines()
 assert len(output)==len(expected)
 for row,got,want in zip(cases,output,expected):assert json.loads(got)==want,(row['environment'],got,want)

@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-palettes-') as temporary:
                 if lighting.endswith('_d'):
                     run('xdotool','keydown','u');time.sleep(2);run('xdotool','keyup','u');check(False,90)
                     run('xdotool','keydown','y');time.sleep(2);run('xdotool','keyup','y');check(False,127)
-                tap('Escape');game.wait(timeout=10)
+                tap('Shift_L+q');game.wait(timeout=10)
                 if game.returncode:
                     log.seek(0);raise RuntimeError(log.read()[-4000:])
         print('Private X11 palette checks passed: Shift+N, day/night eligibility, external-view exclusion, cockpit restoration and Y/U HUD intensity clamps')

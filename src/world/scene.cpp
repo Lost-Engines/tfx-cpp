@@ -64,6 +64,13 @@ instance &scene::terrain_instance(unsigned int const x, unsigned int const z) {
   return instances.try_emplace(z * map_width + x,source).first->second;
 }
 
+int16_t scene::terrain_type(vec3<int32_t> const &position) {
+  int const cell_x{position.x >> 11}, cell_z{position.z >> 11};
+  auto const x{wrapped_cell(cell_x,map_width)};
+  auto const z{map_height - 1 - wrapped_cell(static_cast<int>(map_height) - 1 - cell_z,map_height)};
+  return terrain_instance(x,z).type();
+}
+
 void scene::prepare_terrain_cell(unsigned int const x, unsigned int const z) {
   terrain_instance(x,z);
 }
@@ -154,20 +161,22 @@ instance_result scene::actor_event(scene_handle const handle, unsigned int const
   });
 }
 
-void scene::advance_instance(instance &state) {
-  state.animate({
+bool scene::advance_instance(instance &state) {
+  return state.animate({
     .status{terrain.lighting.status},
-  });
+  }).ejection_requested;
 }
 
-void scene::advance(timer_ticks const elapsed) {
+scene_events scene::advance(timer_ticks const elapsed) {
   /// Each static or moving instance owns independent streams; the native clock gate remains shared
   bool const animate{clock.advance(elapsed)};
   if(animate) saved_jitter = working_jitter;
   else working_jitter = saved_jitter;
-  if(!animate) return;
-  for(auto &[_, instance] : instances) advance_instance(instance);
-  for(auto &[_, actor] : actors) advance_instance(actor.state);
+  scene_events result;
+  if(!animate) return result;
+  for(auto &[_, instance] : instances) result.eject_player |= advance_instance(instance);
+  for(auto &[_, actor] : actors) result.eject_player |= advance_instance(actor.state);
+  return result;
 }
 
 void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius) {

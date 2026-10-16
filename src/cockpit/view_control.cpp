@@ -6,6 +6,7 @@ namespace tfx::cockpit {
 view_control::view_control(view_control_state initial) : state{std::move(initial)} {}
 view_control_state const &view_control::value() const { return state; }
 void view_control::offset(vec2<int16_t> const &position) { state.offset = vec2<int16_t>{position}; }
+void view_control::fixed_position(vec3<int32_t> const &position) { state.fixed_position = vec3<int32_t>{position}; }
 void view_control::clear_queue() { state.written = state.read = 0; }
 void view_control::ready() { state.ready = true; }
 void view_control::enqueue(view_mode view, int32_t const speed) {

@@ -6,8 +6,8 @@
 
 namespace tfx::missions {
 
-enum class session_outcome : int32_t { normal, aircraft_lost, violated_orders, critical_loss = 99 };
-enum class session_status : int32_t { normal, critical_loss, violated_orders, aircraft_lost = 4 };
+enum class session_outcome : int32_t { normal, aircraft_lost, violated_orders, ejected, critical_loss = 99 };
+enum class session_status : int32_t { normal, critical_loss, violated_orders, missing, aircraft_lost };
 enum class notice_kind { target_destroyed, completion, protection_failed, timer_expired };
 struct progress_notice {
   notice_kind kind;

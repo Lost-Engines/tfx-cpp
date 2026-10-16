@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise weapon selection, store/cannon firing and Escape on a private X11 display.
+"""Exercise weapon selection, store/cannon firing and quit on a private X11 display.
 
 Requires Xvfb, xdotool, ImageMagick import and Pillow. The private runtime
 prevents GLFW from discovering an unrelated desktop Wayland socket.
@@ -84,10 +84,10 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
                 if before.tobytes()!=after.tobytes():raise RuntimeError('paused instrument frame kept advancing')
             tap('p')
             print('Private X11 MFD controls passed: all three displays cycle, scene pages render, radar range/target keys respond and pause freezes the frame')
-            run('xdotool','key','Escape',check=True);game.wait(timeout=10)
+            tap('Shift_L+q');game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
-            print('Private X11 controls passed: a store fires; F8 follow/nose and F1 return work; cannon fires; Escape exits cleanly')
+            print('Private X11 controls passed: a store fires; F8 follow/nose and F1 return work; cannon fires; Shift+Q exits cleanly')
             game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','601','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+10;window=None
             while time.monotonic()<deadline and game.poll() is None:
@@ -109,7 +109,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('import','-window',window,str(store_before),check=True);tap('space')
             run('import','-window',window,str(store_after),check=True)
             if store_readout(store_before)==store_readout(store_after):raise RuntimeError('designating/firing did not release a ground store')
-            tap('x');tap('F1');tap('Escape');game.wait(timeout=10)
+            tap('x');tap('F1');tap('Shift_L+q');game.wait(timeout=10)
             if game.returncode:raise RuntimeError('ground-targeting input failed')
             print('Private X11 ground controls passed: select ground weapon, enter/zoom/aim/designate, release store, unlock and return to flight')
             game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','605','--flight-steps','1024','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
