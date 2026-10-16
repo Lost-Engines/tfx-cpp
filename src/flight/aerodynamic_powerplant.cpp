@@ -28,6 +28,22 @@ bool aerodynamic_powerplant::stop_afterburner() {
   return true;
 }
 
+afterburner_change aerodynamic_powerplant::increase_afterburner(unsigned int const stages) {
+  if(afterburner >= stages || (engine_factor.x == 0 && engine_factor.y == 0) || fuel <= 0) return afterburner_change::none;
+  auto const change{afterburner ? afterburner_change::increased : afterburner_change::started};
+  throttle_target = 1;
+  throttle = 1;
+  afterburner_control = afterburner_display = afterburner_off;
+  ++afterburner;
+  return change;
+}
+afterburner_change aerodynamic_powerplant::decrease_afterburner() {
+  if(!afterburner) return afterburner_change::none;
+  --afterburner;
+  afterburner_control = afterburner_display = afterburner_off;
+  return afterburner ? afterburner_change::decreased : afterburner_change::stopped;
+}
+
 void update_aerodynamic_thrust(aerodynamic_powerplant &state, aerodynamic_powerplant_parameters const &p, aerodynamic_powerplant_context const &context) {
   math::floating_environment const environment;
   state.thrust = static_cast<double>((static_cast<calculation>(state.throttle) - idle_throttle) * p.dry_thrust * throttle_span);

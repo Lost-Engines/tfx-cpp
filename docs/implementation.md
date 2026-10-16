@@ -1308,3 +1308,13 @@ All 8,192 complete original input/control/throttle/target updates agree, includi
     python3 tools/check_aerodynamic_controls.py
 
 All 68 CTests, complete advanced-input cases and complete powerplant cases pass in development, Release and ASan/UBSan.
+
+### Automatic/overspeed and recovery thrust controllers
+
+Native 0x9aa4c and 0x9ab78 retain their separate speed-control strategies: force-compensated throttle changes, their distinct throttle bounds, overspeed air brakes, temporary recovery speed targets and conditional afterburner stage changes. The powerplant owns increase/decrease invariants as well as full afterburner shutdown. First-stage starts, intermediate changes and final stops remain distinct output events, preserving the original sound/model/device request order.
+
+All 8,192 complete original controller updates agree, including 446 exact ordered afterburner changes. Both controller routines and the original afterburner handlers execute under original startup settings; only sound, SSD and optional external-device output delivery are intercepted. State, target restoration, float throttle, indicators and selected event semantics are observed. There are 123 compact captures. The complete powerplant comparison still agrees after adding these operations.
+
+    python3 tools/check_aerodynamic_speed.py
+
+Both speed-controller and complete advanced-input comparisons repeat exactly in Release and ASan/UBSan.
