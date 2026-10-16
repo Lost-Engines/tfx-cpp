@@ -3,18 +3,32 @@
 
 namespace tfx::render {
 
-void draw_sprite(framebuffer &target, resources::indexed_image const &image, vec2<int> const &centre, framebuffer *const coverage) {
+void draw_sprite(framebuffer &target, resources::indexed_image const &image, vec2<int> const &centre, framebuffer *const coverage, raster_clip const &clip) {
   // Native 0xc0ef8 supplies a sprite centre; palette index zero is transparent.
   int const left{centre.x - static_cast<int>(image.size.x / 2)};
   int const top{centre.y - static_cast<int>(image.size.y / 2)};
-  // Right overflow clips in four-pixel VGA groups, preserving the starting plane phase.
+  // Native 0xc0f95 clips in four-pixel VGA groups and preserves the starting plane phase.
   int const width{static_cast<int>(image.size.x)};
-  int const clipped_right{left >= 0 && left + width >= screen_width - 1
-    ? (left / 4 + width / 4 - (left + width - (screen_width - 1)) / 4) * 4
-    : left + width};
-  for(int y{std::max(0,top)}; y < std::min(screen_height,top + static_cast<int>(image.size.y)); ++y) {
-    for(int x{std::max(0,left)}; x < std::min(screen_width,clipped_right); ++x) {
-      auto const pixel{image.pixels.at(static_cast<unsigned int>(y - top) * image.size.x + static_cast<unsigned int>(x - left))};
+  int clipped_right{left + width};
+  if(left >= clip.sprite_minimum.x) {
+    if(clipped_right >= clip.sprite_limit.x) clipped_right = (left / 4 + width / 4 - (clipped_right - clip.sprite_limit.x) / 4) * 4;
+  } else {
+    int const skipped_groups{(clip.sprite_minimum.x - left) / 4};
+    int const remaining_width{width - skipped_groups * 4};
+    if(clip.sprite_minimum.x + remaining_width > clip.sprite_limit.x) clipped_right = (clip.sprite_minimum.x / 4 + remaining_width / 4 - (clip.sprite_minimum.x + remaining_width - clip.sprite_limit.x) / 4) * 4;
+  }
+  for(int y{std::max({0,top,clip.sprite_minimum.y})}; y < std::min({screen_height,top + static_cast<int>(image.size.y),clip.sprite_limit.y}); ++y) {
+    for(int x{std::max({0,left,clip.sprite_minimum.x})}; x < std::min(screen_width,clipped_right); ++x) {
+      unsigned int const source_x{static_cast<unsigned int>(x - left)}, source_y{static_cast<unsigned int>(y - top)};
+      unsigned int source{source_y * image.size.x + source_x};
+      if(source_x >= image.size.x) {
+        // Unrounded initial limits can expose up to three bytes in the next stored plane.
+        // Reconstruct that planar read instead of reading past the decoded image.
+        unsigned int const plane_bytes{static_cast<unsigned int>(image.pixels.size() / 4)};
+        unsigned int const address{(source_x % 4) * plane_bytes + source_y * (image.size.x / 4) + source_x / 4};
+        source = (address % plane_bytes) * 4 + address / plane_bytes;
+      }
+      auto const pixel{image.pixels.at(source)};
       if(!pixel) continue;
       auto const destination{static_cast<unsigned int>(y * screen_width + x)};
       target.pixels[destination] = pixel;
@@ -22,11 +36,11 @@ void draw_sprite(framebuffer &target, resources::indexed_image const &image, vec
     }
   }
 }
-void draw_monochrome(framebuffer &target, resources::monochrome_image const &image, vec2<int> const &position, uint8_t const colour, framebuffer *const coverage) {
+void draw_monochrome(framebuffer &target, resources::monochrome_image const &image, vec2<int> const &position, uint8_t const colour, framebuffer *const coverage, raster_clip const &clip) {
   // Native 0xcda48 uses a top-left origin and MSB-first packed rows. A set bit may paint black.
   unsigned int const stride{(image.size.x + 7) / 8};
-  for(int y{std::max(0,position.y)}; y < std::min(screen_height,position.y + static_cast<int>(image.size.y)); ++y) {
-    for(int x{std::max(0,position.x)}; x < std::min(screen_width,position.x + static_cast<int>(image.size.x)); ++x) {
+  for(int y{std::max({0,position.y,clip.glyph_minimum.y})}; y < std::min({screen_height,position.y + static_cast<int>(image.size.y),clip.glyph_limit.y}); ++y) {
+    for(int x{std::max({0,position.x,clip.glyph_minimum.x})}; x < std::min({screen_width,position.x + static_cast<int>(image.size.x),clip.glyph_limit.x}); ++x) {
       unsigned int const column{static_cast<unsigned int>(x - position.x)}, row{static_cast<unsigned int>(y - position.y)};
       if(!(image.rows.at(row * stride + column / 8) & (128u >> (column % 8)))) continue;
       auto const destination{static_cast<unsigned int>(y * screen_width + x)};

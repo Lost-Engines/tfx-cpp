@@ -5,6 +5,7 @@
 #include <vector>
 #include "models/shape.h"
 #include "render/camera.h"
+#include "render/clipping.h"
 #include "render/framebuffer.h"
 #include "resources/executable_tables.h"
 
@@ -27,6 +28,7 @@ private:
 
 public:
   framebuffer output;
+  raster_clip clipping;
   software_renderer(resources::executable_tables const &tables, uint16_t procedural_seed = 0x4321);
   uint16_t procedural_state() const;
   void background(camera const &view, uint8_t sky, uint8_t ground);

@@ -320,7 +320,7 @@ void software_renderer::text(int x, int const y, std::string_view const message,
     if(!glyph) continue;
     for(int row{0}; row != 6; ++row) {
       for(int column{0}; column != 8; ++column) {
-        if(glyph->rows[static_cast<unsigned int>(row)] & (128 >> column)) {
+        if((glyph->rows[static_cast<unsigned int>(row)] & (128 >> column)) && x + column >= clipping.glyph_minimum.x && x + column < clipping.glyph_limit.x && y + row >= clipping.glyph_minimum.y && y + row < clipping.glyph_limit.y) {
           ink(x + column,y + row,colour,-1);
           if(coverage && x + column >= 0 && x + column < screen_width && y + row >= 0 && y + row < screen_height) coverage->pixels[static_cast<unsigned int>((y + row) * screen_width + x + column)] = 255;
         }

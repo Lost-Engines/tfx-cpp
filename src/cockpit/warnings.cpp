@@ -10,14 +10,14 @@ warning_lamps::warning_lamps(instrument_assets const &source, resources::archive
 }
 warning_animation const &warning_lamps::state() const { return animation; }
 
-bool warning_lamps::draw(render::framebuffer &target, warning_state const &state, render::framebuffer *const coverage) {
+bool warning_lamps::draw(render::framebuffer &target, warning_state const &state, render::framebuffer *const coverage, render::raster_clip const &clip) {
   // Native 0x81a48 advances its four-draw phase even when no warning lamp is visible.
   unsigned int constexpr phase_frames{4}, phase_count{32};
   if(animation.countdown) --animation.countdown;
   else { animation.countdown = phase_frames - 1;animation.phase = static_cast<uint16_t>((animation.phase + 1) & (phase_count - 1)); }
   auto const sprite{[&](unsigned int const bank, unsigned int const frame, vec2<int> const &position) {
     vec2<int> const centre{static_cast<uint16_t>(position.x + state.offset.x),static_cast<uint16_t>(position.y + state.offset.y)};
-    render::draw_sprite(target,banks.at(bank).at(frame),centre,coverage);
+    render::draw_sprite(target,banks.at(bank).at(frame),centre,coverage,clip);
   }};
   auto const condition{[&](flight::aircraft_system const system) { return state.systems[std::to_underlying(system)]; }};
   auto const gear{condition(flight::aircraft_system::landing_gear)};

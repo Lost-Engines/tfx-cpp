@@ -52,11 +52,11 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
   }};
   auto const background{[&](unsigned int const frame) {
     auto const centre{point({28,18})};
-    render::draw_sprite(renderer.output,backgrounds.at(frame),{static_cast<uint16_t>(centre.x),static_cast<uint16_t>(centre.y)},coverage);
+    render::draw_sprite(renderer.output,backgrounds.at(frame),{static_cast<uint16_t>(centre.x),static_cast<uint16_t>(centre.y)},coverage,renderer.clipping);
   }};
   auto const mask{[&](instrument_mask const shape, vec2<int> const &local, uint8_t const colour) {
     auto const position{point(local)};
-    render::draw_monochrome(renderer.output,assets.masks[std::to_underlying(shape)],{static_cast<uint16_t>(position.x),static_cast<uint16_t>(position.y)},colour,coverage);
+    render::draw_monochrome(renderer.output,assets.masks[std::to_underlying(shape)],{static_cast<uint16_t>(position.x),static_cast<uint16_t>(position.y)},colour,coverage,renderer.clipping);
   }};
   auto const text{[&](vec2<int> const &local, std::string const &message, uint8_t const colour) {
     auto const position{point(local)};

@@ -54,7 +54,7 @@ void readouts::number(render::software_renderer &renderer, vec2<int> const &posi
     auto const index{assets.character_map[character & 63]};
     if(index == 255) continue;
     vec2<int> const centre{static_cast<uint16_t>(x + 4),static_cast<uint16_t>(position.y + 2)};
-    render::draw_sprite(renderer.output,digits.at(index),centre,coverage);
+    render::draw_sprite(renderer.output,digits.at(index),centre,coverage,renderer.clipping);
     x += 4;
   }
 }

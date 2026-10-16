@@ -3,7 +3,7 @@
 #include <optional>
 #include "cockpit/instrument_assets.h"
 #include "flight/damage.h"
-#include "render/framebuffer.h"
+#include "render/clipping.h"
 #include "resources/archive.h"
 
 namespace tfx::cockpit {
@@ -32,7 +32,7 @@ private:
 public:
   auxiliary_lamps(instrument_assets const &assets, resources::archive const &game);
   auxiliary_animation const &state() const;
-  void draw(render::framebuffer &target, auxiliary_state const &state, render::framebuffer *coverage = nullptr);
+  void draw(render::framebuffer &target, auxiliary_state const &state, render::framebuffer *coverage = nullptr, render::raster_clip const &clip = {});
 };
 
 } // namespace tfx::cockpit

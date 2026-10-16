@@ -703,3 +703,13 @@ The warning-lamp painter retains the original gear, wheel-brake, hook, autopilot
 **1,024 complete native pixel/coverage/phase/sound frames agree**, including every system's failure/intermittent warning and tracked-weapon category branches. Another **512 complete native pixel/coverage/refresh-state frames agree** for engine lamps, approach cues, ground indicators and ammunition markers. The engine-cache bytes are read but not rewritten by this native region. Ammunition pips are paired 2×2 points, rather than line segments; their original linear VGA edge wrapping is preserved. The approach-cue ordinal remains explicit until its selecting flight logic is ported.
 
 These comparisons, the existing MFD/readout comparisons, and all 44 CTests pass in development, Release and ASan/UBSan. Sound requests are compared as events; the mixer and complete HUD composition remain in progress.
+
+### Per-viewport HUD clipping
+
+```sh
+python3 tools/check_clipping.py
+```
+
+The renderer now owns explicit glyph and sprite clipping state. Native `0xc0634` keeps the supplied glyph X limit, rounds sprite X limits to four-pixel VGA groups, and increments bottom Y for both. Instrument painters consume that state; their earlier controlled inspection-driver limits remain the default until a viewport is selected. The sprite painter also retains the original planar edge reads when both horizontal sides are clipped with unrounded initial limits, reconstructing them within owned image storage.
+
+**1,601 complete native pixel/coverage frames agree**, covering eighteen original sprite banks, embedded masks, every character byte, interior display rectangles and directed/synthetic plane-boundary cases. The 572 image, 576 font/width, 588 MFD, 504 readout, 1,024 warning, 512 auxiliary and 144 menu-pointer comparisons still agree. These checks and all 44 CTests pass in development, Release and ASan/UBSan. This supplies the clipping transitions needed by the moving map and assembled HUD; it does not yet replace the diagnostic flight overlay.
