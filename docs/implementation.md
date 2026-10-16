@@ -1506,3 +1506,11 @@ A normal A toggle calls physical reset 0x954fc immediately. Recovery-mode A inst
 All 1,536 complete original key updates agree across initialized aircraft, both advanced models, enabled/disabled/unknown/recovery modes, guard conditions, stored air brakes, captures and speed presets. The comparison includes 74 immediate physical resets, 16 recovery restorations, 74 external on/off requests and 698 notices, with all 316 flight/control fields and output events checked. The full original key, reset, recovery and afterburner routines execute; only external delivery and explicit hardware transcendental adapters are boundaries.
 
     python3 tools/check_aerodynamic_pilot_keys.py
+
+### Complete advanced player launch and first placement
+
+The launch owner now joins original player setup 0x8c184, its full 0x95f3c initializer, engine priming 0x8c318, route-selection initialization and the first-placement prefix of 0x8f56c. It retains authored input angles and integer coordinates separately from quantized matrices/float stores, primes the original airborne speed/throttle, applies distinct runway/carrier placement, performs the initial physical rebuild and clears the cold-start flag at its original boundary. The first ordinary callback still sees the pending prior-model marker and performs its own entry reset.
+
+All 768 complete original launches agree across all 316 flight/control fields and ordered random states: all aircraft, both advanced models, airborne/runway/carrier starts, raw angles, mounted stores, route sizes, temperature and wind inputs. Original setup, initializer, route and placement/physical-reset helpers execute. Only host mouse setup, supplied start-surface classification and explicit hardware transcendental adapters are boundaries. Instrument/system startup conditions use their separately verified native inputs.
+
+    python3 tools/check_aerodynamic_launch.py
