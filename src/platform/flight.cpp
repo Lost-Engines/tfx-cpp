@@ -37,6 +37,7 @@
 #include "platform/arming.h"
 #include "platform/flight.h"
 #include "render/camera.h"
+#include "render/point_projection.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
@@ -389,7 +390,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     if(context.tracking_target_q8) context.observed_target_q8.emplace(vec3<int32_t>{*context.tracking_target_q8});
     return context;
   }};
-  auto const flight_view{[&] {
+  auto const forward_pose{[&] {
     auto const context{camera_context()};
     tfx::cockpit::view_pose pose{
       .anchor{vec3<int32_t>{context.position}},
@@ -397,8 +398,9 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .angles{static_cast<tfx::math::angle>(-player.angles.x),static_cast<tfx::math::angle>(-player.angles.y),static_cast<tfx::math::angle>(-player.angles.z)},
     };
     pose.matrix = tfx::math::view_rotation_words(pose.angles);
-    return pose.camera(cockpit_frame.projection_origin(view_index(),cockpit_position.value()));
+    return pose;
   }};
+  auto const flight_view{[&] { return forward_pose().camera(cockpit_frame.projection_origin(view_index(),cockpit_position.value())); }};
   std::vector<vec3<int32_t>> map_targets;
   for(auto const &target : mission_setup.targets) map_targets.emplace_back(target.position);
   auto const apply_selection{[&](tfx::weapons::selection_change const &change) {
@@ -481,18 +483,22 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     }
     unsigned int const weapon{armament.selected < 0 ? 0u : armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
     if(weapon >= tables.weapons.size()) { seeker.clear(); return; }
-    auto const view{flight_view()};
+    auto const pose{forward_pose()};
+    auto const origin{cockpit_frame.projection_origin(view_index(),cockpit_position.value())};
+    tfx::render::point_projection const projection{
+      .matrix{mat3<int32_t>{pose.matrix}},
+      .position_q16{vec3<int32_t>{pose.position_q16}},
+      .origin{static_cast<int16_t>(origin.x),static_cast<int16_t>(origin.y)},
+    };
     tfx::sensors::advance_air_lock(seeker,radar,radar_actors,tables.weapons[weapon],{
       .position{vec3<int32_t>{player.integer_position}},
       .angles{vec3<tfx::math::angle>{player.angles}},
       .elapsed{elapsed},
       .guns{armament.guns},
-      .centre{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
+      .centre{vec2<int16_t>{projection.origin}},
       .project{[&](vec3<int32_t> const &position) {
-        auto const transformed{view.transform(vec3d{position})};
-        if(transformed.z <= 0) return vec2<int16_t>{-32000,-32000};
-        auto const screen{view.project(transformed)};
-        return vec2<int16_t>{static_cast<int16_t>(std::clamp(screen.x,-32768.0,32767.0)),static_cast<int16_t>(std::clamp(screen.y,-32768.0,32767.0))};
+        if(auto const point{projection.integer(position)}) return vec2<int16_t>{*point};
+        return vec2<int16_t>{-1,-1};
       }},
     });
   }};
@@ -843,21 +849,19 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         .acquiring{seeker.tracking.has_value()},
       });
     }
-    if(state.mode == tfx::cockpit::aiming_mode::ground && ground_designation) {
-      auto const point{view.transform(vec3d{designated_point} / tfx::actors::position_unit)};
-      if(point.z > 0) {
-        auto const screen{view.project(point)};
-        state.ground_marker.emplace(static_cast<int16_t>(std::clamp(screen.x,-32000.0,32000.0)),static_cast<int16_t>(std::clamp(screen.y,-32000.0,32000.0)));
-      }
-    }
+    auto const &pose{view_motion.last_pose()};
+    tfx::render::point_projection const projection{
+      .matrix{mat3<int32_t>{pose.matrix}},
+      .position_q16{vec3<int32_t>{pose.position_q16}},
+      .origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
+    };
+    if(state.mode == tfx::cockpit::aiming_mode::ground && ground_designation) state.ground_marker = projection.integer({designated_point.x >> 8,designated_point.y >> 8,designated_point.z >> 8});
     if(state.mode == tfx::cockpit::aiming_mode::navigation || state.cannon || weapon.category == tfx::weapons::bomb_impact_category) {
       vec3<int32_t> const origin{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)};
       auto const anchor{tfx::math::place_anchor(origin,player.angles,tables.sight_mount(player.aircraft,armament.selected))};
       auto const project_prediction{[&](vec3<int32_t> const &position) {
-        auto const point{view.transform(vec3d{position} / tfx::actors::position_unit)};
-        if(point.z <= 0) return vec2<int16_t>{-32000,-32000};
-        auto const screen{view.project(point)};
-        return vec2<int16_t>{static_cast<int16_t>(std::clamp(screen.x,-32000.0,32000.0)),static_cast<int16_t>(std::clamp(screen.y,-32000.0,32000.0))};
+        if(auto const point{projection.integer({position.x >> 8,position.y >> 8,position.z >> 8})}) return vec2<int16_t>{*point};
+        return vec2<int16_t>{-1,-1};
       }};
       if(state.mode == tfx::cockpit::aiming_mode::navigation || state.cannon) {
         auto const samples{tfx::weapons::predict_cannon(tables.weapons[0],anchor,player.angles,player.fixed_speed,tables.instruments().camera_height_bounds)};

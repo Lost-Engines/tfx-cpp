@@ -950,3 +950,18 @@ Original integer projection restores the native Q16 coordinate grid after unit c
 The existing **4,121 native matrix/orbit cases, 4,096 native model projections and 4,096 native model-vertex products agree**, with **36,864 additional rescaled projection cases** including exact depth boundaries, fractional signed coordinates and canopy units. A separate property check compares complete software output for **1,287 polygon/line/point cases** across nine unit scales, including near-plane crossings; this establishes clipper scale invariance, rather than claiming original complete-raster equivalence. Carried-model tests also check inherited and replaced projection units.
 
 These checks pass in development, Release and ASan/UBSan. All 44 CTests pass. Private-window camera/offset/pause checks pass in missions 501, 601 and 701; scratch captures permit visual inspection of the authored canopies. All 128 retail missions run 1,024 simulation steps and draw under sanitizers with the corrected path. Complete world transform/order, clipping/raster boundaries, camera callbacks and session equivalence remain separate work.
+
+
+### Native world-point projection
+
+```sh
+python3 tools/check_point_projection.py
+```
+
+The original HUD/world-point projectors (`0xc5759` and `0xc57d1`) now have explicit integer-coordinate and Q16-coordinate consumers. They retain word-relative subtraction, separate signed high products for fixed coordinates, wrapped matrix rows, the inclusive 16–20,000 camera-depth range, truncated reciprocal and signed high-product screen conversion. These paths differ from the polygon vertex projector. Invalid points retain the original `(-1,-1)` result at live call sites.
+
+**16,384 native cases agree**, covering both routines, arbitrary stored matrices, coordinate/angle-origin wrapping, fractional camera positions, near/far boundaries and negative screen rounding. Original matrix/translation setters and both complete point routines execute without intercepted dependencies. Another 182 compact synthetic native cases run in the asset-free CTest suite.
+
+Live acquisition uses the verified projector with the existing forward-camera adapter. Cannon/Mk82 prediction and designated-ground outlines use the active camera's stored matrix, Q16 position and projection origin. Predicted Q8 coordinates are shifted to integer world coordinates before the word projector, as in the original callers. Complete sensor/camera lifetime ordering, navigation/approach consumers and full-frame/session equivalence remain separate integration work.
+
+The native comparison passes in development, Release and ASan/UBSan. All 45 CTests pass; private-window checks still cover air/ground firing, acquisition-related controls, radar/MFD pages, designation, pause and result handoff.
