@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aerodynamic_step.cpp
+  src/flight/aerodynamic_step.h
   src/flight/aerodynamic.cpp
   src/flight/aerodynamic.h
   src/flight/aerodynamic_wind.cpp
