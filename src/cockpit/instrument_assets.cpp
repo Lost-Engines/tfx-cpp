@@ -111,6 +111,8 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   gauge_fuel_scale = real(0x1ba6);
   gauge_throttle_scale = std::bit_cast<float>(source.le32(data + 0x1bae));
   engine_percent = real(0x1bcb);
+  initial_fuel_gauge = source.signed_le16(data + 0x6c3c);
+  initial_fuel_burn = source.signed_le16(data + 0x6c3a);
 }
 
 } // namespace tfx::cockpit
