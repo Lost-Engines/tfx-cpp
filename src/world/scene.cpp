@@ -41,6 +41,16 @@ vec3<int16_t> word_position(vec3d const &position) {
   return {component(position.x),component(position.y),component(position.z)};
 }
 
+std::optional<flight::landing_port> landing_port(instance const &state) {
+  int16_t constexpr landing_type{50};
+  if(state.type() != landing_type) return std::nullopt;
+  // Native 0xb6e48 reads the first three initialized custom words.
+  return flight::landing_port{
+    .offset{math::signed_word(state.custom.at(0)),math::signed_word(state.custom.at(1))},
+    .heading{state.custom.at(2)},
+  };
+}
+
 unsigned int wrapped_cell(int const value, unsigned int const dimension) {
   /// Native 0xb0cbc uses dimension - 1 for negative remainders, including its one-cell seam quirk.
   int const remainder{value % static_cast<int>(dimension)};
@@ -111,6 +121,15 @@ bool scene::actor_destroyed(scene_handle const handle) const {
 
 int16_t scene::actor_type(scene_handle const handle) const {
   return actors.at(handle.value).state.type();
+}
+
+std::optional<flight::landing_port> scene::terrain_landing_port(vec2<int16_t> const &cell) {
+  if(cell.x < 0 || cell.y < 0 || cell.x >= static_cast<int>(map_width) || cell.y >= static_cast<int>(map_height)) return std::nullopt;
+  return landing_port(terrain_instance(static_cast<unsigned int>(cell.x),static_cast<unsigned int>(cell.y)));
+}
+
+std::optional<flight::landing_port> scene::actor_landing_port(scene_handle const handle) const {
+  return landing_port(actors.at(handle.value).state);
 }
 
 std::vector<vec3<int16_t>> scene::actor_damage_centres(scene_handle const handle) const {

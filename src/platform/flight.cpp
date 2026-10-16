@@ -9,6 +9,7 @@
 #include <iostream>
 #include <numbers>
 #include <optional>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -135,6 +136,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   bool designator_view{false};
   tfx::cockpit::aiming_mode aiming_mode{tfx::cockpit::aiming_mode::navigation};
   tfx::flight::refuelling refuelling{tables.refuel_parameters()};
+  tfx::flight::landing_system landing;
   std::optional<tfx::weapons::projectile_id> camera_missile;
   std::optional<unsigned int> impact_aircraft;
   std::optional<tfx::weapons::target_reference> ground_designation;
@@ -597,6 +599,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     armament.guns = true;
     aiming_mode = tfx::cockpit::aiming_mode::navigation;
     refuelling.reset();
+    landing.reset();
     radio.clear();
     camera_missile.reset();
     impact_aircraft.reset();
@@ -954,6 +957,16 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .position_q16{vec3<int32_t>{pose.position_q16}},
       .origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
     };
+    if(state.mode == tfx::cockpit::aiming_mode::navigation && landing.value().enabled) {
+      state.landing.emplace(landing.advance(player.integer_position,false,[&](auto const &position) {
+        if(auto const point{projection.integer(position)}) return tfx::flight::landing_projection{
+          .valid{true},
+          .point{vec2<int16_t>{*point}},
+        };
+        return tfx::flight::landing_projection{};
+      }));
+      if(state.landing->speed_request) radio.show(tables.instruments().landing_radio_messages[std::to_underlying(tfx::flight::landing_radio::approach_speed)]);
+    }
     if(state.mode == tfx::cockpit::aiming_mode::ground && ground_designation) state.ground_marker = projection.integer({designated_point.x >> 8,designated_point.y >> 8,designated_point.z >> 8});
     if(state.mode == tfx::cockpit::aiming_mode::navigation || state.cannon || weapon.category == tfx::weapons::bomb_impact_category) {
       vec3<int32_t> const origin{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)};
@@ -1140,6 +1153,29 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       if(pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER)) select_weapon(tfx::weapons::weapon_role::air);
       if(pressed(GLFW_KEY_BACKSPACE) || pressed(GLFW_KEY_O)) select_weapon(tfx::weapons::weapon_role::ground);
       if(pressed(GLFW_KEY_F)) { armament.guns = true;aiming_mode = tfx::cockpit::aiming_mode::navigation; }
+      if(pressed(GLFW_KEY_I) || pressed(GLFW_KEY_BACKSLASH)) {
+        std::vector<tfx::flight::landing_surface> carriers;
+        // Native surface enumeration is descending by slot and allied-only.
+        for(auto const &actor : surface_actors | std::views::reverse) {
+          auto const &pose{actor.state.pose};
+          if(pose.side != tfx::actors::allegiance::allied || (pose.flags & (std::to_underlying(tfx::actors::surface_flag::destroyed) | std::to_underlying(tfx::actors::surface_flag::retired)))) continue;
+          if(auto const port{scene.actor_landing_port(actor.visual)}) carriers.push_back({
+            .position_q8{vec3<int32_t>{pose.position}},
+            .port{*port},
+            .destroyed{scene.actor_destroyed(actor.visual)},
+          });
+        }
+        auto const result{landing.toggle({
+          .aircraft{player.aircraft},
+          .crashed{player.collision != 0},
+          .ejected{player_disabled},
+          .gear_down{player.gear_down},
+        },actor_program.player_route,[&](auto const &cell) { return scene.terrain_landing_port(cell); },carriers)};
+        if(result.navigation) { armament.guns = true;aiming_mode = tfx::cockpit::aiming_mode::navigation; }
+        for(auto const message : result.messages) radio.show(tables.instruments().landing_radio_messages[std::to_underlying(message)]);
+        // Native control coefficients are retained by the selection result for
+        // the pending non-Arcade models; voice/tone requests await audio.
+      }
       if(pressed(GLFW_KEY_APOSTROPHE)) {
         auto const result{refuelling.toggle(static_cast<uint8_t>(std::to_underlying(aiming_mode)),false,player.collision != 0,player_disabled)};
         aiming_mode = static_cast<tfx::cockpit::aiming_mode>(result.weapon_mode);

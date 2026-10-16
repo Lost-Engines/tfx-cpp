@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/landing.cpp
+  src/flight/landing.h
+  src/cockpit/landing_display.cpp
+  src/cockpit/landing_display.h
   src/flight/refuelling.cpp
   src/flight/refuelling.h
   src/cockpit/hud_alerts.cpp
@@ -392,6 +396,13 @@ if(BUILD_TESTING)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
 
+  add_executable(landing_tests tests/landing_tests.cpp)
+  target_link_libraries(landing_tests PRIVATE tfx_core)
+  configure_first_party(landing_tests)
+  add_test(NAME flight.native_ils_guidance COMMAND landing_tests "${PROJECT_SOURCE_DIR}/tests/fixtures/landing.txt")
+  add_executable(landing_probe tests/landing_probe.cpp)
+  target_link_libraries(landing_probe PRIVATE tfx_core)
+  configure_first_party(landing_probe)
   add_executable(refuelling_probe tests/refuelling_probe.cpp)
   target_link_libraries(refuelling_probe PRIVATE tfx_core)
   configure_first_party(refuelling_probe)
