@@ -1,4 +1,4 @@
-#include "aerodynamic_manual.h"
+#include "aerodynamic_control_law_internal.h"
 #include <cmath>
 #include "math/floating_environment.h"
 #include "math/x87.h"
@@ -81,6 +81,16 @@ afterburner_change update_aerodynamic_manual(aerodynamic_manual_state &state, ae
       state.elevator_trim = static_cast<double>(state.elevator_trim - (static_cast<calculation>(state.pitch_rate_bias) * c.pitch_damping * p.mean_chord / (speed * 2)) / denominator);
     }
   }
+  return finish_aerodynamic_controls(state,powerplant,context);
+}
+
+afterburner_change finish_aerodynamic_controls(aerodynamic_manual_state &state, aerodynamic_powerplant &powerplant, aerodynamic_manual_context const &context) {
+  math::floating_environment const environment;
+  auto &controls{state.controls};
+  auto const &data{context.data};
+  auto const &c{context.coefficients};
+  auto const &p{context.geometry};
+  calculation const speed{data.metres_per_second}, alpha{data.angle_of_attack};
   if(speed > flap_minimum_speed && context.aircraft != player_aircraft::nighthawk && context.flaps_condition != system_condition::failed) {
     state.flap_fraction = static_cast<double>((static_cast<calculation>(data.mass_kg) * 2 * gravity / velocity_area(data,p.wing_area) - p.zero_lift) / (static_cast<calculation>(p.flap_lift_gradient) * p.maximum_flap_angle));
     if(state.flap_fraction > 1) state.flap_fraction = 1;

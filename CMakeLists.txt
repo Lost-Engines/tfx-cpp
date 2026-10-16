@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aerodynamic_recovery.cpp
+  src/flight/aerodynamic_recovery.h
   src/flight/aerodynamic_step.cpp
   src/flight/aerodynamic_step.h
   src/flight/aerodynamic.cpp
@@ -34,6 +36,7 @@ add_library(tfx_core
   src/flight/aerodynamic_pose.cpp
   src/flight/aerodynamic_pose.h
   src/flight/aerodynamic_airframes.h
+  src/flight/aerodynamic_control_law_internal.h
   src/flight/aerodynamic_manual.cpp
   src/flight/aerodynamic_manual.h
   src/flight/aerodynamic_speed.cpp
@@ -467,6 +470,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_recovery_probe tests/aerodynamic_recovery_probe.cpp)
+  target_link_libraries(aerodynamic_recovery_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_recovery_probe)
+  add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
 
   add_executable(aerodynamic_probe tests/aerodynamic_probe.cpp)
   target_link_libraries(aerodynamic_probe PRIVATE tfx_core)
