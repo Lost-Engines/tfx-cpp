@@ -1481,3 +1481,18 @@ Native 0x9fecf..0xa028f is a separate kinematic landing path. It rebuilds the ph
 All 8,192 bounded original updates agree: 2,088 new flare transitions and 3,325 requests to enter the separate touchdown finalizer. Original angle helpers, integer conversions, square root, basis and motion calculations execute; hardware FSIN/FCOS adapters are the only numerical boundaries. Both return paths are observed before the separate finalizer/gear/view tail. There are 123 compact captures. Setup, finalization and the complete automatic-landing callback are still being joined.
 
     python3 tools/check_automatic_approach.py
+
+### Complete scripted automatic landing
+
+Native 0x9feb4 now includes setup 0xa0494, the approach/flare/rollout stage, touchdown finalizer 0xa02c8, original gear switching and final view export. Setup stops reheat, aligns to the selected runway/carrier, positions the aircraft on approach and returns the original 10,000-point charge. Touchdown retains the original engine/velocity, suspension-height, timestep and prior-view conversion behavior. Ordered reheat/gear/stopped output requests are returned separately.
+
+The setup can raise deployed gear and lower it again in the same update; both original requests are retained. Original shared navigation scratch also changes coordinate units during landing: the landing owner uses explicitly named metre coordinates, then transfers retained scratch at the callback handover. Ordinary route guidance rewrites those coordinates in world units. Native angle/basis, caches and rest-of-flight state remain checked rather than assuming the landing path leaves them untouched.
+
+All 1,200 full original callbacks agree across three aircraft, both advanced profiles, both entry phases, carrier/runway selection, gear faults, eligibility guards, varied frames and rollout boundaries: 600 setups, 160 completed rollouts and 819 ordered gear changes. All 324 flight/autopilot/landing fields, score differences and output events agree. A further 48 complete-initialized sequences agree through 15,813 active callbacks, including 24 setups, 19 complete rollouts and 34 gear changes. After a sequence becomes inactive, the capture caller stops invoking its landing callback, as the game dispatcher does.
+
+The full original initializer and every numerical landing helper execute. The only boundaries are caller-owned score-variable lookup, sound/model delivery and explicit hardware transcendental adapters; branch hooks merely observe execution.
+
+    python3 tools/check_automatic_landing.py
+    python3 tools/check_automatic_landing.py --persistent
+
+The automatic-landing callback is reconstructed; Alt+L key selection, its view/weapon/ILS requests and live flight-model integration are the next caller connections.
