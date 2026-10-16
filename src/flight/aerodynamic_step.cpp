@@ -12,7 +12,6 @@ double constexpr realistic_ground_pitch_gain{.2};
 
 aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, damage_state &damage, math::random_state &random, aerodynamic_wind_parameters const &wind_parameters, aerodynamic_tick_context const &context) {
   math::floating_environment const environment;
-  if(state.manual.controls.autopilot.enabled) throw std::runtime_error{"advanced autopilot controller is not reconstructed yet"};
   aerodynamic_tick_events events;
   auto &motion{state.response.motion};
   auto &data{state.data};
@@ -78,7 +77,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   if(update_aerodynamic_controls(manual.controls,powerplant,control_context)) events.afterburner.push_back(afterburner_change::stopped);
   if(realistic && ground.landed && data.metres_per_second < aircraft.stall_metres_per_second) manual.controls.elevator = manual.controls.keyboard_elevator = 0;
   manual.air_brake_condition = damage.condition(aircraft_system::air_brake);
-  auto const change{update_aerodynamic_manual(manual,powerplant,{
+  aerodynamic_manual_context const manual_context{
     .data{data},
     .coefficients{state.coefficients},
     .surfaces{state.surfaces},
@@ -96,8 +95,39 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .military{!realistic},
     .stick_pressure{context.stick_pressure},
     .flaps_condition{damage.condition(aircraft_system::flaps)},
+  };
+  auto &autopilot{state.autopilot};
+  // These original globals are scratch shared with the following ground and
+  // response stages; transfer at their call boundaries, not through stale copies.
+  autopilot.guidance.ground_speed = state.response.previous_pitch_rate;
+  autopilot.guidance.roll_angle = state.ground.roll_angle;
+  aerodynamic_guidance_context const guidance_context{
+    .law{manual_context},
+    .engine{aircraft.powerplant},
+    .seconds{context.seconds},
+    .roll_moment{state.stores.total_moment_a},
+    .pitch_moment{state.stores.total_moment_b},
+    .previous_drag{state.surfaces.drag},
+    .rudder_effectiveness{aircraft.rudder_effectiveness},
+    .followed_aircraft{context.navigation.followed_aircraft.has_value()},
+    .time_warp{context.time_warp},
+    .recovery{
+      .afterburner_stages{aircraft.powerplant.afterburner_stages},
+      .available{context.recovery_available},
+      .inhibited{context.recovery_inhibited},
+      .crashed{motion.collision != 0},
+      .ejected{context.ejected},
+      .landed{ground.landed},
+    },
+  };
+  auto const controlled{update_aerodynamic_autopilot(autopilot,manual,powerplant,motion,{
+    .guidance{guidance_context},
+    .navigation{context.navigation},
   })};
-  if(change != afterburner_change::none) events.afterburner.push_back(change);
+  events.afterburner.insert(events.afterburner.end(),controlled.afterburner.begin(),controlled.afterburner.end());
+  events.recovery = controlled.recovery;
+  state.response.previous_pitch_rate = autopilot.guidance.ground_speed;
+  state.ground.roll_angle = autopilot.guidance.roll_angle;
   damage.systems[std::to_underlying(aircraft_system::air_brake)] = manual.air_brake_condition;
   if(realistic) update_aerodynamic_commands(state.commands,manual,powerplant,{
     .data{data},
@@ -223,6 +253,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .ground_vertical_force{ground.contact.force.z},
     .time_warp{context.time_warp},
     .landed{ground.landed},
+    .autopilot{manual.controls.autopilot.enabled},
     .rudder_inhibited{ground.ground_steering},
     .realistic{realistic},
     .stick_pressure{context.stick_pressure},
@@ -242,6 +273,8 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   state.view = update_aerodynamic_view(motion.pose,craft,aircraft.viewpoint);
   motion.integer_world_y = state.view.integer_position.y;
   if(realistic && ground.contact.force.x != 0) motion.velocity_ned.z = 0;
+  autopilot.guidance.ground_speed = state.response.previous_pitch_rate;
+  autopilot.guidance.roll_angle = state.ground.roll_angle;
   return events;
 }
 
