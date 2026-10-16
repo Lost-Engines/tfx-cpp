@@ -15,6 +15,7 @@
 #include "resources/archive.h"
 #include "resources/executable_tables.h"
 #include "world/animation.h"
+#include "world/collision.h"
 #include "world/definition.h"
 #include "world/environment.h"
 
@@ -30,7 +31,19 @@ auto main(int const argc, char const *const argv[])->int try {
   if(argc < 2) throw std::runtime_error{"usage: tfx_probe archive|shape DATA_DIRECTORY, or sine|rotation|conditions|random"};
   std::string_view const mode{argv[1]};
   std::cout << std::setprecision(17);
-  if(mode == "sine") {
+  if(mode == "collision") {
+    int diagonal{0};
+    while(std::cin >> diagonal) {
+      tfx::world::collision_box box;
+      tfx::world::collision_segment segment;
+      for(auto *point : {&box.minimum,&box.maximum,&segment.previous,&segment.current}) {
+        int x{0}, y{0}, z{0};
+        std::cin >> x >> y >> z;
+        *point = vec3<int16_t>{static_cast<int16_t>(x),static_cast<int16_t>(y),static_cast<int16_t>(z)};
+      }
+      std::cout << tfx::world::intersects(box,segment,diagonal != 0) << '\n';
+    }
+  } else if(mode == "sine") {
     for(auto const value : tfx::math::sine_table()) std::cout << value << ' ';
     std::cout << std::endl;
   } else if(mode == "rotation") {
