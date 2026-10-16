@@ -94,7 +94,7 @@ else:
     im.intercept(0xb6e88,'Supply the carrier SSD destroyed bit independently of its actor retirement flags',lambda image:(image.cpu.reg_write(r.UC_X86_REG_EAX,ports[image.cpu.reg_read(r.UC_X86_REG_EAX)&65535][4]),image.return_from()))
     im.intercept(0x81198,'Observe exact original ILS selection radio requests',lambda image:(messages.append(image.cpu.reg_read(r.UC_X86_REG_EAX)-image.data),image.return_from()))
     im.intercept(0xa4edc,'Observe NAV stop-tone request at the pending audio boundary',lambda image:(stops.append(image.cpu.reg_read(r.UC_X86_REG_EAX)),image.return_from()))
-    im.intercept(0xa5a9c,'Observe the gear-dependent ILS voice request at the audio boundary',lambda image:(voices.append(image.cpu.reg_read(r.UC_X86_REG_EAX)),image.return_from()))
+    im.intercept(0xa5a9c,'Observe the damage-dependent ILS voice request at the audio boundary',lambda image:(voices.append(image.cpu.reg_read(r.UC_X86_REG_EAX)),image.return_from()))
     cases=[]
     for index in range(1536):
         values=initial(index);values[0]=int(index%11==0)
@@ -117,7 +117,7 @@ else:
     assert len(output)==len(cases)
     counts=Counter()
     for index,(row,line) in enumerate(zip(cases,output)):
-        set_state(row[1:17]);craft,inhibited,crashed,ejected,gear,realistic,route_count=row[17:24];at=24
+        set_state(row[1:17]);craft,inhibited,crashed,ejected,damaged,realistic,route_count=row[17:24];at=24
         route=[]
         for item in range(route_count):
             x,z=row[at:at+2];at+=2;route.append((x//2048,z//2048))
@@ -130,7 +130,7 @@ else:
             x,y,z,ox,oz,heading,destroyed,flags,side,kind=row[at:at+10];at+=10
             slot=49-item;handle=1+item;address=0x301000+slot*256;profile=0x305000+slot*256
             im.write(0x128c8+slot*4,'<I',address);im.cpu.mem_write(address,struct.pack('<3i',x,y,z));im.cpu.mem_write(address+0x24,struct.pack('<H',handle));im.cpu.mem_write(address+0x2f,bytes([flags]));im.cpu.mem_write(address+0x2a,struct.pack('<I',profile));im.cpu.mem_write(profile+0x1f,bytes([side]));ports[handle]=(kind,ox,oz,heading,destroyed)
-        im.write(0xabe9,'<B',inhibited);im.write(0x86ce,'<B',crashed);im.write(0x12c04,'<H',ejected);im.write(0x11b2a,'<H',craft);im.write(0x1347a,'<B',6 if realistic else 0);im.write(0x8e18,'<d',1 if gear else 0)
+        im.write(0xabe9,'<B',inhibited);im.write(0x86ce,'<B',crashed);im.write(0x12c04,'<H',ejected);im.write(0x11b2a,'<H',craft);im.write(0x1347a,'<B',6 if realistic else 0);im.write(0x8e18,'<d',1 if damaged else 0)
         im.write(0xac58,'<i',-16384);im.write(0xac5c,'<i',0);messages.clear();stops.clear();voices.clear()
         im.call(0x847ec,limit=2000000)
         navigation=bool(stops);waypoint=im.read(0x597c,'<H')[0]
