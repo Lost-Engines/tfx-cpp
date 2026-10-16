@@ -9,6 +9,8 @@
 #include "actors/program.h"
 #include "cockpit/instrument_assets.h"
 #include "flight/airframes.h"
+#include "flight/aerodynamic_airframes.h"
+#include "flight/aerodynamic_wind.h"
 #include "flight/refuelling.h"
 #include "presentation/arming_assets.h"
 #include "presentation/cursor.h"
@@ -51,6 +53,8 @@ public:
   std::vector<weapons::definition> weapons;
   weapons::arming_tables arming;
   std::array<flight::airframe,3> airframes;
+  std::array<flight::aerodynamic_airframe,3> aerodynamic_airframes;
+  std::array<flight::aerodynamic_wind_parameters,flight::aerodynamic_weather_profiles> aerodynamic_wind;
   std::string timer_expired_message;
   presentation::dac_palette text_palette;
   render::dac_palette fixed_flight_palette;

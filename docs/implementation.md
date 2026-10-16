@@ -1543,7 +1543,46 @@ Release and ASan/UBSan builds.
 Recovery transitions are retained in order, including engagement and restoration
 within one frame. The persistent four-setting comparison checks every transition
 across 23,040 updates and all 319 retained fields. Automatic landing explicitly
-reports its clearing of the separate basic speed and target caches; 1,200 complete
+reports its clearing of the separate basic Mach and reported-speed caches; 1,200 complete
 original callbacks check that signal alongside all 324 flight/landing fields.
 Shared-state adapters name the globals shared by basic and physical callbacks,
 while preserving their distinct speed, altitude and control caches.
+
+### Connected original player loop and four live flight models
+
+The windowed game now selects Arcade, Simple, Military-spec and Realistic
+callbacks through the original outer player loop. One player owns the retained
+basic and physical caches, automatic landing and ejected pilot. Shared globals
+are transferred explicitly, including the original reuse of Simple landing
+scratch as aerodynamic angle-of-attack/approach data. Basic speed caches remain
+separate during temporary autopilot flight. Original timing supplies physical
+seconds independently from world ticks; advanced callbacks retain both original
+engine-fault updates per frame.
+
+`check_player_flight.py` executes full native startup and the complete original
+`0x8f56c` callback. **4,608 frames in 48 initialized scenes agree across all 324
+retained fields**, including repeated manual/autopilot handovers, keyboard and
+joystick input laws, refuelling, intermittent/failed engines, disabled aircraft,
+automatic-landing entry and score changes. Timers, device acquisition, supplied
+surface lookup and external output delivery are explicit boundaries. The actual
+numerical callbacks, physical resets, navigation, recovery, touchdown and final
+movement/fuel bookkeeping execute without numerical substitutes. Hardware x87
+transcendental adapters retain the original instruction results.
+
+A/5/6/7/8/9/0, recovery and Alt+L are connected to live controls. Autopilot and
+flight-control MFDs consume live targets, flaps, nozzles and engine factors.
+Native startup defaults to automatic stick pressure. ILS selection controls now
+apply their returned input gains; Alt+L uses direct runway selection even when
+ILS is already enabled. Gear may be operated on the ground, matching its native
+key handler. Existing private-window weapons/MFD/result and ILS checks pass.
+The complete Alt+L key wrapper and output/audio delivery still need their own
+caller-level validation; the underlying landing callback has independent full
+original-execution comparisons.
+
+The complete player-loop comparison and all 86 asset-free tests pass in
+RelWithDebInfo, Release and ASan/UBSan builds. All **128 retail missions** also
+advance **1,024 world steps in each of the four modes** and render their resulting
+scene. Private X11/GDB checks in both advanced modes observe live Down, Alt+Left
+and hook input, authored seat release, pilot launch/parachute stages and the
+original recovery/FINISH outcome. These checks observe state; they do not alter
+the game under the debugger.

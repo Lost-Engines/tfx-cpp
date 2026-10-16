@@ -11,7 +11,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--research',type=Path,required=True)
 parser.add_argument('--flight-steps',type=int,default=0)
-parser.add_argument('--flight-model',choices=('arcade','simple'),default='arcade')
+parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 args=parser.parse_args()
 
 def dataset(path):
