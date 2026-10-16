@@ -30,6 +30,7 @@
 #include "world/environment.h"
 #include "world/scene.h"
 #include "weapons/runtime.h"
+#include "weapons/cannon.h"
 
 namespace {
 
@@ -67,7 +68,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --scale N             Window scale; 0 selects the largest fitting scale (default)\n"
                    "\nArcade flight: mouse or arrows steer; hold left/right mouse or =/- for thrust.\n"
                    "[ and ] toggle engines; G gear; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
-                   "P pauses; Escape exits.\n"
+                   "Space fires the cannon (Eurofighter and F-22); P pauses; Escape exits.\n"
                    "This is a flight integration build; combat, campaign flow and audio are still in progress.\n";
 #ifndef NDEBUG
       std::cout << "\nDeveloper options:\n"
@@ -145,6 +146,7 @@ auto main(int const argc, char const *const argv[])->int try {
       .profile{&*profile},
     });
   }
+  tfx::weapons::cannon_state cannon;
   tfx::flight::arcade_state player;
   player.aircraft = mission_setup.aircraft;
   tfx::actors::air_context air_world{
@@ -184,14 +186,17 @@ auto main(int const argc, char const *const argv[])->int try {
     for(auto const &request : air_simulation.fatal_damage(index)) if(auto const event{std::get_if<tfx::actors::air_scenery_event>(&request.data)}) scene.actor_event(*air_visuals[index],event->entry);
   }};
   unsigned int enemy_aircraft_lost{0}, allied_aircraft_lost{0};
+  tfx::simulation::timer_ticks launch_elapsed{5};
   tfx::weapons::runtime projectiles{tables.weapons,{
+    .mount_state{[&] { return tfx::weapons::launch_mount{.angles{vec3<tfx::math::angle>{player.angles}},.selected{0}}; }},
+    .launch_elapsed{[&] { return launch_elapsed; }},
     .actor_position{actor_position},
     .motion_inputs{[&](tfx::weapons::active_projectile const &shot,uint16_t const ticks) {
       return tfx::weapons::motion_context{
         .elapsed{ticks},
         .target{0,0,0},
         .player_owned{shot.owner.pool == tfx::weapons::actor_pool::player},
-        .launch_anchor{actor_position({.pool{tfx::weapons::actor_pool::player}})},
+        .launch_anchor{tfx::math::place_anchor(vec3<int32_t>{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)},player.angles,tables.store_mounts[std::to_underlying(player.aircraft) - 1].at(shot.mount))},
         .player_angles{vec3<tfx::math::angle>{player.angles}},
         .player_speed{player.fixed_speed},
         .target_is_player{shot.target.actor && shot.target.actor->pool == tfx::weapons::actor_pool::player},
@@ -348,17 +353,29 @@ auto main(int const argc, char const *const argv[])->int try {
     ground = initial_ground;
     mission_time.reset();
     player = {};
+    cannon = {};
     player.aircraft = mission_setup.aircraft;
     tfx::flight::initialise_arcade(player,mission_setup.start.position,mission_setup.angles,mission_setup.speed_factor,mission_setup.start.landed,ground);
   }};
-  auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed) {
+  auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed, bool const fire = false) {
     for(auto const index : mission_time.begin_frame()) {
       radio_message = mission_setup.messages[index].text;
       radio_ticks = 5 * 55;
     }
+    launch_elapsed = elapsed;
     bool const flying{!player.collision};
     auto const previous{vec3<int32_t>{player.integer_position}};
     if(flying) tfx::flight::advance_arcade(player,controls,elapsed,ground);
+    // Native 0x86898 fires the held Space key after its player-physics callback, before other actors update.
+    if(auto const shot{tfx::weapons::fire_cannon(cannon,{
+      .aircraft{player.aircraft},
+      .position{vec3<int32_t>{player.integer_position}},
+      .angles{vec3<tfx::math::angle>{player.angles}},
+      .speed{player.fixed_speed},
+      .trigger{fire},
+      .crashed{player.collision != 0},
+      .landed{player.landed},
+    },tables.cannon_mounts,air_simulation.random_stream())}) projectiles.launch(*shot);
     air_world.player = tfx::actors::air_contact{
       .position{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
       .angles{vec3<tfx::math::angle>{player.angles}},
@@ -412,6 +429,7 @@ auto main(int const argc, char const *const argv[])->int try {
       renderer.text(5,185,std::string{player.gear_down ? "GEAR DOWN  " : "GEAR UP  "} + (player.left_engine ? "L ON  " : "L OFF  ") + (player.right_engine ? "R ON" : "R OFF"),hud_colour);
       renderer.text(245,5,"ARCADE",hud_colour);
       renderer.text(5,23,std::format("HOSTILE LOSSES {}  SHOTS {}",enemy_aircraft_lost,projectiles.projectiles().size()),hud_colour);
+      if(player.aircraft != tfx::flight::player_aircraft::nighthawk) renderer.text(5,32,std::format("GUN {}",cannon.ammunition),hud_colour);
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
       if(player.collision) renderer.text(120,92,"COLLISION",hud_colour);
       if(radio_ticks > 0) renderer.text(5,170,radio_message,hud_colour);
@@ -526,7 +544,7 @@ auto main(int const argc, char const *const argv[])->int try {
         };
         pitch_input -= controls.pitch_delta;
         roll_input -= controls.roll_delta;
-        advance_world(controls,step->world_ticks);
+        advance_world(controls,step->world_ticks,down(GLFW_KEY_SPACE));
         frame_ticks = step->world_ticks;
         flight_clock.begin({});
       } else {

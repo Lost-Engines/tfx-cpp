@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/weapons/cannon.cpp
+  src/weapons/cannon.h
   src/weapons/runtime.cpp
   src/weapons/runtime.h
   src/weapons/projectile.cpp
@@ -89,6 +91,16 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(cannon_probe tests/cannon_probe.cpp)
+  target_link_libraries(cannon_probe PRIVATE tfx_core)
+  configure_first_party(cannon_probe)
+  add_test(NAME weapons.native_keyboard_cannon COMMAND cannon_probe --check ${PROJECT_SOURCE_DIR}/tests/reference/cannon.txt)
+
+  add_executable(anchor_probe tests/anchor_probe.cpp)
+  target_link_libraries(anchor_probe PRIVATE tfx_core)
+  configure_first_party(anchor_probe)
+  add_test(NAME weapons.native_anchor_transform COMMAND anchor_probe ${PROJECT_SOURCE_DIR}/tests/reference/anchor.txt)
+
   add_executable(projectile_runtime_probe tests/projectile_runtime_probe.cpp)
   target_link_libraries(projectile_runtime_probe PRIVATE tfx_core)
   configure_first_party(projectile_runtime_probe)

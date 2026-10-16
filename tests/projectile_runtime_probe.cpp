@@ -13,6 +13,7 @@ int main(int const argc, char const *const argv[]) try {
   while(std::cin >> frames >> elapsed >> dispenser >> capacity) {
     std::vector<int32_t> events;
     tfx::weapons::runtime state{tables.weapons,{
+      .mount_state{[] { return tfx::weapons::launch_mount{.angles{0,12000,0},.selected{4}}; }},
       .actor_position{[](tfx::weapons::actor_identity) { return vec3<int32_t>{1000000,-300000,1000000}; }},
       .motion_inputs{[](tfx::weapons::active_projectile const&,uint16_t const ticks) {
         return tfx::weapons::motion_context{
@@ -39,12 +40,13 @@ int main(int const argc, char const *const argv[]) try {
       },
       .target{
         .position{2000000,-200000,3000000},
-        .actor{dispenser >= 2 ? std::optional{tfx::weapons::actor_identity{.pool{tfx::weapons::actor_pool::aircraft}}} : std::nullopt},
+        .actor{dispenser >= 2 && dispenser <= 3 ? std::optional{tfx::weapons::actor_identity{.pool{tfx::weapons::actor_pool::aircraft}}} : std::nullopt},
+        .untargeted{dispenser == 4},
       },
     });
     for(unsigned int frame{0}; frame != frames; ++frame) {
       events.clear();
-      if(dispenser >= 2 && frame == 2) state.countermeasure({.pool{tfx::weapons::actor_pool::aircraft}},{1000000,-300000,1000000},dispenser == 2,64,random);
+      if(dispenser >= 2 && dispenser <= 3 && frame == 2) state.countermeasure({.pool{tfx::weapons::actor_pool::aircraft}},{1000000,-300000,1000000},dispenser == 2,64,random);
       state.advance(static_cast<uint16_t>(elapsed),random,false);
       uint64_t digest{14695981039346656037ULL};
       auto const word{[&](auto const value) {
@@ -56,7 +58,7 @@ int main(int const argc, char const *const argv[]) try {
         word(id); word(body.weapon); word(body.next_stage); word(std::to_underlying(body.motion)); word(body.ticks);
         for(auto const value : {body.position.x,body.position.y,body.position.z,body.previous.x,body.previous.y,body.previous.z}) word(value);
         for(auto const value : {body.angles.x,body.angles.y,body.angles.z}) word(value);
-        word(body.speed); word(body.fall_speed); word(body.acceleration); word(body.range); word(body.secondary); word(shot->spent);
+        word(body.speed); word(body.fall_speed); word(body.acceleration); word(body.range); word(body.secondary); word(shot->spent); word(shot->mount);
       }
       word(events.size());
       for(auto const value : events) word(value);

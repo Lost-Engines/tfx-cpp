@@ -19,6 +19,7 @@ struct target_reference {
   vec3<int32_t> position{0,0,0};
   std::optional<actor_identity> actor{};
   std::optional<projectile_id> projectile{};
+  bool untargeted{false};
 };
 struct release {
   unsigned int weapon;
@@ -38,7 +39,13 @@ struct active_projectile {
   uint8_t mount;
   bool spent{false};
 };
+struct launch_mount {
+  vec3<math::angle> angles;
+  uint8_t selected;
+};
 struct runtime_callbacks {
+  std::function<launch_mount()> mount_state{};
+  std::function<simulation::timer_ticks()> launch_elapsed{};
   std::function<vec3<int32_t>(actor_identity)> actor_position{};
   std::function<motion_context(active_projectile const&,uint16_t)> motion_inputs{};
   std::function<void(unsigned int,bool)> reset_visual{};
@@ -64,6 +71,8 @@ private:
   std::map<projectile_id,active_projectile const*> active;
   void retire(pool_slot &slot);
   projectile_id next_id{1};
+  vec3<int32_t> untargeted_point{0,0,0};
+  std::optional<simulation::timer_ticks> substep{};
 
 public:
   runtime(std::span<definition const> definitions, runtime_callbacks callbacks, unsigned int capacity = projectile_capacity);

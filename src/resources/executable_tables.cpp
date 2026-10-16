@@ -15,6 +15,10 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   auto const limit{view.le16(circle_limit_field)};
   circles.resize(limit);
   unsigned int constexpr data_file{973476}, mapping{data_file + 0x7a44}, advances{data_file + 0x7a84}, glyph_file{0xf5350};
+  auto const anchor{[&](unsigned int const address) { return vec3<int16_t>{view.signed_le16(data_file + address),view.signed_le16(data_file + address + 2),view.signed_le16(data_file + address + 4)}; }};
+  for(unsigned int index{0}; index != cannon_mounts.size(); ++index) cannon_mounts[index] = anchor(0x8690 + index * 6);
+  std::array<unsigned int,3> constexpr aircraft_mounts{0x8654,0x8618,0x85dc};
+  for(unsigned int aircraft{0}; aircraft != store_mounts.size(); ++aircraft) for(unsigned int slot{0}; slot != store_mounts[aircraft].size(); ++slot) store_mounts[aircraft][slot] = anchor(aircraft_mounts[aircraft] + slot * 6);
   for(unsigned int i{0}; i != aircraft_envelopes.size(); ++i) aircraft_envelopes[i] = view.byte(data_file + 0x93b4 + i);
   for(unsigned int i{0}; i != formations.size(); ++i) {
     auto const at{data_file + 0x5984 + i * 14};

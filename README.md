@@ -14,11 +14,11 @@ Requires CMake 3.30 or newer, a C++26 compiler and OpenGL development libraries.
 
 Direct mission launches now provide **Arcade flight** for the selected aircraft, with live steering, thrust, engines, fuel, gear and brakes. Aircraft follow their original waypoint routes and formations, including waits, takeoffs and radio calls, and can engage opposing aircraft with native weapons, guidance, damage and countermeasures; surface vehicles also follow their compiled routes. Scenery now executes its original animation, damage and collision programs, including terrain and runway contacts. Timed mission instructions and scheduled scenery changes also run. The default is mission 501, the first FWS engagement; `--mission=830` selects another mission.
 
-The mouse or arrow keys steer. Hold either mouse button or `=`/`-` to change thrust. `[` and `]` toggle the engines, `G` operates the gear, `W` toggles wheel brakes and `B` operates the air brakes. `P` pauses and releases the mouse; Escape exits. See `--help` for the remaining controls and options.
+The mouse or arrow keys steer. Hold either mouse button or `=`/`-` to change thrust. `[` and `]` toggle the engines, `G` operates the gear, `W` toggles wheel brakes and `B` operates the air brakes. Space fires the cannon on the Eurofighter and F-22. `P` pauses and releases the mouse; Escape exits. See `--help` for the remaining controls and options.
 
 The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
 
-This is still an integration build. Player weapon controls, sensors and flight damage, contacts with moving objects, ground-unit firing, other flight models, automatic recovery, the complete cockpit/HUD, mission results, menus, campaign progression and audio remain unfinished. The current numerical flight backend also requires a `long double` with a 64-bit significand. See [implementation status](docs/implementation.md) for precise verification boundaries.
+This is still an integration build. Carried-weapon controls, sensors and flight damage, contacts with moving objects, ground-unit firing, other flight models, automatic recovery, the complete cockpit/HUD, mission results, menus, campaign progression and audio remain unfinished. The current numerical flight backend also requires a `long double` with a 64-bit significand. See [implementation status](docs/implementation.md) for precise verification boundaries.
 
 RelWithDebInfo retains the developer scene inspector and headless captures:
 

@@ -20,6 +20,7 @@ constexpr int16_t signed_word(uint16_t const value) {
 std::array<int16_t, angle_steps> const &sine_table();
 vec2<angle> bearing(vec3<int32_t> const &from, vec3<int32_t> const &to);
 int16_t distance_word(vec3<int16_t> const &offset);
+vec3<int32_t> place_anchor(vec3<int32_t> const &origin, vec3<angle> const &angles, vec3<int16_t> const &anchor);
 mat3<int32_t> rotation_words(vec3<angle> const &angles);
 mat3d rotation(vec3<angle> const &angles);
 vec3d rotate_tile(vec3d const &position, angle heading);
