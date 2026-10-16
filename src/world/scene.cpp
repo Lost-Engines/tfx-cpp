@@ -245,10 +245,10 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       context.status = terrain.status;
       context.jitter = &working_jitter;
       context.distance = static_cast<int16_t>(std::clamp(item.depth,-32768.0,32767.0));
-      context.project = [&view, &placed](vec3d const &v){
+      context.project = [&view, &placed](vec3d const &v, double const scale){
         auto point{view.transform(placed(v))};
-        if(std::abs(point.z) < view.near_distance) point.z = std::copysign(view.near_distance,point.z);
-        return view.project(point);
+        if(std::abs(point.z) < view.near_distance * scale) point.z = std::copysign(view.near_distance * scale,point.z);
+        return view.project(point,scale);
       };
       auto const geometry{models::interpret(*item.shape,context)};
       warnings.insert(geometry.warnings.begin(),geometry.warnings.end());
@@ -260,6 +260,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
           .position{view.transform(placed(vertex.position))},
           .uv{vec2d{vertex.uv}},
           .shade{vertex.shade},
+          .projection_scale{vertex.projection_scale},
         });
         auto const texture{primitive.texture ? resources.texture(*primitive.texture) : std::span<uint8_t const>{}};
         if(primitive.texture && texture.empty()) warnings.insert("unresolved runtime texture: " + item.part->name);

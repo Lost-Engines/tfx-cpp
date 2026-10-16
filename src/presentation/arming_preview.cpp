@@ -64,10 +64,10 @@ void arming_preview::shape(render::software_renderer &renderer, models::shape co
   // Native vertex products are Q15; actor/camera translations are Q16.
   context.reference_scale = .5;
   context.attachments = attachments;
-  context.project = [&](vec3d const &vertex) {
+  context.project = [&](vec3d const &vertex, double const scale) {
     auto point{view.transform(placed(vertex))};
-    if(std::abs(point.z) < view.near_distance) point.z = std::copysign(view.near_distance,point.z);
-    return view.project(point);
+    if(std::abs(point.z) < view.near_distance * scale) point.z = std::copysign(view.near_distance * scale,point.z);
+    return view.project(point,scale);
   };
   auto const geometry{models::interpret(program,context)};
   for(auto const &primitive : geometry.primitives) {
@@ -77,6 +77,7 @@ void arming_preview::shape(render::software_renderer &renderer, models::shape co
       .position{view.transform(placed(vertex.position))},
       .uv{vec2d{vertex.uv}},
       .shade{vertex.shade},
+      .projection_scale{vertex.projection_scale},
     });
     renderer.primitive(primitive,vertices,view,primitive.texture ? resources.texture(*primitive.texture) : std::span<uint8_t const>{});
   }

@@ -135,9 +135,9 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
   std::vector<vec2d> texture_uvs;
   shape_geometry result;
   std::optional<unsigned int> attachment_slot;
-  auto const project{[&context](vec3d const &v){ return context.project ? context.project(v) : vec2d{-v.x, v.y}; }};
+  auto const project{[&context](model_vertex const &v){ return context.project ? context.project(v.position,v.projection_scale) : vec2d{-v.position.x,v.position.y}; }};
   auto const determinant{[&project](std::vector<model_vertex> const &vertices){
-    auto const a{project(vertices[0].position)}, b{project(vertices[1].position)}, c{project(vertices[2].position)};
+    auto const a{project(vertices[0])}, b{project(vertices[1])}, c{project(vertices[2])};
     return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
   }};
   auto const emit{[&](vec3d value){
@@ -175,6 +175,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         .position{vec3d{*world[index]}},
         .uv{i < texture_uvs.size() ? vec2d{texture_uvs[i]} : vec2d{}},
         .shade{shaded && i < shade_colours.size() ? static_cast<double>(shade_colours[i]) : -1},
+        .projection_scale{2 * std::abs(vertex_scales[index])},
       });
     }
     if(context.facing && p.vertices.size() >= 3 && determinant(p.vertices) < 0) return;
@@ -305,10 +306,12 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
               {
                 .position{vec3d{*world[a[1]]}},
                 .uv{0,0},
+                .projection_scale{2 * std::abs(vertex_scales[a[1]])},
               },
               {
                 .position{vec3d{*world[a[2]]}},
                 .uv{0,0},
+                .projection_scale{2 * std::abs(vertex_scales[a[2]])},
               },
             },
             .colour{colour},
@@ -347,6 +350,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
             .vertices{{
               .position{vec3d{*world[index]}},
               .uv{0,0},
+              .projection_scale{2 * std::abs(vertex_scales[index])},
             }},
             .colour{static_cast<unsigned int>(record[offset] & 255)},
             .mode{offset ? record[0] : -1},

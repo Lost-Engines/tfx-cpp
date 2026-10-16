@@ -19,7 +19,7 @@ struct camera {
   double near_distance{16};
   double far_distance{20000};
   vec3d transform(vec3d const &world) const;
-  vec2d project(vec3d const &camera_position) const;
+  vec2d project(vec3d const &camera_position, double projection_scale = 1) const;
 };
 
 camera aircraft_camera(vec3f const &position, math::attitude const &orientation);

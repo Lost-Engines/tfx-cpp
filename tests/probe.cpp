@@ -55,7 +55,7 @@ auto main(int const argc, char const *const argv[])->int try {
       for(unsigned int axis{0}; axis != 3; ++axis) std::cout << static_cast<int32_t>(point[axis] * 65536) << ' ';
       std::cout << '\n';
     }
-  } else if(mode == "model_projection") {
+  } else if(mode == "model_projection" || mode == "model_projection_scaled") {
     int32_t x{0}, y{0}, z{0};
     tfx::render::camera const camera{
       .position{0,0,0},
@@ -67,7 +67,9 @@ auto main(int const argc, char const *const argv[])->int try {
       .projection{tfx::render::projection_mode::original_model},
     };
     while(std::cin >> x >> y >> z) {
-      auto const point{camera.project(vec3d{vec3<int32_t>{x,y,z}} / 65536)};
+      double scale{1};
+      if(mode == "model_projection_scaled") std::cin >> scale;
+      auto const point{camera.project(vec3d{vec3<int32_t>{x,y,z}} / 65536 * scale,scale)};
       std::cout << static_cast<int>(point.x) << ' ' << static_cast<int>(point.y) << '\n';
     }
   } else if(mode == "orbit") {

@@ -48,6 +48,7 @@ int main() try {
     require(geometry.primitives.size() == 3 && geometry.warnings.empty(),"attachment condition or parent restoration differs");
     auto const &point{geometry.primitives[0]};
     require(point.vertices[0].position == vec3d{11,22,33} && point.attachment_slot == slot,"attachment must inherit its anchor, scale and slot");
+    require(point.vertices[0].projection_scale == .025,"carried model must retain its inherited native camera units");
     require(!geometry.primitives[1].attachment_slot && geometry.primitives[1].vertices[1].position == point.vertices[0].position,"native shared vertex storage differs");
     require(geometry.primitives[2].vertices[1].position == vec3d{1,2,3},"attachment translation leaked into parent");
     attachments[slot] = nullptr;
@@ -57,6 +58,7 @@ int main() try {
     attachments[slot] = &scaled;
     geometry = tfx::models::interpret(parent,context);
     require(geometry.primitives[0].vertices[0].position == vec3d{20,40,60},"absolute child scale must retain the original actor origin");
+    require(geometry.primitives[0].vertices[0].projection_scale == .5,"absolute carried-model scaling must replace its projection units");
   }
   auto const recursive{program({98,0,0,0,0,97,1,0,81,0,0,0})};
   std::array<tfx::models::shape const*,1> const cycle{&recursive};

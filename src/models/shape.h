@@ -45,6 +45,8 @@ struct model_vertex {
   vec3d position;
   vec2d uv;
   double shade{-1};
+  // World units per native camera unit; Q15 model products enter Q16 projection.
+  double projection_scale{1};
 };
 struct primitive {
   primitive_kind kind;
@@ -66,7 +68,7 @@ struct shape_context {
   uint8_t initial_state{0};
   double reference_scale{1};
   bool facing{true};
-  std::function<vec2d(vec3d const&)> project{};
+  std::function<vec2d(vec3d const&, double)> project{};
   math::jitter_state *jitter{nullptr};
   std::span<shape const *const> attachments{};
 };
