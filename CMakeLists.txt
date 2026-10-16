@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/resources/media.cpp
+  src/resources/media.h
   src/actors/surface_combat.cpp
   src/actors/surface_combat.h
   src/sensors/ground.cpp
@@ -107,6 +109,15 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(media_tests tests/media_test.cpp)
+  target_link_libraries(media_tests PRIVATE tfx_core)
+  configure_first_party(media_tests)
+  add_test(NAME resources.native_media_boundaries COMMAND media_tests)
+
+  add_executable(media_probe tests/media_probe.cpp)
+  target_link_libraries(media_probe PRIVATE tfx_core)
+  configure_first_party(media_probe)
+
   add_executable(surface_combat_probe tests/surface_combat_probe.cpp)
   target_link_libraries(surface_combat_probe PRIVATE tfx_core)
   configure_first_party(surface_combat_probe)
