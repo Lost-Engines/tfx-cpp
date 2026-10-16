@@ -26,6 +26,8 @@ private:
 public:
   parameter_player(std::span<uint16_t const> source);
   stream_step tick(uint8_t &parameter);
+  unsigned int position() const;
+  bool stopped() const;
 };
 
 class animation_clock {

@@ -43,6 +43,8 @@ add_library(tfx_core
   src/math/native.h
   src/models/shape.cpp
   src/models/shape.h
+  src/world/instance.cpp
+  src/world/instance.h
   src/world/collision.cpp
   src/world/collision.h
   src/world/animation.cpp
@@ -73,6 +75,19 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(world_probe tests/world_probe.cpp)
+  target_link_libraries(world_probe PRIVATE tfx_core)
+  configure_first_party(world_probe)
+
+  add_executable(instance_tests tests/instance_test.cpp)
+  target_link_libraries(instance_tests PRIVATE tfx_core)
+  configure_first_party(instance_tests)
+  add_test(NAME world.native_instance_events COMMAND instance_tests)
+
+  add_executable(instance_probe tests/instance_probe.cpp)
+  target_link_libraries(instance_probe PRIVATE tfx_core)
+  configure_first_party(instance_probe)
+
   add_executable(collision_tests tests/collision_test.cpp)
   target_link_libraries(collision_tests PRIVATE tfx_core)
   configure_first_party(collision_tests)

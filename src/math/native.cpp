@@ -15,6 +15,13 @@ std::array<int16_t, angle_steps> const &sine_table() {
   return table;
 }
 
+int16_t distance_word(vec3<int16_t> const &offset) {
+  /// Native 0xcbe94 / 0xd14b4: floor of the unsigned squared magnitude, returned in a signed word.
+  auto const square{[](int32_t const value) { return static_cast<uint32_t>(value * value); }};
+  auto const squared{square(offset.x) + square(offset.y) + square(offset.z)};
+  return signed_word(static_cast<uint16_t>(std::sqrt(static_cast<double>(squared))));
+}
+
 mat3<int32_t> rotation_words(vec3<angle> const &angles) {
   /// Native component generator, 2.05 file 0xdad88; stored words are column-major
   auto const &table{sine_table()};

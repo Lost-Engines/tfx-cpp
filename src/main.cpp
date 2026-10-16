@@ -152,25 +152,38 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::flight::arcade_state player;
   player.aircraft = mission_setup.aircraft;
   // The native ground-start fallback is zero for type 50, -20 otherwise (0x8c318).
-  // Full SSD surface/volume queries remain separate from this provisional plane contact.
   auto const start_x{static_cast<unsigned int>(std::clamp(mission_setup.start.position.x / tfx::world::cell_units,0,static_cast<int>(tfx::world::map_width) - 1))};
   auto const start_z{static_cast<unsigned int>(std::clamp(mission_setup.start.position.z / tfx::world::cell_units,0,static_cast<int>(tfx::world::map_height) - 1))};
   auto const flags{assets.object(environment.variant(start_x,start_z)).flags};
-  tfx::flight::ground_contact const ground{
+  tfx::flight::ground_contact ground{
     .present{true},
     .height{static_cast<int16_t>(mission_setup.start.landed && (!(flags & 2) || (flags & 255) >> 2 != 50) ? -20 : 0)},
   };
+  auto const initial_ground{ground};
   auto const restart{[&]{
+    ground = initial_ground;
     player = {};
     player.aircraft = mission_setup.aircraft;
     tfx::flight::initialise_arcade(player,mission_setup.start.position,mission_setup.angles,mission_setup.speed_factor,mission_setup.start.landed,ground);
   }};
+  auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed) {
+    bool const flying{!player.collision};
+    auto const previous{vec3<int32_t>{player.integer_position}};
+    if(flying) tfx::flight::advance_arcade(player,controls,elapsed,ground);
+    advance_actors(elapsed);
+    if(flying) {
+      // Native 0x72018 updates actors before collecting contacts; the next flight frame consumes this surface result.
+      auto const contact{scene.collide_terrain(previous,player.integer_position)};
+      ground = {
+        .present{contact.surface_present},
+        .height{contact.surface_height},
+      };
+      if(contact.collisions && player.crashing) player.collision = 1;
+    }
+    scene.advance(elapsed);
+  }};
   if(!inspect || flight_steps) restart();
-  for(unsigned int step{0}; step != flight_steps; ++step) {
-    if(!player.collision) tfx::flight::advance_arcade(player,{},4,ground);
-    advance_actors(4);
-    scene.advance(4);
-  }
+  for(unsigned int step{0}; step != flight_steps; ++step) advance_world({},4);
   vec3d position{mission_setup.start.position};
   if(mission_setup.start.landed) position.y = -300;
   double heading{0}, pitch{-.12};
@@ -305,11 +318,7 @@ auto main(int const argc, char const *const argv[])->int try {
         };
         pitch_input -= controls.pitch_delta;
         roll_input -= controls.roll_delta;
-        if(!player.collision) {
-          tfx::flight::advance_arcade(player,controls,step->world_ticks,ground);
-        }
-        advance_actors(step->world_ticks);
-        scene.advance(step->world_ticks);
+        advance_world(controls,step->world_ticks);
         flight_clock.begin({});
       } else {
         glfwWaitEventsTimeout(.002);
