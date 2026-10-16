@@ -16,6 +16,12 @@ endfunction()
 add_library(tfx_core
   src/flight/aerodynamic_pose.cpp
   src/flight/aerodynamic_pose.h
+  src/flight/aerodynamic_forces.cpp
+  src/flight/aerodynamic_forces.h
+  src/flight/aerodynamic_motion.cpp
+  src/flight/aerodynamic_motion.h
+  src/flight/atmosphere.cpp
+  src/flight/atmosphere.h
   src/flight/simple.cpp
   src/flight/simple.h
   src/flight/basic_parameters.h
@@ -259,6 +265,13 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i.86)$" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_library(native_x87_backend SHARED tools/native_x87_backend.cpp)
+    configure_first_party(native_x87_backend)
+    # Loaded by the Python capture process, which does not host ASan's runtime.
+    target_compile_options(native_x87_backend PRIVATE -fno-sanitize=all)
+    target_link_options(native_x87_backend PRIVATE -fno-sanitize=all)
+  endif()
   add_executable(hud_font_probe tests/hud_font_probe.cpp)
   target_link_libraries(hud_font_probe PRIVATE tfx_core)
   configure_first_party(hud_font_probe)
@@ -414,6 +427,21 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_forces_probe tests/aerodynamic_forces_probe.cpp)
+  target_link_libraries(aerodynamic_forces_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_forces_probe)
+  add_test(NAME flight.native_aerodynamic_forces COMMAND aerodynamic_forces_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_forces.txt")
+
+  add_executable(aerodynamic_motion_probe tests/aerodynamic_motion_probe.cpp)
+  target_link_libraries(aerodynamic_motion_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_motion_probe)
+  add_test(NAME flight.native_aerodynamic_motion COMMAND aerodynamic_motion_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_motion.txt")
+
+  add_executable(atmosphere_probe tests/atmosphere_probe.cpp)
+  target_link_libraries(atmosphere_probe PRIVATE tfx_core)
+  configure_first_party(atmosphere_probe)
+  add_test(NAME flight.native_atmosphere COMMAND atmosphere_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/atmosphere.txt")
 
   add_executable(aerodynamic_pose_probe tests/aerodynamic_pose_probe.cpp)
   target_link_libraries(aerodynamic_pose_probe PRIVATE tfx_core)
