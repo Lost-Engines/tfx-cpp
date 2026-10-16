@@ -14,6 +14,12 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/weapons/projectile.cpp
+  src/weapons/projectile.h
+  src/weapons/definition.cpp
+  src/weapons/definition.h
+  src/actors/manoeuvre.cpp
+  src/actors/manoeuvre.h
   src/actors/air.cpp
   src/actors/air.h
   src/actors/air_motion.cpp
@@ -81,6 +87,16 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(projectile_probe tests/projectile_probe.cpp)
+  target_link_libraries(projectile_probe PRIVATE tfx_core)
+  configure_first_party(projectile_probe)
+  add_test(NAME weapons.native_projectile_motion COMMAND projectile_probe --check ${PROJECT_SOURCE_DIR}/tests/reference/projectile.txt)
+
+  add_executable(air_combat_tests tests/air_combat_test.cpp)
+  target_link_libraries(air_combat_tests PRIVATE tfx_core)
+  configure_first_party(air_combat_tests)
+  add_test(NAME actors.native_air_combat COMMAND air_combat_tests ${PROJECT_SOURCE_DIR}/tests/reference/air_combat.txt)
+
   add_executable(air_tests tests/air_test.cpp)
   target_link_libraries(air_tests PRIVATE tfx_core)
   configure_first_party(air_tests)

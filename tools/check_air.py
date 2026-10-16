@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Compare aircraft waypoint/formation updates in a declared noncombat context."""
+"""Compare aircraft routes, formation and optional combat in controlled native contexts."""
 import argparse
 import json
 from pathlib import Path
 import struct
 import subprocess
 
-from unicorn import x86_const as r
+from unicorn import x86_const as r, UC_HOOK_CODE
 from native_reference import NativeReference
 
 
@@ -15,7 +15,7 @@ def dataset(path):
     return json.loads(text[text.index('=')+1:].strip().removesuffix(';'))
 
 
-def original(data_dir,raw,profiles,ticks,intact,formation=None):
+def original(data_dir,raw,profiles,ticks,intact,formation=None,combat=None,manoeuvres=()):
     image=NativeReference(data_dir/'TFX.DAT')
     image.cpu.mem_map(0x300000,0x50000)
     image.cpu.mem_write(0x300000,raw)
@@ -45,7 +45,25 @@ def original(data_dir,raw,profiles,ticks,intact,formation=None):
     def scan(im):
         requests.append([registry[im.cpu.reg_read(r.UC_X86_REG_EAX)],0])
         im.cpu.reg_write(r.UC_X86_REG_EAX,0);im.return_from()
-    image.intercept(0x76ba4,'Explicit no-air-combat-acquisition context; waypoint, formation and all numerical control execute normally.',scan)
+    if combat is None:
+        image.intercept(0x76ba4,'Explicit no-air-combat-acquisition context; waypoint, formation and all numerical control execute normally.',scan)
+    else:
+        image.cpu.hook_add(UC_HOOK_CODE,lambda cpu,*_:requests.append([registry[cpu.reg_read(r.UC_X86_REG_EBX)],0]),begin=image.native(0x76c4b),end=image.native(0x76c4b))
+        image.write(0x10f28,'<3i3Hi',*combat[:7])
+        image.write(0x11b2a,'<H',combat[7]);image.write(0x5a12,'<H',combat[8]);image.write(0xac90,'<B',combat[9])
+        incoming=combat[10]
+        for pointer,index in registry.items():
+            if not incoming:continue
+            x,y,z=struct.unpack('<3i',image.cpu.mem_read(pointer,12))
+            threat=0x310000+index*32
+            image.cpu.mem_write(threat+6,struct.pack('<Bx3i',incoming%3,x+(300000 if incoming%2 else -300000),y,z+200000))
+            image.cpu.mem_write(pointer+52,struct.pack('<I',threat))
+        banks=[[],[],[]];manoeuvre_pointers=[];cursor=0x312000
+        for raw_sequence in manoeuvres:
+            image.cpu.mem_write(cursor,raw_sequence);manoeuvre_pointers.append(cursor);banks[raw_sequence[0]].append(cursor);cursor+=len(raw_sequence)+16
+        for bank,count,table in zip(banks,(0x5974,0x5972,0x5970),(0x10e70,0x10dd0,0x10d30)):
+            image.write(count,'<H',len(bank))
+            if bank:image.cpu.mem_write(image.data+table,struct.pack('<'+'I'*len(bank),*bank))
     image.intercept(0xb0d80,'Supplied ground-target existence; world lookup has separate native checks.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,1 if intact else 65535),im.return_from()))
     image.intercept(0xb6e88,'All supplied ground targets are intact.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,0),im.return_from()))
     def identity(im):
@@ -66,8 +84,20 @@ def original(data_dir,raw,profiles,ticks,intact,formation=None):
         pitch=im.cpu.reg_read(r.UC_X86_REG_ECX)&65535
         speed=struct.unpack('<h',struct.pack('<H',speed&65535))[0]
         requests.append([registry[owner],3,*position,pitch,heading&65535,roll&65535,speed,weapon&65535,*struct.unpack('<3i',im.cpu.mem_read(target,12))])
+        if combat is not None:requests[-1].append(100 if target==im.data+0x10f28 else registry.get(target,-1))
         im.return_from(stack_bytes=24)
     image.intercept(0xa2f84,'Record projectile releases; projectile simulation and impact damage are outside this route comparison.',weapon)
+    if combat is not None:
+        for address,kind in ((0x763fc,0),(0x76398,1)):
+            def warning(im,kind=kind):
+                if im.cpu.reg_read(r.UC_X86_REG_EAX)==im.data+0x10f28:requests.append([identity(im),5,100,kind])
+                im.return_from()
+            image.intercept(address,'Record warning notification; presentation and sound have no control feedback.',warning)
+        for address,kind in ((0xa3588,0),(0xa353c,1)):
+            def countermeasure(im,kind=kind):
+                strength=struct.unpack('<h',struct.pack('<H',im.cpu.reg_read(r.UC_X86_REG_EDX)&65535))[0]
+                requests.append([registry[im.cpu.reg_read(r.UC_X86_REG_EAX)],6,kind,strength]);im.return_from()
+            image.intercept(address,'Record countermeasure request; incoming threat is externally supplied and held fixed.',countermeasure)
     records=[];cursor=0
     while True:
         size=struct.unpack_from('<H',raw,cursor)[0];cursor+=2
@@ -81,6 +111,12 @@ def original(data_dir,raw,profiles,ticks,intact,formation=None):
         for pointer,index in sorted(registry.items(),key=lambda item:item[1]):
             body=bytes(image.cpu.mem_read(pointer,68))
             values.extend([index,*struct.unpack_from('<3i3Hi3hihhI',body),struct.unpack_from('<I',body,44)[0]-0x300000,struct.unpack_from('<H',body,66)[0],*body[40:42]])
+            if combat is not None:
+                target,incoming,sequence=struct.unpack_from('<3I',body,48)
+                program=-1;address=-1
+                if sequence:
+                    program=max(i for i,p in enumerate(manoeuvre_pointers) if p<=sequence);address=sequence-manoeuvre_pointers[program]
+                values.extend([100 if target==image.data+0x10f28 else registry.get(target,-1),program,address,*body[64:66]])
         for at,size in records:values.extend(image.cpu.mem_read(0x300000+at,size))
         values.append(len(requests))
         for request in requests:values.extend(request)
@@ -98,6 +134,8 @@ def main():
     parser.add_argument('--ticks',type=int,default=128)
     parser.add_argument('--program')
     parser.add_argument('--intact',type=int,default=0)
+    parser.add_argument('--combat',action='store_true')
+    parser.add_argument('--incoming',type=int,default=0)
     parser.add_argument('--synthetic',action='store_true')
     parser.add_argument('--save-fixture',type=Path)
     args=parser.parse_args()
@@ -135,6 +173,34 @@ def main():
         code+=command(11,30000)+command(13,500)
         at=len(code);code+=command(1,at-loop,20,20,at-loop)
         cases.append((512,0,code))
+        if args.combat:
+            struct.pack_into('<H',raw_profile,46,18000)
+            struct.pack_into('<H',raw_profile,60,4)
+            struct.pack_into('<5H',raw_profile,64,2,4,8000,8,40)
+            profile_file=struct.pack('<2H',0,1)+raw_profile+bytes(4)
+            synthetic_profiles=[{'offset':4,'hex':bytes(raw_profile).hex()}]
+            manoeuvres=[]
+            for category in (0,1):
+                header=bytearray(16);header[0]=category
+                manoeuvres.append(bytes(header)+struct.pack('<BbbbbB',60,-90,20,60,5,3)+struct.pack('<BbbbbB',90,30,-20,-60,-5,4)+bytes(1))
+            fixtures=[]
+            for scenario in range(12):
+                code=group(2,1,12000,500)
+                loop=len(code);code+=command(13,500)+command(11,12000)
+                at=len(code);code+=command(1,at-loop,10,20,at-loop)
+                raw=struct.pack('<H',len(code))+code+bytes(2)
+                combat=[10*524288+262144+(300000 if scenario%3==2 else 0),-12000*32,10*524288+262144+(2500000 if scenario%4==0 else 100000),0,32768 if scenario%2 else 0,0,400<<16,scenario%3,0,int(scenario!=8),scenario-8 if scenario>=9 else 0]
+                ticks=4096
+                observed,count=original(data_dir,raw,synthetic_profiles,ticks,0,formation,combat,manoeuvres)
+                digest=14695981039346656037
+                for sample,_ in observed:
+                    for byte in struct.pack('<Q',sample):digest=((digest^byte)*1099511628211)&0xffffffffffffffff
+                fixtures.append(f"{ticks} 0 {profile_file.hex()} {raw.hex()} {formation.hex()} {','.join(m.hex() for m in manoeuvres)} {' '.join(map(str,combat))} {digest}\n")
+                print('Synthetic combat sequence',scenario,count,'actors',ticks,'ticks captured',flush=True)
+            if not args.save_fixture:raise ValueError('--synthetic --combat requires --save-fixture')
+            args.save_fixture.write_text(''.join(fixtures))
+            subprocess.run([str(args.build/'air_combat_tests'),str(args.save_fixture)],check=True)
+            return
         fixtures=[]
         for index,(ticks,intact,code) in enumerate(cases):
             fixture_profile=profile_file
@@ -156,23 +222,36 @@ def main():
         subprocess.run([str(args.build/'air_tests'),str(args.save_fixture)],check=True)
         return
     total=0
+    manoeuvres=[]
+    if args.combat:
+        catalog=json.loads((args.research/'analysis/resources/catalog.json').read_text())['entries']
+        by_name={name:e for e in catalog for name in e['recovered_names']+e['candidate_names']}
+        for name in (args.research/'extracted/cd_1994_09/resources/cbn.dir').read_text().split():
+            manoeuvres.append((args.research/'extracted/cd_1994_09/resources'/by_name['cbn/'+name]['path']).read_bytes())
     for number,program in enumerate(programs):
         name=program['names'][0] if program['names'] else program['id']
-        native,count=original(data_dir,(args.research/'extracted/cd_1994_09/resources'/program['path']).read_bytes(),profiles,args.ticks,args.intact)
-        request=f'{name} {args.ticks} {args.intact}\n'
-        result=subprocess.run([str(args.build/'air_probe'),str(data_dir)],input=request,text=True,capture_output=True)
+        combat=None
+        if args.combat:
+            # A stationary supplied player, near the first air group. This is a controlled AI test, not a complete flight session.
+            group=next((bytes.fromhex(record["raw_hex"]) for record in program["records"] if record["type"]==14),None)
+            x,z=struct.unpack_from("<2h",group,3) if group else (10,10)
+            combat=[x*524288+262144,-300000,z*524288+600000,0,0,0,400<<16,number%3,0,1,args.incoming]
+        native,count=original(data_dir,(args.research/'extracted/cd_1994_09/resources'/program['path']).read_bytes(),profiles,args.ticks,args.intact,combat=combat,manoeuvres=manoeuvres)
+        request=f'{name} {args.ticks} {args.intact}'+(' '+' '.join(map(str,combat)) if combat else '')+'\n'
+        flags=['--combat'] if args.combat else []
+        result=subprocess.run([str(args.build/'air_probe'),str(data_dir),*flags],input=request,text=True,capture_output=True)
         if result.returncode:raise RuntimeError((name,result.stderr))
         observed=[int(v) for v in result.stdout.split()]
         assert len(observed)==len(native),(name,len(observed),len(native))
         for tick,(actual,(expected,values)) in enumerate(zip(observed,native)):
             if actual!=expected:
-                detail=subprocess.run([str(args.build/'air_probe'),str(data_dir),'--verbose'],input=request,text=True,capture_output=True,check=True)
+                detail=subprocess.run([str(args.build/'air_probe'),str(data_dir),*flags,'--verbose'],input=request,text=True,capture_output=True,check=True)
                 actual_values=[int(v) for v in detail.stdout.splitlines()[tick].split()]
                 first=next((i for i,(a,b) in enumerate(zip(actual_values,values)) if a!=b),'length')
                 raise AssertionError((name,tick,first,'C++',actual_values,'native',values))
         total+=count*args.ticks
         if number%16==0:print(name,count,'actors,',args.ticks,'ticks agree',flush=True)
-    print(len(programs),'programs;',total,'native aircraft updates agree in the declared noncombat context')
+    print(len(programs),'programs;',total,'native aircraft updates agree in the declared', 'combat' if args.combat else 'noncombat','context')
 
 
 if __name__=='__main__':main()

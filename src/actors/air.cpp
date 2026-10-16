@@ -12,8 +12,10 @@ namespace {
 
 unsigned int constexpr controller_budget{1024}, burst_shift{10}, burst_mask{63u << burst_shift};
 int constexpr fixed_units_per_foot{32}, fixed_units_per_mile{5280 * fixed_units_per_foot};
+int constexpr manoeuvre_pitch_tolerance{0xda4}, manoeuvre_capture_angle{64};
+int constexpr nose_capture_angle{0x1554}, tail_capture_angle{0x5550};
 int constexpr waypoint_near_radius{world::cell_units * position_unit};
-enum class air_action : uint8_t { route, retire_ejected, retire_crashed, falling, normal, finish_takeoff, manoeuvre, engagement, intercept, evasive, escape, waiting, clear };
+enum class air_action : uint8_t { route, retire_ejected, retire_crashed, falling, normal, finish_takeoff, manoeuvre, engagement, withdraw, evasive, align_manoeuvre, waiting, clear };
 
 int32_t wrap(int64_t const value) {
   return std::bit_cast<int32_t>(static_cast<uint32_t>(value));
@@ -40,17 +42,6 @@ int32_t difference(int32_t const a, int32_t const b) {
 int32_t horizontal_distance(vec3<int32_t> const &a, vec3<int32_t> const &b) {
   return std::max(absolute(difference(a.x,b.x)),absolute(difference(a.z,b.z)));
 }
-math::angle direction(int32_t vertical, int32_t horizontal) {
-  while(vertical < -32768 || vertical > 32767 || horizontal < -32768 || horizontal > 32767) { vertical >>= 1; horizontal >>= 1; }
-  return math::direction_angle(static_cast<int16_t>(vertical),static_cast<int16_t>(horizontal));
-}
-vec2<math::angle> direction_to(vec3<int32_t> const &from, vec3<int32_t> const &to) {
-  /// Native 0xc9714 uses horizontal Chebyshev distance for pitch, then independently quantises the heading pair.
-  return {
-    direction(difference(to.y,from.y),horizontal_distance(from,to)),
-    direction(difference(to.x,from.x),difference(to.z,from.z)),
-  };
-}
 vec3<int32_t> cell_position(int16_t const x, int16_t const z, int32_t const y) {
   return {
     wrap(static_cast<int64_t>(x) * world::cell_units * position_unit + world::cell_units / 2 * position_unit),
@@ -69,13 +60,15 @@ unsigned int air_registry_index(initial_actor const &actor) {
   return (actor.side == allegiance::allied ? aircraft_per_side : 0) + actor.slot;
 }
 
-air_runtime::air_runtime(program const &program, std::span<initial_actor const> const initial, std::span<profile const> const profiles, std::span<formation_offset const> const offsets, std::span<uint8_t const> const envelope, math::random_state const seed) : formation{offsets}, envelope{envelope}, random{seed} {
+air_runtime::air_runtime(program const &program, std::span<initial_actor const> const initial, std::span<profile const> const profiles, std::span<formation_offset const> const offsets, std::span<uint8_t const> const envelope, math::random_state const seed, std::span<manoeuvre const> const sequences) : formation{offsets}, envelope{envelope}, random{seed}, manoeuvres{sequences} {
   if(formation.size() != aircraft_per_group) throw std::invalid_argument{"missing air formation table"};
+  for(unsigned int index{0}; index != manoeuvres.size(); ++index) manoeuvre_banks.at(manoeuvres[index].category).push_back(index);
   for(auto const &record : program.records) commands.push_back(record.body);
   for(auto const &actor : initial) {
     if(actor.kind != record_kind::aircraft) continue;
     auto const profile{std::ranges::find(profiles,actor.profile_id,&actors::profile::id)};
     if(profile == profiles.end()) throw std::runtime_error{"missing air profile"};
+    resources::binary_view const native{profile->native_window.empty() ? profile->source : profile->native_window};
     actors.at(air_registry_index(actor)) = air_actor{
       .flight{
         .pose{actor},
@@ -84,6 +77,14 @@ air_runtime::air_runtime(program const &program, std::span<initial_actor const> 
       .location{
         .record{actor.record},
         .address{0},
+      },
+      .combat{
+        .maximum_player_shots{native.le16(60)},
+        .firing_delay{native.le16(64)},
+        .firing_cooldown{native.le16(66)},
+        .gun_range{native.le16(68)},
+        .evasion_range{native.le16(70)},
+        .engagement_range{native.le16(72)},
       },
     };
   }
@@ -108,7 +109,7 @@ vec3<int32_t> air_runtime::formation_position(vec3<int32_t> const &position, mat
 
 void air_runtime::course(air_actor &actor, vec3<int32_t> const &destination, int32_t const distance, bool const pitch, air_control_context const &context) {
   shorten_air_step(actor.flight,distance);
-  auto const angles{direction_to(actor.flight.pose.position,destination)};
+  auto const angles{math::bearing(actor.flight.pose.position,destination)};
   if(pitch) command_pitch(actor.flight,actor.performance,static_cast<math::angle>(altitude_pitch(actor.flight,actor.performance,destination.y)),context);
   approach_heading(actor,word(angles.y - actor.flight.pose.angles.y),context);
 }
@@ -133,13 +134,287 @@ bool air_runtime::follow_formation(air_actor &actor, air_control_context const &
     if(distance <= wrap(static_cast<int64_t>(capture) * 8)) return false;
     set_flag(actor,air_flag::joining_formation);
   }
-  auto const angles{direction_to(pose.position,destination)};
+  auto const angles{math::bearing(pose.position,destination)};
   shorten_air_step(actor.flight,distance);
   command_pitch(actor.flight,actor.performance,angles.x,context);
   int32_t speed{wrap(static_cast<int64_t>(leader->flight.pose.speed) + (static_cast<int64_t>(distance / (100 * fixed_units_per_foot)) << speed_fraction_bits))};
   if(command_turn(actor.flight,actor.performance,word(angles.y - pose.angles.y),context)) speed = static_cast<int32_t>(cruise_speed(actor.flight,actor.performance,envelope)) << speed_fraction_bits;
   command_speed(actor.flight,actor.performance,speed);
   return true;
+}
+
+air_contact air_runtime::contact(unsigned int const target, air_context const &context) const {
+  if(target == player_air_target) {
+    if(!context.player) throw std::runtime_error{"air combat target has no player state"};
+    return air_contact{*context.player};
+  }
+  auto const &pose{actors.at(target).value().flight.pose};
+  return {
+    .position{vec3<int32_t>{pose.position}},
+    .angles{vec3<math::angle>{pose.angles}},
+    .speed{pose.speed},
+  };
+}
+
+bool air_runtime::acquire(unsigned int const index, std::optional<unsigned int> const excluded, air_context const &context) {
+  auto &actor{*actors[index]};
+  auto const &pose{actor.flight.pose};
+  if(!flagged(actor,air_flag::airborne)) return false;
+  if(index < context.threats.size() && context.threats[index] && horizontal_distance(pose.position,context.threats[index]->position) <= wrap(static_cast<int64_t>(actor.combat.evasion_range) * fixed_units_per_mile)) {
+    push(actor,air_action::evasive);
+    actor.target.reset();
+    return true;
+  }
+  int32_t const range{wrap(static_cast<int64_t>(actor.combat.engagement_range) * fixed_units_per_mile)};
+  if(!range) return false;
+  if(pose.side != allegiance::allied && flagged(actor,air_flag::hostile) && context.player && excluded != player_air_target) {
+    int32_t distance{horizontal_distance(pose.position,context.player->position)};
+    bool const stealth{context.player_aircraft == flight::player_aircraft::nighthawk};
+    if(stealth) distance = std::max(distance,absolute(difference(pose.position.y,context.player->position.y)));
+    if(distance <= (stealth ? range / 8 : range)) {
+      actor.target = player_air_target;
+      push(actor,air_action::engagement);
+      return true;
+    }
+  }
+  unsigned int const base{pose.side == allegiance::allied ? 0 : aircraft_per_side};
+  unsigned int cursor{actor.scan_cursor % aircraft_per_side};
+  // Native 0x76a78 amortises acquisition over six candidates per controller visit.
+  for(unsigned int scanned{0}; scanned != aircraft_per_side / 8; ++scanned) {
+    unsigned int const candidate{base + cursor};
+    auto const &other{actors[candidate]};
+    bool const threatened{candidate < context.threats.size() && context.threats[candidate].has_value()};
+    if(other && excluded != candidate && !flagged(*other,air_flag::retired) && !flagged(*other,air_flag::crashed) && !threatened && horizontal_distance(pose.position,other->flight.pose.position) < range) {
+      actor.target = candidate;
+      actor.scan_cursor = static_cast<uint8_t>(cursor);
+      push(actor,air_action::engagement);
+      return true;
+    }
+    cursor = (cursor + 1) % aircraft_per_side;
+  }
+  actor.scan_cursor = static_cast<uint8_t>(cursor);
+  return false;
+}
+
+void air_runtime::select_manoeuvre(air_actor &actor, unsigned int const category) {
+  actor.manoeuvre.reset();
+  auto const &bank{manoeuvre_banks.at(category)};
+  if(bank.empty()) return;
+  unsigned int const program{bank[random.next() % bank.size()]};
+  auto const &sequence{manoeuvres[program]};
+  auto const &pose{actor.flight.pose};
+  if(pose.speed < static_cast<int32_t>(sequence.minimum_speed) * (1 << speed_fraction_bits)) return;
+  if(wrap(static_cast<int64_t>(pose.position.y) + sequence.relative_altitude) >= maximum_world_y * position_unit) return;
+  int16_t const error{word(sequence.entry_angles.x - pose.angles.x)};
+  if(error == -32768 || std::abs(static_cast<int>(error)) > manoeuvre_pitch_tolerance) return;
+  if(random.next() & (category == 0 ? 7 : 1)) return;
+  actor.manoeuvre = manoeuvre_cursor{
+    .program{program},
+  };
+}
+
+void air_runtime::countermeasures(unsigned int const index, air_context const &context, std::vector<air_request> &requests) {
+  if(index >= context.threats.size() || !context.threats[index]) return;
+  auto const &threat{*context.threats[index]};
+  auto const &actor{*actors[index]};
+  unsigned int const mask{horizontal_distance(actor.flight.pose.position,threat.position) > 3 * fixed_units_per_mile ? 15u : 3u};
+  if(random.next() & mask) return;
+  // The original switches on the projectile weapon index itself, not its guidance category.
+  bool const infrared{threat.weapon == 0 || (threat.weapon != 1 && (random.next() & 1))};
+  uint32_t const dividend{actor.performance.turn_dividend};
+  int32_t const square{std::bit_cast<int32_t>(dividend * dividend)};
+  requests.push_back({
+    .actor{index},
+    .data{air_countermeasure{
+      .kind{infrared ? air_countermeasure_kind::infrared : air_countermeasure_kind::radar},
+      .strength{word(square / 4)},
+    }},
+  });
+}
+
+bool air_runtime::combat_action(unsigned int const index, unsigned int const action, air_context const &world, std::vector<air_request> &requests) {
+  auto &actor{*actors[index]};
+  auto &state{actor.flight};
+  auto &pose{state.pose};
+  air_control_context const context{
+    .model{world.model},
+    .turn_envelope{envelope},
+  };
+  auto const replace{[&](air_action const next) { actor.actions = (actor.actions & ~255u) | std::to_underlying(next); }};
+  auto const cruise_turn{[&](int16_t const heading) {
+    command_turn(state,actor.performance,heading,context);
+    command_speed(state,actor.performance,static_cast<int32_t>(cruise_speed(state,actor.performance,envelope)) << speed_fraction_bits);
+  }};
+  auto const choose{[&](unsigned int const category, bool const replace_action = false) {
+    select_manoeuvre(actor,category);
+    if(!actor.manoeuvre) return false;
+    if(replace_action) replace(air_action::align_manoeuvre);
+    else push(actor,air_action::align_manoeuvre);
+    return true;
+  }};
+  switch(static_cast<air_action>(action)) {
+  case air_action::align_manoeuvre:
+    {
+      auto &cursor{actor.manoeuvre.value()};
+      auto const &sequence{manoeuvres[cursor.program]};
+      state.input_ticks = air_control_horizon;
+      bool aligned{true};
+      for(unsigned int axis : {0u,2u}) {
+        auto const target{axis == 0 ? sequence.entry_angles.x : sequence.entry_angles.y};
+        int16_t const error{word(target - pose.angles[axis])};
+        if(error != -32768 && std::abs(static_cast<int>(error)) < manoeuvre_capture_angle) {
+          pose.angles[axis] = target;
+          state.angular_rate[axis] = 0;
+        } else {
+          state.angular_rate[axis] = static_cast<int16_t>(error / air_control_horizon);
+          aligned = false;
+        }
+      }
+      if(!aligned) return true;
+      cursor.address = manoeuvre_header_bytes;
+      replace(air_action::manoeuvre);
+      return false;
+    }
+  case air_action::manoeuvre:
+    {
+      auto &cursor{actor.manoeuvre.value()};
+      resources::binary_view const code{manoeuvres[cursor.program].source};
+      unsigned int const pc{cursor.address};
+      state.input_ticks = static_cast<int16_t>(code.byte(pc));
+      if(!state.input_ticks) {
+        actor.manoeuvre.reset();
+        // 0x75d78 canonicalises an inverted Euler representation after the sequence.
+        int16_t const pitch{word(pose.angles.x)};
+        if(pitch == -32768 || std::abs(static_cast<int>(pitch)) > 16384) {
+          pose.angles.x = static_cast<math::angle>(32768 - pose.angles.x);
+          pose.angles.y = static_cast<math::angle>(pose.angles.y - 32768);
+          pose.angles.z = static_cast<math::angle>(pose.angles.z - 32768);
+        }
+        replace(air_action::normal);
+        return false;
+      }
+      state.angular_rate = vec3<int16_t>{static_cast<int8_t>(code.byte(pc + 1)),static_cast<int8_t>(code.byte(pc + 2)),static_cast<int16_t>(static_cast<int8_t>(code.byte(pc + 3)) * 4)};
+      state.acceleration = static_cast<int8_t>(code.byte(pc + 4)) * 256;
+      cursor.address += manoeuvre_step_bytes;
+      if(unsigned int const entry{code.byte(pc + 5)}) requests.push_back({
+        .actor{index},
+        .data{air_scenery_event{
+          .entry{entry},
+        }},
+      });
+      countermeasures(index,world,requests);
+      int16_t const maximum{word(maximum_turn_rate(state,actor.performance,context))};
+      if(state.angular_rate.y > maximum) state.angular_rate.y = maximum;
+      return true;
+    }
+  case air_action::evasive:
+    {
+      if(index >= world.threats.size() || !world.threats[index]) { actor.actions >>= 8; return false; }
+      countermeasures(index,world,requests);
+      reset_air_controls(state);
+      int16_t heading{word(math::bearing(pose.position,world.threats[index]->position).y - pose.angles.y)};
+      int const magnitude{std::abs(static_cast<int>(heading))};
+      if(magnitude >= 0x1c70 && magnitude <= 0x6388 && choose(1,true)) return false;
+      heading = word(heading + (heading > 0 ? 0xc004 : 0x3ffc));
+      cruise_turn(heading);
+      return true;
+    }
+  case air_action::withdraw:
+    {
+      auto const target{actor.target};
+      actor.actions >>= 8;
+      if(target && *target != player_air_target && (flagged(*actors[*target],air_flag::crashed) || flagged(*actors[*target],air_flag::retired))) {
+        actor.target.reset();
+        push(actor,air_action::normal);
+        return false;
+      }
+      if(actor.wait_seconds >= 0) { push(actor,air_action::engagement); return false; }
+      actor.wait_seconds = word(actor.wait_seconds + 1);
+      if(acquire(index,target,world)) { actor.wait_seconds = 0; return false; }
+      reset_air_controls(state);
+      command_pitch(state,actor.performance,static_cast<math::angle>(altitude_pitch(state,actor.performance,pose.position.y)),context);
+      auto const destination{contact(target.value(),world)};
+      cruise_turn(word(math::bearing(pose.position,destination.position).y - 32768 - pose.angles.y));
+      push(actor,air_action::withdraw);
+      return true;
+    }
+  case air_action::engagement:
+    {
+      actor.actions >>= 8;
+      reset_air_controls(state);
+      auto const target{contact(actor.target.value(),world)};
+      int32_t const distance{horizontal_distance(pose.position,target.position)};
+      auto const angles{math::bearing(pose.position,target.position)};
+      int16_t const heading{word(angles.y - pose.angles.y)};
+      int16_t const reciprocal{word(angles.y + 32768 - target.angles.y)};
+      uint16_t flags{world.combat_flags};
+      bool const close{distance < actor.combat.gun_range * fixed_units_per_foot};
+      flags |= close ? 16 : 32;
+      auto const classify{[](int16_t const angle) {
+        if(angle == -32768) return 2u;
+        int const magnitude{std::abs(static_cast<int>(angle))};
+        return magnitude < nose_capture_angle ? 1u : magnitude > tail_capture_angle ? 2u : 0u;
+      }};
+      flags |= static_cast<uint16_t>(classify(heading) | (classify(reciprocal) << 2));
+      bool const on_nose{(flags & 1) != 0}, target_on_nose{(flags & 4) != 0}, target_tail{(flags & 8) != 0};
+      if(on_nose) {
+        actor.wait_seconds = word(actor.wait_seconds + 1);
+        if(actor.wait_seconds > 1 && actor.target == player_air_target) requests.push_back({
+          .actor{index},
+          .data{air_warning{
+            .target{player_air_target},
+            .kind{air_warning_kind::tracking},
+          }},
+        });
+        bool const player_target{actor.target == player_air_target};
+        bool const allowed{!player_target || actor.player_shots < actor.combat.maximum_player_shots};
+        bool const missile{(flags & 32) && allowed && actor.wait_seconds > actor.combat.firing_delay};
+        bool const gun{!(flags & 32) && (flags & 16)};
+        if(world.weapons_enabled && (missile || gun)) {
+          if(player_target) requests.push_back({
+            .actor{index},
+            .data{air_warning{
+              .target{player_air_target},
+              .kind{air_warning_kind::firing},
+            }},
+          });
+          requests.push_back({
+            .actor{index},
+            .data{air_weapon{
+              .position{vec3<int32_t>{pose.position}},
+              .angles{gun ? angles.x : pose.angles.x,gun ? angles.y : pose.angles.y,0},
+              .speed{word(pose.speed >> speed_fraction_bits)},
+              .weapon{static_cast<uint16_t>(gun ? 0 : target_tail ? 3 : 4)},
+              .target{vec3<int32_t>{target.position}},
+              .target_actor{actor.target},
+            }},
+          });
+          if(missile) {
+            actor.wait_seconds = word(-actor.combat.firing_cooldown);
+            if(player_target) ++actor.player_shots;
+          }
+        }
+      } else actor.wait_seconds = 0;
+      if(target_on_nose && on_nose) cruise_turn(word(-2 * heading));
+      else if(target_on_nose) {
+        if(choose(1)) return false;
+        auto const choice{random.next() % 4};
+        int32_t const height{choice == 0 ? pose.position.y : wrap(static_cast<int64_t>(target.position.y) + (choice == 2 ? -3200 : choice == 3 ? 3200 : 0))};
+        command_pitch(state,actor.performance,static_cast<math::angle>(altitude_pitch(state,actor.performance,height)),context);
+        cruise_turn(heading);
+      } else {
+        if(!on_nose && !target_tail && choose(0)) return false;
+        shorten_air_step(state,distance);
+        command_pitch(state,actor.performance,static_cast<math::angle>(altitude_pitch(state,actor.performance,wrap(static_cast<int64_t>(target.position.y) - 3200))),context);
+        int32_t speed{wrap(static_cast<int64_t>(target.speed) + static_cast<int64_t>(difference(distance,actor.combat.gun_range * fixed_units_per_foot) / 3200) * (1 << speed_fraction_bits))};
+        if(command_turn(state,actor.performance,heading,context)) speed = static_cast<int32_t>(cruise_speed(state,actor.performance,envelope)) << speed_fraction_bits;
+        command_speed(state,actor.performance,speed);
+      }
+      push(actor,air_action::withdraw);
+      return true;
+    }
+  default: throw std::runtime_error{std::format("unimplemented aircraft combat action {}",action)};
+  }
 }
 
 std::vector<air_request> air_runtime::advance(air_context const &context) {
@@ -198,11 +473,12 @@ void air_runtime::advance_actor(unsigned int const index, air_context const &wor
         actor.actions >>= 8;
         reset_air_controls(state);
         set_flag(actor,air_flag::afterburner,pose.speed >= static_cast<int32_t>(actor.performance.afterburner_speed) << speed_fraction_bits);
-        // Target acquisition is an explicit boundary until the live combat controller is connected.
         emit(air_target_scan{});
+        if(world.combat && acquire(index,{},world)) continue;
         if(follow_formation(actor,context)) ready = true;
         continue;
       }
+      if(mode != air_action::route && world.combat) { ready = combat_action(index,std::to_underlying(mode),world,requests); continue; }
       if(mode != air_action::route) throw std::runtime_error{std::format("aircraft {} (profile {}, record {}, byte {}) needs combat/manoeuvre action {}",index,pose.profile_id,actor.location.record,actor.location.address,std::to_underlying(mode))};
       auto &bytes{commands.at(actor.location.record)};
       resources::binary_view const code{bytes};
@@ -337,7 +613,7 @@ void air_runtime::advance_actor(unsigned int const index, air_context const &wor
             auto const target{cell_position(cell.x,cell.y,0)};
             store(pc + 5,target.x); store(pc + 9,target.y); store(pc + 13,target.z);
             if(horizontal_distance(pose.position,target) < fixed_units_per_mile) {
-              auto const heading{math::signed_word(direction_to(pose.position,target).y)};
+              auto const heading{math::signed_word(math::bearing(pose.position,target).y)};
               if(heading > -16383 && heading < 16383) launch(target,8);
             }
           }
@@ -356,7 +632,7 @@ void air_runtime::advance_actor(unsigned int const index, air_context const &wor
             auto const target{cell_position(math::signed_word(operand(0)),math::signed_word(operand(1)),0)};
             store(pc + 13,target.x); store(pc + 17,target.y); store(pc + 21,target.z);
             if(horizontal_distance(pose.position,target) < static_cast<int32_t>(operand(4)) * fixed_units_per_foot) {
-              auto const heading{math::signed_word(direction_to(pose.position,target).y)};
+              auto const heading{math::signed_word(math::bearing(pose.position,target).y)};
               if(heading > -16383 && heading < 16383) {
                 launch(target,operand(2));
                 --remaining;

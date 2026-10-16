@@ -12,7 +12,7 @@ cmake --build build -j
 
 Requires CMake 3.30 or newer, a C++26 compiler and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, `libglfw3-dev` and `libgl1-mesa-dev` provide the desktop dependencies.
 
-Direct mission launches now provide **Arcade flight** for the selected aircraft, with live steering, thrust, engines, fuel, gear and brakes. Aircraft follow their original waypoint routes and formations, including waits, takeoffs and radio calls; surface vehicles also follow their compiled routes. Scenery now executes its original animation, damage and collision programs, including terrain and runway contacts. Timed mission instructions and scheduled scenery changes also run. The default is mission 501, the first FWS engagement; `--mission=830` selects another mission.
+Direct mission launches now provide **Arcade flight** for the selected aircraft, with live steering, thrust, engines, fuel, gear and brakes. Aircraft follow their original waypoint routes and formations, including waits, takeoffs and radio calls, and now acquire and manoeuvre against opposing aircraft; surface vehicles also follow their compiled routes. Scenery now executes its original animation, damage and collision programs, including terrain and runway contacts. Timed mission instructions and scheduled scenery changes also run. The default is mission 501, the first FWS engagement; `--mission=830` selects another mission.
 
 The mouse or arrow keys steer. Hold either mouse button or `=`/`-` to change thrust. `[` and `]` toggle the engines, `G` operates the gear, `W` toggles wheel brakes and `B` operates the air brakes. `P` pauses and releases the mouse; Escape exits. See `--help` for the remaining controls and options.
 
