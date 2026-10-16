@@ -240,6 +240,8 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       auto const placed{[&item](vec3d const &vertex){ return item.origin + math::rotate_tile(item.rotation * vertex,item.heading); }};
       models::shape_context context;
       std::copy(item.part->parameters.begin(),item.part->parameters.end(),context.parameters.begin());
+      // Native 0xcc001 queues parameter 0; 0xbac16 seeds the shape condition from it.
+      context.initial_state = item.part->parameters.front();
       context.status = terrain.status;
       context.jitter = &working_jitter;
       context.distance = static_cast<int16_t>(std::clamp(item.depth,-32768.0,32767.0));
