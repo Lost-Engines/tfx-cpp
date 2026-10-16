@@ -31,7 +31,7 @@ void update_aerodynamic_response(aerodynamic_response_state &state, aerodynamic_
     low_speed_ground = motion.ground_velocity_body.x < rolling_speed;
     state.sideslip_radians = 0;
     motion.yaw_step_radians = 0;
-    if(context.auxiliary_vertical_force != 0) motion.air_velocity_body.y = 0;
+    if(context.ground_vertical_force != 0) motion.air_velocity_body.y = 0;
   }
   // The native velocity warp is gated at 20 km and by autopilot, separately
   // from the always-airborne positional warp in the later motion callback.
@@ -57,7 +57,7 @@ void update_aerodynamic_response(aerodynamic_response_state &state, aerodynamic_
   calculation const roll_inertia{static_cast<calculation>(inertia.fuel_kg) * inertia.fuel_kg * fuel_roll_inertia + inertia.roll_moment};
   calculation const roll_damping{static_cast<calculation>(context.density) * .5 * speed * p.wing_area * p.wing_span * p.wing_span * seconds / roll_inertia * p.roll_damping * .5};
   if(roll_damping < -1 && speed > minimum_damping_speed) {
-    calculation const thrust{math::x87::sin(engine_angle) * (static_cast<calculation>(context.throttle) * context.thrust_moment_scale) * p.roll_thrust_arm * 2};
+    calculation const thrust{math::x87::sin(engine_angle) * (static_cast<calculation>(context.engine_thrust) * context.thrust_moment_scale) * p.roll_thrust_arm * 2};
     calculation const dynamic{static_cast<calculation>(context.density) * speed * speed * p.wing_area * p.wing_span};
     motion.angular_acceleration.x = 0;
     motion.angular_rate.x = static_cast<double>((thrust / dynamic + static_cast<calculation>(context.roll_control_gradient) * p.maximum_aileron_radians) * ((-2 * speed / (static_cast<calculation>(p.wing_span) * p.roll_damping)) * context.aileron));
@@ -66,7 +66,7 @@ void update_aerodynamic_response(aerodynamic_response_state &state, aerodynamic_
   motion.angular_rate.y = static_cast<double>(static_cast<calculation>(motion.angular_acceleration.y) * seconds + motion.angular_rate.y);
   calculation const pitch_damping{static_cast<calculation>(context.density) * .5 * speed * p.wing_area * p.mean_chord * p.mean_chord * seconds * (context.time_warp ? 5 : 1) / inertia.pitch_moment * p.pitch_damping * .5};
   if(pitch_damping < -1 && speed > minimum_damping_speed) {
-    calculation const thrust{math::x87::sin(engine_angle) * (static_cast<calculation>(context.throttle) * context.thrust_moment_scale) * p.pitch_thrust_arm * 2};
+    calculation const thrust{math::x87::sin(engine_angle) * (static_cast<calculation>(context.engine_thrust) * context.thrust_moment_scale) * p.pitch_thrust_arm * 2};
     calculation const dynamic{static_cast<calculation>(context.density) * speed * speed * p.wing_area * p.mean_chord};
     calculation const control{(thrust / dynamic + static_cast<calculation>(context.pitch_control_gradient) * elevator_scale) * context.elevator + p.zero_pitch_moment};
     motion.angular_rate.y = static_cast<double>((-control / p.pitch_stability - context.angle_of_attack) / seconds);

@@ -26,14 +26,14 @@ aerodynamic_force_result update_aerodynamic_forces(aerodynamic_motion &state, ae
   aerodynamic_force_result result;
   vec3d const vertical{basis.forward.z,basis.right.z,basis.down.z};
   for(unsigned int axis{0}; axis != 3; ++axis) {
-    calculation const applied{static_cast<calculation>(loads.aerodynamic_force[axis]) + loads.ground_force[axis] + loads.auxiliary_force[axis]};
+    calculation const applied{static_cast<calculation>(loads.aerodynamic_force[axis]) + loads.engine_force[axis] + loads.ground_force[axis]};
     if(axis == 2) {
       result.g_load = static_cast<float>(-applied / (static_cast<calculation>(inertia.mass_kg) * gravity) + static_cast<calculation>(state.angular_rate.x) * state.angular_rate.x * context.cockpit_upward_metres / gravity);
     }
     // Down force is stored and reloaded after the G calculation; F/R are not.
     calculation const force{axis == 2 ? static_cast<double>(applied) : applied};
     result.body_force[axis] = static_cast<double>(force + static_cast<calculation>(vertical[axis]) * inertia.mass_kg * gravity);
-    result.body_moment[axis] = static_cast<double>(static_cast<calculation>(loads.aerodynamic_moment[axis]) + loads.ground_moment[axis] + loads.auxiliary_moment[axis]);
+    result.body_moment[axis] = static_cast<double>(static_cast<calculation>(loads.aerodynamic_moment[axis]) + loads.engine_moment[axis] + loads.ground_moment[axis]);
   }
   for(unsigned int axis{0}; axis != 3; ++axis) result.ned_force[axis] = static_cast<double>(static_cast<calculation>(basis.right[axis]) * result.body_force.y + static_cast<calculation>(basis.forward[axis]) * result.body_force.x + static_cast<calculation>(basis.down[axis]) * result.body_force.z);
   if(context.refuelling_connected) result.body_moment.x = static_cast<double>(result.body_moment.x - native_asin(basis.right.z) * refuelling_level_moment);

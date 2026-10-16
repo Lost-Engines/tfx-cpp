@@ -1223,7 +1223,7 @@ Both physical motion callbacks (0x9f9d4 and 0x9fbec) retain the half-acceleratio
 
 ### Aerodynamic load summation, inertia and x87 verification boundary
 
-Native 0x9f128 sums aerodynamic, ground and auxiliary body forces/moments, adds gravity through the physical NED basis and exports the world force and G load. It retains the refuelling connection's levelling moment and the fully arrested carrier branch, including its signed-zero body-velocity stores and retained down motion. Native 0x9f3b0 then derives linear and angular acceleration, including the fuel-squared roll-inertia term. All 8,192 complete original force, moment, acceleration, G-load and arrested-velocity cases agree with the declared hardware FPATAN boundary below; 123 compact captures are retained.
+Native 0x9f128 sums aerodynamic, engine and ground body forces/moments, adds gravity through the physical NED basis and exports the world force and G load. It retains the refuelling connection's levelling moment and the fully arrested carrier branch, including its signed-zero body-velocity stores and retained down motion. Native 0x9f3b0 then derives linear and angular acceleration, including the fuel-squared roll-inertia term. All 8,192 complete original force, moment, acceleration, G-load and arrested-velocity cases agree with the declared hardware FPATAN boundary below; 123 compact captures are retained.
 
 This exposed a limitation of the installed Unicorn build: its helper_fpatan_x86_64 narrows both operands to binary64, calls the host double atan2, then widens its result. Disassembly of that library and direct 80-bit-register captures establish this independently of the game's equations. The capture adapter now replaces only the four Watcom FPATAN instruction sites with a real host x87 instruction, preserving register words, tags, TOP and the controlled FPU word. All surrounding original Watcom range reduction, square root and force arithmetic still executes. The current x87 backend uses the same instruction and the original asin-via-atan evaluation order; no binary64 emulator artefact is deliberately added to the game. The shared verification adapter is test-only, with no runtime game dependency.
 
@@ -1264,3 +1264,15 @@ All 8,192 original-prefix cases agree, including arbitrary rotations, retained a
 The complete response comparison also passes in Release and ASan/UBSan, with all 8,192 cases and both stiff-damping branches exercised.
 
 Both the complete response and connected air-data comparisons pass in development, Release and ASan/UBSan. Their two stage-fixture tests pass in each relevant configured build.
+
+### Mach-dependent lift, drag and control derivatives
+
+Native 0x99bc0 now supplies the transonic drag transition and the three distinct aircraft lift curves, including the F-22's ordered piecewise bounds and the Eurofighter's cap. The aircraft's additional lifting area remains a separate coefficient. Static pitch stability and damping use their original lift-plus-drag terms; elevator, flap, roll and aileron derivatives use the original lift-only term. These distinctions are preserved rather than merged into a generic approximation.
+
+All 8,192 complete original coefficient updates agree across all three aircraft, exact and adjacent transonic thresholds, piecewise-curve changes and supplied profile coefficients. Original startup precision and the complete routine execute; bounded FSIN/FCOS use the hardware adapter. There are 123 compact captures.
+
+    python3 tools/check_aerodynamic_coefficients.py
+
+Tracing the following thrust producer (0x9cc54) identifies 0x147d8/0x147c0 as engine forces/moments, distinct from the ground loads at 0x14660/0x14648. Those fields now carry their correct names in the shared force stage. The response context likewise names 0x14878 as computed engine thrust, separately from the throttle request. Force and response comparisons remain exact after these naming corrections.
+
+The Mach-coefficient and complete response comparisons repeat exactly in Release and ASan/UBSan.

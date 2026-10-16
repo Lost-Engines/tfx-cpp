@@ -25,7 +25,7 @@ int main(int const argc, char const *const argv[]) try {
       .refuelling_connected{connected != 0},
       .fully_arrested{arrested != 0},
     };
-    for(auto *vector : {&context.basis.forward,&context.basis.right,&context.basis.down,&context.loads.aerodynamic_force,&context.loads.ground_force,&context.loads.auxiliary_force,&context.loads.aerodynamic_moment,&context.loads.ground_moment,&context.loads.auxiliary_moment,&state.velocity_ned,&state.ground_velocity_body,&state.air_velocity_body}) for(auto &value : *vector) value = read_double(input);
+    for(auto *vector : {&context.basis.forward,&context.basis.right,&context.basis.down,&context.loads.aerodynamic_force,&context.loads.engine_force,&context.loads.ground_force,&context.loads.aerodynamic_moment,&context.loads.engine_moment,&context.loads.ground_moment,&state.velocity_ned,&state.ground_velocity_body,&state.air_velocity_body}) for(auto &value : *vector) value = read_double(input);
     context.inertia.mass_kg = read_double(input);
     context.inertia.roll_moment = read_double(input);
     context.inertia.pitch_moment = read_double(input);

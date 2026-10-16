@@ -11,11 +11,11 @@ struct aerodynamic_basis {
 };
 struct aerodynamic_loads {
   vec3d aerodynamic_force{0,0,0};
+  vec3d engine_force{0,0,0};
   vec3d ground_force{0,0,0};
-  vec3d auxiliary_force{0,0,0};
   vec3d aerodynamic_moment{0,0,0};
+  vec3d engine_moment{0,0,0};
   vec3d ground_moment{0,0,0};
-  vec3d auxiliary_moment{0,0,0};
 };
 struct aerodynamic_inertia {
   double mass_kg{0};
