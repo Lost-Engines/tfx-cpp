@@ -26,6 +26,7 @@ struct instrument_assets {
   std::string heading_bank;
   std::string pitch_bank;
   std::array<pitch_mark,42> pitch_marks;
+  std::array<vec2<int16_t>,3> target_heading_shape;
   std::string in_range_label;
   std::string radio_padding;
   std::string aiming_bank;

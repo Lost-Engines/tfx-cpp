@@ -376,6 +376,10 @@ if(BUILD_TESTING)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
 
+  add_executable(target_tracking_probe tests/target_tracking_probe.cpp)
+  target_link_libraries(target_tracking_probe PRIVATE tfx_core)
+  configure_first_party(target_tracking_probe)
+
   add_executable(target_display_probe tests/target_display_probe.cpp)
   target_link_libraries(target_display_probe PRIVATE tfx_core)
   configure_first_party(target_display_probe)

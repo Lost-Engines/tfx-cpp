@@ -4,16 +4,24 @@
 #include "render/sprites.h"
 
 namespace tfx::cockpit {
+namespace {
+
+int32_t constexpr short_sight_range_limit{7004}, compact_sight_range{24720};
+uint8_t constexpr lock_blink_frames{9}, anti_radiation_category{11};
+
+} // anonymous namespace
 
 weapon_display::weapon_display(instrument_assets const &source, resources::archive const &game)
-  : assets{source}, attitude{source,game}, numbers{source}, framing{resources::decode_sprites(game.read(assets.aiming_bank)).at(0)} {
+  : assets{source}, attitude{source,game}, numbers{source}, targets{source}, framing{resources::decode_sprites(game.read(assets.aiming_bank)).at(0)} {
 }
-void weapon_display::draw_forward(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *const coverage) const {
-  // Native 0x800f4 ordering, excluding separately driven target/radar cues.
+void weapon_display::reset_tracking() { tracking = {}; }
+target_animation weapon_display::animation() const { return tracking; }
+weapon_effects weapon_display::draw_forward(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *const coverage) {
+  // Native 0x800f4 ordering; general navigation/radar cues remain separate.
   auto const &offset{state.attitude.offset};
   auto const full_clip{[&] { renderer.clipping = render::raster_clip::viewport({0,0},{319,199}); }};
   full_clip();
-  if(state.limited && !state.cannon && (state.mode != aiming_mode::navigation || !state.contact_visible)) {
+  if(state.limited && !state.cannon && (state.mode != aiming_mode::navigation || !state.navigation_contact_visible)) {
     render::draw_monochrome(renderer.output,assets.masks[std::to_underlying(instrument_mask::weapon_centre_cue)],{static_cast<uint16_t>(150 + offset.x),state.attitude.projection_origin.y},6,coverage,renderer.clipping);
   }
   auto const line_limit{attitude.draw_heading(renderer,state.attitude,coverage)};
@@ -33,6 +41,47 @@ void weapon_display::draw_forward(render::software_renderer &renderer, weapon_di
   }
   vec2<int> const weapon_line_limit{state.cannon ? 231 + offset.x : line_limit.x,state.cannon ? 96 + offset.y : line_limit.y};
   draw(renderer,state,coverage,weapon_line_limit);
+  bool const new_lock{state.mode != aiming_mode::navigation && !tracking.had_lock && state.air_lock};
+  if(new_lock) tracking.blink = lock_blink_frames;
+  if(state.mode == aiming_mode::air && state.limited) tracking.sight = state.range >= compact_sight_range ? target_sight::compact : target_sight::normal;
+  if(state.mode != aiming_mode::navigation) {
+    renderer.clipping = state.limited ? render::raster_clip::viewport({80 + offset.x,2 + offset.y},{241 + offset.x,144 + offset.y}) : render::raster_clip::viewport({0,0},{319,199});
+    if(state.mode == aiming_mode::air && !state.suppressed && state.air_target) {
+      auto const &cue{*state.air_target};
+      target_display_state const target_state{
+        .player{vec3<int32_t>{state.flight.position}},
+        .orientation{cue.orientation},
+        .projected{vec2<int16_t>{cue.projected}},
+        .tracking_q8{vec2<int32_t>{cue.tracking_q8}},
+        .sight{tracking.sight},
+        .offset{vec2<int16_t>{offset}},
+      };
+      targets.information(renderer,cue.reading,target_state,coverage);
+      if(state.air_lock) {
+        if(tracking.blink) --tracking.blink;
+        vec2<int> const centre{cue.tracking_q8.x >> 8,cue.tracking_q8.y >> 8};
+        if(centre.x > 0 && centre.y > 0) targets.marker(renderer,tracking.sight,false,centre,coverage);
+        if(!(tracking.blink & 1) && cue.tracking_q8.x && cue.tracking_q8.y) targets.marker(renderer,tracking.sight,true,centre,coverage);
+      } else {
+        if(cue.projected.x > 0 && cue.projected.y > 0) targets.marker(renderer,tracking.sight,false,vec2<int>{cue.projected},coverage);
+        if(cue.acquiring) targets.edge_marker(renderer,target_state,coverage);
+        else targets.direction(renderer,cue.reading,target_state,state.limited ? vec2<int>{0,2 + offset.y} : vec2<int>{89 + offset.x,2 + offset.y},state.limited ? vec2<int>{319,144 + offset.y} : vec2<int>{231 + offset.x,96 + offset.y},coverage);
+      }
+    } else if(state.mode == aiming_mode::ground && state.ground_lock && state.ground_marker && state.category != anti_radiation_category) {
+      // Native ground-designation rectangle keeps fixed X limits in both views.
+      auto const &centre{*state.ground_marker};
+      vec2<int> const low{state.limited ? 89 : 10,state.limited ? 2 + offset.y : 10};
+      vec2<int> const high{state.limited ? 233 : 310,state.limited ? 97 + offset.y : 190};
+      std::array<vec2<int>,4> const corners{{{-10,-10},{10,-10},{10,10},{-10,10}}};
+      for(unsigned int index{0}; index != corners.size(); ++index) {
+        auto const from{vec2<int>{centre} + corners[index]}, to{vec2<int>{centre} + corners[(index + 1) % corners.size()]};
+        presentation::draw_clipped_line(renderer.output,vec2<int>{from},vec2<int>{to},low,high,6);
+        if(coverage) presentation::draw_clipped_line(*coverage,vec2<int>{from},vec2<int>{to},low,high,255);
+      }
+    }
+    tracking.had_lock = state.air_lock;
+  }
+
   if(state.mode == aiming_mode::navigation) { full_clip();numbers.draw_messages(renderer,state.flight,coverage); }
   else if(state.bomb_impact) {
     // Native 0x7f798: the impact marker is conditional, but its connecting
@@ -44,6 +93,7 @@ void weapon_display::draw_forward(render::software_renderer &renderer, weapon_di
     presentation::draw_clipped_line(renderer.output,vec2<int>{origin},vec2<int>{impact},low,high,6);
     if(coverage) presentation::draw_clipped_line(*coverage,vec2<int>{origin},vec2<int>{impact},low,high,255);
   }
+  return {.lock_acquired{new_lock}};
 }
 void weapon_display::draw(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *const coverage, vec2<int> const &line_limit) const {
   uint8_t constexpr colour{6};
@@ -85,8 +135,8 @@ void weapon_display::draw(render::software_renderer &renderer, weapon_display_st
   if(state.mode == aiming_mode::air) {
     // Native 0x7e5b4: range-dependent sight, suppression cross and AA legend.
     if(state.limited) {
-      if(state.range < 7004) mask(instrument_mask::short_range_sight,{122,18});
-      else if(state.range < 24720) mask(instrument_mask::medium_range_sight,{122,18});
+      if(state.range < short_sight_range_limit) mask(instrument_mask::short_range_sight,{122,18});
+      else if(state.range < compact_sight_range) mask(instrument_mask::medium_range_sight,{122,18});
       else mask(instrument_mask::long_range_sight,{132,34});
     }
     if(state.suppressed) {
@@ -99,6 +149,7 @@ void weapon_display::draw(render::software_renderer &renderer, weapon_display_st
     else text({96,91},state.weapon);
     right(230,assets.aiming_labels[3]);pitch();clip({89,2},{231,96});
     text({96,85},assets.aiming_labels[state.air_lock ? 5 : 6]);
+    if(state.air_target) targets.heading(renderer,state.air_target->reading.heading,state.attitude.angles.y,offset,point({89,2}),point({231,96}),coverage);
     return;
   }
   // Native 0x7e958: the ground sight differs for strafing and carried stores.
