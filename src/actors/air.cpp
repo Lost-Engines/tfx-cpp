@@ -82,6 +82,13 @@ public:
   }
 };
 
+void air_runtime::apply_refuelling_pose(unsigned int const index, vec3<int32_t> const &position_q8, vec3<math::angle> const &angles) {
+  if(index < aircraft_per_side || !actors.at(index)) throw std::invalid_argument{"refuelling pose requires an allied aircraft"};
+  auto &pose{actors[index]->flight.pose};
+  pose.position = vec3<int32_t>{position_q8};
+  pose.angles = vec3<math::angle>{angles};
+}
+
 unsigned int air_registry_index(initial_actor const &actor) {
   if(actor.kind != record_kind::aircraft || actor.slot >= aircraft_per_side) throw std::invalid_argument{"invalid air pool identity"};
   return (actor.side == allegiance::allied ? aircraft_per_side : 0) + actor.slot;

@@ -20,6 +20,7 @@ struct view_camera_context {
   int16_t ground_height{0};
   bool low_memory{false};
   bool landing{false};
+  uint8_t refuel_phase{0};
   int32_t speed{0};
   std::optional<vec3<int32_t>> tracking_target_q8{};
   std::optional<vec3<int32_t>> observed_target_q8{};

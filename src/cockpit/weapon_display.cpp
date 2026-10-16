@@ -24,7 +24,27 @@ weapon_effects weapon_display::draw_forward(render::software_renderer &renderer,
   auto const &offset{state.attitude.offset};
   auto const full_clip{[&] { renderer.clipping = render::raster_clip::viewport({0,0},{319,199}); }};
   full_clip();
-  if(state.limited && !state.cannon && (state.mode != aiming_mode::navigation || !state.navigation_contact_visible)) {
+  if(state.navigation_target) {
+    auto const &cue{*state.navigation_target};
+    target_display_state const contact{
+      .player{vec3<int32_t>{state.flight.position}},
+      .orientation{cue.orientation},
+      .projected{vec2<int16_t>{cue.projected}},
+      .tracking_q8{vec2<int32_t>{cue.tracking_q8}},
+      .sight{tracking.sight},
+      .offset{vec2<int16_t>{offset}},
+    };
+    // Native 0x80010 precedes acquisition and the weapon layout. Its optional
+    // alert draw consumes another elapsed word before the later layout draw.
+    targets.direction(renderer,cue.reading,contact,{0,0},{319,199},coverage);
+    targets.information(renderer,cue.reading,contact,coverage);
+    alerts.draw(renderer,offset,state.elapsed,coverage);
+    if(cue.projected.x > 0 && cue.projected.y > 0) {
+      renderer.clipping = state.limited ? render::raster_clip::viewport({80 + offset.x,2 + offset.y},{241 + offset.x,144 + offset.y}) : render::raster_clip::viewport({0,0},{319,199});
+      targets.marker(renderer,tracking.sight,false,vec2<int>{cue.projected},coverage);
+    }
+  }
+  if(state.limited && !state.cannon && (state.mode != aiming_mode::navigation || !state.navigation_target)) {
     render::draw_monochrome(renderer.output,assets.masks[std::to_underlying(instrument_mask::weapon_centre_cue)],{static_cast<uint16_t>(150 + offset.x),state.attitude.projection_origin.y},6,coverage,renderer.clipping);
   }
   auto const line_limit{attitude.draw_heading(renderer,state.attitude,coverage)};

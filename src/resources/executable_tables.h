@@ -9,6 +9,7 @@
 #include "actors/program.h"
 #include "cockpit/instrument_assets.h"
 #include "flight/airframes.h"
+#include "flight/refuelling.h"
 #include "presentation/arming_assets.h"
 #include "presentation/cursor.h"
 #include "presentation/fonts.h"
@@ -41,6 +42,7 @@ private:
   std::unique_ptr<presentation::score_assets const> score_data;
   std::unique_ptr<presentation::arming_assets const> arming_data;
   std::unique_ptr<cockpit::instrument_assets const> instrument_data;
+  std::unique_ptr<flight::refuel_assets const> refuel_data;
   std::array<uint8_t,64> character_map;
   std::array<hud_glyph,51> glyphs;
   std::array<unsigned int,256> measured_advances;
@@ -67,6 +69,7 @@ public:
   presentation::score_assets const &scores() const;
   presentation::arming_assets const &arming_art() const;
   cockpit::instrument_assets const &instruments() const;
+  flight::refuel_assets const &refuel_parameters() const;
   vec3<int16_t> const &sight_mount(flight::player_aircraft aircraft, int16_t pylon) const;
   std::span<uint8_t const> circle(unsigned int radius) const;
   hud_glyph const *glyph(unsigned char character) const;

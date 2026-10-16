@@ -18,6 +18,7 @@ from native_vga import VgaCapture
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
+parser.add_argument('--navigation',action='store_true',help='include the separate refuelling/navigation contact consumer')
 parser.add_argument('--alerts',action='store_true',help='include BINGO/PULL UP requests and retained warning timer')
 args=parser.parse_args();directory=args.research/'installs/cd_1994_09/TFX'
 sys.path.insert(0,str(args.research/'did-unpack'));from did_unpack import Archive
@@ -27,8 +28,8 @@ for handle,(name,field) in enumerate((('spr/newhud2.spr',0x12c24),('spr/ladnums.
     raw=archive.unpack(entries[archive.hash_name(name)]);im.cpu.mem_write(0x400000+(handle-1)*0x10000,raw);im.write(field,'<H',handle)
 im.intercept(0xc8568,'Supply unchanged original sight/ladder/heading banks at the external resource boundary.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,0x400000+(im.cpu.reg_read(r.UC_X86_REG_EAX)-1)*0x10000),im.return_from()))
 for address in (0x836ac,0xa7130):im.intercept(address,'Supply sensor/selection controller state; their rendering consumers execute.',lambda im:im.return_from())
-im.intercept(0x7889c,'Supply the selected aircraft name; native name processing executes.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,0x300000),im.return_from()))
-im.cpu.mem_write(0x300000,b'MiG-29 Fulcrum\0')
+im.intercept(0x7889c,'Supply the selected aircraft name; native name processing executes.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,0x300040 if im.cpu.reg_read(r.UC_X86_REG_EAX)==0x310100 else 0x300000),im.return_from()))
+im.cpu.mem_write(0x300000,b'MiG-29 Fulcrum\0');im.cpu.mem_write(0x300040,b'RAF Victor tanker\0')
 path=[140,40,145,45,150,50,155,55,160,60]
 def cannon(im):
     im.cpu.mem_write(im.cpu.reg_read(r.UC_X86_REG_EDX),struct.pack('<10h',*path));im.return_from()
@@ -67,8 +68,11 @@ for index in range(1024):
     cases.append([index%97==0,mode,index%3,weapon,1 if index<64 else index%2,0 if index<64 else (index//2)%2,locked,(index//4)%2,present,acquiring,255 if index%2 else 0,*projected,*tracking,*player,*position,rng.randrange(65536),rng.randrange(-2147483648,2147483648),*basis,index%3!=0,*ground_point,dx,dy])
 if args.alerts:
     for index,row in enumerate(cases):row.extend([index%2 if index%7==0 else -1,[499,500,10000][index%3],[0,1,4,108,65535][index%5]])
+if args.navigation:
+    for index,row in enumerate(cases):row.extend([index%3!=0,*[value+10000 for value in row[18:21]],(index*503)%65536,200*65536])
 command=[str((args.build/'target_tracking_probe').resolve()),str(directory)]
 if args.alerts:command.append('--alerts')
+if args.navigation:command.append('--navigation')
 output=subprocess.check_output(command,input=('\n'.join(' '.join(str(int(v)) for v in row) for row in cases)+'\n').encode())
 header_bytes=24 if args.alerts else 16;stride=128000+header_bytes;assert len(output)==len(cases)*stride
 for index,row in enumerate(cases):
@@ -83,8 +87,12 @@ for index,row in enumerate(cases):
     im.write(0x1345e,'<9h',*basis);im.write(0x135cc,'<2h',x,y);im.write(0x135c0,'<2i',tx,ty);im.write(0x10be8,'<h',dx);im.write(0x10be6,'<h',dy)
     cy=56+int(dy/2);im.call(0xb9238,stack=(0,319,0,199));im.call(0xb94da,stack=(159,cy,319,199));im.call(0xc84b1,stack=(0,319,0,199,cy));im.call(0xc82b9,stack=(0,0));im.call(0xc0634,stack=(199,0,319,0))
     if args.alerts:
-        request,fuel,elapsed=row[37:];im.write(0x14858,'<d',fuel);im.write(0x13476,'<H',elapsed)
+        request,fuel,elapsed=row[37:40];im.write(0x14858,'<d',fuel);im.write(0x13476,'<H',elapsed)
         if request>=0:im.call(0x7dde4,eax=im.data+(0x6f12 if request else 0x6fbe),edx=im.data+(0x6f72 if request else 0x702e))
+    if args.navigation:
+        start=40 if args.alerts else 37
+        navigation,nx,ny,nz,nh,ns=row[start:start+6]
+        im.cpu.mem_write(0x310100,struct.pack('<3i3Hi',nx,ny,nz,0,nh,0,ns));im.write(0x13af4,'<I',0x310100 if navigation else 0)
     video.reset();events.clear()
     for plane in video.planes:plane[:]=bytes([99])*16000
     try:im.call(0x800f4,eax=limited,limit=4000000)
@@ -94,4 +102,4 @@ for index,row in enumerate(cases):
     if args.alerts:header.extend([int(im.read(0x12c0c,'<I')[0]==im.data+0x6f12),im.read(0x12c1c,'<h')[0]])
     want=struct.pack('<'+'i'*len(header),*header)+bytes(video.pixels())+bytes(video.coverage());got=output[index*stride:(index+1)*stride]
     assert got==want,(row,header,[(i,(i-header_bytes)%64000%320,(i-header_bytes)%64000//320,a,b) for i,(a,b) in enumerate(zip(got,want)) if a!=b][:30])
-print(f'Forward target composition agrees in {len(cases)} native pixel/coverage/animation/event frames'+(' including BINGO/PULL UP request, paint order and timer' if args.alerts else '')+' with declared sensor, projection and audio boundaries')
+print(f'Forward target composition agrees in {len(cases)} native pixel/coverage/animation/event frames'+(' including BINGO/PULL UP request, paint order and timer' if args.alerts else '')+(' and refuelling contact information/direction/marker' if args.navigation else '')+' with declared sensor, projection and audio boundaries')

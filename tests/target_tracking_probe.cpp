@@ -6,8 +6,13 @@
 #include "weapons/impact_prediction.h"
 
 int main(int const argc, char const *const argv[]) try {
-  bool const alerts_mode{argc == 3 && std::string_view{argv[2]} == "--alerts"};
-  if(argc != 2 && !alerts_mode) throw std::runtime_error{"usage: target_tracking_probe DATA_DIRECTORY [--alerts]"};
+  bool alerts_mode{false}, navigation_mode{false};
+  if(argc < 2) throw std::runtime_error{"target tracking probe requires original data directory"};
+  for(int argument{2}; argument != argc; ++argument) {
+    if(std::string_view{argv[argument]} == "--alerts") alerts_mode = true;
+    else if(std::string_view{argv[argument]} == "--navigation") navigation_mode = true;
+    else throw std::runtime_error{"unknown target tracking probe mode"};
+  }
   auto const archive{tfx::resources::find_game_archive(argv[1])};
   tfx::resources::archive const game{archive};
   tfx::resources::executable_tables const tables{archive.parent_path() / "TFX.DAT"};
@@ -22,6 +27,17 @@ int main(int const argc, char const *const argv[]) try {
     if(reset) display.reset_tracking();
     int request{-1};double fuel{10000};
     if(alerts_mode) std::cin >> request >> fuel >> state.elapsed;
+    state.navigation_target.reset();
+    if(navigation_mode) {
+      bool navigation_present; tfx::cockpit::air_target_reading reading;
+      std::cin >> navigation_present >> reading.position_q8.x >> reading.position_q8.y >> reading.position_q8.z >> reading.heading >> reading.speed_q16;
+      reading.name = "RAF Victor tanker";
+      if(navigation_present) state.navigation_target.emplace(tfx::cockpit::air_target_cue{
+        .reading{std::move(reading)},
+        .orientation{cue.orientation},
+        .projected{vec2<int16_t>{cue.projected}},
+      });
+    }
     if(request >= 0) display.show_alert(static_cast<tfx::cockpit::hud_alert>(request));
     display.check_fuel(fuel);
     state.mode = static_cast<tfx::cockpit::aiming_mode>(mode);

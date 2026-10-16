@@ -1,8 +1,10 @@
 #include <iostream>
+#include <string_view>
 #include <utility>
 #include "cockpit/view_camera.h"
 
-int main() {
+int main(int const argc, char const *const argv[]) {
+  bool const refuelling{argc == 2 && std::string_view{argv[1]} == "--refuelling"};
   using namespace tfx::cockpit;
   view_control views;
   view_camera motion;
@@ -33,6 +35,7 @@ int main() {
       views = view_control{std::move(initial)};
       motion = view_camera{};
     }
+    if(refuelling) { unsigned int phase;std::cin >> phase;context.refuel_phase = static_cast<uint8_t>(phase); }
     auto active{views.value()};
     active.ready = false;
     views = view_control{std::move(active)};
