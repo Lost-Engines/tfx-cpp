@@ -1043,3 +1043,21 @@ The temporary HUD line tables previously described as launch notices are the aut
 Another **1,024 complete original forward-HUD frames agree** with warning requests, paint order and timer included alongside all existing target/lock animation and event checks. NAV paints its warning inside its own layout, before the outer brake/chute message repeat; AA/AG paint it at the end. Refuelling contact selection and terrain-risk producers remain separate. Live flight now supplies low fuel before its HUD-fault gate and elapsed ticks to the painter. The PULL UP shape/request/painter is verified, while its actual terrain-risk trigger still needs its native selecting consumer.
 
 The warning painter and full-composition comparisons pass in development, Release and ASan/UBSan. All 48 CTests and private-window camera/pause checks pass. All 128 retail missions run 1,024 simulation steps and draw under sanitizers after the live BINGO integration.
+
+
+### Aerial refuelling and tanker HUD
+
+```sh
+python3 tools/check_refuelling.py
+python3 tools/check_view_cameras.py --refuelling
+python3 tools/check_target_tracking.py --alerts --navigation
+python3 tools/check_window_refuelling.py --data-dir /path/to/TFX
+```
+
+The original apostrophe handler now opens/closes the player aircraft's refuelling equipment, saves the current NAV/AA/AG mode and forces NAV until it restores the saved mode. The camera-stage controller searches the fifty allied slots for the nearest eligible tanker, retaining original tie order and wrapped distance arithmetic. Alignment, reconnect delay, speed gates, port anchors and coupling divisors follow native `0x94efc`, `0x94e34` and `0x950f4`. The original coupling moves the tanker towards the player's port. Refuelling adds the executable's 14 fuel units per player update, caps at aircraft capacity and requests the original afterburner warning. Connected refuelling inhibits cannon and carried-store release and selects the corresponding aircraft model entries.
+
+**6,144 persistent original-code updates agree** in all controller state, target selection, tanker poses, exact fuel bits and emitted requests. The cases cover all three aircraft and reach 46 connections from approach, with 882 coupled frames and 1,289 tanker updates. Original controller, bearing, anchor and distance code executes. SSD category lookup is supplied from separately checked resource semantics; model-entry, audio and voice requests are observed at their external boundaries. Fuel transfer executes its original player-update prefix before the camera controller, preserving the previous phase's lifetime. These checks do not establish complete flight-session ordering or collision protection.
+
+The camera comparison also agrees across **11,776 updates in 23 modes with four supplied refuelling phases**, preserving the original phase addition to player model entries. The live tanker HUD now draws its direction cue, telemetry and marker before weapon acquisition, sharing the retained projected point and sight. This optional path consumes its own BINGO/PULL UP warning draw before the later weapon layout. **1,024 complete original composed HUD frames agree** in pixels, coverage, target/lock state, warning timers and events with this contact path enabled. Sensor/render lifetime ordering outside this supplied sequence remains a separate gate.
+
+Controller, camera and HUD comparisons pass in development, Release and ASan/UBSan. Private-window checks exercise real apostrophe input, forced NAV, saved AA/AG restoration, pause and camera return. All 48 CTests pass. The complete 128-mission sanitizer pass still advances 1,024 steps per mission and draws. Live sample/voice playback awaits the audio backend; ILS, automatic landing and non-Arcade flight models remain separate work.

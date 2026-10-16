@@ -18,6 +18,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   score_data = std::make_unique<presentation::score_assets>(source);
   arming_data = std::make_unique<presentation::arming_assets>(source);
   instrument_data = std::make_unique<cockpit::instrument_assets>(source);
+  refuel_data = std::make_unique<flight::refuel_assets>(source);
   widget_font_data = std::make_unique<presentation::widget_font>(source);
   planner_art_data = std::make_unique<planner_artwork>(source);
   font_data = std::make_unique<presentation::fonts>(source);
@@ -101,6 +102,7 @@ vec3<int16_t> const &executable_tables::sight_mount(flight::player_aircraft cons
   return sight_mount_data.at(std::to_underlying(aircraft) - 1).at(static_cast<unsigned int>(pylon - first_sight_pylon));
 }
 
+flight::refuel_assets const &executable_tables::refuel_parameters() const { return *refuel_data; }
 presentation::fonts const &executable_tables::presentation_fonts() const { return *font_data; }
 
 presentation::widget_font const &executable_tables::interface_font() const {

@@ -111,6 +111,7 @@ public:
   math::random_state &random_stream();
   std::vector<air_request> fatal_damage(unsigned int index);
   std::span<std::optional<air_actor> const> aircraft() const;
+  void apply_refuelling_pose(unsigned int index, vec3<int32_t> const &position_q8, vec3<math::angle> const &angles);
   std::span<uint8_t const> program_bytes(unsigned int record) const;
   std::vector<air_request> advance(air_context const &context = {});
 };

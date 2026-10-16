@@ -122,7 +122,7 @@ bool view_camera::compose(view_control &views, view_camera_context const &contex
   // eye remains within 0xa000 Q16 units of the player anchor.
   bool near{!chase};
   for(auto const offset : {state.offset_q16.x,state.offset_q16.y,state.offset_q16.z}) near = near && offset > -0xa000 && offset < 0xa000;
-  pose.player_model_entry = near ? (state.heading > -0x2000 && state.heading < 0x2000 ? 19u : 20u) : 21u;
+  pose.player_model_entry = (near ? (state.heading > -0x2000 && state.heading < 0x2000 ? 19u : 20u) : 21u) + context.refuel_phase;
   return clamped;
 }
 bool view_camera::advance(view_control &views, view_camera_context const &context) {
@@ -274,7 +274,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     set_angles({negative(state.smoothed_angles.x),negative(state.smoothed_angles.y),negative(state.smoothed_angles.z)});
     pose.anchor = vec3<int32_t>{control.fixed_position};
     for(unsigned int axis{0}; axis != 3; ++axis) pose.position_q16[axis] = wrap(std::rotl(static_cast<uint32_t>(control.fixed_position[axis]),16));
-    pose.player_model_entry = 21;
+    pose.player_model_entry = 21u + context.refuel_phase;
     int const relative{word(bearing.y - context.angles.y)};
     if(relative && relative > -0x4000 && relative < 0x4000 && math::distance_estimate(context.position,control.fixed_position) > context.speed / 3) {
       views.clear_queue();
@@ -331,7 +331,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
       pose.position_q16[axis] = add(wrap(static_cast<uint32_t>(state.last_missile.position_q8[axis]) << 8),state.offset_q16[axis]);
     }
     set_angles({negative(state.smoothed_angles.x),negative(state.smoothed_angles.y),negative(state.smoothed_angles.z)});
-    pose.player_model_entry = 21;
+    pose.player_model_entry = 21u + context.refuel_phase;
     break;
   }
   case view_mode::missile_infrared:
@@ -375,7 +375,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     state.smoothed_angles.x = angles.x;
     state.smoothed_angles.y = angles.y;
     set_angles({negative(angles.x),negative(angles.y),0});
-    pose.player_model_entry = 21;
+    pose.player_model_entry = 21u + context.refuel_phase;
     break;
   }
   case view_mode::target_tracking: {
@@ -415,7 +415,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     auto const offset{math::orbit_offset_q16(angles,control.distance >> 1)};
     for(unsigned int axis{0}; axis != 3; ++axis) pose.position_q16[axis] = add(pose.position_q16[axis],offset[axis]);
     set_angles({angles.x,angles.y,0});
-    pose.player_model_entry = 21;
+    pose.player_model_entry = 21u + context.refuel_phase;
     views.ready();
     break;
   }
@@ -425,7 +425,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     auto const offset{math::orbit_offset_q16({negative(context.angles.x),negative(context.angles.y)},60)};
     for(unsigned int axis{0}; axis != 3; ++axis) pose.position_q16[axis] = add(pose.position_q16[axis],offset[axis]);
     set_angles({negative(context.angles.x),negative(context.angles.y),0});
-    pose.player_model_entry = 21;
+    pose.player_model_entry = 21u + context.refuel_phase;
     break;
   }
   case view_mode::target: {
@@ -444,7 +444,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     auto const offset{math::orbit_offset_q16({0xe000,0},control.target_distance >> 1)};
     for(unsigned int axis{0}; axis != 3; ++axis) pose.position_q16[axis] = add(wrap(static_cast<uint32_t>(target[axis]) << 8),offset[axis]);
     set_angles({0xe000,0,0});
-    pose.player_model_entry = 21;
+    pose.player_model_entry = 21u + context.refuel_phase;
     views.ready();
     break;
   }

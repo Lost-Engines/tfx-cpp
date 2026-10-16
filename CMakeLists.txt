@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/refuelling.cpp
+  src/flight/refuelling.h
   src/cockpit/hud_alerts.cpp
   src/cockpit/hud_alerts.h
   src/render/palette_lighting.cpp
@@ -390,6 +392,9 @@ if(BUILD_TESTING)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
 
+  add_executable(refuelling_probe tests/refuelling_probe.cpp)
+  target_link_libraries(refuelling_probe PRIVATE tfx_core)
+  configure_first_party(refuelling_probe)
   add_executable(hud_alert_probe tests/hud_alert_probe.cpp)
   target_link_libraries(hud_alert_probe PRIVATE tfx_core)
   configure_first_party(hud_alert_probe)

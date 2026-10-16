@@ -34,12 +34,12 @@ struct weapon_display_state {
   std::optional<vec2<int16_t>> bomb_impact{};
   std::optional<vec2<int16_t>> ground_marker{};
   std::optional<air_target_cue> air_target{};
+  std::optional<air_target_cue> navigation_target{};
   bool cannon{true};
   int16_t ammunition{0};
   bool suppressed{false};
   bool air_lock{false};
   bool ground_lock{false};
-  bool navigation_contact_visible{false};
   bool limited{true};
   simulation::timer_ticks elapsed{0};
   attitude_display_state attitude;

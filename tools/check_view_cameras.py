@@ -16,6 +16,7 @@ from unicorn import x86_const as r
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
+parser.add_argument('--refuelling',action='store_true',help='exercise all four refuelling model phases')
 a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');base=im.layout['objects'][0]['preferred_base']
 for address,reason in [(0x94efc,'Supply the player pose without the separate navigation-contact controller.'),(0xca780,'Exclude world-painter mode configuration; native camera matrix setters still execute.'),(0xca6fc,'Exclude missile-camera world-painter mode configuration.'),(0xb6ea4,'Exclude forwarding player angles into the model renderer.'),(0xb4fd0,'Exclude forwarding the player model into the scene queue.'),(0xcac04,'Exclude weather-distance advancement after the completed camera update.'),(0x90320,'Exclude forwarding the player pose into the model renderer.')]:im.intercept(address,reason,lambda im:im.return_from())
 model_entries=[]
@@ -45,8 +46,15 @@ for mode in modes:
             row += [int(mode==7 or step<32 or step%17>4),q8[0]+1000,q8[1]-2000,q8[2]+4000,*angles,row[28],*row[29:32]]
             if step==0:row += [40 if mode==4 else 30 if mode==16 else 0,variant%2,20,variant//2,[0,300,2500,-100][variant],position[0]+100,position[1]-10,position[2]+100,*orbit]
             cases.append(row)
-output=subprocess.check_output([str((a.build/'view_camera_probe').resolve())],input=('\n'.join(' '.join(str(int(v)) for v in row) for row in cases)+'\n').encode()).decode().splitlines();assert len(output)==len(cases)
+if a.refuelling:
+    for index,row in enumerate(cases):row.append(index%4)
+command=[str((a.build/'view_camera_probe').resolve())]
+if a.refuelling:command.append('--refuelling')
+output=subprocess.check_output(command,input=('\n'.join(' '.join(str(int(v)) for v in row) for row in cases)+'\n').encode()).decode().splitlines();assert len(output)==len(cases)
 for index,(row,line) in enumerate(zip(cases,output)):
+    phase=row[-1] if a.refuelling else 0
+    if a.refuelling:row=row[:-1]
+    im.write(0x13b04,'<B',phase)
     reset,mode=row[:2];position=row[2:5];q8=row[5:8];angles=row[8:11];elapsed,pan,ground,low=row[11:15];basis=row[15:24];tracked,tx,ty,tz,observed,ox,oy,oz,speed,landing=row[24:34]
     if reset:
         distance,recenter,delay,tracking,target_distance,fx,fy,fz=row[45:53];orbit=row[53:62]
