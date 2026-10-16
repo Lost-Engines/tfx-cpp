@@ -18,6 +18,8 @@ aerodynamic_flight initialise_aerodynamic_flight(aerodynamic_airframe const &air
   aerodynamic_flight state;
   state.aircraft = aircraft;
   state.model = initial.model;
+  state.mounted_stores = stores;
+  state.cold_start = context.cold_start;
   if(initial.model == aerodynamic_model::realistic) state.input_gains = {
     .pitch{.4},
     .roll{.152},

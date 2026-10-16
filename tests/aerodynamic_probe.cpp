@@ -77,13 +77,26 @@ int main(int const argc, char const *const argv[]) try {
           uint64_t target_down,target_speed;
           std::cin >> mode >> enabled >> heading >> target_down >> target_speed >> route_index >> pitch >> followed >> count;
           auto &targets{state.manual.controls.autopilot};
-          targets.mode = static_cast<uint16_t>(mode);
-          targets.enabled = enabled != 0;
-          targets.heading = static_cast<tfx::math::angle>(heading);
-          targets.down_metres = std::bit_cast<double>(target_down);
-          targets.metres_per_second = std::bit_cast<double>(target_speed);
-          state.autopilot.navigation.route_index = static_cast<int16_t>(route_index);
-          state.autopilot.navigation.target_pitch = static_cast<tfx::math::angle>(pitch);
+          if(mode == 65534) {
+            // A key-triggered request precedes the callback, unlike automatic
+            // recovery raised during its air-data stage.
+            tfx::flight::toggle_aerodynamic_recovery(state.autopilot.recovery,state.manual.controls,state.powerplant,state.manual.air_brake_condition,{
+              .afterburner_stages{state.aircraft.powerplant.afterburner_stages},
+              .available{true},
+              .crashed{state.response.motion.collision != 0},
+              .landed{state.ground.ground.landed},
+            });
+          } else if(mode != 65535) {
+            targets.mode = static_cast<uint16_t>(mode);
+            targets.enabled = enabled != 0;
+            targets.heading = static_cast<tfx::math::angle>(heading);
+            targets.down_metres = std::bit_cast<double>(target_down);
+            targets.metres_per_second = std::bit_cast<double>(target_speed);
+          }
+          if(route_index != -32768) {
+            state.autopilot.navigation.route_index = static_cast<int16_t>(route_index);
+            state.autopilot.navigation.target_pitch = static_cast<tfx::math::angle>(pitch);
+          }
           for(unsigned int cell{0}; cell != count; ++cell) {
             unsigned int x,z; std::cin >> x >> z;
             cells.emplace_back(static_cast<uint8_t>(x),static_cast<uint8_t>(z));
@@ -132,8 +145,9 @@ int main(int const argc, char const *const argv[]) try {
         if(autopilot_trace) for(auto const value : aerodynamic_autopilot_snapshot(state.autopilot)) std::cout << value << ' ';
         std::cout << events.ground.gear_impacts << ' ' << events.ground.cockpit_bump << ' ' << events.afterburner.size() << ' ';
         for(auto const change : events.afterburner) std::cout << std::to_underlying(change) << ' ';
-        if(autopilot_trace) std::cout << std::to_underlying(events.recovery) << ' ';
+        if(autopilot_trace) std::cout << std::to_underlying(events.recovery) << ' ' << events.descent_warning << ' ';
         std::cout << '\n';
+        if(autopilot_trace) state.autopilot.recovery.model_reset_requested = false; // Native outer caller 0x8f98c.
       }
     }
   }
