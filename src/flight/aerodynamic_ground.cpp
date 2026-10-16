@@ -1,4 +1,4 @@
-#include "aerodynamic_ground.h"
+#include "aerodynamic_ground_internal.h"
 #include <cmath>
 #include <utility>
 #include "math/floating_environment.h"
@@ -31,6 +31,54 @@ vec3d to_body(aerodynamic_basis const &basis, vec3d const &ned) {
 
 } // anonymous namespace
 
+void update_aerodynamic_arrestor(aerodynamic_ground_state &state, aerodynamic_motion const &motion, aerodynamic_ground_parameters const &parameters, aerodynamic_ground_context const &context, bool const apply_moments) {
+  auto &point{state.contact};
+  auto const &basis{context.contact.basis};
+  if(context.carrier_surface && state.arrestor == aerodynamic_arrestor_phase::free && context.arrestor_hook_down) {
+    state.hook_offset_ned = to_ned(basis,parameters.hook_offset);
+    for(unsigned int axis{0}; axis != 3; ++axis) state.hook_anchor_ned[axis] = static_cast<double>(wide(motion.pose.metres_ned[axis]) + state.hook_offset_ned[axis]);
+    // The native height comparison has no branch: engagement is unconditional
+    // here. The anchor then uses the carrier's terrain height exactly.
+    state.hook_anchor_ned.z = static_cast<double>(wide(context.contact.ground_elevation_steps) * metres_per_foot * feet_per_ground_step);
+    state.cable_length = 0;
+    state.arrestor = aerodynamic_arrestor_phase::engaged;
+  } else if(state.arrestor != aerodynamic_arrestor_phase::free) {
+    if(context.gear_fraction == 0) state.arrestor = aerodynamic_arrestor_phase::free;
+    if(state.cable_length > maximum_cable_length) state.arrestor = aerodynamic_arrestor_phase::free;
+    else {
+      for(unsigned int axis{0}; axis != 3; ++axis) state.hook_displacement[axis] = static_cast<double>(wide(motion.pose.metres_ned[axis]) + state.hook_offset_ned[axis] - state.hook_anchor_ned[axis]);
+      auto const &displacement{state.hook_displacement};
+      double const squared{static_cast<double>(wide(displacement.x) * displacement.x + wide(displacement.y) * displacement.y + wide(displacement.z) * displacement.z)};
+      state.cable_length = static_cast<double>(std::sqrt(wide(squared)));
+      calculation const inverse_length{1.0L / state.cable_length};
+      for(unsigned int axis{0}; axis != 3; ++axis) {
+        calculation const damping{wide(displacement[axis]) * inverse_length * motion.velocity_ned[axis] * parameters.arrestor_damping};
+        state.hook_force_ned[axis] = static_cast<double>(-(damping + wide(parameters.arrestor_stiffness) * displacement[axis]));
+      }
+      auto const &velocity{motion.velocity_ned};
+      state.cable_speed = static_cast<double>(std::sqrt(wide(velocity.x) * velocity.x + wide(velocity.y) * velocity.y + wide(velocity.z) * velocity.z));
+      if(state.cable_length > stopping_cable_length || (state.cable_speed < maximum_stopping_speed && state.cable_speed > minimum_stopping_speed)) {
+        calculation const inverse_seconds{1.0L / context.seconds};
+        for(unsigned int axis{0}; axis != 3; ++axis) {
+          calculation const inertia{wide(velocity[axis]) * inverse_seconds * context.contact.total_mass_kg + context.previous_ned_force[axis]};
+          state.hook_force_ned[axis] = static_cast<double>(wide(state.hook_force_ned[axis]) - wide(displacement[axis]) * inverse_length * inertia);
+        }
+        state.arrestor = aerodynamic_arrestor_phase::stopped;
+      }
+      state.hook_force_body = to_body(basis,state.hook_force_ned);
+      for(unsigned int axis{0}; axis != 3; ++axis) point.force[axis] = static_cast<double>(wide(state.hook_force_body[axis]) + point.force[axis]);
+      if(apply_moments) {
+        auto const &offset{parameters.hook_offset};
+        auto const &force{state.hook_force_body};
+        state.hook_moment.x = static_cast<double>(wide(offset.y) * force.z - wide(offset.z) * force.y);
+        state.hook_moment.y = static_cast<double>(wide(offset.z) * force.x - wide(offset.x) * force.z);
+        state.hook_moment.z = static_cast<double>(wide(offset.x) * force.y - wide(offset.y) * force.x);
+        for(unsigned int axis{0}; axis != 3; ++axis) point.moment[axis] = static_cast<double>(wide(state.hook_moment[axis]) + point.moment[axis]);
+      }
+    }
+  }
+}
+
 aerodynamic_ground_events update_aerodynamic_ground(aerodynamic_ground_state &state, aerodynamic_motion &motion, damage_state &damage, math::random_state &random, aerodynamic_ground_parameters const &parameters, aerodynamic_ground_context const &context) {
   math::floating_environment const environment;
   aerodynamic_ground_events events;
@@ -62,47 +110,7 @@ aerodynamic_ground_events update_aerodynamic_ground(aerodynamic_ground_state &st
       point.force.x = static_cast<double>(wide(basis.forward.x) * launch_force + point.force.x);
       point.force.z = static_cast<double>(wide(basis.down.x) * launch_force + point.force.z);
     }
-    if(context.carrier_surface && state.arrestor == aerodynamic_arrestor_phase::free && context.arrestor_hook_down) {
-      state.hook_offset_ned = to_ned(basis,parameters.hook_offset);
-      for(unsigned int axis{0}; axis != 3; ++axis) state.hook_anchor_ned[axis] = static_cast<double>(wide(motion.pose.metres_ned[axis]) + state.hook_offset_ned[axis]);
-      // The native height comparison has no branch: engagement is unconditional
-      // here. The anchor then uses the carrier's terrain height exactly.
-      state.hook_anchor_ned.z = static_cast<double>(wide(context.contact.ground_elevation_steps) * metres_per_foot * feet_per_ground_step);
-      state.cable_length = 0;
-      state.arrestor = aerodynamic_arrestor_phase::engaged;
-    } else if(state.arrestor != aerodynamic_arrestor_phase::free) {
-      if(context.gear_fraction == 0) state.arrestor = aerodynamic_arrestor_phase::free;
-      if(state.cable_length > maximum_cable_length) state.arrestor = aerodynamic_arrestor_phase::free;
-      else {
-        for(unsigned int axis{0}; axis != 3; ++axis) state.hook_displacement[axis] = static_cast<double>(wide(motion.pose.metres_ned[axis]) + state.hook_offset_ned[axis] - state.hook_anchor_ned[axis]);
-        auto const &displacement{state.hook_displacement};
-        double const squared{static_cast<double>(wide(displacement.x) * displacement.x + wide(displacement.y) * displacement.y + wide(displacement.z) * displacement.z)};
-        state.cable_length = static_cast<double>(std::sqrt(wide(squared)));
-        calculation const inverse_length{1.0L / state.cable_length};
-        for(unsigned int axis{0}; axis != 3; ++axis) {
-          calculation const damping{wide(displacement[axis]) * inverse_length * motion.velocity_ned[axis] * parameters.arrestor_damping};
-          state.hook_force_ned[axis] = static_cast<double>(-(damping + wide(parameters.arrestor_stiffness) * displacement[axis]));
-        }
-        auto const &velocity{motion.velocity_ned};
-        state.cable_speed = static_cast<double>(std::sqrt(wide(velocity.x) * velocity.x + wide(velocity.y) * velocity.y + wide(velocity.z) * velocity.z));
-        if(state.cable_length > stopping_cable_length || (state.cable_speed < maximum_stopping_speed && state.cable_speed > minimum_stopping_speed)) {
-          calculation const inverse_seconds{1.0L / context.seconds};
-          for(unsigned int axis{0}; axis != 3; ++axis) {
-            calculation const inertia{wide(velocity[axis]) * inverse_seconds * context.contact.total_mass_kg + context.previous_ned_force[axis]};
-            state.hook_force_ned[axis] = static_cast<double>(wide(state.hook_force_ned[axis]) - wide(displacement[axis]) * inverse_length * inertia);
-          }
-          state.arrestor = aerodynamic_arrestor_phase::stopped;
-        }
-        state.hook_force_body = to_body(basis,state.hook_force_ned);
-        for(unsigned int axis{0}; axis != 3; ++axis) point.force[axis] = static_cast<double>(wide(state.hook_force_body[axis]) + point.force[axis]);
-        auto const &offset{parameters.hook_offset};
-        auto const &force{state.hook_force_body};
-        state.hook_moment.x = static_cast<double>(wide(offset.y) * force.z - wide(offset.z) * force.y);
-        state.hook_moment.y = static_cast<double>(wide(offset.z) * force.x - wide(offset.x) * force.z);
-        state.hook_moment.z = static_cast<double>(wide(offset.x) * force.y - wide(offset.y) * force.x);
-        for(unsigned int axis{0}; axis != 3; ++axis) point.moment[axis] = static_cast<double>(wide(state.hook_moment[axis]) + point.moment[axis]);
-      }
-    }
+    update_aerodynamic_arrestor(state,motion,parameters,context,true);
     events.cockpit_bump = -wide(point.force.z) > wide(context.contact.total_mass_kg) * gravity * cockpit_bump_multiplier;
   }
   if(point.force.z < 0) {

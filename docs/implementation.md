@@ -1354,3 +1354,11 @@ Native 0x9ce5c now combines all six original aircraft contact points, preserving
 All 8,192 complete original updates agree: 1,537 contact passes, 401 random bump sequences, 423 gear impact requests, 1,186 arrestor transitions and 1,563 cockpit bump requests. The complete ground routine and all six original point evaluations execute; only failed-gear output notification delivery is intercepted and counted. There are 123 compact captures. The checked aircraft-profile decoder also supplies all six contact offsets, hook geometry, suspension, friction/brake limits and carrier constants directly from preset data.
 
     python3 tools/check_aerodynamic_ground.py
+
+### Complete Realistic-mode ground handling
+
+Native 0x9e0f4 is translated separately from military-spec suspension. Its three projection-only wheel checks, touchdown/liftoff gates, keyboard-elevator inhibition, weight support, distinct rough-ground and braking laws, progressive failures and kinematic roll/pitch/height corrections are retained. Carrier cable code is shared between the two translated paths; Realistic omits physical hook moments, matching the native branch. Collision does not silently acquire the military branch's load-clearing behavior.
+
+All 8,192 complete original Realistic ground updates agree, including 1,042 random bump sequences, 830 failed-gear notifications and 1,317 arrestor transitions. The full routine and original wheel projections execute. FPATAN/FSIN/FCOS use the hardware adapter; failed-gear output is the only other interception and is counted. All physical position/velocity changes, control commands, point caches, damage, random seeds and output requests are observed. There are 123 compact captures. The complete military ground comparison repeats after sharing its checked carrier implementation.
+
+    python3 tools/check_aerodynamic_realistic_ground.py
