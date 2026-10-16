@@ -14,6 +14,9 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aerodynamic_guidance.cpp
+  src/flight/aerodynamic_guidance.h
+  src/flight/aerodynamic_rotation_internal.h
   src/flight/aerodynamic_recovery.cpp
   src/flight/aerodynamic_recovery.h
   src/flight/aerodynamic_step.cpp
@@ -470,6 +473,12 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_guidance_probe tests/aerodynamic_guidance_probe.cpp)
+  target_link_libraries(aerodynamic_guidance_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_guidance_probe)
+  add_test(NAME flight.native_aerodynamic_guidance COMMAND aerodynamic_guidance_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_guidance.txt")
+  add_test(NAME flight.native_aerodynamic_autopilot_controls COMMAND aerodynamic_guidance_probe --controls "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_autopilot_controls.txt")
 
   add_executable(aerodynamic_recovery_probe tests/aerodynamic_recovery_probe.cpp)
   target_link_libraries(aerodynamic_recovery_probe PRIVATE tfx_core)

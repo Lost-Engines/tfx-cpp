@@ -1417,3 +1417,17 @@ All 8,192 complete original recovery toggles agree: 2,575 engagements, 1,286 res
 The original restoration loop cannot terminate if the saved afterburner state is no longer reachable, for example after fuel runs out. A bounded original execution confirms that loop; the translation diagnoses it instead of hanging. This state has no terminating original output to compare. The finite comparison corpus restricts saved reheat to reachable settings and separately checks that diagnostic.
 
     python3 tools/check_aerodynamic_recovery.py
+
+### Autopilot guidance and rate-to-control conversion
+
+Native 0x9b003..0x9bb20 now computes constrained heading/altitude/climb requests, bank limits, bank/pitch response, damping feedback, recovery behavior and speed commands. It preserves the original direct physical attitude corrections when rate steps would overshoot, including quantized-angle remainder handling. The original 80-degree bank comparison versus assigned 83-degree clamp remains. Direct corrections and normal motion share their checked angle-unit rotation helper.
+
+All 8,192 bounded original guidance cases agree: 1,208 physical attitude corrections, 410 recovery restorations and 2,102 ordered afterburner changes. Native guidance, speed/reheat control, recovery and physical rotation helpers execute; navigation targets are declared preceding-stage inputs. The enclosing synthetic frame supplies scratch space only. Output delivery and hardware transcendental adapters are the only intercepted dependencies. There are 123 compact captures.
+
+    python3 tools/check_aerodynamic_guidance.py
+
+The following native conversion (0x9bb20 to the common suffix at 0x9bfa5) also agrees in 8,192 cases, including actual/keyboard elevator/aileron/rudder, trim and the cleared pitch bias. Mode 3 retains its incoming controls as in the original. All aircraft and thrust-vector contributions are covered; only FSIN uses the hardware adapter. There are another 123 compact captures.
+
+    python3 tools/check_aerodynamic_autopilot_controls.py
+
+These are checked autopilot stages; complete target/route selection, eligibility/dispatch and connected autopilot trajectories remain to be joined.

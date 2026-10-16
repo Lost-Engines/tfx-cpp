@@ -1,4 +1,4 @@
-#include "aerodynamic_motion.h"
+#include "aerodynamic_rotation_internal.h"
 #include <bit>
 #include <cmath>
 #include "math/floating_environment.h"
@@ -27,23 +27,29 @@ math::angle rotation_amount(double const amount, double *const remainder) {
   return result;
 }
 void rotate(aerodynamic_motion &state, calculation const roll, calculation const pitch, calculation const yaw) {
-  // Physical F/R/D columns map onto the generic matrix's first/second/third
-  // columns. Its "pitch" rotation therefore rolls this physical frame.
+  double const inverse_pi{static_cast<double>(1.0L / native_pi)};
+  rotate_aerodynamic_units(state,aerodynamic_rotation::roll,static_cast<double>(roll * angle_units_per_half_turn * inverse_pi));
+  rotate_aerodynamic_units(state,aerodynamic_rotation::pitch,static_cast<double>(pitch * angle_units_per_half_turn * inverse_pi));
+  rotate_aerodynamic_units(state,aerodynamic_rotation::yaw,static_cast<double>(yaw * angle_units_per_half_turn * inverse_pi));
+}
+
+} // anonymous namespace
+
+void rotate_aerodynamic_units(aerodynamic_motion &state, aerodynamic_rotation const axis, double const units) {
+  math::floating_environment const environment;
+  // Physical F/R/D columns map to the generic first/second/third columns.
   math::attitude frame{
     .right{vec3<int32_t>{state.pose.frame.forward}},
     .down{vec3<int32_t>{state.pose.frame.right}},
     .forward{vec3<int32_t>{state.pose.frame.down}},
   };
-  double const inverse_pi{static_cast<double>(1.0L / native_pi)};
-  frame.rotate(math::rotation_axis::pitch,rotation_amount(static_cast<double>(roll * angle_units_per_half_turn * inverse_pi),&state.rotation_remainder.x));
-  frame.rotate(math::rotation_axis::heading,rotation_amount(static_cast<double>(pitch * angle_units_per_half_turn * inverse_pi),&state.rotation_remainder.y));
-  frame.rotate(math::rotation_axis::roll,rotation_amount(static_cast<double>(yaw * angle_units_per_half_turn * inverse_pi),nullptr));
+  double *const remainder{axis == aerodynamic_rotation::roll ? &state.rotation_remainder.x : axis == aerodynamic_rotation::pitch ? &state.rotation_remainder.y : nullptr};
+  auto const rotation{axis == aerodynamic_rotation::roll ? math::rotation_axis::pitch : axis == aerodynamic_rotation::pitch ? math::rotation_axis::heading : math::rotation_axis::roll};
+  frame.rotate(rotation,rotation_amount(units,remainder));
   state.pose.frame.forward = frame.right;
   state.pose.frame.right = frame.down;
   state.pose.frame.down = frame.forward;
 }
-
-} // anonymous namespace
 
 void advance_aerodynamic_motion(aerodynamic_motion &state, aerodynamic_motion_context const &context) {
   math::floating_environment const environment;
