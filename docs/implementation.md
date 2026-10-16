@@ -1370,3 +1370,11 @@ The numerical suffix of 0x99ecc (0x99f6f..0x9a100) now converts the completed ma
 All 8,192 bounded original suffix cases agree. A declared synthetic caller frame supplies only the enclosing saved EBP/return, and FSIN/FCOS use the hardware adapter. Input/manual control and derivative production are stage inputs, rather than silently stubbed original calls. There are 123 compact captures.
 
     python3 tools/check_aerodynamic_commands.py
+
+### Physical-model initialization and model switching
+
+The complete native 0x954fc initializer now reconstructs physical axes/pose, mass, starting body/NED velocities, grounded motion resets, cold-start fuel/engine state, track heading and the initial timestep. Both store recalculations retain their original order relative to the initial mass sum. Pose conversion keeps this routine's original cyclic cockpit-offset component order. The aircraft owns application of the decoded carrier setup, keeping the shared wing area consistent across coefficient/surface consumers.
+
+All 8,192 complete original initializations agree, including 4,095 ground starts and 143 special carrier starts. All 27 original store definitions are sampled in a mounted slot with varied offsets, prior store mass and fuel. The native initializer, store accumulation and carrier tuning execute without interception. There are 123 compact captures. The complete preset comparison also checks all decoded carrier values and their applied surface/coefficient/contact fields.
+
+    python3 tools/check_aerodynamic_start.py

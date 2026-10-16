@@ -274,8 +274,20 @@ std::array<aerodynamic_airframe,3> load_aerodynamic_airframes(std::span<uint8_t 
     profile.stall_metres_per_second = literals.number(0x14540);
     profile.low_speed_reference = literals.number(0x14548);
     profile.cruise_mach = literals.number(0x14698);
+    preset_literals const carrier{source,0x968d4,0x96918};
+    profile.carrier_setup = {
+      .maximum_sink_speed{carrier.number(0x14568)},
+      .wing_area{carrier.number(0x147a0)},
+      .air_brake_drag{carrier.number(0x14430)},
+    };
   }
   return result;
+}
+
+void aerodynamic_airframe::use_carrier_setup() {
+  ground.contact.maximum_sink_speed = carrier_setup.maximum_sink_speed;
+  surfaces.wing_area = coefficient_base.wing_area = carrier_setup.wing_area;
+  surfaces.air_brake_drag = carrier_setup.air_brake_drag;
 }
 
 aerodynamic_coefficient_parameters aerodynamic_airframe::initial_coefficients(double const previous_flap_lift_offset) const {

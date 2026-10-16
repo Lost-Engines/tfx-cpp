@@ -35,6 +35,8 @@ for craft in range(3):
     wanted += [im.read(field,'<Q')[0] for field in contact]
     wanted += [word for field in (0x13ed0,0x145d8,0x13df8,0x13d60,0x13d78,0x13e10,0x13dd8) for word in im.read(field,'<3Q')]
     wanted += [im.read(field,'<Q')[0] for field in (0x14550,0x13d40,0x13d98)]
+    im.call(0x968d4)
+    wanted += [im.read(field,'<Q')[0] for field in (0x14568,0x147a0,0x14430,0x14568,0x147a0,0x147a0,0x14430)]
     observed=list(map(int,actual[craft].split()));assert observed==wanted,(craft,[(i,x,y) for i,(x,y) in enumerate(zip(observed,wanted)) if x!=y],len(observed),len(wanted))
     for case in range(128):
         previous=0 if case==0 else rng.uniform(-.1,.1)
