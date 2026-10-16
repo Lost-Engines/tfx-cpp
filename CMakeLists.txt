@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/weapons/cannon_prediction.cpp
+  src/weapons/cannon_prediction.h
+  src/cockpit/attitude_display.cpp
+  src/cockpit/attitude_display.h
   src/cockpit/hud_text.cpp
   src/cockpit/hud_text.h
   src/cockpit/frame.cpp
@@ -362,6 +366,14 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(cannon_prediction_probe tests/cannon_prediction_probe.cpp)
+  target_link_libraries(cannon_prediction_probe PRIVATE tfx_core)
+  configure_first_party(cannon_prediction_probe)
+
+  add_executable(attitude_display_probe tests/attitude_display_probe.cpp)
+  target_link_libraries(attitude_display_probe PRIVATE tfx_core)
+  configure_first_party(attitude_display_probe)
 
   add_executable(hud_text_probe tests/hud_text_probe.cpp)
   target_link_libraries(hud_text_probe PRIVATE tfx_core)

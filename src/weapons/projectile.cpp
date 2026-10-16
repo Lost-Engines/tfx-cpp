@@ -21,8 +21,8 @@ void expire(projectile &state, definition const &weapon, uint16_t const elapsed)
   state.ticks = word(state.ticks - elapsed);
   if(state.ticks <= 0) next_stage(state,weapon);
 }
-void travel(projectile &state, uint16_t const elapsed) {
-  actors::move(state.position,state.angles,wrap(static_cast<int64_t>(elapsed) * state.speed));
+void travel(projectile &state, motion_context const &context) {
+  actors::move(state.position,state.angles,wrap(static_cast<int64_t>(context.elapsed) * state.speed),context.height_bounds.x,context.height_bounds.y);
 }
 void gravity(projectile &state, uint16_t const elapsed, int const acceleration = 20) {
   int32_t const displacement{wrap(static_cast<int64_t>(elapsed) * state.fall_speed) / gravity_velocity_divisor + (static_cast<int32_t>(elapsed) * elapsed) / 250};
@@ -64,7 +64,7 @@ motion_result advance_motion(projectile &state, definition const &weapon, motion
   auto const current_weapon{[&]()->definition const& { return hooks.current_definition ? hooks.current_definition(state.weapon) : weapon; }};
   auto const falling{[&] {
     expire(state,current_weapon(),elapsed);
-    travel(state,elapsed);
+    travel(state,context);
     gravity(state,elapsed);
   }};
   auto const scatter{[&](vec3<int32_t> const &centre, bool const wide) {
@@ -93,7 +93,7 @@ motion_result advance_motion(projectile &state, definition const &weapon, motion
     expire(state,current_weapon(),elapsed);
     state.speed = wrap(static_cast<int64_t>(state.speed) + (state.acceleration >> 2));
     state.acceleration = std::min<int16_t>(word(state.acceleration + elapsed * 16),200);
-    travel(state,elapsed);
+    travel(state,context);
     break;
   case flight_stage::coasting:
     state.secondary = true;
@@ -148,7 +148,7 @@ motion_result advance_motion(projectile &state, definition const &weapon, motion
         state.angles.x = static_cast<math::angle>(state.angles.x + pitch);
         state.angles.y = static_cast<math::angle>(state.angles.y + heading);
       } else if(math::signed_word(state.angles.x) < guidance_capture_angle) state.angles.x = static_cast<math::angle>(state.angles.x + word(elapsed * guidance_turn_per_tick));
-      travel(state,elapsed);
+      travel(state,context);
       consume_range(state,current_weapon(),elapsed);
       if(sea_skimming && state.position.y >= -20480) next_stage(state,current_weapon());
     }
@@ -162,7 +162,7 @@ motion_result advance_motion(projectile &state, definition const &weapon, motion
       state.angles.x = static_cast<math::angle>(state.angles.x + word(elapsed * guidance_turn_per_tick));
       state.angles.y = static_cast<math::angle>(state.angles.y - word(elapsed * guidance_turn_per_tick));
     }
-    travel(state,elapsed);
+    travel(state,context);
     consume_range(state,current_weapon(),elapsed);
     break;
   case flight_stage::finished: break;

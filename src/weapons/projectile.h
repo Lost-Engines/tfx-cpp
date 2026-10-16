@@ -32,6 +32,7 @@ struct motion_context {
   bool player_invulnerable{false};
   bool player_decoys{false};
   int32_t player_distance{0};
+  vec2<int32_t> height_bounds{actors::minimum_world_y,actors::maximum_world_y};
 };
 struct child_release {
   vec3<int32_t> position;

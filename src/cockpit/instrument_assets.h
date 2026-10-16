@@ -14,9 +14,18 @@ struct radar_scale {
   int16_t world_per_pixel;
 };
 
+struct pitch_mark {
+  int16_t label;
+  bool dashed;
+  std::array<vec2<int16_t>,6> vertices;
+};
+
 struct instrument_assets {
   std::array<uint8_t,64> character_map;
   std::string font_bank;
+  std::string heading_bank;
+  std::string pitch_bank;
+  std::array<pitch_mark,42> pitch_marks;
   std::string in_range_label;
   std::array<std::string,3> brake_messages;
   std::array<std::string,5> hud_number_formats;
