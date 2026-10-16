@@ -1,0 +1,60 @@
+#pragma once
+
+#include "cockpit/view_control.h"
+#include "render/camera.h"
+#include "simulation/timing.h"
+
+namespace tfx::cockpit {
+
+struct view_camera_context {
+  vec3<int32_t> position{0,0,0};
+  vec3<int32_t> position_q8{0,0,0};
+  vec3<math::angle> angles{0,0,0};
+  math::attitude basis{};
+  simulation::timer_ticks elapsed{0};
+  uint16_t pan{0};
+  int16_t ground_height{0};
+  bool low_memory{false};
+  bool landing{false};
+  int32_t speed{0};
+  std::optional<vec3<int32_t>> tracking_target_q8{};
+  std::optional<vec3<int32_t>> observed_target_q8{};
+};
+struct view_pose {
+  vec3<int32_t> anchor{0,0,0};
+  vec3<int32_t> position_q16{0,0,0};
+  vec3<math::angle> angles{0,0,0};
+  mat3<int32_t> matrix{};
+  std::optional<unsigned int> player_model_entry{};
+  render::camera camera(vec2d const &projection_origin) const;
+};
+struct view_motion_state {
+  vec3<int16_t> head{0,0,0};
+  vec3<int32_t> offset_q16{0,0,0};
+  vec3<math::angle> smoothed_angles{0,0,0};
+  int16_t pitch{0};
+  int16_t heading{0};
+  int16_t orbit_roll{0};
+  int32_t previous_floor_offset{0};
+  uint16_t pan{0};
+};
+
+class view_camera {
+private:
+  view_motion_state state;
+  view_pose pose;
+  void pan_head(view_control &views, uint16_t pan, bool limit_pitch);
+  void limit_head(view_control &views);
+  void select_head_height();
+  bool compose(view_control &views, view_camera_context const &context, bool chase);
+  void set_angles(vec3<math::angle> const &angles);
+  void player_origin(view_camera_context const &context);
+
+public:
+  explicit view_camera(view_motion_state initial = {});
+  view_motion_state const &value() const;
+  view_pose const &last_pose() const;
+  bool advance(view_control &views, view_camera_context const &context);
+};
+
+} // namespace tfx::cockpit

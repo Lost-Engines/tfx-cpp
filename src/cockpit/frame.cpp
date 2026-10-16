@@ -32,7 +32,7 @@ vec2<int16_t> frame::clamp(unsigned int const view, vec2<int16_t> const &offset)
 }
 vec2d frame::projection_origin(unsigned int const view, vec2<int16_t> const &offset) const {
   auto const &layout{assets.viewports.at(view)};
-  return {render::centre_x - 1,static_cast<double>(layout.projection_centre_y + offset.y / 2)};
+  return {render::centre_x - 1,static_cast<double>(layout.projection_centre_y + (layout.panel.empty() ? 0 : offset.y / 2))};
 }
 void frame::paint(render::framebuffer &target, unsigned int const view, vec2<int16_t> const &offset, render::framebuffer *const coverage) const {
   auto const &layout{assets.viewports.at(view)};
@@ -65,6 +65,7 @@ cockpit_position::cockpit_position(instrument_assets const &source, vec2<int16_t
 vec2<int16_t> const &cockpit_position::value() const { return offset; }
 unsigned int cockpit_position::step_index() const { return step; }
 cockpit_motion cockpit_position::movement() const { return motion; }
+void cockpit_position::move_to(vec2<int16_t> const &position) { offset = vec2<int16_t>{position}; }
 void cockpit_position::raise() { motion = cockpit_motion::up; }
 void cockpit_position::lower() { motion = cockpit_motion::down; }
 void cockpit_position::advance(int16_t const viewport_bottom) {

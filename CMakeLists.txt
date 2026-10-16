@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/cockpit/view_camera.cpp
+  src/cockpit/view_camera.h
   src/cockpit/view_control.cpp
   src/cockpit/view_control.h
   src/cockpit/target_display.cpp
@@ -377,6 +379,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(view_camera_probe tests/view_camera_probe.cpp)
+  target_link_libraries(view_camera_probe PRIVATE tfx_core)
+  configure_first_party(view_camera_probe)
 
   add_executable(view_control_probe tests/view_control_probe.cpp)
   target_link_libraries(view_control_probe PRIVATE tfx_core)

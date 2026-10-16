@@ -1,0 +1,51 @@
+#include <iostream>
+#include <utility>
+#include "cockpit/view_camera.h"
+
+int main() {
+  using namespace tfx::cockpit;
+  view_control views;
+  view_camera motion;
+  bool reset;
+  int mode;
+  while(std::cin >> reset >> mode) {
+    view_camera_context context;
+    std::cin >> context.position.x >> context.position.y >> context.position.z >> context.position_q8.x >> context.position_q8.y >> context.position_q8.z
+      >> context.angles.x >> context.angles.y >> context.angles.z >> context.elapsed >> context.pan >> context.ground_height >> context.low_memory;
+    for(unsigned int row{0}; row != 3; ++row) std::cin >> context.basis.right[row] >> context.basis.down[row] >> context.basis.forward[row];
+    bool tracked, observed;
+    vec3<int32_t> target, observer;
+    std::cin >> tracked >> target.x >> target.y >> target.z >> observed >> observer.x >> observer.y >> observer.z >> context.speed >> context.landing;
+    if(tracked) context.tracking_target_q8.emplace(vec3<int32_t>{target});
+    if(observed) context.observed_target_q8.emplace(vec3<int32_t>{observer});
+    else if(tracked) context.observed_target_q8.emplace(vec3<int32_t>{target});
+    if(reset) {
+      view_control_state initial;
+      initial.current = static_cast<view_mode>(mode);
+      std::cin >> initial.distance >> initial.recenter >> initial.departure_delay >> initial.tracking_roll >> initial.target_distance >> initial.fixed_position.x >> initial.fixed_position.y >> initial.fixed_position.z;
+      for(unsigned int row{0}; row != 3; ++row) std::cin >> initial.orbit.right[row] >> initial.orbit.down[row] >> initial.orbit.forward[row];
+      views = view_control{std::move(initial)};
+      motion = view_camera{};
+    }
+    auto active{views.value()};
+    active.ready = false;
+    views = view_control{std::move(active)};
+    bool const handled{motion.advance(views,context)};
+    if(!handled) return 2;
+    auto const &state{motion.value()};
+    auto const &control{views.value()};
+    auto const &pose{motion.last_pose()};
+    auto const put{[](auto const value) { std::cout << static_cast<int32_t>(value) << ' '; }};
+    put(control.distance);put(control.recenter);put(control.departure_delay);put(control.ready);
+    for(unsigned int row{0}; row != 3; ++row) { put(control.orbit.right[row]);put(control.orbit.down[row]);put(control.orbit.forward[row]); }
+    put(state.head.x);put(state.head.y);put(state.head.z);put(state.offset_q16.x);put(state.offset_q16.y);put(state.offset_q16.z);
+    put(state.smoothed_angles.x);put(state.smoothed_angles.y);put(state.smoothed_angles.z);put(state.pitch);put(state.heading);put(state.orbit_roll);put(state.previous_floor_offset);
+    put(pose.anchor.x);put(pose.anchor.y);put(pose.anchor.z);put(pose.position_q16.x);put(pose.position_q16.y);put(pose.position_q16.z);
+    for(auto const value : pose.matrix.data) put(value);
+    put(pose.player_model_entry ? static_cast<int>(*pose.player_model_entry) : -1);
+    put(control.current);put(control.target_distance);put(control.written);put(control.read);
+    for(auto const mode : control.queue) put(mode);
+    put(control.tracking_complete);put(control.tracking_roll);put(state.pan);
+    std::cout << '\n';
+  }
+}

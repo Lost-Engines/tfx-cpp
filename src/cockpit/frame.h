@@ -36,6 +36,7 @@ public:
   vec2<int16_t> const &value() const;
   unsigned int step_index() const;
   cockpit_motion movement() const;
+  void move_to(vec2<int16_t> const &position);
   void raise();
   void lower();
   void advance(int16_t viewport_bottom);

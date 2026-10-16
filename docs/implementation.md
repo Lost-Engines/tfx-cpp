@@ -914,3 +914,22 @@ python3 tools/check_view_controls.py
 The original ten function-key selectors now share an owned ten-entry view queue, retained cockpit offsets, low-memory alternatives, orbit matrices and fixed fly-past position. Intermediate viewport indices are named separately from final camera modes. Consumption occurs only after the current camera stage signals completion; a full queue drops further requests, and leaving a missile view discards the old queue. Shift+F1 and missile infrared retain the native save/restore rules. F5 deliberately has a different automatic-landing gate from the other keys. F9 compares target pointers before checking null, so two missing pointers still queue the ground-distance target view.
 
 **9,690 native selector/queue updates agree** across all 29 initial views, all ten keys, blocked controls, low-memory mode, repeated requests, full queues, offsets and varied player poses. Original matrix rotations and fixed-camera placement execute; target selection is supplied at its external boundary and optional fly-past sound requests are excluded. Development, Release and ASan/UBSan comparisons pass. This establishes selection state; live camera motion and drawing are the next integration step.
+
+
+### Head, chase and target camera integration
+
+```sh
+python3 tools/check_view_cameras.py
+python3 tools/check_view_controls.py
+python3 tools/check_window_views.py --data-dir /path/to/TFX
+```
+
+The camera dispatcher now retains the original head lift, yaw/pitch limits, head-turn stages, return-to-panel movement, chase smoothing/ground limit, fixed fly-past placement and automatic chase handoff. Tactical and target-observer cameras consume explicit selected contacts. Virtual-cockpit target tracking retains its original directional limits, roll gates, lost-contact recovery queue and automatic resumption. The view-matrix generator and Q16 orbit-position helper are shared with the separately verified arming camera. Full-world scene positions are unwrapped around the native terrain anchor without changing the original wrapped Q16 translation.
+
+**10,240 native dispatcher updates agree** across twenty view modes in retained state, complete camera matrices, Q16 positions, automatic queue changes and internal/side/exterior player-model requests. Cases include rotated world/orbit matrices, signed-angle wrapping, pan input, ground limits, missing contacts and target loss. Original camera/controller/matrix code executes; supplied player/target poses and ground heights are explicit inputs, while navigation contact selection, world-driver configuration, weather advancement and actual player-model rendering are declared boundaries. The native target observer's variable-shift height-anchor quirk is retained independently of its camera translation.
+
+The comparison passes in development, Release and ASan/UBSan, as do all 9,690 view-selector updates. All 29 viewport records and the existing 198 cockpit-composition frames still agree. The existing 12,860 arming mount picks and 60 native arming-animation draws also pass after the shared-math change. Private-window checks cover chase/full/head/rear/tactical/target/virtual keys, cockpit-offset restoration, paused-frame retention, existing firing/MFD/designator controls and result handoff.
+
+Live flight selects the appropriate forward-HUD callback, preserves radio placement in other views and restores cockpit offsets after transitions. F1–F7, F9 and F10 are connected; F8 missile views, recovery/ejection cameras, the external-view information painter and complete frame/session verification remain open. Inspection also exposed a rendering limitation: the current scene painter's fixed world-space near plane removes the very small virtual-canopy geometry despite correct native model selection. Preserving each model's projection scale through clipping is the next renderer correction.
+
+All 44 CTests pass after rebuilding every development target. The remaining canopy limitation is recorded above rather than inferred away from passing camera-state tests.
