@@ -781,3 +781,12 @@ An original bug is explicit: `0x88378` reads a roll word after `0xc9714` writes 
 
 
 The original MFD key callbacks are now represented by the selection state: 1/2/3 cycle their respective displays, R decreases/wraps the active radar range, the F-117 skips BVR, the left ground database is skipped without authored targets, and the right camera page has its original aircraft/weapon-category eligibility. Wrapping to the first page happens at draw time. **1,920 native cases agree**, including word boundaries and the signed normalization rules (`tools/check_display_controls.py`). Environment configurations now supply their authored schematic basename rather than inferring one from the terrain filename; palette, night flag and map bindings agree for **all 33 decoded native environments** (`tools/check_environment_bindings.py`).
+
+
+### Live instrument integration
+
+The flight host now binds the instrument compositor to live player pose, engines, throttle, fuel, faults and stores; it supplies aircraft, mobile-surface and projectile contacts in native enumeration order. Both MFD scene pages use the recovered camera requests with the existing software world renderer. Original 1/2/3/R/N display controls are connected, fuel-status feedback returns to the system state, and pausing retains the completed frame rather than advancing instrument animations. The host requests indicator refreshes because it repaints the whole framebuffer.
+
+The outer player callback's fuel-gauge/burn filter is also translated: **4,246 native cases agree**, including signed-word boundaries and the minimum burn estimate. This feeds the flight-data page's range estimate instead of inventing a fuel-flow approximation (`tools/check_fuel_gauge.py`).
+
+A private X11 test exercises store and cannon firing, all three MFD key paths (including scene-camera pages), range/target keys, pause stability, designator controls and mission termination. **All 128 retail missions start with the live HUD**, and another pass advances **1,024 simulation steps in every mission under ASan/UBSan** before drawing. The existing 44 CTests and Release/HUD comparisons pass. These are integration checks, not complete native flight-frame comparisons. Static cockpit framing, upper aiming symbology, radio layout, full view selection and remaining flight-system bindings are still being connected; their diagnostic adapter remains visible.

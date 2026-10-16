@@ -61,6 +61,22 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             def readout(path):
                 with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((5,32,65,39)).tobytes()
             if readout(before_path)==readout(after_path):raise RuntimeError('Space did not change the cannon ammunition readout')
+            # Exercise actual MFD key bindings, including both scene-camera pages.
+            def panel(path,bounds):
+                with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop(bounds).tobytes()
+            for key,bounds in [('1',(55,132,112,170)),('2',(130,150,190,197)),('3',(210,132,267,170))]:
+                run('import','-window',window,str(before_path),check=True);tap(key)
+                run('import','-window',window,str(after_path),check=True)
+                if panel(before_path,bounds)==panel(after_path,bounds):raise RuntimeError('MFD '+key+' did not change through keyboard input')
+                for _ in range(9):tap(key)
+                if game.poll() is not None:raise RuntimeError('cycling MFD '+key+' terminated flight')
+            tap('r');tap('n');tap('p')
+            run('import','-window',window,str(before_path),check=True);time.sleep(.3)
+            run('import','-window',window,str(after_path),check=True)
+            with Image.open(before_path) as before,Image.open(after_path) as after:
+                if before.tobytes()!=after.tobytes():raise RuntimeError('paused instrument frame kept advancing')
+            tap('p')
+            print('Private X11 MFD controls passed: all three displays cycle, scene pages render, radar range/target keys respond and pause freezes the frame')
             run('xdotool','key','Escape',check=True);game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])

@@ -75,6 +75,8 @@ struct instrument_assets {
   double gauge_fuel_scale;
   float gauge_throttle_scale;
   double engine_percent;
+  int16_t initial_fuel_gauge;
+  int16_t initial_fuel_burn;
   explicit instrument_assets(std::span<uint8_t const> executable);
 };
 
