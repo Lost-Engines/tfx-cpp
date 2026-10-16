@@ -17,6 +17,7 @@ struct instance_context {
   uint16_t status{0};
   int16_t distance{0};
   std::function<int16_t(vec3d const&)> anchor_distance{};
+  std::function<void(uint16_t)> collision_response{};
 };
 struct scene_request {
   unsigned int opcode;
@@ -56,6 +57,7 @@ public:
   uint16_t health{0};
 
   explicit instance(definition const &source);
+  void apply_contact_damage(uint16_t damage);
   instance_result execute(unsigned int entry, instance_context const &context = {});
   instance_result animate(instance_context const &context = {});
   std::optional<unsigned int> stream_cursor(unsigned int part, unsigned int parameter) const;

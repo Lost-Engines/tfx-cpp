@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <functional>
 #include "actors/program.h"
 #include "weapons/definition.h"
 
@@ -43,8 +44,13 @@ struct motion_result {
   std::vector<child_release> children{};
 };
 
+struct motion_hooks {
+  std::function<void(child_release const&)> release{};
+  std::function<definition const&(uint8_t)> current_definition{};
+};
+
 void next_stage(projectile &state, definition const &weapon);
 projectile launch(definition const &weapon, uint8_t index, vec3<int32_t> const &position, vec3<math::angle> const &angles, int32_t speed);
-motion_result advance_motion(projectile &state, definition const &weapon, motion_context const &context, math::random_state &random);
+motion_result advance_motion(projectile &state, definition const &weapon, motion_context const &context, math::random_state &random, motion_hooks const &hooks = {});
 
 } // namespace tfx::weapons

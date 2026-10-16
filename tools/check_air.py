@@ -15,7 +15,7 @@ def dataset(path):
     return json.loads(text[text.index('=')+1:].strip().removesuffix(';'))
 
 
-def original(data_dir,raw,profiles,ticks,intact,formation=None,combat=None,manoeuvres=()):
+def original(data_dir,raw,profiles,ticks,intact,formation=None,combat=None,manoeuvres=(),damage_tick=0):
     image=NativeReference(data_dir/'TFX.DAT')
     image.cpu.mem_map(0x300000,0x50000)
     image.cpu.mem_write(0x300000,raw)
@@ -98,6 +98,13 @@ def original(data_dir,raw,profiles,ticks,intact,formation=None,combat=None,manoe
                 strength=struct.unpack('<h',struct.pack('<H',im.cpu.reg_read(r.UC_X86_REG_EDX)&65535))[0]
                 requests.append([registry[im.cpu.reg_read(r.UC_X86_REG_EAX)],6,kind,strength]);im.return_from()
             image.intercept(address,'Record countermeasure request; incoming threat is externally supplied and held fixed.',countermeasure)
+    if damage_tick:
+        image.write(0xac74,'<I',image.native(0x75954)) # Declared sound-output boundary: original empty callback.
+        image.intercept(0x7da20,'Supply an ordinary non-water ground impact effect.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,8),im.return_from()))
+        def impact(im):
+            position=struct.unpack('<3i',im.cpu.mem_read(im.cpu.reg_read(r.UC_X86_REG_EAX),12))
+            requests.append([identity(im),4,*position,im.cpu.reg_read(r.UC_X86_REG_EDX)]);im.return_from()
+        image.intercept(0x7b144,'Capture the separately rendered aircraft ground-impact effect.',impact)
     records=[];cursor=0
     while True:
         size=struct.unpack_from('<H',raw,cursor)[0];cursor+=2
@@ -106,6 +113,10 @@ def original(data_dir,raw,profiles,ticks,intact,formation=None,combat=None,manoe
     output=[]
     for tick in range(ticks):
         requests.clear()
+        if damage_tick and tick==damage_tick:
+            for pointer,index in sorted(registry.items(),key=lambda item:item[1]):
+                image.write(0x5a10,'<H',int(index>=50));image.write(0x11118,'<h',index%50)
+                image.call(0x78274,eax=pointer)
         image.call(0x78064,limit=2000000);image.call(0x78084,limit=2000000)
         values=[]
         for pointer,index in sorted(registry.items(),key=lambda item:item[1]):
@@ -135,6 +146,7 @@ def main():
     parser.add_argument('--program')
     parser.add_argument('--intact',type=int,default=0)
     parser.add_argument('--combat',action='store_true')
+    parser.add_argument('--damage-tick',type=int,default=0)
     parser.add_argument('--incoming',type=int,default=0)
     parser.add_argument('--synthetic',action='store_true')
     parser.add_argument('--save-fixture',type=Path)
@@ -191,15 +203,15 @@ def main():
                 raw=struct.pack('<H',len(code))+code+bytes(2)
                 combat=[10*524288+262144+(300000 if scenario%3==2 else 0),-12000*32,10*524288+262144+(2500000 if scenario%4==0 else 100000),0,32768 if scenario%2 else 0,0,400<<16,scenario%3,0,int(scenario!=8),scenario-8 if scenario>=9 else 0]
                 ticks=4096
-                observed,count=original(data_dir,raw,synthetic_profiles,ticks,0,formation,combat,manoeuvres)
+                observed,count=original(data_dir,raw,synthetic_profiles,ticks,0,formation,combat,manoeuvres,args.damage_tick)
                 digest=14695981039346656037
                 for sample,_ in observed:
                     for byte in struct.pack('<Q',sample):digest=((digest^byte)*1099511628211)&0xffffffffffffffff
-                fixtures.append(f"{ticks} 0 {profile_file.hex()} {raw.hex()} {formation.hex()} {','.join(m.hex() for m in manoeuvres)} {' '.join(map(str,combat))} {digest}\n")
+                fixtures.append(f"{ticks} 0 {profile_file.hex()} {raw.hex()} {formation.hex()} {','.join(m.hex() for m in manoeuvres)} {' '.join(map(str,combat))}{(' '+str(args.damage_tick)) if args.damage_tick else ''} {digest}\n")
                 print('Synthetic combat sequence',scenario,count,'actors',ticks,'ticks captured',flush=True)
             if not args.save_fixture:raise ValueError('--synthetic --combat requires --save-fixture')
             args.save_fixture.write_text(''.join(fixtures))
-            subprocess.run([str(args.build/'air_combat_tests'),str(args.save_fixture)],check=True)
+            subprocess.run([str(args.build/'air_combat_tests'),str(args.save_fixture),*(['--death'] if args.damage_tick else [])],check=True)
             return
         fixtures=[]
         for index,(ticks,intact,code) in enumerate(cases):
@@ -236,9 +248,9 @@ def main():
             group=next((bytes.fromhex(record["raw_hex"]) for record in program["records"] if record["type"]==14),None)
             x,z=struct.unpack_from("<2h",group,3) if group else (10,10)
             combat=[x*524288+262144,-300000,z*524288+600000,0,0,0,400<<16,number%3,0,1,args.incoming]
-        native,count=original(data_dir,(args.research/'extracted/cd_1994_09/resources'/program['path']).read_bytes(),profiles,args.ticks,args.intact,combat=combat,manoeuvres=manoeuvres)
+        native,count=original(data_dir,(args.research/'extracted/cd_1994_09/resources'/program['path']).read_bytes(),profiles,args.ticks,args.intact,combat=combat,manoeuvres=manoeuvres,damage_tick=args.damage_tick)
         request=f'{name} {args.ticks} {args.intact}'+(' '+' '.join(map(str,combat)) if combat else '')+'\n'
-        flags=['--combat'] if args.combat else []
+        flags=(['--combat'] if args.combat else [])+(['--damage',str(args.damage_tick)] if args.damage_tick else [])
         result=subprocess.run([str(args.build/'air_probe'),str(data_dir),*flags],input=request,text=True,capture_output=True)
         if result.returncode:raise RuntimeError((name,result.stderr))
         observed=[int(v) for v in result.stdout.split()]

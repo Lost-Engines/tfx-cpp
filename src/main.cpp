@@ -29,6 +29,7 @@
 #include "world/assets.h"
 #include "world/environment.h"
 #include "world/scene.h"
+#include "weapons/runtime.h"
 
 namespace {
 
@@ -144,6 +145,8 @@ auto main(int const argc, char const *const argv[])->int try {
       .profile{&*profile},
     });
   }
+  tfx::flight::arcade_state player;
+  player.aircraft = mission_setup.aircraft;
   tfx::actors::air_context air_world{
     .intact_ground_target{[&](vec2<int16_t> const &cell) {
       return cell.x >= 0 && cell.y >= 0 && scene.terrain_intact(static_cast<unsigned int>(cell.x),static_cast<unsigned int>(cell.y));
@@ -151,19 +154,166 @@ auto main(int const argc, char const *const argv[])->int try {
     .combat{true},
     .player_aircraft{mission_setup.aircraft},
   };
+  std::array<std::array<tfx::world::scene_handle,2>,tfx::weapons::weapon_count> weapon_visuals;
+  for(unsigned int index{0}; index != tables.weapons.size(); ++index) {
+    auto const &definition{tables.weapons[index]};
+    for(unsigned int appearance{0}; appearance != 2; ++appearance) {
+      auto const handle{scene.create_actor(appearance ? definition.secondary : definition.fired,{0,0,0},{0,0,0})};
+      weapon_visuals[index][appearance] = handle;
+      scene.show_actor(handle,false);
+    }
+  }
+  std::array<char const*,3> constexpr player_definitions{"efa","f_117a","f_22"};
+  auto const player_visual{scene.create_actor(player_definitions.at(std::to_underlying(player.aircraft) - 1),{0,0,0},{0,0,0})};
+  scene.show_actor(player_visual,false);
+  std::array<std::optional<tfx::weapons::projectile_id>,tfx::actors::player_air_target> incoming;
+  std::array<std::optional<tfx::actors::air_threat>,tfx::actors::player_air_target> threats;
+  auto const actor_position{[&](tfx::weapons::actor_identity const identity) {
+    switch(identity.pool) {
+    case tfx::weapons::actor_pool::player: return vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit};
+    case tfx::weapons::actor_pool::aircraft: return vec3<int32_t>{air_simulation.aircraft()[identity.index]->flight.pose.position};
+    case tfx::weapons::actor_pool::surface: return vec3<int32_t>{surface_actors.at(identity.index).state.pose.position};
+    }
+    throw std::runtime_error{"invalid projectile actor identity"};
+  }};
+  auto const horizontal_separation{[](vec3<int32_t> const &a, vec3<int32_t> const &b) {
+    auto const delta{[](int32_t const x, int32_t const y) { return std::bit_cast<int32_t>(static_cast<uint32_t>(x) - static_cast<uint32_t>(y)); }};
+    return std::max(std::abs(static_cast<int64_t>(delta(a.x,b.x))),std::abs(static_cast<int64_t>(delta(a.z,b.z))));
+  }};
+  auto const fatal_aircraft{[&](unsigned int const index) {
+    for(auto const &request : air_simulation.fatal_damage(index)) if(auto const event{std::get_if<tfx::actors::air_scenery_event>(&request.data)}) scene.actor_event(*air_visuals[index],event->entry);
+  }};
+  unsigned int enemy_aircraft_lost{0}, allied_aircraft_lost{0};
+  tfx::weapons::runtime projectiles{tables.weapons,{
+    .actor_position{actor_position},
+    .motion_inputs{[&](tfx::weapons::active_projectile const &shot,uint16_t const ticks) {
+      return tfx::weapons::motion_context{
+        .elapsed{ticks},
+        .target{0,0,0},
+        .player_owned{shot.owner.pool == tfx::weapons::actor_pool::player},
+        .launch_anchor{actor_position({.pool{tfx::weapons::actor_pool::player}})},
+        .player_angles{vec3<tfx::math::angle>{player.angles}},
+        .player_speed{player.fixed_speed},
+        .target_is_player{shot.target.actor && shot.target.actor->pool == tfx::weapons::actor_pool::player},
+      };
+    }},
+    .reset_visual{[&](unsigned int const weapon,bool const secondary) { scene.actor_event(weapon_visuals[weapon][secondary],0); }},
+    .launched{[&](tfx::weapons::active_projectile const &shot) {
+      if(!shot.target.actor || shot.target.actor->pool != tfx::weapons::actor_pool::aircraft) return;
+      auto const index{shot.target.actor->index};
+      auto const &actor{air_simulation.aircraft()[index].value()};
+      int64_t const distance{horizontal_separation(shot.state.position,actor.flight.pose.position)};
+      auto const range{std::bit_cast<int32_t>(static_cast<uint32_t>(actor.combat.evasion_range) * (5280u * 32u))};
+      if(distance > range) return;
+      if(incoming[index]) {
+        auto const found{projectiles.projectiles().find(*incoming[index])};
+        if(found != projectiles.projectiles().end() && horizontal_separation(found->second->state.position,actor.flight.pose.position) < distance) return;
+      }
+      incoming[index] = shot.id;
+      threats[index] = tfx::actors::air_threat{
+        .position{vec3<int32_t>{shot.state.position}},
+        .weapon{shot.state.weapon},
+      };
+    }},
+    .target_cleared{[&](tfx::weapons::active_projectile const &shot) {
+      if(shot.target.actor && shot.target.actor->pool == tfx::weapons::actor_pool::aircraft) {
+        auto &current{incoming[shot.target.actor->index]};
+        if(current == shot.id) { current.reset(); threats[shot.target.actor->index].reset(); }
+      }
+    }},
+    .contacts{[&](tfx::weapons::active_projectile &shot,uint16_t const ticks) {
+      auto const source{weapon_visuals[shot.state.weapon][shot.state.secondary]};
+      auto const world_position{[](vec3<int32_t> const &position) { return vec3<int32_t>{position.x >> tfx::actors::position_fraction_bits,position.y >> tfx::actors::position_fraction_bits,position.z >> tfx::actors::position_fraction_bits}; }};
+      auto const previous{world_position(shot.state.previous)}, current{world_position(shot.state.position)};
+      auto const response{[&](uint16_t const damage) { scene.apply_actor_contact_damage(source,damage); }};
+      uint16_t const damage{scene.actor_impact_damage(source)};
+      using tfx::weapons::flight_stage;
+      bool const released{shot.state.motion != flight_stage::attached && shot.state.motion != flight_stage::falling && shot.state.motion != flight_stage::accelerating};
+      if(!scene.actor_destroyed(source) && released && shot.owner.pool != tfx::weapons::actor_pool::player) scene.collide_actor(player_visual,previous,current,damage,response);
+      if(!scene.actor_destroyed(source) && released && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::chaff) && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::flare)) {
+        int32_t const broad_phase{std::bit_cast<int32_t>(static_cast<uint32_t>(shot.state.speed) * ticks * 20u)};
+        for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) {
+          auto const &actor{air_simulation.aircraft()[index]};
+          if(!actor || (shot.owner.pool == tfx::weapons::actor_pool::aircraft && shot.owner.index == index)) continue;
+          auto const &pose{actor->flight.pose};
+          if(pose.flags & (std::to_underlying(tfx::actors::air_flag::retired) | std::to_underlying(tfx::actors::air_flag::crashed))) continue;
+          if(horizontal_separation(shot.state.position,pose.position) > broad_phase) continue;
+          auto const visual{*air_visuals[index]};
+          if(scene.actor_destroyed(visual)) continue;
+          scene.collide_actor(visual,previous,current,damage,response);
+          if(scene.actor_destroyed(visual)) {
+            fatal_aircraft(index);
+            ++(pose.side == tfx::actors::allegiance::allied ? allied_aircraft_lost : enemy_aircraft_lost);
+          }
+        }
+        auto constexpr surface_destroyed{std::to_underlying(tfx::actors::surface_flag::destroyed)}, surface_retired{std::to_underlying(tfx::actors::surface_flag::retired)};
+        for(unsigned int index{0}; index != surface_actors.size(); ++index) {
+          auto &actor{surface_actors[index]};
+          if(actor.state.pose.flags & surface_retired) continue;
+          scene.collide_actor(actor.visual,previous,current,damage,response);
+          if(!(actor.state.pose.flags & surface_destroyed) && scene.actor_destroyed(actor.visual)) {
+            actor.state.actions = std::to_underlying(tfx::actors::surface_action::dead);
+            actor.state.input_ticks = 0;
+            actor.state.pose.flags |= surface_destroyed;
+          }
+        }
+      }
+      scene.collide_terrain(previous,current,damage,false,response);
+      if(scene.actor_destroyed(source)) {
+        shot.spent = true;
+        scene.actor_event(source,0);
+      }
+    }},
+  }};
+  air_world.emitted = [&](tfx::actors::air_request const &request) {
+    std::visit([&](auto const &data) {
+      using data_type = std::remove_cvref_t<decltype(data)>;
+      if constexpr(std::is_same_v<data_type,tfx::actors::air_scenery_event>) scene.actor_event(*air_visuals.at(request.actor),data.entry);
+      else if constexpr(std::is_same_v<data_type,tfx::actors::air_weapon>) {
+        tfx::weapons::target_reference target{
+          .position{vec3<int32_t>{data.target}},
+        };
+        if(data.target_actor) target.actor = tfx::weapons::actor_identity{
+          .pool{*data.target_actor == tfx::actors::player_air_target ? tfx::weapons::actor_pool::player : tfx::weapons::actor_pool::aircraft},
+          .index{*data.target_actor == tfx::actors::player_air_target ? 0u : *data.target_actor},
+        };
+        projectiles.launch({
+          .weapon{data.weapon},
+          .position{vec3<int32_t>{data.position}},
+          .angles{vec3<tfx::math::angle>{data.angles}},
+          .speed{data.speed},
+          .owner{
+            .pool{tfx::weapons::actor_pool::aircraft},
+            .index{request.actor},
+          },
+          .target{target},
+        });
+      } else if constexpr(std::is_same_v<data_type,tfx::actors::air_countermeasure>) {
+        tfx::weapons::actor_identity const owner{
+          .pool{tfx::weapons::actor_pool::aircraft},
+          .index{request.actor},
+        };
+        projectiles.countermeasure(owner,actor_position(owner),data.kind == tfx::actors::air_countermeasure_kind::radar,data.strength,air_simulation.random_stream());
+      } else if constexpr(std::is_same_v<data_type,tfx::actors::air_radio>) {
+        radio_message = data.text;
+        radio_ticks = 5 * 55;
+      }
+    },request.data);
+  };
   auto const advance_actors{[&](unsigned int const ticks){
     // Native 0x75784 visits each actor once per elapsed tick, preserving pool order.
     for(unsigned int tick{0}; tick != std::max(1u,ticks); ++tick) {
-      for(auto const &request : air_simulation.advance(air_world)) {
-        std::visit([&](auto const &data) {
-          using data_type = std::remove_cvref_t<decltype(data)>;
-          if constexpr(std::is_same_v<data_type,tfx::actors::air_scenery_event>) scene.actor_event(*air_visuals.at(request.actor),data.entry);
-          else if constexpr(std::is_same_v<data_type,tfx::actors::air_radio>) {
-            radio_message = data.text;
-            radio_ticks = 5 * 55;
-          }
-        },request.data);
+      for(unsigned int index{0}; index != incoming.size(); ++index) {
+        threats[index].reset();
+        if(!incoming[index]) continue;
+        auto const found{projectiles.projectiles().find(*incoming[index])};
+        if(found != projectiles.projectiles().end()) threats[index] = tfx::actors::air_threat{
+          .position{vec3<int32_t>{found->second->state.position}},
+          .weapon{found->second->state.weapon},
+        };
       }
+      air_world.threats = threats;
+      air_simulation.advance(air_world);
       for(auto &actor : surface_actors) {
         for(auto const &request : tfx::actors::advance_surface(actor.state,*actor.profile)) {
           if(request.kind == tfx::actors::surface_request_kind::radio) {
@@ -180,13 +330,11 @@ auto main(int const argc, char const *const argv[])->int try {
       auto const visual{*air_visuals[index]};
       auto const &pose{actor->flight.pose};
       scene.place_actor(visual,vec3d{pose.position} / tfx::actors::position_unit,pose.angles);
-      scene.show_actor(visual,(pose.flags & std::to_underlying(tfx::actors::air_flag::retired)) == 0);
+      scene.show_actor(visual,(pose.flags & std::to_underlying(tfx::actors::air_flag::retired)) == 0 && actor->actions != std::to_underlying(tfx::actors::air_action::retire_crashed));
     }
     for(auto const &actor : surface_actors) scene.place_actor(actor.visual,vec3d{actor.state.pose.position} / tfx::actors::position_unit,actor.state.pose.angles);
   }};
   tfx::render::software_renderer renderer{tables};
-  tfx::flight::arcade_state player;
-  player.aircraft = mission_setup.aircraft;
   // The native ground-start fallback is zero for type 50, -20 otherwise (0x8c318).
   auto const start_x{static_cast<unsigned int>(std::clamp(mission_setup.start.position.x / tfx::world::cell_units,0,static_cast<int>(tfx::world::map_width) - 1))};
   auto const start_z{static_cast<unsigned int>(std::clamp(mission_setup.start.position.z / tfx::world::cell_units,0,static_cast<int>(tfx::world::map_height) - 1))};
@@ -216,6 +364,7 @@ auto main(int const argc, char const *const argv[])->int try {
       .angles{vec3<tfx::math::angle>{player.angles}},
       .speed{std::bit_cast<int32_t>(static_cast<uint32_t>(player.fixed_speed) << tfx::actors::speed_fraction_bits)},
     };
+    scene.place_actor(player_visual,vec3d{player.position},player.angles);
     advance_actors(elapsed);
     if(flying) {
       // Native 0x72018 updates actors before collecting contacts; the next flight frame consumes this surface result.
@@ -226,6 +375,7 @@ auto main(int const argc, char const *const argv[])->int try {
       };
       if(contact.collisions && player.crashing) player.collision = 1;
     }
+    projectiles.advance(elapsed,air_simulation.random_stream());
     scene.advance(elapsed);
   }};
   auto const finish_world{[&](tfx::simulation::timer_ticks const elapsed) {
@@ -252,6 +402,7 @@ auto main(int const argc, char const *const argv[])->int try {
     auto view{inspect ? tfx::render::inspection_camera(position,heading,pitch) : tfx::render::aircraft_camera(player.position,player.orientation)};
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
+    for(auto const &[_,shot] : projectiles.projectiles()) if(!shot->spent) scene.queue_actor(weapon_visuals[shot->state.weapon][shot->state.secondary],vec3d{shot->state.position} / tfx::actors::position_unit,shot->state.angles);
     scene.draw(renderer,view,scene_radius);
     if(!inspect) {
       // Readouts use the original miniature font; full native HUD layout/MFDs are still being connected.
@@ -260,6 +411,7 @@ auto main(int const argc, char const *const argv[])->int try {
       renderer.text(5,14,std::format("THR {}  FUEL {}  AB {}",static_cast<int>(player.throttle * 100),static_cast<int>(player.fuel),player.afterburner),hud_colour);
       renderer.text(5,185,std::string{player.gear_down ? "GEAR DOWN  " : "GEAR UP  "} + (player.left_engine ? "L ON  " : "L OFF  ") + (player.right_engine ? "R ON" : "R OFF"),hud_colour);
       renderer.text(245,5,"ARCADE",hud_colour);
+      renderer.text(5,23,std::format("HOSTILE LOSSES {}  SHOTS {}",enemy_aircraft_lost,projectiles.projectiles().size()),hud_colour);
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
       if(player.collision) renderer.text(120,92,"COLLISION",hud_colour);
       if(radio_ticks > 0) renderer.text(5,170,radio_message,hud_colour);

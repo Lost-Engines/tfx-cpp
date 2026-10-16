@@ -15,7 +15,6 @@ int constexpr fixed_units_per_foot{32}, fixed_units_per_mile{5280 * fixed_units_
 int constexpr manoeuvre_pitch_tolerance{0xda4}, manoeuvre_capture_angle{64};
 int constexpr nose_capture_angle{0x1554}, tail_capture_angle{0x5550};
 int constexpr waypoint_near_radius{world::cell_units * position_unit};
-enum class air_action : uint8_t { route, retire_ejected, retire_crashed, falling, normal, finish_takeoff, manoeuvre, engagement, withdraw, evasive, align_manoeuvre, waiting, clear };
 
 int32_t wrap(int64_t const value) {
   return std::bit_cast<int32_t>(static_cast<uint32_t>(value));
@@ -49,11 +48,39 @@ vec3<int32_t> cell_position(int16_t const x, int16_t const z, int32_t const y) {
     wrap(static_cast<int64_t>(z) * world::cell_units * position_unit + world::cell_units / 2 * position_unit),
   };
 }
+void canonicalise(initial_actor &pose) {
+  // Native 0x75d78 canonicalises an inverted Euler representation after manoeuvres and fatal damage.
+  int16_t const pitch{word(pose.angles.x)};
+  if(pitch == -32768 || std::abs(static_cast<int>(pitch)) > 16384) {
+    pose.angles.x = static_cast<math::angle>(32768 - pose.angles.x);
+    pose.angles.y = static_cast<math::angle>(pose.angles.y - 32768);
+    pose.angles.z = static_cast<math::angle>(pose.angles.z - 32768);
+  }
+}
 void approach_heading(air_actor &actor, int16_t const error, air_control_context const &context) {
   if(command_turn(actor.flight,actor.performance,error,context)) command_speed(actor.flight,actor.performance,static_cast<int32_t>(cruise_speed(actor.flight,actor.performance,context.turn_envelope)) << speed_fraction_bits);
 }
 
 } // anonymous namespace
+
+class air_runtime::request_queue {
+private:
+  std::vector<air_request> &output;
+  air_context const &context;
+
+public:
+  request_queue(std::vector<air_request> &output, air_context const &context) : output{output}, context{context} {}
+  template<typename data_type> void emplace(unsigned int const actor, data_type data) {
+    auto &request{output.emplace_back()};
+    request.actor = actor;
+    request.data.template emplace<data_type>(std::move(data));
+    if(context.emitted) context.emitted(request);
+  }
+  void push_back(air_request request) {
+    output.push_back(std::move(request));
+    if(context.emitted) context.emitted(output.back());
+  }
+};
 
 unsigned int air_registry_index(initial_actor const &actor) {
   if(actor.kind != record_kind::aircraft || actor.slot >= aircraft_per_side) throw std::invalid_argument{"invalid air pool identity"};
@@ -88,6 +115,34 @@ air_runtime::air_runtime(program const &program, std::span<initial_actor const> 
       },
     };
   }
+}
+
+math::random_state &air_runtime::random_stream() {
+  return random;
+}
+
+std::vector<air_request> air_runtime::fatal_damage(unsigned int const index) {
+  auto &actor{actors.at(index).value()};
+  auto &state{actor.flight};
+  canonicalise(state.pose);
+  if(flagged(actor,air_flag::crashed)) return {};
+  actor.wait_seconds = 5;
+  state.input_ticks = 0;
+  set_flag(actor,air_flag::crashed);
+  bool const eject{(random.next() & 7) < 3};
+  if(eject) {
+    actor.actions = std::to_underlying(air_action::retire_ejected);
+    state.input_ticks = air_control_horizon;
+    state.acceleration = 0;
+    state.angular_rate.x = 0;
+    state.angular_rate.y = 0;
+  } else actor.actions = std::to_underlying(air_action::falling);
+  return {{
+    .actor{index},
+    .data{air_scenery_event{
+      .entry{eject ? 18u : 17u},
+    }},
+  }};
 }
 
 std::span<std::optional<air_actor> const> air_runtime::aircraft() const {
@@ -213,7 +268,7 @@ void air_runtime::select_manoeuvre(air_actor &actor, unsigned int const category
   };
 }
 
-void air_runtime::countermeasures(unsigned int const index, air_context const &context, std::vector<air_request> &requests) {
+void air_runtime::countermeasures(unsigned int const index, air_context const &context, request_queue &requests) {
   if(index >= context.threats.size() || !context.threats[index]) return;
   auto const &threat{*context.threats[index]};
   auto const &actor{*actors[index]};
@@ -232,7 +287,7 @@ void air_runtime::countermeasures(unsigned int const index, air_context const &c
   });
 }
 
-bool air_runtime::combat_action(unsigned int const index, unsigned int const action, air_context const &world, std::vector<air_request> &requests) {
+bool air_runtime::combat_action(unsigned int const index, unsigned int const action, air_context const &world, request_queue &requests) {
   auto &actor{*actors[index]};
   auto &state{actor.flight};
   auto &pose{state.pose};
@@ -253,6 +308,29 @@ bool air_runtime::combat_action(unsigned int const index, unsigned int const act
     return true;
   }};
   switch(static_cast<air_action>(action)) {
+  case air_action::falling:
+    if(pose.position.y >= maximum_world_y * position_unit) {
+      vec3<int32_t> const position{pose.position.x >> position_fraction_bits,pose.position.y >> position_fraction_bits,pose.position.z >> position_fraction_bits};
+      requests.push_back({
+        .actor{index},
+        .data{air_impact{
+          .position{vec3<int32_t>{position}},
+          .kind{world.impact_effect ? world.impact_effect(position) : 8},
+        }},
+      });
+      pose.speed = 0;
+      state.input_ticks = 120;
+      actor.actions = std::to_underlying(air_action::retire_crashed);
+      set_flag(actor,air_flag::crashed);
+      return true;
+    }
+    reset_air_controls(state);
+    if(word(pose.angles.x) < 0x2aa8) pose.angles.x = static_cast<math::angle>(pose.angles.x + 127);
+    state.angular_rate.y = 127;
+    state.angular_rate.z = actor.performance.maximum_roll_rate;
+    if(pose.speed < static_cast<int32_t>(actor.performance.maximum_speed) << speed_fraction_bits) command_speed(state,actor.performance,static_cast<int32_t>(actor.performance.maximum_speed) << speed_fraction_bits);
+    state.input_ticks = 1;
+    return true;
   case air_action::align_manoeuvre:
     {
       auto &cursor{actor.manoeuvre.value()};
@@ -283,13 +361,7 @@ bool air_runtime::combat_action(unsigned int const index, unsigned int const act
       state.input_ticks = static_cast<int16_t>(code.byte(pc));
       if(!state.input_ticks) {
         actor.manoeuvre.reset();
-        // 0x75d78 canonicalises an inverted Euler representation after the sequence.
-        int16_t const pitch{word(pose.angles.x)};
-        if(pitch == -32768 || std::abs(static_cast<int>(pitch)) > 16384) {
-          pose.angles.x = static_cast<math::angle>(32768 - pose.angles.x);
-          pose.angles.y = static_cast<math::angle>(pose.angles.y - 32768);
-          pose.angles.z = static_cast<math::angle>(pose.angles.z - 32768);
-        }
+        canonicalise(pose);
         replace(air_action::normal);
         return false;
       }
@@ -419,12 +491,13 @@ bool air_runtime::combat_action(unsigned int const index, unsigned int const act
 
 std::vector<air_request> air_runtime::advance(air_context const &context) {
   std::vector<air_request> requests;
+  request_queue output{requests,context};
   // Original 0x75784 visits the other/hostile air pool, then the allied pool; followers observe their leader's updated state.
-  for(unsigned int index{0}; index != actors.size(); ++index) if(actors[index] && !flagged(*actors[index],air_flag::retired)) advance_actor(index,context,requests);
+  for(unsigned int index{0}; index != actors.size(); ++index) if(actors[index] && !flagged(*actors[index],air_flag::retired)) advance_actor(index,context,output);
   return requests;
 }
 
-void air_runtime::advance_actor(unsigned int const index, air_context const &world, std::vector<air_request> &requests) {
+void air_runtime::advance_actor(unsigned int const index, air_context const &world, request_queue &requests) {
   auto &actor{*actors[index]};
   auto &state{actor.flight};
   auto &pose{state.pose};
@@ -433,9 +506,7 @@ void air_runtime::advance_actor(unsigned int const index, air_context const &wor
     .turn_envelope{envelope},
   };
   auto const emit{[&](auto data) {
-    auto &request{requests.emplace_back()};
-    request.actor = index;
-    request.data.template emplace<decltype(data)>(std::move(data));
+    requests.emplace(index,std::move(data));
   }};
   auto const visual{[&](unsigned int const entry) { emit(air_scenery_event{.entry{entry}}); }};
   auto const launch{[&](vec3<int32_t> const &target, uint16_t const weapon) {
@@ -478,7 +549,11 @@ void air_runtime::advance_actor(unsigned int const index, air_context const &wor
         if(follow_formation(actor,context)) ready = true;
         continue;
       }
-      if(mode != air_action::route && world.combat) { ready = combat_action(index,std::to_underlying(mode),world,requests); continue; }
+      if(mode != air_action::route && world.combat) {
+        ready = combat_action(index,std::to_underlying(mode),world,requests);
+        if(mode == air_action::falling && actor.actions == std::to_underlying(air_action::retire_crashed)) return;
+        continue;
+      }
       if(mode != air_action::route) throw std::runtime_error{std::format("aircraft {} (profile {}, record {}, byte {}) needs combat/manoeuvre action {}",index,pose.profile_id,actor.location.record,actor.location.address,std::to_underlying(mode))};
       auto &bytes{commands.at(actor.location.record)};
       resources::binary_view const code{bytes};

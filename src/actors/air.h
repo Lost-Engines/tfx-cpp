@@ -10,6 +10,8 @@
 
 namespace tfx::actors {
 
+enum class air_action : uint8_t { route, retire_ejected, retire_crashed, falling, normal, finish_takeoff, manoeuvre, engagement, withdraw, evasive, align_manoeuvre, waiting, clear };
+
 struct air_location {
   unsigned int record;
   unsigned int address;
@@ -79,12 +81,14 @@ struct air_context {
   flight::player_aircraft player_aircraft{flight::player_aircraft::eurofighter};
   std::span<std::optional<air_threat> const> threats{};
   uint16_t combat_flags{0};
+  std::function<void(air_request const&)> emitted{};
 };
 
 unsigned int air_registry_index(initial_actor const &actor);
 
 class air_runtime {
 private:
+  class request_queue;
   std::vector<resources::bytes> commands;
   std::array<std::optional<air_actor>,aircraft_per_side * 2> actors;
   std::span<formation_offset const> formation;
@@ -95,15 +99,17 @@ private:
   air_contact contact(unsigned int target, air_context const &context) const;
   bool acquire(unsigned int index, std::optional<unsigned int> excluded, air_context const &context);
   void select_manoeuvre(air_actor &actor, unsigned int category);
-  void countermeasures(unsigned int index, air_context const &context, std::vector<air_request> &requests);
-  bool combat_action(unsigned int index, unsigned int action, air_context const &context, std::vector<air_request> &requests);
+  void countermeasures(unsigned int index, air_context const &context, request_queue &requests);
+  bool combat_action(unsigned int index, unsigned int action, air_context const &context, request_queue &requests);
   void course(air_actor &actor, vec3<int32_t> const &destination, int32_t distance, bool pitch, air_control_context const &context);
   bool follow_formation(air_actor &actor, air_control_context const &context);
   vec3<int32_t> formation_position(vec3<int32_t> const &position, math::angle heading, unsigned int member) const;
-  void advance_actor(unsigned int index, air_context const &context, std::vector<air_request> &requests);
+  void advance_actor(unsigned int index, air_context const &context, request_queue &requests);
 
 public:
   air_runtime(program const &program, std::span<initial_actor const> initial, std::span<profile const> profiles, std::span<formation_offset const> formation, std::span<uint8_t const> envelope, math::random_state random = {}, std::span<manoeuvre const> manoeuvres = {});
+  math::random_state &random_stream();
+  std::vector<air_request> fatal_damage(unsigned int index);
   std::span<std::optional<air_actor> const> aircraft() const;
   std::span<uint8_t const> program_bytes(unsigned int record) const;
   std::vector<air_request> advance(air_context const &context = {});

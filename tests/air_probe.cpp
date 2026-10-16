@@ -1,6 +1,7 @@
 #include <charconv>
 #include <cstdlib>
 #include <iostream>
+#include <iterator>
 #include <stdexcept>
 #include <string_view>
 #include <type_traits>
@@ -10,11 +11,13 @@
 #include "resources/executable_tables.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc < 2 || argc > 4) throw std::runtime_error{"air_probe DATA_DIRECTORY [--verbose]"};
+  if(argc < 2 || argc > 6) throw std::runtime_error{"air_probe DATA_DIRECTORY [--verbose]"};
   bool verbose{false},combat{false};
+  unsigned int damage_tick{0};
   for(int i{2}; i < argc; ++i) {
     if(std::string_view{argv[i]} == "--verbose") verbose = true;
     else if(std::string_view{argv[i]} == "--combat") combat = true;
+    else if(std::string_view{argv[i]} == "--damage" && i + 1 < argc) damage_tick = static_cast<unsigned int>(std::stoul(argv[++i]));
     else throw std::runtime_error{"unrecognised air probe option"};
   }
   auto const path{tfx::resources::find_game_archive(argv[1])};
@@ -56,7 +59,13 @@ int main(int const argc, char const *const argv[]) try {
       context.threats = threats;
     }
     for(unsigned int tick{0}; tick != ticks; ++tick) {
-      auto const requests{state.advance(context)};
+      std::vector<tfx::actors::air_request> requests;
+      if(damage_tick && tick == damage_tick) for(unsigned int index{0}; index != state.aircraft().size(); ++index) if(state.aircraft()[index]) {
+        auto death{state.fatal_damage(index)};
+        requests.insert(requests.end(),std::make_move_iterator(death.begin()),std::make_move_iterator(death.end()));
+      }
+      auto updates{state.advance(context)};
+      requests.insert(requests.end(),std::make_move_iterator(updates.begin()),std::make_move_iterator(updates.end()));
       auto const digest{tfx::test::air_snapshot(program,state,requests,verbose ? &std::cout : nullptr,combat)};
       if(!verbose) std::cout << digest;
       std::cout << '\n';
