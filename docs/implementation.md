@@ -1496,3 +1496,13 @@ The full original initializer and every numerical landing helper execute. The on
     python3 tools/check_automatic_landing.py --persistent
 
 The automatic-landing callback is reconstructed; Alt+L key selection, its view/weapon/ILS requests and live flight-model integration are the next caller connections.
+
+### Advanced flight key handlers and physical-reset ownership
+
+The original 6/5/7/8/9/0/A handlers are reconstructed: cruise-speed reset, auto stick pressure, waypoint/heading/track/autothrottle selection and autopilot enable/disable. Mode selection and engagement retain their different altitude/heading capture rules, including float-world-height conversion and the Realistic track-heading override. Normal toggles save/restore their own air-brake condition; recovery uses its separate saved state.
+
+A normal A toggle calls physical reset 0x954fc immediately. Recovery-mode A instead restores recovery and leaves its transition marker for the enclosing callback. Physical reset is now an operation of the owning aerodynamic flight state, shared by immediate key toggles and entry-time callback resets. The key result reports the immediate reset so the host can retain its authored 0.01-second timestep for that frame. The external named `autopilo` on/off callback and radio requests remain returned output events.
+
+All 1,536 complete original key updates agree across initialized aircraft, both advanced models, enabled/disabled/unknown/recovery modes, guard conditions, stored air brakes, captures and speed presets. The comparison includes 74 immediate physical resets, 16 recovery restorations, 74 external on/off requests and 698 notices, with all 316 flight/control fields and output events checked. The full original key, reset, recovery and afterburner routines execute; only external delivery and explicit hardware transcendental adapters are boundaries.
+
+    python3 tools/check_aerodynamic_pilot_keys.py

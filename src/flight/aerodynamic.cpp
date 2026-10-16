@@ -12,6 +12,43 @@ int16_t constexpr carrier_height_limit{-10};
 
 } // anonymous namespace
 
+void aerodynamic_flight::reset_motion(int16_t const ground_elevation_steps, bool const terrain_present) {
+  math::floating_environment const environment;
+  auto &motion{response.motion};
+  auto &ground{this->ground.ground};
+  aerodynamic_start_state start{
+    .motion{motion},
+    .stores{stores},
+    .engine_factor{vec2d{powerplant.engine_factor}},
+    .fuel_kg{powerplant.fuel},
+    .mass_kg{data.mass_kg},
+    .seconds{seconds},
+    .g_load{response.g_load},
+    .track_heading{data.track_heading},
+    .ground_steering{ground.ground_steering},
+  };
+  initialise_aerodynamic_motion(start,aircraft,mounted_stores,{
+    .orientation{view.orientation},
+    .position{vec3f{view.position}},
+    .fixed_speed{data.fixed_speed},
+    .heading{view.angles.y},
+    .ground_elevation_steps{ground_elevation_steps},
+    .landed{ground.landed},
+    .cold_start{cold_start},
+    .terrain_present{terrain_present},
+  });
+  motion = start.motion;
+  stores = start.stores;
+  powerplant.engine_factor = start.engine_factor;
+  powerplant.fuel = start.fuel_kg;
+  data.mass_kg = start.mass_kg;
+  seconds = start.seconds;
+  response.g_load = start.g_load;
+  data.track_heading = start.track_heading;
+  ground.ground_steering = start.ground_steering;
+  coefficient_parameters.wing_area = aircraft.surfaces.wing_area;
+}
+
 aerodynamic_flight initialise_aerodynamic_flight(aerodynamic_airframe const &aircraft, loadout const &stores, aerodynamic_initial_context const &initial, aerodynamic_wind_parameters const &wind_parameters, damage_state &damage, math::random_state &random) {
   math::floating_environment const environment;
   auto const &context{initial.placement};
