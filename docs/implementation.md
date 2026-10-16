@@ -713,3 +713,16 @@ python3 tools/check_clipping.py
 The renderer now owns explicit glyph and sprite clipping state. Native `0xc0634` keeps the supplied glyph X limit, rounds sprite X limits to four-pixel VGA groups, and increments bottom Y for both. Instrument painters consume that state; their earlier controlled inspection-driver limits remain the default until a viewport is selected. The sprite painter also retains the original planar edge reads when both horizontal sides are clipped with unrounded initial limits, reconstructing them within owned image storage.
 
 **1,601 complete native pixel/coverage frames agree**, covering eighteen original sprite banks, embedded masks, every character byte, interior display rectangles and directed/synthetic plane-boundary cases. The 572 image, 576 font/width, 588 MFD, 504 readout, 1,024 warning, 512 auxiliary and 144 menu-pointer comparisons still agree. These checks and all 44 CTests pass in development, Release and ASan/UBSan. This supplies the clipping transitions needed by the moving map and assembled HUD; it does not yet replace the diagnostic flight overlay.
+
+### Scrolling cockpit map
+
+```sh
+python3 tools/check_moving_map.py
+python3 tools/check_attitude.py --data-dir /path/to/TFX
+```
+
+The moving-map painter owns its schematic and blink state, borrowing typed Q8 aircraft/surface contacts and integer-world targets for each draw. It preserves separate coordinate division before subtraction, north-up scrolling, the heading arrow, strict marker borders, aircraft altitude filtering, stealth suppression, target/navigation colours and native clipping restoration. Elapsed ticks are added per map draw; even a large elapsed interval toggles the marker colours at most once in that call. A shared painter must therefore serve both map locations when both are visible.
+
+**320 complete native pixel/coverage/blink/clip frames agree** across all five original regional schematics and the centre/right display rectangles. The native actor-enumeration boundaries receive supplied lists; map projection, filtering, sprite drawing and marker painting execute unchanged. The shared signed-word planar rotation also agrees in **5,120 native cases**, covering every lookup-table phase and extreme inputs; the existing direction, basis rotation, normalisation and angle checks remain unchanged and still agree.
+
+These comparisons and all 44 CTests pass in development, Release and ASan/UBSan. Binding the environment schematic and live flight contacts into the assembled HUD remains part of cockpit integration.

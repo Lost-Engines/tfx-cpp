@@ -1,7 +1,7 @@
 #include "native.h"
+#include <algorithm>
 #include <cmath>
 #include <numbers>
-#include <algorithm>
 #include "math/attitude.h"
 
 namespace tfx::math {
@@ -60,6 +60,17 @@ int16_t distance_word(vec3<int16_t> const &offset) {
   auto const square{[](int32_t const value) { return static_cast<uint32_t>(value * value); }};
   auto const squared{square(offset.x) + square(offset.y) + square(offset.z)};
   return signed_word(static_cast<uint16_t>(std::sqrt(static_cast<double>(squared))));
+}
+
+vec2<int16_t> rotate_words(vec2<int16_t> const &position, angle const rotation) {
+  // Native 0xcc364/0xcc390: signed-word inputs, Q15 sums, arithmetic shifts, then word stores.
+  auto const &table{sine_table()};
+  unsigned int const phase{static_cast<unsigned int>(rotation) >> 6};
+  int32_t const sine{table[phase]}, cosine{table[(phase + angle_steps / 4) % angle_steps]};
+  return {
+    signed_word(static_cast<uint16_t>((position.x * cosine - position.y * sine) >> matrix_fraction_bits)),
+    signed_word(static_cast<uint16_t>((position.x * sine + position.y * cosine) >> matrix_fraction_bits)),
+  };
 }
 
 mat3<int32_t> rotation_words(vec3<angle> const &angles) {

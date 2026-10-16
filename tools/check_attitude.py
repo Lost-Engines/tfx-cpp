@@ -30,6 +30,16 @@ def main():
     directions += [(generator.randrange(-32768, 32768), generator.randrange(-32768, 32768)) for _ in range(4096)]
     expected = [[image.call(0xcdc18, stack=(x & 0xffffffff, y & 0xffffffff)) & 65535] for y, x in directions]
     compare('direction', directions, expected)
+    planes=[];plane_results=[];plane_generator=random.Random(0xcc390)
+    for phase in range(1024):
+        vectors=[(-32768,-32768),(32767,32767),(-32768,32767),(32767,-32768),(plane_generator.randrange(-32768,32768),plane_generator.randrange(-32768,32768))]
+        amount=phase*64+phase%64
+        image.call(0xcc364,eax=amount)
+        for x,y in vectors:
+            planes.append([x,y,amount])
+            image.call(0xcc390,eax=0x300000,edx=x&0xffffffff,ebx=y&0xffffffff)
+            plane_results.append(list(struct.unpack('<2h',image.cpu.mem_read(0x300000,4))))
+    compare('plane',planes,plane_results)
     rotations, rotated, normalisations, normalised, angles, extracted = [], [], [], [], [], []
     basis = [32767, 0, 0, 0, 32767, 0, 0, 0, 32767]
     for frame in range(2048):
@@ -49,7 +59,7 @@ def main():
     compare('rotate', rotations, rotated)
     compare('normalise', normalisations, normalised)
     compare('angles', angles, extracted)
-    print(f'{len(directions)} native directions, {len(rotated)} rotations, {len(normalised)} normalisations and {len(extracted)} angle extractions match')
+    print(f'{len(planes)} native planar rotations, {len(directions)} directions, {len(rotated)} rotations, {len(normalised)} normalisations and {len(extracted)} angle extractions match')
 
 
 if __name__ == '__main__':

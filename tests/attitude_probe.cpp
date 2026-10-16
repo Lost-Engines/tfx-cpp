@@ -3,10 +3,19 @@
 #include <stdexcept>
 #include <string>
 #include "math/attitude.h"
+#include "math/native.h"
 
 auto main(int const argc, char const *const argv[])->int try {
   if(argc != 2) throw std::runtime_error{"attitude probe requires rotate, normalise or angles"};
   std::string const mode{argv[1]};
+  if(mode == "plane") {
+    int x{0}, y{0};unsigned int rotation{0};
+    while(std::cin >> x >> y >> rotation) {
+      auto const point{tfx::math::rotate_words({static_cast<int16_t>(x),static_cast<int16_t>(y)},static_cast<tfx::math::angle>(rotation))};
+      std::cout << point.x << ' ' << point.y << '\n';
+    }
+    return EXIT_SUCCESS;
+  }
   if(mode == "direction") {
     int y{0}, x{0};
     while(std::cin >> y >> x) std::cout << tfx::math::direction_angle(static_cast<int16_t>(y),static_cast<int16_t>(x)) << '\n';

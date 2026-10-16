@@ -23,6 +23,7 @@ int32_t distance_estimate(vec3<int32_t> const &from, vec3<int32_t> const &to);
 void advance_position(vec3<int32_t> &position, vec3<angle> const &angles, int32_t distance, int32_t minimum_y, int32_t maximum_y);
 int16_t distance_word(vec3<int16_t> const &offset);
 vec3<int32_t> place_anchor(vec3<int32_t> const &origin, vec3<angle> const &angles, vec3<int16_t> const &anchor);
+vec2<int16_t> rotate_words(vec2<int16_t> const &position, angle rotation);
 mat3<int32_t> rotation_words(vec3<angle> const &angles);
 mat3d rotation(vec3<angle> const &angles);
 vec3d rotate_tile(vec3d const &position, angle heading);
