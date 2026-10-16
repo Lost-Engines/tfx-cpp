@@ -13,29 +13,14 @@ import json
 from pathlib import Path
 import struct
 import subprocess
-from unicorn import UC_HOOK_INSN,UC_HOOK_MEM_WRITE
-from unicorn import x86_const as r
 from native_reference import NativeReference
+from native_vga import VgaCapture
 
 parser=argparse.ArgumentParser(__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
-args=parser.parse_args();executable=args.research/'installs/cd_1994_09/TFX/TFX.DAT';capture=json.loads((args.research/'analysis/presentations/fonts.json').read_text());native=NativeReference(executable);cpu=native.cpu;cpu.mem_map(0x300000,0x10000);cpu.mem_map(0xe0000,0x10000);native.write(0x1ad04,'<I',0x300000)
-for offset,value in ((0x4fb78,0),(0x4fb7a,320),(0x4fb7c,0),(0x4fb7e,200),(0x55907,0xe000)):cpu.mem_write(native.native(0x70aa4+offset),struct.pack('<H',value))
-for offset,value in ((0x4fb80,0),(0x4fb84,319),(0x4fb88,0),(0x4fb8c,200)):cpu.mem_write(native.native(0x70aa4+offset),struct.pack('<I',value))
-for y in range(200):cpu.mem_write(native.native(0x70aa4+0x5590b+y*2),struct.pack('<H',y*80))
-planes=[bytearray(16000) for _ in range(4)];coverage=[bytearray(16000) for _ in range(4)];state={'index':0,'mask':0}
-def out(cpu,port,size,value,unused):
-    if port==0x3c4:
-        state['index']=value&255
-        if size==2 and state['index']==2:state['mask']=value>>8
-    elif port==0x3c5 and state['index']==2:state['mask']=value&255
-def write(cpu,access,address,size,value,unused):
-    if 0xe0000<=address and address+size<=0xe0000+16000:
-        offset=address-0xe0000
-        for plane in range(4):
-            if state['mask']&(1<<plane):planes[plane][offset:offset+size]=value.to_bytes(size,'little');coverage[plane][offset:offset+size]=bytes([255])*size
-cpu.hook_add(UC_HOOK_INSN,out,None,1,0,r.UC_X86_INS_OUT);cpu.hook_add(UC_HOOK_MEM_WRITE,write)
+args=parser.parse_args();executable=args.research/'installs/cd_1994_09/TFX/TFX.DAT';capture=json.loads((args.research/'analysis/presentations/fonts.json').read_text());native=NativeReference(executable);cpu=native.cpu;cpu.mem_map(0x300000,0x10000);native.write(0x1ad04,'<I',0x300000)
+video=VgaCapture(native)
 widths={0:0xd2e50,3:0xd27dc,4:0xd2a44,5:0xd295c,6:0xd2afc,7:0xd2c14,8:0xd2cd8,9:0xd2d94}
 rows=[];cases=[];glyphs=strings=0
 for font in capture['fonts']:
@@ -53,11 +38,9 @@ for font in capture['fonts']:
         colour=0 if index%11==0 else 127
         cpu.mem_write(0x300008,bytes([style]));height=native.call(0xb12e4);cpu.mem_write(0x300100,text+bytes(1))
         width=native.call(widths[style],eax=0x300100)&65535 if style in widths else len(text)*(8 if style==1 else 6)
-        for plane in planes+coverage:plane[:]=bytes(16000)
-        state['index']=state['mask']=0
+        video.reset()
         native.call(0xb19c8,eax=x,edx=y,ebx=colour,ecx=0x300100,limit=500000)
-        pixels=bytearray(64000);mask=bytearray(64000)
-        for plane in range(4):pixels[plane::4]=planes[plane];mask[plane::4]=coverage[plane]
+        pixels=video.pixels();mask=video.coverage()
         rows.append(f'{style} {x} {y} {colour} {text.hex() or '-'}\n');cases.append((style,text,struct.pack('<2I',width,height)+pixels+mask))
 result=subprocess.run([str(args.build/'font_probe'),str(executable)],input=''.join(rows).encode(),capture_output=True)
 assert result.returncode==0,result.stderr.decode()
