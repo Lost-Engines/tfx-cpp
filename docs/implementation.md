@@ -903,3 +903,14 @@ The forward HUD now combines the original selected-aircraft data, heading chevro
 The ground outline retains the original fixed X clipping limits and category-11 anti-radiation exclusion. Live flight binds actor profile names, Q8 position, heading, Q16 speed, player orientation and verified seeker state to these painters, replacing the temporary white tracking box and ground-target footer. Native navigation-contact cues, landing-approach guidance, timed launch notices and other view callbacks still need their own consumers. Lock-cue effects are returned for the pending audio backend.
 
 The target-controller comparison passes in development, Release and ASan/UBSan, as do the 1,600 standalone target-painter frames. The existing 768 forward-composition frames still agree under sanitizers. All 44 CTests pass; private-window checks cover firing, display controls, paused target state and result handoff, and all 128 retail missions run 1,024 simulation steps under sanitizers.
+
+
+### View selectors and transition queue
+
+```sh
+python3 tools/check_view_controls.py
+```
+
+The original ten function-key selectors now share an owned ten-entry view queue, retained cockpit offsets, low-memory alternatives, orbit matrices and fixed fly-past position. Intermediate viewport indices are named separately from final camera modes. Consumption occurs only after the current camera stage signals completion; a full queue drops further requests, and leaving a missile view discards the old queue. Shift+F1 and missile infrared retain the native save/restore rules. F5 deliberately has a different automatic-landing gate from the other keys. F9 compares target pointers before checking null, so two missing pointers still queue the ground-distance target view.
+
+**9,690 native selector/queue updates agree** across all 29 initial views, all ten keys, blocked controls, low-memory mode, repeated requests, full queues, offsets and varied player poses. Original matrix rotations and fixed-camera placement execute; target selection is supplied at its external boundary and optional fly-past sound requests are excluded. Development, Release and ASan/UBSan comparisons pass. This establishes selection state; live camera motion and drawing are the next integration step.
