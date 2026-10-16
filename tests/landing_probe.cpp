@@ -50,7 +50,7 @@ int main(int const argc, char const *const argv[]) try {
       std::cout.write(reinterpret_cast<char const*>(coverage.pixels.data()),coverage.pixels.size());
     } else if(std::string_view{argv[2]} == "selection") {
       tfx::flight::landing_input input;unsigned int craft,route_count,sites_count,carrier_count;
-      std::cin >> craft >> input.inhibited >> input.crashed >> input.ejected >> input.gear_down >> input.realistic >> route_count;
+      std::cin >> craft >> input.inhibited >> input.crashed >> input.ejected >> input.damaged >> input.realistic >> route_count;
       input.aircraft = static_cast<tfx::flight::player_aircraft>(craft + 1);
       std::vector<vec3<int32_t>> route;
       for(unsigned int index{0}; index != route_count; ++index) { int32_t x,z;std::cin >> x >> z;route.emplace_back(x,0,z); }

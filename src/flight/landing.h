@@ -44,7 +44,7 @@ struct landing_input {
   bool inhibited{false};
   bool crashed{false};
   bool ejected{false};
-  bool gear_down{false};
+  bool damaged{false};
   bool realistic{false};
 };
 struct landing_selection {

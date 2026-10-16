@@ -72,7 +72,7 @@ landing_selection landing_system::toggle(landing_input const &input, std::span<v
   if(!found) { result.messages.push_back(landing_radio::no_runway);return result; }
   prepare_beacon();
   result.messages.push_back(landing_radio::engaged);
-  result.voice = input.gear_down ? 8u : 7u;
+  result.voice = input.damaged ? 8u : 7u;
   result.controls.emplace(landing_controls{
     .configuration{3},
     .response{.8},

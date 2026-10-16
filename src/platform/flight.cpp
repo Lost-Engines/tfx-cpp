@@ -1172,7 +1172,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
           .aircraft{player.aircraft},
           .crashed{player.collision != 0},
           .ejected{player_disabled},
-          .gear_down{player.gear_down},
+          .damaged{player_damage.accumulated != 0},
         },actor_program.player_route,[&](auto const &cell) { return scene.terrain_landing_port(cell); },carriers)};
         if(result.navigation) { armament.guns = true;aiming_mode = tfx::cockpit::aiming_mode::navigation; }
         for(auto const message : result.messages) radio.show(tables.instruments().landing_radio_messages[std::to_underlying(message)]);
