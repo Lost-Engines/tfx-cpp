@@ -16,6 +16,7 @@ struct aerodynamic_response_parameters {
   double zero_pitch_moment{0};
   double roll_thrust_arm{0};
   double pitch_thrust_arm{0};
+  double maximum_elevator_angle{0};
 };
 struct aerodynamic_response_state {
   aerodynamic_motion motion{};

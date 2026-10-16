@@ -35,4 +35,14 @@ inline long double cos(long double const value) {
 #endif
 }
 
+inline long double tan(long double const value) {
+#if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
+  long double result;
+  __asm__("fptan; fstp %%st(0)" : "=t"(result) : "0"(value));
+  return result;
+#else
+  return std::tan(value);
+#endif
+}
+
 } // namespace tfx::math::x87

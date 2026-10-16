@@ -29,3 +29,14 @@ extern "C" void tfx_sine_cosine(unsigned char const *const input, unsigned char 
   std::memcpy(output,&result,10);
   __asm__ volatile("fldcw %0" : : "m"(previous));
 }
+
+extern "C" void tfx_tangent(unsigned char const *const input, unsigned char *const output, unsigned short const control) {
+  long double value{0};
+  std::memcpy(&value,input,10);
+  unsigned short previous;
+  __asm__ volatile("fnstcw %0" : "=m"(previous));
+  __asm__ volatile("fldcw %0" : : "m"(control));
+  auto const result{tfx::math::x87::tan(value)};
+  std::memcpy(output,&result,10);
+  __asm__ volatile("fldcw %0" : : "m"(previous));
+}

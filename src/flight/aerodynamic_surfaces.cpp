@@ -6,7 +6,7 @@ namespace tfx::flight {
 namespace {
 
 using calculation = long double;
-double constexpr elevator_scale{.2}, half{.5}, chute_drag_coefficient{1.2};
+double constexpr half{.5}, chute_drag_coefficient{1.2};
 
 } // anonymous namespace
 
@@ -37,18 +37,18 @@ void update_aerodynamic_surfaces(aerodynamic_surface_state &state, aerodynamic_s
     }
   }
   if(state.wing_lift_coefficient < state.negative_lift_limit) state.wing_lift_coefficient = state.negative_lift_limit;
-  state.effective_angle = static_cast<double>(static_cast<calculation>(c.elevator_lift) * context.elevator * elevator_scale + alpha);
+  state.effective_angle = static_cast<double>(static_cast<calculation>(c.elevator_lift) * context.elevator * p.maximum_elevator_angle + alpha);
   state.lift_coefficient = static_cast<double>(static_cast<calculation>(state.wing_lift_coefficient) + state.effective_angle);
   state.lift = static_cast<double>(static_cast<calculation>(context.dynamic_pressure) * p.wing_area * state.lift_coefficient);
   calculation const induced{static_cast<calculation>(state.lift_coefficient) * p.induced_drag * state.lift_coefficient};
   calculation const brake{static_cast<calculation>(p.air_brake_drag) * context.air_brake_fraction};
   calculation const gear{static_cast<calculation>(p.gear_drag) * context.gear_fraction};
-  calculation const elevator{static_cast<calculation>(p.elevator_drag) * context.elevator * elevator_scale * context.elevator * elevator_scale};
+  calculation const elevator{static_cast<calculation>(p.elevator_drag) * context.elevator * p.maximum_elevator_angle * context.elevator * p.maximum_elevator_angle};
   state.drag_coefficient = static_cast<double>(induced + c.zero_lift_drag + brake + gear + elevator);
   state.drag = static_cast<double>((static_cast<calculation>(p.chute_area) * chute_drag_coefficient * static_cast<int>(context.chute_deployed) + static_cast<calculation>(p.wing_area) * state.drag_coefficient) * context.dynamic_pressure);
   if(context.calculate_moments) {
     calculation pitch{alpha * c.pitch_stability * speed + static_cast<calculation>(p.zero_pitch_moment) * speed};
-    pitch += static_cast<calculation>(c.elevator_moment) * context.elevator * elevator_scale * speed;
+    pitch += static_cast<calculation>(c.elevator_moment) * context.elevator * p.maximum_elevator_angle * speed;
     pitch += static_cast<calculation>(c.pitch_damping) * context.pitch_rate * p.mean_chord * half;
     state.pitch_rate_moment_term = static_cast<double>(pitch);
     auto const sine{math::x87::sin(alpha)}, cosine{math::x87::cos(alpha)};

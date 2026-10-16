@@ -1318,3 +1318,15 @@ All 8,192 complete original controller updates agree, including 446 exact ordere
     python3 tools/check_aerodynamic_speed.py
 
 Both speed-controller and complete advanced-input comparisons repeat exactly in Release and ASan/UBSan.
+
+### Complete ordinary advanced-model control law
+
+The manual path of 0x9ac9c now retains bank/stick-pressure compensation, source-dependent trim, military pitch-rate correction, flap demand, aircraft-specific stall/overspeed handling, positive/negative G deflection limits, damage-induced control movement and F-22 nozzle mixing. Overspeed uses the original temporary speed target and restores the retained target afterward. Nozzle comparison bounds and assigned full-angle clamps retain the native distinction. Autopilot route/attitude control is a separate prefix and is not claimed here.
+
+All 8,192 complete original ordinary/manual cases agree across all aircraft and input sources, military/Realistic choices, neutral/held control targets, stick pressure, flap failures, speed thresholds, damage, engine states and nozzle mixing. This includes 47 ordered afterburner changes. The complete original 0x9ac9c routine executes with autopilot disabled, including original overspeed and reheat handlers. FPATAN, FSIN/FCOS and bounded FPTAN use the hardware adapter; only sound/model delivery is intercepted. There are 123 compact captures.
+
+Preset inspection identifies 0x8cd0 as aircraft-specific elevator travel: the Eurofighter uses -0.8726638888888888 radians, while F-117/F-22 use 0.10471966666666664. The compiled pre-preset value 0.2 is not an aircraft setting. Surface forces, stiff pitch response and the manual law now receive this value explicitly through the aircraft parameters. Their 8,192-case comparisons are regenerated with the actual travel values and remain exact. The response corpus includes 2,705 roll and 2,940 pitch damping fallbacks with these inputs.
+
+    python3 tools/check_aerodynamic_manual.py
+
+All 70 CTests pass in development, Release and ASan/UBSan. Complete manual-law, surface-force and response comparisons also pass in each build with the aircraft-specific elevator travel supplied.

@@ -22,7 +22,7 @@ bits=lambda value:struct.unpack('<Q',struct.pack('<d',value))[0]
 float_bits=lambda value:struct.unpack('<I',struct.pack('<f',value))[0]
 identity=[32767,0,0,0,32767,0,0,0,32767];cases=[]
 vectors=[0x14820,0x147f0,0x147a8,0x14708,0x14508]
-parameters=[0x147a0,0x14218,0x14200,0x14098,0x140c8,0x14268,0x14158,0x14270,0x141b8,0x14120,0x14118]
+parameters=[0x147a0,0x14218,0x14200,0x14098,0x140c8,0x14268,0x14158,0x14270,0x141b8,0x14120,0x14118,0x8cd0]
 contexts=[0x142c0,0x14700,0x14438,0x14540,0x14730,0x14788,0x148a0,0x14780,0x141c0,0x14878,0x8cf8,0x14418,0x14338,0x14670]
 for index in range(8192):
     flags=[(index>>bit)&1 for bit in range(6)]
@@ -34,13 +34,13 @@ for index in range(8192):
     vectors_in[3][0]=rng.choice([-1.001,-1,-.999,-0.0,0.0,.999,1,1.001,rng.uniform(-100,100)])
     state=[v for vector in vectors_in for v in vector]+[rng.uniform(-10,10) for _ in range(2)]+[rng.uniform(-.5,.5) for _ in range(3)]+[rng.choice([-20000,-20000.0000001,-19999.9999999,-1000,0])]
     inertia=[rng.uniform(3000,40000),rng.uniform(10000,200000),rng.uniform(10000,300000),rng.uniform(0,10000)]
-    params=[rng.choice([50,78,105.9]),rng.choice([10.5,13.2,13.56]),rng.choice([5.697,6.4]),rng.uniform(.1,.3),.3,rng.choice([-.5,-50,-500]),rng.choice([-5,-50,-500]),rng.uniform(-5,-.1),rng.uniform(-.05,.05),rng.uniform(-1,1),rng.uniform(-6,0)]
+    params=[rng.choice([50,78,105.9]),rng.choice([10.5,13.2,13.56]),rng.choice([5.697,6.4]),rng.uniform(.1,.3),.3,rng.choice([-.5,-50,-500]),rng.choice([-5,-50,-500]),rng.uniform(-5,-.1),rng.uniform(-.05,.05),rng.uniform(-1,1),rng.uniform(-6,0),rng.choice([-.8726638888888888,.10471966666666664])]
     context=[rng.choice([.02,.04,.1,1,5]),rng.choice([0,9.999,10,10.001,64.375,100,1000]),rng.choice([.088,1.225]),rng.choice([64.375,92.7,67.98]),rng.choice([0,rng.uniform(-1,1)]),rng.uniform(-1,1),rng.uniform(-1,1),rng.uniform(-2,2),rng.uniform(-2,2),rng.uniform(0,1),rng.uniform(-100000,100000),rng.uniform(-.5,.5),rng.uniform(-.5,.5),rng.choice([0,rng.uniform(-10000,10000)])]
     cases.append([*flags,*map(bits,state),float_bits(rng.uniform(-3,9)),*map(bits,basis+inertia+params+context)])
 output=subprocess.check_output([str((a.build/'aerodynamic_response_probe').resolve())],input=('\n'.join(' '.join(map(str,row)) for row in cases)+'\n').encode()).decode().splitlines();assert len(output)==len(cases)
 fixtures=[];roll_fallback=pitch_fallback=0
 for index,(row,line) in enumerate(zip(cases,output)):
-    warp,landed,auto,inhibited,realistic,pressure=row[:6];values=row[6:27];g=row[27];basis=row[28:37];inertia=row[37:41];params=row[41:52];context=row[52:]
+    warp,landed,auto,inhibited,realistic,pressure=row[:6];values=row[6:27];g=row[27];basis=row[28:37];inertia=row[37:41];params=row[41:53];context=row[53:]
     im.write(0xe780,'<B',warp);im.write(0x8d3a,'<H',landed);im.write(0x14958,'<H',auto);im.write(0x8d10,'<H',inhibited);im.write(0x1347a,'<B',6 if realistic else 1);im.write(0x8f32,'<B',pressure)
     at=0
     for offset in vectors:im.write(offset,'<3Q',*values[at:at+3]);at+=3

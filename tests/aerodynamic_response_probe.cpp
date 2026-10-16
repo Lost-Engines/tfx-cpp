@@ -41,7 +41,7 @@ int main(int const argc, char const *const argv[]) try {
     for(auto *vector : {&context.basis.forward,&context.basis.right,&context.basis.down}) for(auto &value : *vector) value = read_double(input);
     for(auto *value : {&context.inertia.mass_kg,&context.inertia.roll_moment,&context.inertia.pitch_moment,&context.inertia.fuel_kg}) *value = read_double(input);
     auto &p{context.parameters};
-    for(auto *value : {&p.wing_area,&p.wing_span,&p.mean_chord,&p.maximum_aileron_radians,&p.rudder_effectiveness,&p.roll_damping,&p.pitch_damping,&p.pitch_stability,&p.zero_pitch_moment,&p.roll_thrust_arm,&p.pitch_thrust_arm}) *value = read_double(input);
+    for(auto *value : {&p.wing_area,&p.wing_span,&p.mean_chord,&p.maximum_aileron_radians,&p.rudder_effectiveness,&p.roll_damping,&p.pitch_damping,&p.pitch_stability,&p.zero_pitch_moment,&p.roll_thrust_arm,&p.pitch_thrust_arm,&p.maximum_elevator_angle}) *value = read_double(input);
     for(auto *value : {&context.seconds,&context.metres_per_second,&context.density,&context.stall_metres_per_second,&context.rudder,&context.aileron,&context.elevator,&context.roll_control_gradient,&context.pitch_control_gradient,&context.engine_thrust,&context.thrust_moment_scale,&context.angle_of_attack,&context.pitch_rate_bias,&context.ground_vertical_force}) *value = read_double(input);
     tfx::flight::update_aerodynamic_response(state,context);
     std::vector<uint64_t> values;

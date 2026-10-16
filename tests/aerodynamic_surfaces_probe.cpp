@@ -33,7 +33,7 @@ int main(int const argc, char const *const argv[]) try {
     auto &c{context.coefficients};
     for(auto *value : {&c.reference_drag,&c.wave_drag,&c.zero_lift_drag,&c.lift_slope,&c.pitch_stability,&c.pitch_damping,&c.elevator_moment,&c.elevator_lift,&c.roll_damping,&c.roll_sideslip,&c.aileron_effectiveness}) *value = read_double(input);
     tfx::flight::aerodynamic_surface_parameters p;
-    for(auto *value : {&p.wing_area,&p.wing_span,&p.mean_chord,&p.flap_lift_gradient,&p.maximum_flap_angle,&p.flap_limit_gradient,&p.maximum_lift,&p.automatic_flap_gradient,&p.maximum_automatic_flap_angle,&p.zero_lift,&p.critical_angle,&p.induced_drag,&p.air_brake_drag,&p.gear_drag,&p.elevator_drag,&p.chute_area,&p.zero_pitch_moment,&p.chute_pitch_arm,&p.air_brake_moment_arm.x,&p.air_brake_moment_arm.y,&p.maximum_aileron_angle}) *value = read_double(input);
+    for(auto *value : {&p.wing_area,&p.wing_span,&p.mean_chord,&p.flap_lift_gradient,&p.maximum_flap_angle,&p.flap_limit_gradient,&p.maximum_lift,&p.automatic_flap_gradient,&p.maximum_automatic_flap_angle,&p.zero_lift,&p.critical_angle,&p.induced_drag,&p.air_brake_drag,&p.gear_drag,&p.elevator_drag,&p.chute_area,&p.zero_pitch_moment,&p.chute_pitch_arm,&p.air_brake_moment_arm.x,&p.air_brake_moment_arm.y,&p.maximum_aileron_angle,&p.maximum_elevator_angle}) *value = read_double(input);
     for(auto *value : {&context.angle_of_attack,&context.metres_per_second,&context.density,&context.dynamic_pressure,&context.flap_fraction,&context.gear_fraction,&context.air_brake_fraction,&context.elevator,&context.aileron,&context.sideslip,&context.pitch_rate,&context.roll_rate}) *value = read_double(input);
     tfx::flight::update_aerodynamic_surfaces(state,p,context);
     std::vector<uint64_t> values;
