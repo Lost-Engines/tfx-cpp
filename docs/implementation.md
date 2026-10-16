@@ -1267,7 +1267,7 @@ Both the complete response and connected air-data comparisons pass in developmen
 
 ### Mach-dependent lift, drag and control derivatives
 
-Native 0x99bc0 now supplies the transonic drag transition and the three distinct aircraft lift curves, including the F-22's ordered piecewise bounds and the Eurofighter's cap. The aircraft's additional lifting area remains a separate coefficient. Static pitch stability and damping use their original lift-plus-drag terms; elevator, flap, roll and aileron derivatives use the original lift-only term. These distinctions are preserved rather than merged into a generic approximation.
+Native 0x99bc0 now supplies the transonic drag transition and the three distinct aircraft lift curves, including the F-22's ordered piecewise bounds and the Eurofighter's cap. The aircraft's additional lifting area remains a separate coefficient. Static pitch stability and damping use their original lift-plus-drag terms; elevator-moment, elevator-lift, roll and aileron derivatives use the original lift-only term. These distinctions are preserved rather than merged into a generic approximation.
 
 All 8,192 complete original coefficient updates agree across all three aircraft, exact and adjacent transonic thresholds, piecewise-curve changes and supplied profile coefficients. Original startup precision and the complete routine execute; bounded FSIN/FCOS use the hardware adapter. There are 123 compact captures.
 
@@ -1286,3 +1286,13 @@ All 8,192 complete original cases agree, with the routines exercised separately 
     python3 tools/check_aerodynamic_powerplant.py
 
 All 66 CTests and the complete powerplant comparison pass in development, Release and ASan/UBSan.
+
+### Aerodynamic surface forces, stall and moments
+
+The five connected native surface stages (0x9c7f0), and their simplified lift/drag/projection sequence, now compute flap lift offsets and limits, automatic flap extension, aircraft-specific stall, failed-flap behaviour, induced/gear/elevator/air-brake/chute drag, pitch and roll moments, and body-force projection. The original additional elevator-lift term is distinguished from the physical flap terms. Simplified updates retain the original cached moment terms and untouched body axes.
+
+All 8,192 complete original updates agree, including 2,217 stalls, all three aircraft, full and simplified sequences, failed/intermittent/healthy flaps, brakes, gear, chute and supplied control/geometry/derivative combinations. Original startup and the complete numerical stages execute; bounded FSIN/FCOS use the hardware adapter. All retained scalar state, forces, moments and stall flags are observed. There are 123 compact captures.
+
+    python3 tools/check_aerodynamic_surfaces.py
+
+The surface and Mach-coefficient comparisons also pass exactly in Release and ASan/UBSan. The 0x141d0 derivative is now named elevator lift, following its actual 0x148a0 elevator consumer; physical flap derivatives remain separate.
