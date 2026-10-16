@@ -12,7 +12,7 @@ namespace tfx::world {
 class assets {
 private:
   resources::archive const &game;
-  std::vector<std::string> names;
+  std::shared_ptr<std::vector<std::string> const> names;
   std::map<std::string, models::shape> shapes;
   std::map<std::string, definition> definitions;
   std::map<std::string, resources::bytes> textures;

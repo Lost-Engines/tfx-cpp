@@ -3,7 +3,7 @@
 
 namespace tfx::world {
 
-assets::assets(resources::archive const &archive) : game{archive}, names{model_names(game.read("ss/ssinfo.fn"))} {
+assets::assets(resources::archive const &archive) : game{archive}, names{std::make_shared<std::vector<std::string> const>(model_names(game.read("ss/ssinfo.fn")))} {
 }
 
 models::shape const &assets::shape(std::string const &name) {

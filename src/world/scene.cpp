@@ -6,14 +6,6 @@
 
 namespace tfx::world {
 
-scene::scenery_instance::scenery_instance(definition const &source) : parts{source.parts}, all_parameters{(source.flags & 0x0100) != 0} {
-  for(auto const &stream : source.streams) streams.push_back({
-    .part{stream.part},
-    .parameter{stream.parameter},
-    .player{stream.words},
-  });
-}
-
 scene::scene(environment const &environment, assets &bank) : terrain{environment}, resources{bank} {
 }
 
@@ -21,7 +13,6 @@ scene_handle scene::create_actor(std::string const &name, vec3d const &position,
   auto const &source{resources.object(name)};
   unsigned int const id{next_actor++};
   actors.emplace(id,moving_instance{
-    .source{&source},
     .state{source},
     .position{vec3d{position}},
     .rotation{math::rotation(angles)},
@@ -35,21 +26,51 @@ void scene::place_actor(scene_handle const handle, vec3d const &position, vec3<m
   actor.rotation = math::rotation(angles);
 }
 
-void scene::advance_instance(scenery_instance &instance) {
-  for(auto &stream : instance.streams) {
-    if(stream.paused || (stream.parameter && !instance.all_parameters)) continue;
-    try {
-      auto &parameter{instance.parts.at(stream.part).parameters.at(stream.parameter)};
-      auto const result{stream.player.tick(parameter)};
-      if(result.action == stream_action::event_requested) {
-        stream.paused = true;
-        warnings.insert("SSD event " + std::to_string(result.event) + " awaits the actor dispatcher; stream paused");
-      }
-    } catch(std::exception const &error) {
-      stream.paused = true;
-      warnings.insert(error.what());
-    }
-  }
+namespace {
+
+vec3<int16_t> word_position(vec3d const &position) {
+  auto const component{[](double const value) { return math::signed_word(static_cast<uint16_t>(static_cast<int64_t>(value))); }};
+  return {component(position.x),component(position.y),component(position.z)};
+}
+
+unsigned int wrapped_cell(int const value, unsigned int const dimension) {
+  /// Native 0xb0cbc uses dimension - 1 for negative remainders, including its one-cell seam quirk.
+  int const remainder{value % static_cast<int>(dimension)};
+  return static_cast<unsigned int>(remainder < 0 ? remainder + static_cast<int>(dimension) - 1 : remainder);
+}
+
+} // anonymous namespace
+
+instance_result scene::collide_terrain(vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t const damage, bool const player) {
+  int const cell_x{current.x >> 11}, cell_z{current.z >> 11};
+  auto const x{wrapped_cell(cell_x,map_width)};
+  auto const z{map_height - 1 - wrapped_cell(static_cast<int>(map_height) - 1 - cell_z,map_height)};
+  auto const &tile{terrain.tile(x,z)};
+  auto const &source{resources.object(terrain.variant(x,z))};
+  auto &state{instances.try_emplace(z * map_width + x,source).first->second};
+  vec3d const origin{(cell_x + .5) * cell_units,0,(cell_z + .5) * cell_units};
+  auto const inverse_heading{static_cast<math::angle>(-tile.rotation)};
+  return state.execute(2,{
+    .movement{
+      .previous{word_position(math::rotate_tile(vec3d{previous} - origin,inverse_heading))},
+      .current{word_position(math::rotate_tile(vec3d{current} - origin,inverse_heading))},
+    },
+    .player_query{player},
+    .impact_damage{damage},
+    .status{terrain.status},
+  });
+}
+
+instance_result scene::actor_event(scene_handle const handle, unsigned int const entry) {
+  return actors.at(handle.value).state.execute(entry,{
+    .status{terrain.status},
+  });
+}
+
+void scene::advance_instance(instance &state) {
+  state.animate({
+    .status{terrain.status},
+  });
 }
 
 void scene::advance(timer_ticks const elapsed) {
@@ -89,7 +110,12 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       try {
         auto const &object{resources.object(terrain.variant(col,row))};
         auto &instance{instances.try_emplace(row * map_width + col,object).first->second};
-        for(auto const &draw : object.draws) {
+        instance_context const context{
+          .status{terrain.status},
+          .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(centre + math::rotate_tile(anchor,tile.rotation) - view.position)); }},
+        };
+        for(auto const &draw : instance.execute(1,context).draws) {
+          if(draw.kind == part_draw_kind::ground_shadow) continue;
           auto const &part{instance.parts.at(draw.slot)};
           if(part.name.empty()) continue;
           auto const &shape{resources.shape(part.name)};
@@ -110,8 +136,13 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       }
     }
   }
-  for(auto const &[_, actor] : actors) {
-    for(auto const &draw : actor.source->draws) {
+  for(auto &[_, actor] : actors) {
+    instance_context const context{
+      .status{terrain.status},
+      .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(actor.position + actor.rotation * anchor - view.position)); }},
+    };
+    for(auto const &draw : actor.state.execute(1,context).draws) {
+      if(draw.kind == part_draw_kind::ground_shadow) continue;
       auto const &part{actor.state.parts.at(draw.slot)};
       if(part.name.empty()) continue;
       try {

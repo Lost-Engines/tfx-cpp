@@ -47,16 +47,23 @@ stream_step parameter_player::tick(uint8_t &parameter) {
         .action{stream_action::finished},
       };
     case 6:
-      // leave the cursor intact until the actor dispatcher can handle the
-      // event and any stream replacement; the inspection caller pauses it
+      cursor += 2;
       return {
         .action{stream_action::event_requested},
-        .event{math::signed_word(words.at(cursor + 1))},
+        .event{math::signed_word(words.at(cursor - 1))},
       };
     default: throw std::runtime_error{"unknown actor animation command " + std::to_string(opcode)};
     }
   }
   throw std::runtime_error{"animation program makes no value-changing progress"};
+}
+
+unsigned int parameter_player::position() const {
+  return cursor;
+}
+
+bool parameter_player::stopped() const {
+  return finished;
 }
 
 bool animation_clock::advance(timer_ticks const elapsed) {

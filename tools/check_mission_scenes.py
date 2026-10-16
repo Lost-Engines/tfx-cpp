@@ -10,6 +10,7 @@ import subprocess
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--research',type=Path,required=True)
+parser.add_argument('--flight-steps',type=int,default=0)
 args=parser.parse_args()
 
 def dataset(path):
@@ -34,7 +35,7 @@ for mission,line in zip(missions,actual):
 failures=[]
 notes=Counter()
 for mission in missions:
-    result=subprocess.run([str(build/'tfx'),'--data-dir',data,'--mission',mission['name'].removeprefix('miss'),'--screenshot',os.devnull],capture_output=True,text=True,timeout=20)
+    result=subprocess.run([str(build/'tfx'),'--data-dir',data,'--mission',mission['name'].removeprefix('miss'),'--flight-steps',str(args.flight_steps),'--screenshot',os.devnull],capture_output=True,text=True,timeout=20)
     if result.returncode:failures.append((mission['name'],result.stderr))
     else:
         assert 'model parts' in result.stdout and ': 0 model parts' not in result.stdout,mission['name']

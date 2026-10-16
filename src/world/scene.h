@@ -7,6 +7,7 @@
 #include "world/animation.h"
 #include "world/assets.h"
 #include "world/environment.h"
+#include "world/instance.h"
 
 namespace tfx::world {
 
@@ -16,28 +17,15 @@ class scene {
 private:
   environment const &terrain;
   assets &resources;
-  struct stream_playback {
-    unsigned int part;
-    unsigned int parameter;
-    parameter_player player;
-    bool paused{false};
-  };
-  struct scenery_instance {
-    std::vector<model_part> parts;
-    std::vector<stream_playback> streams;
-    bool all_parameters;
-    scenery_instance(definition const &source);
-  };
-  std::map<unsigned int, scenery_instance> instances;
+  std::map<unsigned int,instance> instances;
   struct moving_instance {
-    definition const *source;
-    scenery_instance state;
+    instance state;
     vec3d position;
     mat3d rotation;
   };
   std::map<unsigned int,moving_instance> actors;
   unsigned int next_actor{0};
-  void advance_instance(scenery_instance &instance);
+  void advance_instance(instance &state);
   animation_clock clock;
   math::jitter_state working_jitter;
   math::jitter_state saved_jitter;
@@ -49,6 +37,8 @@ public:
   scene(environment const &terrain, assets &resources);
   scene_handle create_actor(std::string const &definition, vec3d const &position, vec3<math::angle> const &angles);
   void place_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
+  instance_result collide_terrain(vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t damage = 0, bool player = true);
+  instance_result actor_event(scene_handle handle, unsigned int entry);
   void advance(timer_ticks elapsed);
   void draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius);
 };

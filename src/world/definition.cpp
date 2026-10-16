@@ -14,9 +14,9 @@ unsigned int operands(unsigned int const opcode, resources::binary_view const &v
   if(opcode == 10) return 2 + view.le16(at + 2);
   switch(opcode) {
   case 0: case 16: case 19: case 33: return 0;
-  case 1: case 2: case 4: case 7: case 15: case 17: case 18: case 54: case 56: case 59: case 62: case 67: case 69: case 70: case 73: case 83: return 1;
-  case 3: case 6: case 8: case 11: case 38: case 39: case 40: case 41: case 42: case 43: case 44: case 45: case 46: case 60: case 61: case 63: case 66: case 68: return 2;
-  case 37: case 57: case 58: case 72: case 74: return 3;
+  case 1: case 2: case 4: case 7: case 15: case 17: case 18: case 54: case 56: case 59: case 60: case 62: case 70: case 73: case 83: return 1;
+  case 67: case 69: case 3: case 6: case 8: case 11: case 46: case 61: case 63: case 66: case 68: return 2;
+  case 38: case 39: case 40: case 41: case 42: case 43: case 44: case 45: case 37: case 57: case 58: case 72: case 74: return 3;
   case 78: case 79: return 4;
   case 84: return 5;
   case 5: case 12: case 13: case 47: case 48: case 85: case 86: case 87: return 6;
@@ -29,21 +29,29 @@ unsigned int operands(unsigned int const opcode, resources::binary_view const &v
 
 } // anonymous namespace
 
-definition::definition(std::span<uint8_t const> const source, std::span<std::string const> const names) {
+unsigned int instruction_operands(unsigned int const opcode, std::span<uint8_t const> const bytes, unsigned int const arguments) {
+  return operands(opcode,resources::binary_view{bytes},arguments);
+}
+
+definition::definition(std::span<uint8_t const> const source, std::span<std::string const> const names) : definition{source,std::make_shared<std::vector<std::string> const>(names.begin(),names.end())} {
+}
+
+definition::definition(std::span<uint8_t const> const source, std::shared_ptr<std::vector<std::string> const> catalog) : bytecode{source.begin(),source.end()}, names{std::move(catalog)} {
   /// Recover known initial parts and intact draw calls; conditional runtime events are not guessed
   resources::binary_view const view{source};
   view.slice(0, 10);
   parts.resize(view.byte(1));
   flags = view.le16(4);
-  unsigned int const entries{view.byte(8)}, anchor_count{view.byte(9)};
-  std::vector<vec3d> anchors;
+  custom_bytes = view.byte(0);
+  unsigned int const entry_count{view.byte(8)}, anchor_count{view.byte(9)};
   for(unsigned int i{0}; i != anchor_count; ++i) anchors.emplace_back(view.signed_le16(10 + i * 6), view.signed_le16(12 + i * 6), view.signed_le16(14 + i * 6));
   auto const table{10 + anchor_count * 6};
-  auto const entry{[&view, table, entries](unsigned int const index){
-    if(index >= entries) throw std::runtime_error{"missing scenery entry"};
+  auto const entry{[&view, table, entry_count](unsigned int const index){
+    if(index >= entry_count) throw std::runtime_error{"missing scenery entry"};
     auto const field{table + index * 2};
     return static_cast<unsigned int>(static_cast<int>(field) + view.signed_le16(field) * 2);
   }};
+  for(unsigned int index{0}; index != entry_count; ++index) entries.push_back(entry(index));
   std::map<unsigned int, uint16_t> custom;
   auto const run{[&](auto const &self, unsigned int at, bool const initialise, unsigned int const depth)->void {
     if(depth > 32) throw std::runtime_error{"scenery helper nesting exceeds limit"};
@@ -60,8 +68,10 @@ definition::definition(std::span<uint8_t const> const source, std::span<std::str
       if(initialise) {
         if(opcode == 3 || opcode == 5) {
           auto &part{parts.at(a(0))};
-          if(a(1) >= names.size()) throw std::runtime_error{"scenery model index exceeds name table"};
-          part.name = names[a(1)];
+          if(a(1) >= names->size()) throw std::runtime_error{"scenery model index exceeds name table"};
+          part.name = names->at(a(1));
+          part.model_index = a(1);
+          part.rotation_mode = opcode == 5 ? static_cast<uint8_t>(a(2)) : 0;
           if(opcode == 5) part.rotation = vec3<math::angle>{a(3), a(4), a(5)};
         }
         if(opcode == 9 || (opcode >= 20 && opcode <= 27)) {
@@ -99,7 +109,7 @@ definition::definition(std::span<uint8_t const> const source, std::span<std::str
     throw std::runtime_error{"scenery instruction limit exceeded"};
   }};
   run(run, entry(0), true, 0);
-  if(entries > 1) run(run, entry(1), false, 0);
+  if(entry_count > 1) run(run, entry(1), false, 0);
 }
 
 std::vector<std::string> model_names(std::span<uint8_t const> const source) {
