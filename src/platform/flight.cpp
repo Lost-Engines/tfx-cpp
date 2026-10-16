@@ -39,6 +39,7 @@
 #include "platform/flight.h"
 #include "render/camera.h"
 #include "render/point_projection.h"
+#include "render/palette_selection.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
@@ -68,7 +69,11 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   tfx::world::mission const selected{game,mission_name};
   auto const mission_setup{tfx::missions::initialise(selected.script)};
   tfx::world::environment const environment{game,override_grid.empty() ? selected.grid_name() : override_grid,override_environment.empty() ? mission_setup.environment : override_environment};
-  auto const colours{tfx::render::decode_palette(game.read("colours/" + environment.palette_name + ".col"))};
+  auto const colours{tfx::render::decode_palette(game.read("colours/" + environment.lighting.palette_name + ".col"))};
+  auto const infrared_colours{tfx::render::decode_palette(game.read("colours/" + environment.lighting.infrared_palette_name + ".col"))};
+  auto const *frame_colours{&colours};
+  tfx::render::palette_selection palette_selection;
+  bool night_vision{false};
   tfx::world::assets assets{game};
   tfx::world::scene scene{environment,assets};
   tfx::missions::timeline mission_time{mission_setup};
@@ -369,7 +374,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     }
   }};
   tfx::render::software_renderer renderer{tables}, camera_renderer{tables};
-  tfx::cockpit::hud instruments{tables.instruments(),game,tables.weapons,environment.schematic_name};
+  tfx::cockpit::hud instruments{tables.instruments(),game,tables.weapons,environment.lighting.schematic_name};
   tfx::cockpit::scene_displays scene_displays{tables.instruments()};
   tfx::cockpit::frame cockpit_frame{tables.instruments(),game};
   tfx::cockpit::weapon_display aiming{tables.instruments(),game};
@@ -911,6 +916,15 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       double constexpr radians_per_angle{2 * std::numbers::pi / 65536};
       view = tfx::render::inspection_camera(vec3d{designator.camera},designator.heading * radians_per_angle,-tfx::math::signed_word(designator.pitch) * radians_per_angle);
     }
+    if(!inspect) {
+      if(auto const upload{palette_selection.advance({
+        .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
+        .projectiles_present{!projectiles.projectiles().empty()},
+        .infrared_available{!environment.lighting.infrared_palette_name.empty()},
+        .night{(environment.lighting.status & tfx::world::night_status) != 0},
+        .night_vision{night_vision},
+      })}) frame_colours = *upload == tfx::render::palette_bank::infrared ? &infrared_colours : &colours;
+    }
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
     queue_projectiles();
@@ -965,7 +979,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     if(scene.warnings.size() > 6) std::cerr << "Preview notes: " << scene.warnings.size() << " distinct limitations; this is a flight-integration build" << std::endl;
   }
   if(screenshot) {
-    renderer.output.screenshot(*screenshot,colours);
+    renderer.output.screenshot(*screenshot,*frame_colours);
     std::cout << "Initial scene screenshot: " << *screenshot << std::endl;
     return true;
   }
@@ -973,7 +987,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   if(!shared_window) owned_window = std::make_unique<tfx::platform::window>(scale);
   auto &window{shared_window ? *shared_window : *owned_window};
   // Wayland maps the window after its first buffer: present before waiting for focus.
-  window.present(renderer.output.colourise(colours));
+  window.present(renderer.output.colourise(*frame_colours));
   auto *const host{window.get()};
   double previous_time{glfwGetTime()}, title_time{previous_time}, last_mouse_x{0}, last_mouse_y{0}, timer_fraction{0};
   unsigned int frames{0}, interval_frames{0};
@@ -1049,7 +1063,11 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         display_selection.cycle_right(player.aircraft,weapon ? weapon->category : tables.weapons[0].category);
       }
       if(pressed(GLFW_KEY_R)) display_selection.cycle_range();
-      if(pressed(GLFW_KEY_N) && !mission_setup.targets.empty() && !down(GLFW_KEY_LEFT_SHIFT) && !down(GLFW_KEY_RIGHT_SHIFT)) ground_target_page = (ground_target_page + 1) % static_cast<unsigned int>(mission_setup.targets.size());
+      if(pressed(GLFW_KEY_N)) {
+        if(down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)) {
+          if(!player.collision && !player_disabled) night_vision = !night_vision;
+        } else if(!mission_setup.targets.empty()) ground_target_page = (ground_target_page + 1) % static_cast<unsigned int>(mission_setup.targets.size());
+      }
       if(pressed(GLFW_KEY_Z)) {
         if(designator_view) designate_trigger = true;
         else if(auto const *weapon{selected_weapon()}; weapon && weapon->category == 3) {
@@ -1150,7 +1168,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     }
     if(paused || result_evaluated) glfwWaitEventsTimeout(.01);
     draw();
-    window.present(renderer.output.colourise(colours));
+    window.present(renderer.output.colourise(*frame_colours));
     if(frame_ticks) finish_world(*frame_ticks);
     ++frames;
     ++interval_frames;

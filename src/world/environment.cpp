@@ -65,9 +65,29 @@ std::string mission::grid_name() const {
   return lower(world_name.substr(0,dos_basename_length));
 }
 
+lighting_configuration::lighting_configuration(resources::archive const &game, std::string const &name) {
+  config = text(game.read("lev/" + name + ".txt"));
+  std::istringstream settings{config};
+  std::string token;
+  while(settings >> token) {
+    token = lower(std::move(token));
+    if(token == "night") status |= night_status;
+    if(token == "night" || token == "day") {
+      settings >> palette_name;
+      // Native 0x747fc reads five distance boundaries around four higher-altitude
+      // palettes, followed by the infrared palette and the map sprite basename.
+      for(unsigned int index{0}; index != upper_palette_names.size(); ++index) settings >> palette_altitudes[index] >> upper_palette_names[index];
+      if(!(settings >> palette_altitudes.back() >> infrared_palette_name >> schematic_name)) throw std::runtime_error{"environment lacks its palette/schematic bindings: " + name};
+      break;
+    }
+  }
+  if(palette_name.empty()) throw std::runtime_error{"environment has no base day/night palette: " + name};
+}
+
 environment::environment(resources::archive const &game, std::string source_name, std::string source_lighting) :
   name{std::move(source_name)},
-  lighting_name{source_lighting.empty() ? name : std::move(source_lighting)} {
+  lighting_name{source_lighting.empty() ? name : std::move(source_lighting)},
+  lighting{game,lighting_name} {
   /// The native grid is column-major with reversed Z; retain a convenient row-major runtime lookup
   auto const prefix{"lev/" + name};
   auto const low{game.read(prefix + ".lev")}, high{game.read(prefix + ".le2")};
@@ -101,24 +121,7 @@ environment::environment(resources::archive const &game, std::string source_name
       choices[target] = static_cast<uint16_t>(random.next() % tiles[cells[target]].variants.size());
     }
   }
-  config = text(game.read("lev/" + lighting_name + ".txt"));
-  std::istringstream settings{config};
-  std::string token;
-  while(settings >> token) {
-    token = lower(std::move(token));
-    if(token == "night") status |= night_status;
-    if(token == "night" || token == "day") {
-      settings >> palette_name;
-      // Native 0x747fc reads five distance boundaries around four higher-altitude
-      // palettes, followed by the infrared palette and the map sprite basename.
-      unsigned int constexpr upper_palette_count{4};
-      int distance{0};std::string palette, infrared;
-      for(unsigned int index{0}; index != upper_palette_count; ++index) settings >> distance >> palette;
-      if(!(settings >> distance >> infrared >> schematic_name)) throw std::runtime_error{"environment lacks its schematic binding: " + lighting_name};
-      break;
-    }
-  }
-  if(palette_name.empty()) throw std::runtime_error{"environment has no base day/night palette: " + name};
+
 }
 
 math::random_state environment::variant_random_state() const {

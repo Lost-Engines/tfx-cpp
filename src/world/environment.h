@@ -36,6 +36,17 @@ struct mission {
   std::string grid_name() const;
 };
 
+struct lighting_configuration {
+  std::string config;
+  std::string palette_name;
+  std::array<std::string,4> upper_palette_names;
+  std::array<int32_t,5> palette_altitudes{};
+  std::string infrared_palette_name;
+  std::string schematic_name;
+  uint16_t status{0};
+  lighting_configuration(resources::archive const &game, std::string const &name);
+};
+
 class environment {
 private:
   std::array<uint16_t, map_width * map_height> cells;
@@ -45,10 +56,7 @@ private:
 public:
   std::string name;
   std::string lighting_name;
-  std::string config;
-  std::string palette_name;
-  std::string schematic_name;
-  uint16_t status{0};
+  lighting_configuration lighting;
   std::vector<terrain_tile> tiles;
 
   environment(resources::archive const &game, std::string name, std::string lighting_name = "");

@@ -60,6 +60,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
                    "X clears targets; F1 returns to flight view; Space fires; P pauses; Escape exits.\n"
                    "1/2/3 cycle the MFDs; R changes radar range; N selects the ground-target preview.\n"
+                   "Shift+N toggles infrared night vision.\n"
                    "Page Up/Down raise and lower the cockpit; Shift+arrows turn the view.\n"
                    "F1 cockpit; Shift+F1 full forward; F2/F3 look left/right; F4 rear; F5 chase.\n"
                    "F6 fly-past; F7 tactical; F8 fired-store camera (twice: nose view).\n"
