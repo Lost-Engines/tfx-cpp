@@ -24,6 +24,8 @@ private:
 
 public:
   std::vector<weapons::definition> weapons;
+  std::array<vec3<int16_t>,2> cannon_mounts;
+  std::array<std::array<vec3<int16_t>,10>,3> store_mounts;
   std::array<actors::formation_offset,actors::aircraft_per_group> formations;
   std::array<uint8_t,actors::envelope_bytes> aircraft_envelopes;
   executable_tables(std::filesystem::path const &path);

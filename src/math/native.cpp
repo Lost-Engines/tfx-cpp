@@ -60,6 +60,17 @@ mat3<int32_t> rotation_words(vec3<angle> const &angles) {
   return result;
 }
 
+vec3<int32_t> place_anchor(vec3<int32_t> const &origin, vec3<angle> const &angles, vec3<int16_t> const &anchor) {
+  // Native 0xb81de adds each signed high-word product separately. One dot product followed by a shift loses its rounding rules.
+  auto result{vec3<int32_t>{origin}};
+  auto const matrix{rotation_words(angles)};
+  for(unsigned int row{0}; row != 3; ++row) for(unsigned int column{0}; column != 3; ++column) {
+    int32_t const term{(static_cast<int32_t>(anchor[column]) * matrix.data[column * 3 + row]) >> 16};
+    result[row] = std::bit_cast<int32_t>(static_cast<uint32_t>(result[row]) + static_cast<uint32_t>(term));
+  }
+  return result;
+}
+
 mat3d rotation(vec3<angle> const &angles) {
   return mat3d{rotation_words(angles)} / static_cast<double>(matrix_unit);
 }

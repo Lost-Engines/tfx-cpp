@@ -36,13 +36,25 @@ projectile_id runtime::launch(release const &request) {
   free.pop_back();
   // Keep the record's address stable: a dispenser can recycle its own record during its callback.
   projectile_id const id{next_id++};
+  uint8_t mount{slot.value.mount};
+  if(callbacks.mount_state) {
+    auto const current{callbacks.mount_state()};
+    if(request.angles == current.angles) mount = current.selected;
+  } else if(request.owner.pool == actor_pool::player) mount = request.mount;
   slot.value = active_projectile{
     .id{id},
     .state{weapons::launch(definitions[request.weapon],static_cast<uint8_t>(request.weapon),request.position,request.angles,request.speed)},
     .owner{request.owner},
     .target{request.target},
-    .mount{request.mount},
+    .mount{mount},
   };
+  if(slot.value.target.untargeted) {
+    auto const elapsed{substep.value_or(callbacks.launch_elapsed ? callbacks.launch_elapsed() : 0)};
+    untargeted_point = slot.value.state.position;
+    int32_t const distance{std::bit_cast<int32_t>(static_cast<uint32_t>(slot.value.state.speed) * 1000u * elapsed)};
+    actors::move(untargeted_point,slot.value.state.angles,distance);
+    untargeted_point.y = 0;
+  }
   slot.previous = nullptr;
   slot.next = first;
   if(first) first->previous = &slot;
@@ -61,7 +73,9 @@ projectile_id runtime::countermeasure(actor_identity const owner, vec3<int32_t> 
     .angles{0,0,0},
     .speed{0},
     .owner{owner},
-    .target{},
+    .target{
+      .untargeted{true},
+    },
   })};
   // Native 0xa35d0 visits newest first and consumes a random value even for a nonpositive signed strength.
   for(auto *slot{first}; slot; slot = slot->next) {
@@ -83,8 +97,15 @@ std::map<projectile_id,active_projectile const*> const &runtime::projectiles() c
 }
 
 void runtime::advance(simulation::timer_ticks const elapsed, math::random_state &random, bool const ground_effects) {
+  struct substep_guard {
+    std::optional<simulation::timer_ticks> &value;
+    ~substep_guard() { value.reset(); }
+  } clear_substep{
+    .value{substep},
+  };
   simulation::projectile_clock clock{elapsed};
   while(auto const ticks{clock.next()}) {
+    substep = *ticks;
     auto *slot{first};
     unsigned int budget{static_cast<unsigned int>(slots.size()) * 4096u};
     while(slot) {
@@ -96,7 +117,7 @@ void runtime::advance(simulation::timer_ticks const elapsed, math::random_state 
       else {
         auto context{callbacks.motion_inputs(shot,*ticks)};
         context.elapsed = *ticks;
-        context.target = shot.target.actor ? callbacks.actor_position(*shot.target.actor) : vec3<int32_t>{shot.target.position};
+        context.target = shot.target.actor ? callbacks.actor_position(*shot.target.actor) : shot.target.untargeted ? vec3<int32_t>{untargeted_point} : vec3<int32_t>{shot.target.position};
         if(shot.target.projectile) {
           auto const found{active.find(*shot.target.projectile)};
           if(found != active.end()) context.target = found->second->state.position;
@@ -109,7 +130,9 @@ void runtime::advance(simulation::timer_ticks const elapsed, math::random_state 
               .angles{vec3<math::angle>{child.angles}},
               .speed{child.speed},
               .owner{shot.owner},
-              .target{},
+              .target{
+                .untargeted{true},
+              },
             });
           }},
           .current_definition{[&](uint8_t const weapon)->definition const& { return definitions[weapon]; }},

@@ -268,4 +268,20 @@ Native gun stages at `0xa422c` and `0xa42bc` have identical motion but different
 
 AI request delivery is synchronous: a newly launched missile can become an incoming threat before the next aircraft is updated in the same tick. Chaff/flare diversion clears the previous threat association immediately and points guidance at the decoy's current position. Decoy expiry changes diverted missiles to the native coasting callback with its 30,000-tick lifetime. The live aircraft and projectile systems share one gameplay random stream; procedural vertex jitter remains separate.
 
-All **128 retail missions** run 1,024 integrated four-tick steps and render under AddressSanitizer/UndefinedBehaviorSanitizer with live aircraft weapon releases and contacts. This is a robustness sweep, not a claim that every mission or end condition has been completed. Explosion/impact effect spawning, complete player damage, mounted-store release geometry, player weapon input, flak/surface targeting and the mission-result bridge still need integration.
+All **128 retail missions** run 1,024 integrated four-tick steps and render under AddressSanitizer/UndefinedBehaviorSanitizer with live aircraft weapon releases and contacts. This is a robustness sweep, not a claim that every mission or end condition has been completed. Explosion/impact effect spawning, complete player damage, carried-store selection/release, flak/surface targeting and the mission-result bridge still need integration.
+
+### Player cannon and mounting geometry
+
+```sh
+python3 tools/check_anchors.py --save-fixture tests/reference/anchor.txt
+python3 tools/check_cannon.py --save-fixture tests/reference/cannon.txt
+python3 tools/check_window_controls.py --data-dir /path/to/TFX
+```
+
+Space now follows the original keyboard cannon branch (`0x86898` → `0xa2fdc`), with the F-117 exclusion, landed/death/inhibition checks, gun/fire-control eligibility, finite ammunition and alternating muzzle. The original starts at **1,760 rounds** and debits ten per visible projectile, including when fewer than ten remain. A failed fire-control system consumes a gameplay random value even without a shot. Host keyboard polling drives this branch once per accepted flight frame, after player physics and before the other actors update; separate mouse/store-fire dispatch still needs implementation.
+
+Native keyboard comparisons cover **4,096 original-mount cases** and **1,024 cases with test-authored mounts**, including negative/low ammunition, both barrels, every eligibility flag, wrapped coordinates and random-state effects. Cannon audio is a declared output boundary; the absent optional external-device callback executes normally. The synthetic cases run through CTest without game files. An isolated virtual X11 check additionally verifies actual Space input changes the live ammunition HUD and Escape exits.
+
+Cannon and store mounts load from the original executable for all three aircraft. The complete native anchor transform agrees in **4,096 cases** (512 saved asset-free cases). Each signed high-word product is rounded separately before wrapped accumulation; replacing it with a conventional matrix dot product changes the result. Mounted-store attachment in live projectile motion now uses this geometry.
+
+The original projectile constructor only updates its retained mount byte when the release angles match the current player angles. Untargeted releases also share one mutable aim point; every subsequent such release can change it. The population comparison now includes both details and totals **3,220 frames** at the native 98-slot capacity. Native substep elapsed values are used during child births; outside the update, releases see the caller's current elapsed word.

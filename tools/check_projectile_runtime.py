@@ -25,6 +25,7 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
     image.write(0x16e80,'<I',head);image.write(0x16e7c,'<I',tail)
     image.write(0xac58,'<i',-16384);image.write(0xac5c,'<i',0)
     image.write(0xe774,'<B',0)
+    image.write(0x93b0,'<H',4)
     image.write(0x86c8,'<3H',0,12000,0);image.write(0x13444,'<i',400)
     image.write(0x13424,'<i',1000000>>8);image.write(0x13430,'<i',-300000>>8);image.write(0x1343c,'<i',1000000>>8)
     cpu.mem_write(0x310000,struct.pack('<3i',*((1000000,-300000,1000000) if dispenser>=2 else (2000000,-200000,3000000))))
@@ -57,11 +58,11 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
         im.cpu.mem_write(pointer,struct.pack('<3i',1001000,-300500,1002000));im.return_from()
     image.intercept(0xb81de,'Supply the transformed mounted-store anchor; the render transform is separate.',anchor)
     for weapon in ((15,16,0) if dispenser==1 else range(27)):
-        image.call(0xa2f84,eax=1000000,edx=(-300000)&0xffffffff,ebx=1000000,ecx=0,stack=(12000,0,400,weapon,0x310000,0x310100))
+        image.call(0xa2f84,eax=1000000,edx=(-300000)&0xffffffff,ebx=1000000,ecx=0,stack=(12000,0,400,weapon,0 if dispenser==4 else 0x310000,0x310100))
     result=[]
     for frame in range(frames):
         events.clear()
-        if dispenser>=2 and frame==2:
+        if 2<=dispenser<=3 and frame==2:
             image.write(0xe774,'<B',1)
             image.call(0xa353c if dispenser==2 else 0xa3588,eax=0x310000,edx=64)
             image.write(0xe774,'<B',0)
@@ -71,9 +72,9 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
             body=bytes(cpu.mem_read(pointer,80));callback=struct.unpack_from('<I',body,60)[0]
             function=callback-0x10000+0x70aa4 if callback else 0
             handle=struct.unpack_from('<H',body,46)[0]
-            bodies.extend([identities[pointer],body[6],struct.unpack_from('<H',body,4)[0],KINDS[function],struct.unpack_from('<h',body,64)[0],*struct.unpack_from('<6i3Hihh',body,8),struct.unpack_from('<i',body,67)[0],(handle-100)%2,body[66]])
+            bodies.extend([identities[pointer],body[6],struct.unpack_from('<H',body,4)[0],KINDS[function],struct.unpack_from('<h',body,64)[0],*struct.unpack_from('<6i3Hihh',body,8),struct.unpack_from('<i',body,67)[0],(handle-100)%2,body[66],body[79]])
             pointer=struct.unpack_from('<I',body,52)[0]
-        values=[len(bodies)//20,*bodies,len(events),*events]
+        values=[len(bodies)//21,*bodies,len(events),*events]
         digest=14695981039346656037
         for value in values:
             for byte in struct.pack('<I',value&0xffffffff):digest=((digest^byte)*1099511628211)&0xffffffffffffffff
@@ -86,7 +87,7 @@ def main():
     parser.add_argument('--data-dir',type=Path,default=Path('../tfx-reverse/installs/cd_1994_09/TFX'))
     parser.add_argument('--build',type=Path,default=Path('build'))
     args=parser.parse_args();total=0
-    for dispenser in (0,1,2,3):
+    for dispenser in (0,1,2,3,4):
         for elapsed in (0,1,4,10,18,55):
             frames=128 if elapsed else 4
             capacity=98
