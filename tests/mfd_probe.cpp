@@ -5,6 +5,7 @@
 
 int main(int const argc, char const *const argv[]) try {
   if(argc < 2 || argc > 3) throw std::runtime_error{"usage: mfd_probe DATA_DIRECTORY [--pages]"};
+  bool const controls{argc == 3 && std::string_view{argv[2]} == "--controls"};
   if(argc == 3 && std::string_view{argv[2]} == "--pages") {
     for(unsigned int side{0}; side != 2; ++side) for(unsigned int page{0}; page != 9; ++page) std::cout << std::to_underlying(tfx::cockpit::outer_page(static_cast<tfx::cockpit::display_side>(side),page)) << '\n';
     return EXIT_SUCCESS;
@@ -27,6 +28,14 @@ int main(int const argc, char const *const argv[]) try {
       pylon.weapon = static_cast<uint8_t>(weapon);pylon.count = static_cast<uint8_t>(count);
     }
     state.inventory = &inventory;
+    if(controls) {
+      unsigned int mode{0}, configuration{0};
+      auto &values{state.controls};
+      auto &autopilot{values.autopilot};
+      std::cin >> values.surface_deflection.x >> values.surface_deflection.y >> values.raptor_deflection.x >> values.raptor_deflection.y >> autopilot.enabled >> mode >> configuration >> autopilot.heading >> autopilot.waypoint >> autopilot.height >> autopilot.speed;
+      autopilot.mode = static_cast<tfx::cockpit::autopilot_mode>(mode);
+      values.configuration = static_cast<tfx::cockpit::flight_configuration>(configuration);
+    }
     renderer.output.pixels.fill(99);
     tfx::render::framebuffer coverage;
     display.draw(renderer,static_cast<tfx::cockpit::display_side>(side),static_cast<tfx::cockpit::display_page>(page),state,&coverage);

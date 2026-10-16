@@ -738,3 +738,14 @@ Both central radar views now use their original display sprites, range/divisor t
 Intermittent-radar samples consume the shared gameplay generator in original draw order. Allied surface markers bypass that sample in the horizontal view, while BVR samples them. Projectile cross arms remain visible independently of the sampled blinking centre. The horizontal pulse changes even when a subsequent stealth/failure gate suppresses contacts; BVR does not advance that pulse.
 
 **640 complete native pixel/coverage/pulse/random-state frames agree**, covering both modes, every range, all aircraft, system conditions, selected contacts, surface types, projectiles and viewport offsets. Native actor-enumeration and fixed definition-type lookups receive declared input records; original projection, filtering, formatting and VGA drawing execute. Shared one-pixel and 2×2 marker painting also preserves all 512 auxiliary frames. The radar, auxiliary, map and MFD comparisons and all 44 CTests pass in development, Release and ASan/UBSan.
+
+
+### Controls and autopilot instruments
+
+```sh
+python3 tools/check_controls_display.py
+```
+
+The controls MFD now draws the original surface pointers, F-22-specific indicators, flight-configuration labels and all five autopilot modes. Its artwork, formats, display scales and conversion constants come from the executable. The separate autopilot indicator preserves the original mode number even when the autopilot is disengaged. This establishes the displays; the autopilot controller itself remains separate work.
+
+**768 complete native pixel/coverage frames agree** across both MFD positions, all three aircraft, modes, configurations, deflections and instrument offsets. Another **256 frames agree** for the autopilot indicator, including signed mode-number boundaries. Native Watcom formatting and the original VGA line painter execute in the comparison. Pointer endpoints stay within the native scanline table, whose out-of-range reads are undefined. The earlier 588 MFD and 504 readout comparisons continue to agree.

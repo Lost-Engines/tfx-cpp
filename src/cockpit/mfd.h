@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cockpit/instrument_assets.h"
+#include "cockpit/control_state.h"
 #include "flight/damage.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
@@ -25,6 +26,7 @@ struct mfd_state {
   std::array<double,2> engine_load{};
   weapons::armament const *inventory{nullptr};
   bool confirmed_target{false};
+  control_display_state controls;
   vec2<int16_t> offset{0,0};
 };
 
@@ -33,6 +35,7 @@ private:
   instrument_assets const &assets;
   std::span<weapons::definition const> weapons;
   std::vector<resources::indexed_image> backgrounds;
+  std::vector<resources::indexed_image> control_backgrounds;
 
 public:
   mfd(instrument_assets const &assets, resources::archive const &game, std::span<weapons::definition const> weapons);

@@ -43,6 +43,20 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   engine_lamp_cache = {source.byte(data + 0x7157),source.byte(data + 0x7156)};
   for(unsigned int index{0}; index != ammunition_pips.size(); ++index) ammunition_pips[index] = {source.signed_le16(data + 0x6c44 + index * 4),source.signed_le16(data + 0x6c46 + index * 4)};
   display_bank = resource(0x1694);
+  controls_bank = resource(0x1620);
+  autopilot_bank = resource(0x1680);
+  autopilot_number_format = string(0x16dc);
+  autopilot_label = string(0x1bf8);
+  autopilot_mode_labels = {string(0x1c00),string(0x1c20),string(0x1c2c),string(0x1c3c),string(0x1c4c)};
+  configuration_labels = {string(0x1c54),string(0x1c5c),"",string(0x1c64),string(0x1c6c)};
+  autopilot_height_speed_format = string(0x1c10);
+  autopilot_speed_format = string(0x1c34);
+  surface_scale = real(0x1c73);
+  raptor_degrees = real(0x1c7b);
+  raptor_radians = real(0x579c);
+  raptor_pointer_scale = real(0x1c83);
+  autopilot_speed_scale = real(0x1c8b);
+  autopilot_height_scale = real(0x1c93);
   radar_bank = resource(0x1610);
   radar_format = string(0x1884);
   for(unsigned int index{0}; index != horizontal_scales.size(); ++index) horizontal_scales[index] = {
