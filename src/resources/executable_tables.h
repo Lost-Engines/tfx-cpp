@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include "cockpit/instrument_assets.h"
 #include <memory>
 #include "presentation/fonts.h"
 #include "presentation/widget_font.h"
@@ -36,6 +37,7 @@ private:
   std::unique_ptr<presentation::pilot_assets const> pilot_assets;
   std::unique_ptr<presentation::score_assets const> score_data;
   std::unique_ptr<presentation::arming_assets const> arming_data;
+  std::unique_ptr<cockpit::instrument_assets const> instrument_data;
   std::array<uint8_t,64> character_map;
   std::array<hud_glyph,51> glyphs;
 
@@ -58,6 +60,7 @@ public:
   presentation::pilot_assets const &pilots() const;
   presentation::score_assets const &scores() const;
   presentation::arming_assets const &arming_art() const;
+  cockpit::instrument_assets const &instruments() const;
   std::span<uint8_t const> circle(unsigned int radius) const;
   hud_glyph const *glyph(unsigned char character) const;
 };

@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/cockpit/instrument_assets.cpp
+  src/cockpit/instrument_assets.h
+  src/cockpit/readouts.cpp
+  src/cockpit/readouts.h
   src/presentation/drawing.cpp
   src/presentation/drawing.h
   src/planning/review.cpp
@@ -330,6 +334,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(readout_probe tests/readout_probe.cpp)
+  target_link_libraries(readout_probe PRIVATE tfx_core)
+  configure_first_party(readout_probe)
 
   add_executable(sprite_probe tests/sprite_probe.cpp)
   target_link_libraries(sprite_probe PRIVATE tfx_core)
