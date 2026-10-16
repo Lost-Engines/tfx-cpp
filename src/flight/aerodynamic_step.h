@@ -45,7 +45,7 @@ struct aerodynamic_tick_context {
 struct aerodynamic_tick_events {
   std::vector<afterburner_change> afterburner{};
   aerodynamic_ground_events ground{};
-  aerodynamic_recovery_change recovery{aerodynamic_recovery_change::none};
+  std::vector<aerodynamic_recovery_change> recovery_changes{};
   bool descent_warning{false};
 };
 

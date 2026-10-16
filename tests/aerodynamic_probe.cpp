@@ -157,7 +157,11 @@ int main(int const argc, char const *const argv[]) try {
         }
         std::cout << events.ground.gear_impacts << ' ' << events.ground.cockpit_bump << ' ' << events.afterburner.size() << ' ';
         for(auto const change : events.afterburner) std::cout << std::to_underlying(change) << ' ';
-        if(autopilot_trace) std::cout << std::to_underlying(events.recovery) << ' ' << events.descent_warning << ' ';
+        if(autopilot_trace) {
+          std::cout << events.recovery_changes.size() << ' ';
+          for(auto const change : events.recovery_changes) std::cout << std::to_underlying(change) << ' ';
+          std::cout << events.descent_warning << ' ';
+        }
         std::cout << '\n';
         if(autopilot_trace) state.autopilot.recovery.model_reset_requested = false; // Native outer caller 0x8f98c.
       }

@@ -1529,3 +1529,21 @@ All 23,040 complete original updates agree across 240 initialized 96-frame scene
 
     python3 tools/check_aerodynamic_autopilot.py --persistent --ils --all-models
     python3 tools/check_aerodynamic_launch.py --all-models
+
+### Outer player-frame state and callback handover
+
+The complete original tail at `0x8f98c..0x8fac4` now agrees in 8,192 cases,
+including terrain collision, engine status refresh, signed fuel smoothing,
+measured movement and acknowledgement of the model-reset marker. The capture
+executes the native movement norm without replacing numerical dependencies.
+Integer coordinates and physical NED position deliberately remain separate from
+its final floating-height clamp. All 86 asset-free tests pass in RelWithDebInfo,
+Release and ASan/UBSan builds.
+
+Recovery transitions are retained in order, including engagement and restoration
+within one frame. The persistent four-setting comparison checks every transition
+across 23,040 updates and all 319 retained fields. Automatic landing explicitly
+reports its clearing of the separate basic speed and target caches; 1,200 complete
+original callbacks check that signal alongside all 324 flight/landing fields.
+Shared-state adapters name the globals shared by basic and physical callbacks,
+while preserving their distinct speed, altitude and control caches.

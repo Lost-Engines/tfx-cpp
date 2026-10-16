@@ -83,7 +83,7 @@ for scene,(start,ticks) in enumerate(scenes):
   actual=list(map(int,output[at].split()));at+=1
   assert actual[:324]==expected,(scene,tick,start[0],[(i,hex(fields[i][0]) if i<len(fields) else hex(tail[i-260][0]) if 260<=i<282 else 'landing',x,y) for i,(x,y) in enumerate(zip(actual[:324],expected)) if x!=y])
   change=(struct.unpack('<I',im.cpu.mem_read(0x303000,4))[0]-before)&0xffffffff
-  assert actual[324:]==[change,len(events),*events],(scene,tick,'events',actual[324:],events,raw)
+  assert actual[324:]==[change,int(enter_phase==1),len(events),*events],(scene,tick,'events',actual[324:],events,raw)
   gear=events.count(1)+events.count(2);assert sum(kind=='aux' for kind,_ in raw)==gear and raw.count(('sound',1))==gear
   updates+=bool(enter_phase);preparations+=enter_phase==1;touchdowns+=len(finishes);gear_changes+=gear
 assert preparations>10 and touchdowns>100 if not a.persistent else touchdowns>10
