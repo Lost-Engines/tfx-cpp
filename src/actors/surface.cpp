@@ -66,9 +66,13 @@ surface_state create_surface(initial_actor const &actor, program const &source) 
   };
 }
 
-std::vector<surface_request> advance_surface(surface_state &state, profile const &profile) {
+std::vector<surface_request> advance_surface(surface_state &state, profile const &profile, std::function<void(surface_request const&)> emitted) {
   /// Native 0x7c2bc executes one AI tick; live target/weapon requests remain explicit outputs
   std::vector<surface_request> requests;
+  auto const emit{[&](surface_request request) {
+    requests.push_back(std::move(request));
+    if(emitted) emitted(requests.back());
+  }};
   if(state.input_ticks <= 0) {
     bool ready{false};
     for(unsigned int step{0}; step != vm_budget && !ready; ++step) {
@@ -83,7 +87,7 @@ std::vector<surface_request> advance_surface(surface_state &state, profile const
         state.acceleration = 0;
         state.input_ticks = input_horizon;
         state.pose.flags &= static_cast<uint16_t>(~suppress_steering);
-        requests.push_back({.kind{surface_request_kind::nearby_targets}});
+        emit({.kind{surface_request_kind::nearby_targets}});
         continue;
       }
       if(action == 4) {
@@ -117,7 +121,7 @@ std::vector<surface_request> advance_surface(surface_state &state, profile const
         if(!operand(0)) {
           auto const text{code.slice(state.cursor + 3,40)};
           auto const end{std::ranges::find(text,uint8_t{0})};
-          requests.push_back({
+          emit({
             .kind{surface_request_kind::radio},
             .text{text.begin(),end},
           });
@@ -126,7 +130,7 @@ std::vector<surface_request> advance_surface(surface_state &state, profile const
         state.cursor += 43;
         break;
       case command::attack_ground:
-        requests.push_back({
+        emit({
           .kind{surface_request_kind::ground_target},
           .cell{math::signed_word(operand(0)),math::signed_word(operand(1))},
           .weapon{operand(8)},

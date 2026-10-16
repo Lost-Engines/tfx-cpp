@@ -361,3 +361,13 @@ Maverick selection (`0x7ca24`) searches eligible mobile damage zones near the de
 Original-code comparisons cover **8,192 unlocked designator/intersection states, 2,048 locked camera states, 4,096 wrapped distance estimates and 4,096 surface selections**. Mobile tests supply separately verified SSD centres; camera cases stop at the graphics boundary. A compact one-in-eight subset of synthetic inputs is replayed by CTest without game data. Projectile population checks now cover **3,864 frames**, including a moving shared designation, constructors, dispenser births, recycling and decoys. The private X11 check additionally selects a ground weapon, opens/zooms/aims/locks the designator and releases a store through real keyboard input.
 
 Complete ground HUD/MFD artwork, target-planner interaction, cruise target programming, separate mouse-trigger handling and end-to-end native targeting-session traces remain outstanding. The current aircraft-view projection is still a supplied boundary in subsystem comparisons; matching acquisition arithmetic is not a claim of pixel-identical HUD output.
+
+### Surface-unit combat
+
+```sh
+python3 tools/check_surface_combat.py --save-fixture tests/reference/surface_combat.txt
+```
+
+Mobile surface units now execute their nearby-aircraft firing requests (`0x7be44`) and authored ground-attack requests (`0x7bee8`) through the live projectile system. Enemy/neutral units consider the player first, then scan the allied aircraft pool backwards; allied units scan the enemy pool. The original retains different player/nonplayer range boundaries, F-117 detection reduction, per-unit player shot count, one-in-sixty random firing check, minimum launch speed and vertical anti-air launch angle. Ground attacks use their separate authored launch pitch and only fire at an existing intact terrain assembly.
+
+Surface route requests now deliver synchronously before movement. Returning requests and consuming them afterwards would launch from the next position. The native comparison includes **512 complete route sequences**, alongside isolated acquisition/ground-attack cases, for **4,096 scenarios / 135,492 updates / 1,759 weapon constructor requests**. Original enumerators, bearing calculations, route/controller/movement code and random calls execute; terrain presence/destruction and the projectile constructor are explicit boundaries. A compact subset of synthetic cases runs through CTest without game data. These checks establish surface-unit firing, not the separate mission-area flak controller or a completed ground-attack mission.

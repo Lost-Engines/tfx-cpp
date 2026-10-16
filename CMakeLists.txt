@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/actors/surface_combat.cpp
+  src/actors/surface_combat.h
   src/sensors/ground.cpp
   src/sensors/ground.h
   src/actors/contact_region.cpp
@@ -105,6 +107,11 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(surface_combat_probe tests/surface_combat_probe.cpp)
+  target_link_libraries(surface_combat_probe PRIVATE tfx_core)
+  configure_first_party(surface_combat_probe)
+  add_test(NAME actors.native_surface_combat COMMAND surface_combat_probe ${PROJECT_SOURCE_DIR}/tests/reference/surface_combat.txt)
+
   add_executable(ground_probe tests/ground_probe.cpp)
   target_link_libraries(ground_probe PRIVATE tfx_core)
   configure_first_party(ground_probe)
