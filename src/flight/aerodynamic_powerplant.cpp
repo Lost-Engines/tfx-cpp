@@ -21,6 +21,13 @@ int32_t truncate(calculation const value) {
 
 } // anonymous namespace
 
+bool aerodynamic_powerplant::stop_afterburner() {
+  if(!afterburner) return false;
+  afterburner = 0;
+  afterburner_control = afterburner_display = afterburner_off;
+  return true;
+}
+
 void update_aerodynamic_thrust(aerodynamic_powerplant &state, aerodynamic_powerplant_parameters const &p, aerodynamic_powerplant_context const &context) {
   math::floating_environment const environment;
   state.thrust = static_cast<double>((static_cast<calculation>(state.throttle) - idle_throttle) * p.dry_thrust * throttle_span);
@@ -60,11 +67,7 @@ bool consume_aerodynamic_fuel(aerodynamic_powerplant &state, aerodynamic_powerpl
   state.fuel_readout = math::signed_word(static_cast<uint16_t>(truncate(static_cast<calculation>(whole_fuel) / (static_cast<calculation>(state.fuel_capacity) + state.extra_fuel_capacity) * fuel_display_scale)));
   bool stopped{false};
   if(state.fuel == 0) {
-    if(state.afterburner) {
-      state.afterburner = 0;
-      state.afterburner_control = state.afterburner_display = afterburner_off;
-      stopped = true;
-    }
+    stopped = state.stop_afterburner();
     state.engine_factor = vec2d{0,0};
   }
   return stopped;
