@@ -1,0 +1,112 @@
+#include "frontend.h"
+#include <algorithm>
+#include <stdexcept>
+
+namespace tfx::presentation {
+
+frontend::frontend(resources::archive const &game, resources::executable_tables const &tables,
+  std::filesystem::path const &save_directory, std::string const &language, bool const skip_intro) :
+  game{game}, tables{tables}, schema{game.read("tfx.par")}, store{save_directory},
+  parser{game,tables.presentation_fonts(),tables.text_palette,state,"tfx",{},language} {
+  if(skip_intro) {
+    // Enter at the authored enrolment action; subsequent main-menu assignments still execute.
+    auto const &main{schema.functions.front().statements};
+    auto const entry{std::ranges::find_if(main,[](statement const &node) {
+      return node.kind == node_kind::launch && std::get<host_action>(node.data).resource == "enrol";
+    })};
+    if(entry == main.end()) throw std::runtime_error{"root presentation has no enrolment action"};
+    parser.seek({0,static_cast<unsigned int>(entry - main.begin())});
+  }
+}
+statement const *frontend::advance(scene_counters const counters, scene_input &input,
+  std::optional<vec2<int16_t>> const &position) {
+  bool const click{(input.mouse_buttons & 1) && !mouse_held};
+  mouse_held = input.mouse_buttons & 1;
+  if(pilot) {
+    if(click && position) pilot->click(*position);
+    bool const done{pilot->advance(position)};
+    display = pilot->image();
+    palette = pilot->colours();
+    if(done) {
+      selected_slot = pilot->slot();
+      if(pilot->recalled()) parser.restore(*pilot->recalled());
+      // Native enrolment writes the current (possibly restored) statement before its caller advances.
+      store.write(*selected_slot,false,schema,parser.snapshot());
+      pilot.reset();
+      parser.complete();
+    }
+    return nullptr;
+  }
+  if(menu) {
+    bool const done{menu->advance(counters.bios,position ? *position : vec2<int16_t>{0,0},input.mouse_buttons & 1,position.has_value())};
+    display = menu->image();
+    palette = menu->colours();
+    if(done) {
+      menu.reset();
+      parser.complete();
+    }
+    return nullptr;
+  }
+  unsigned int constexpr action_budget{256};
+  for(unsigned int step{0}; step != action_budget; ++step) {
+    auto const *action{parser.advance(counters,input)};
+    display = parser.image();
+    palette = parser.colours();
+    if(!action) return nullptr;
+    if(action->kind == node_kind::audio) {
+      // Synthesised audio is a separate consumer; CD playback remains deliberately deferred.
+      parser.complete();
+    } else if(action->kind == node_kind::options) {
+      auto const bytes{game.read("lev/" + std::get<host_action>(action->data).resource + ".opt")};
+      menu_program script{std::string_view{reinterpret_cast<char const*>(bytes.data()),bytes.size()}};
+      auto const media{game.read(script.animation.empty() ? "iff/raw/" + script.backdrop : "anim/" + script.animation + ".256")};
+      menu = std::make_unique<menu_player>(std::move(script),media,state,tables.pointers,counters.bios);
+      return nullptr;
+    } else if(action->kind == node_kind::launch) {
+      auto const &command{std::get<host_action>(action->data).resource};
+      if(command == "enrol") {
+        pilot = std::make_unique<pilot_panel>(game,tables.presentation_fonts(),tables.pilots(),schema,state,store);
+        return nullptr;
+      }
+      if(command == "slog" || command == "rlog" || command == "spos") {
+        if(!selected_slot) throw std::runtime_error{"pilot storage action has no selected slot"};
+        if(command == "rlog") parser.restore(store.read(*selected_slot,true,schema));
+        else store.write(*selected_slot,command == "slog",schema,parser.snapshot(command == "slog" ? save_mode::without_resume : save_mode::current_statement));
+        parser.complete();
+      } else if(command == "strain") {
+        store.complete_training();
+        parser.complete();
+      } else return action;
+    } else return action;
+  }
+  throw std::runtime_error{"front-end host actions do not yield"};
+}
+void frontend::press(uint8_t const scan, bool const control) {
+  if(pilot) pilot->press(scan,control);
+}
+void frontend::complete() {
+  parser.complete();
+}
+variables &frontend::values() {
+  return state;
+}
+variables const &frontend::values() const {
+  return state;
+}
+bool frontend::finished() const {
+  return parser.finished();
+}
+bool frontend::pointer_visible() const {
+  return menu || pilot;
+}
+render::framebuffer const &frontend::image() const {
+  return display;
+}
+render::palette const &frontend::colours() const {
+  return palette;
+}
+std::string const &frontend::function_name() const {
+  return parser.function_name();
+}
+
+} // namespace tfx::presentation

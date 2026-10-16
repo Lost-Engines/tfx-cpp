@@ -12,6 +12,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   if(source.size() != 1032503 || checksum != 0xcc1e305ba7e177f0ull) throw std::runtime_error{"this reconstruction currently requires the September 1994 TFX 2.05 executable (TFX.DAT)"};
   weapons = weapons::load_definitions(source);
   pointers = presentation::load_pointers(source);
+  pilot_assets = std::make_unique<presentation::pilot_assets>(source);
   font_data = std::make_unique<presentation::fonts>(source);
   binary_view const view{source};
   unsigned int constexpr circle_base{0x70aa4 + 0x65a84}, circle_limit_field{0x70aa4 + 0x66ea0};
@@ -68,6 +69,10 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
 }
 
 presentation::fonts const &executable_tables::presentation_fonts() const { return *font_data; }
+
+presentation::pilot_assets const &executable_tables::pilots() const {
+  return *pilot_assets;
+}
 
 std::span<uint8_t const> executable_tables::circle(unsigned int const radius) const {
   /// The native constructor rejects zero and radii at or beyond its table limit

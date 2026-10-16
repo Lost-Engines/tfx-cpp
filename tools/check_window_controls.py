@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('xdotool','keydown',key,check=True);time.sleep(.15)
             run('xdotool','keyup',key,check=True);time.sleep(.15)
         with (directory/'game.log').open('w+') as log:
-            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
+            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','501','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+10;window=None
             while time.monotonic()<deadline and game.poll() is None:
                 found=run('xdotool','search','--onlyvisible','--name','TFX C',capture_output=True,text=True)

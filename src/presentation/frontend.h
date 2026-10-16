@@ -1,0 +1,43 @@
+#pragma once
+
+#include "presentation/menu_player.h"
+#include "presentation/pilot_panel.h"
+#include "presentation/session.h"
+#include "resources/executable_tables.h"
+
+namespace tfx::presentation {
+
+// Owns the original front-end's shared pilot state and suspended parser/menu actions.
+// Flight, planning and score presentation remain explicit host boundaries.
+class frontend {
+private:
+  resources::archive const &game;
+  resources::executable_tables const &tables;
+  program schema;
+  variables state;
+  pilot_store store;
+  session parser;
+  std::unique_ptr<menu_player> menu;
+  std::unique_ptr<pilot_panel> pilot;
+  std::optional<unsigned int> selected_slot;
+  render::framebuffer display;
+  render::palette palette{};
+  bool mouse_held{false};
+
+public:
+  frontend(resources::archive const &game, resources::executable_tables const &tables,
+    std::filesystem::path const &save_directory, std::string const &language, bool skip_intro = false);
+  statement const *advance(scene_counters counters, scene_input &input,
+    std::optional<vec2<int16_t>> const &position = {});
+  void press(uint8_t scan, bool control);
+  void complete();
+  variables &values();
+  variables const &values() const;
+  bool finished() const;
+  bool pointer_visible() const;
+  render::framebuffer const &image() const;
+  render::palette const &colours() const;
+  std::string const &function_name() const;
+};
+
+} // namespace tfx::presentation
