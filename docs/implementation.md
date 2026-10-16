@@ -422,3 +422,13 @@ Text preparation (`0xb1714`, `0xb14dc`) now handles original line breaks, ASCII 
 Reveal timing (`0xb1b28`, `0xb1268`, `0xb1c16`) retains the fast counter's signed low-word delta, per-frame increment clamp of 1–50, two ticks per character, fractional remainder and Space consumption. **2,048 sequences / 131,072 native transitions** agree, including low-word/full counter wrap and completed/empty captions. Compact synthetic cases are replayed by CTest without game data. The input counter and the following VGA draw are explicit boundaries in that arithmetic comparison; the separate prefix comparisons establish the resulting drawn text. Full scene wait/fade/animation scheduling remains the next integration step.
 
 All 35 CTests pass in normal, Release and sanitizer builds. The complete multilingual/prefix comparison also passes with ASan/UBSan. Font and text checks share a small declared planar VGA write-capture helper; it does not emulate the rest of the original game or hardware.
+
+### Presentation timing and fades
+
+```sh
+python3 tools/check_presentation_timing.py --save-fixture tests/reference/presentation_timing.txt
+```
+
+Scene input (`0xb1128`), wait countdowns, animation playback (`0xc9fac`) and six-bit DAC fades now have native comparisons: **4,096 input cases, 4,096 countdown decisions, 65,536 animation updates and 240 complete palette uploads**. Compact synthetic cases run through CTest without game assets. Images hold their wait timer while text is revealing; animations do not, and text-only waits test the previous count rather than the decremented value. Space finishes an incomplete caption before advancing; mouse-button priority, Escape sequence skipping and Shift+Q retain their native ordering.
+
+Animation clocks advance at most one block per callback and discard accumulated backlog. The initial frame plays once; repetitions resume at the second stored block over the retained final pixels. Declared frame count controls playback even when additional blocks are stored. Palette ramps scale the original six-bit DAC entries before display expansion, preserving integer rounding. These verified kernels are being connected to the native scene host; complete front-end execution remains outstanding.

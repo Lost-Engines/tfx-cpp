@@ -183,6 +183,11 @@ bool animation::advance() {
   return true;
 }
 
+void animation::repeat() {
+  if(blocks.size() < 2) throw std::runtime_error{"animation has no repeat frame"};
+  cursor = 1; // Native repeats frame 2 onwards over the current planes, retaining the previous traversal.
+}
+
 render::framebuffer animation::image() const {
   render::framebuffer result;
   auto const pixels{deplane(planes,{render::screen_width,render::screen_height})};

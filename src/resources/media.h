@@ -37,6 +37,7 @@ public:
   unsigned int position() const;
   void reset(render::framebuffer const *background = nullptr);
   bool advance();
+  void repeat();
   render::framebuffer image() const;
   render::framebuffer mask() const;
 };

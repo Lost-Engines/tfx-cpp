@@ -51,6 +51,13 @@ int main() try {
   tfx::render::framebuffer background;background.pixels.fill(42);
   partial.reset(&background);partial.advance();
   require(partial.image().pixels[8] == 7 && partial.image().pixels[9] == 42 && partial.mask().pixels[9] == 255,"delta discarded the preceding scene");
+  auto repeated{animation(false,delta)};
+  word(repeated,2,2);
+  auto next_delta{delta};word(next_delta,2,1);next_delta[6] = 9;next_delta[7] = 10;
+  auto const packed{literal_block(next_delta)};
+  auto const at{static_cast<unsigned int>(repeated.size())};repeated.resize(repeated.size() + 4);word(repeated,at,static_cast<uint32_t>(packed.size()),4);repeated.insert(repeated.end(),packed.begin(),packed.end());
+  tfx::resources::animation loop{repeated};loop.advance();loop.advance();loop.repeat();loop.advance();
+  require(loop.position() == 2 && loop.image().pixels[12] == 8 && loop.image().pixels[4] == 9,"repeat must retain the final planes and restart at the second stored frame");
   word(delta,2,16000);
   rejects([&] { tfx::resources::animation bad{animation(false,delta)};bad.advance(); });
   rejects([] { tfx::resources::decode_animation_block(tfx::resources::bytes{0,192,0}); });
