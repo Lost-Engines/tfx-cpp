@@ -18,6 +18,10 @@ struct instrument_assets {
   std::array<uint8_t,64> character_map;
   std::string font_bank;
   std::string in_range_label;
+  std::array<std::string,3> brake_messages;
+  std::array<std::string,5> hud_number_formats;
+  float hud_altitude_scale;
+  float hud_throttle_scale;
   std::array<std::string,2> unsigned_clock_formats;
   std::array<std::string,2> signed_clock_formats;
   std::string fuel_format;

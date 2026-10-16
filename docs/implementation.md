@@ -807,3 +807,14 @@ The live host now paints that cockpit artwork and uses the native viewport proje
 
 
 The setup, positioning and frame comparisons pass in development, Release and ASan/UBSan. Real-window MFD/designator/weapon/result checks still pass with the restored cockpit, as do all 44 CTests. Every retail mission starts successfully, including a further sanitizer run after 1,024 simulation steps per mission. The upper aiming and radio adapters remain the next visual integration work.
+
+
+### Upper-HUD flight readouts
+
+```sh
+python3 tools/check_hud_text.py
+```
+
+The original numeric upper-HUD painter (`0x7f8e0`) and independent air-brake, brake-chute and arrester-cable labels (`0x7eb7c`) now have a dedicated renderer. Altitude, airspeed, Mach, load, map coordinates and throttle retain their original strings, word-coordinate wrapping, alignment and float/double storage boundaries. Watcom rounds a stored double after decimal scaling and suppresses the sign of rounded zero; host `printf` alone differs at values such as `0.005` and `1.015`. The reconstruction preserves this distinction for these unpadded readouts.
+
+**768 complete native pixel/coverage frames agree**, including adjacent doubles at decimal-rounding boundaries, all independent message combinations, negative/positive telemetry and ten instrument/clipping offsets. Original formatting and VGA text execute in the comparison. This verifies the painters from supplied telemetry; their live upper-HUD dispatcher and remaining aiming symbology are still being connected.
