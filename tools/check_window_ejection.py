@@ -16,7 +16,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--data-dir',type=Path,required=True)
 parser.add_argument('--mission',default='830')
-parser.add_argument('--flight-model',choices=('arcade','simple'),default='arcade')
+parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 a=parser.parse_args();executable=(a.build/'tfx').resolve();data=a.data_dir.resolve()
 with tempfile.TemporaryDirectory(prefix='tfx-x11-ejection-') as temporary:
     directory=Path(temporary);read,write=os.pipe();display=subprocess.Popen(['Xvfb','-displayfd',str(write),'-screen','0','1024x768x24','-nolisten','tcp'],pass_fds=(write,),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);os.close(write);game=None
@@ -61,6 +61,15 @@ run
             ],start=3):
                 observations.extend([f'break {function} if {condition}','commands','silent',f'printf "TFX_TEST_SIMPLE_{label}\\n"',f'disable {number}','continue','end'])
             debugger.write_text(debugger.read_text().replace('\nrun\n','\n'+'\n'.join(observations)+'\nrun\n'))
+        if a.flight_model in ('military-spec','realistic'):
+            observations=[]
+            for number,(function,condition,label) in enumerate([
+                ('tfx::flight::update_aerodynamic_controls','context.keys.down','DOWN'),
+                ('tfx::flight::update_aerodynamic_controls','context.alt && context.keys.left','RUDDER'),
+                ('tfx::flight::advance_aerodynamic_flight','state.arrestor_hook_down','HOOK'),
+            ],start=3):
+                observations.extend([f'break {function} if {condition}','commands','silent',f'printf "TFX_TEST_ADVANCED_{label}\\n"',f'disable {number}','continue','end'])
+            debugger.write_text(debugger.read_text().replace('\nrun\n','\n'+'\n'.join(observations)+'\nrun\n'))
         with (directory/'game.log').open('w+') as log:
             def output():
                 log.flush();return (directory/'game.log').read_text()
@@ -82,6 +91,11 @@ run
                 tap('Down');await_text('TFX_TEST_SIMPLE_DOWN')
                 tap('Alt_L+Left');await_text('TFX_TEST_SIMPLE_RUDDER')
                 tap('h');await_text('TFX_TEST_SIMPLE_HOOK')
+                tap('h')
+            if a.flight_model in ('military-spec','realistic'):
+                tap('Down');await_text('TFX_TEST_ADVANCED_DOWN')
+                tap('Alt_L+Left');await_text('TFX_TEST_ADVANCED_RUDDER')
+                tap('h');await_text('TFX_TEST_ADVANCED_HOOK')
                 tap('h')
             tap('Escape',1)
             assert 'TFX_TEST_PILOT_LAUNCH' not in output() and 'Mission result:' not in output(),'first Escape must not eject or end flight'

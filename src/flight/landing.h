@@ -80,6 +80,10 @@ public:
   landing_selection toggle(landing_input const &input, std::span<vec3<int32_t> const> route,
     std::function<std::optional<landing_port>(vec2<int16_t> const&)> const &terrain,
     std::span<landing_surface const> carriers);
+  // Native 0xa0bc0: select even when ILS is already enabled (Alt+L).
+  landing_selection select_runway(std::span<vec3<int32_t> const> route,
+    std::function<std::optional<landing_port>(vec2<int16_t> const&)> const &terrain,
+    std::span<landing_surface const> carriers);
   landing_cue advance(vec3<int32_t> const &player, bool speed_request,
     std::function<landing_projection(vec3<int32_t> const&)> const &project);
 };

@@ -50,6 +50,25 @@ landing_selection landing_system::toggle(landing_input const &input, std::span<v
     .roll_response{input.realistic ? .152 : .19},
     .yaw_response{input.realistic ? .024 : .03},
   });
+  auto selected{select_runway(route,terrain,carriers)};
+  result.waypoint = selected.waypoint;
+  result.messages = std::move(selected.messages);
+  if(!state.enabled) return result;
+  result.messages.push_back(landing_radio::engaged);
+  result.voice = input.damaged ? 8u : 7u;
+  result.controls.emplace(landing_controls{
+    .configuration{3},
+    .response{.8},
+    .pitch_response{input.realistic ? .4 : .5},
+    .roll_response{input.realistic ? .32 : .4},
+    .yaw_response{input.realistic ? .048 : .06},
+  });
+  return result;
+}
+landing_selection landing_system::select_runway(std::span<vec3<int32_t> const> const route,
+    std::function<std::optional<landing_port>(vec2<int16_t> const&)> const &terrain,
+    std::span<landing_surface const> const carriers) {
+  landing_selection result;
   state.carrier = false;
   bool found{false};
   if(!route.empty()) for(unsigned int endpoint{0}; endpoint != 2 && !found; ++endpoint) {
@@ -71,15 +90,6 @@ landing_selection landing_system::toggle(landing_input const &input, std::span<v
   state.enabled = found;
   if(!found) { result.messages.push_back(landing_radio::no_runway);return result; }
   prepare_beacon();
-  result.messages.push_back(landing_radio::engaged);
-  result.voice = input.damaged ? 8u : 7u;
-  result.controls.emplace(landing_controls{
-    .configuration{3},
-    .response{.8},
-    .pitch_response{input.realistic ? .4 : .5},
-    .roll_response{input.realistic ? .32 : .4},
-    .yaw_response{input.realistic ? .048 : .06},
-  });
   return result;
 }
 landing_cue landing_system::advance(vec3<int32_t> const &player, bool const speed_request,

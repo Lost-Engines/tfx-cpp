@@ -54,17 +54,20 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --mission N           Enter a mission directly instead of the original front end\n"
                    "  --skip-intro          Start at pilot enrolment without the opening sequence\n"
                    "  --language NAME       english, french, german, spanish or italian\n"
-                   "  --flight-model NAME   arcade (default) or simple\n"
+                   "  --flight-model NAME   arcade (default), simple, military-spec or realistic\n"
                    "  --scale N             Window scale; 0 selects the largest fitting scale (default)\n"
                    "\nFlight: hold left/right mouse or =/- for thrust.\n"
-                   "Arcade uses mouse/arrow steering; Simple uses the original arrow-key controls.\n"
+                   "Arcade uses mouse/arrow steering; other models use the original arrow-key controls.\n"
+                   "Keypad * raises afterburner; Alt+keypad * or keypad - lowers it.\n"
                    "[ and ] toggle engines; G gear; H arrestor hook; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
                    "Enter selects air-to-air weapons; Backspace/O air-to-ground; F selects cannon/navigation.\n"
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
                    "X clears targets; F1 returns to flight view; Space fires; P pauses; double Escape ejects; Shift+Q quits.\n"
                    "1/2/3 cycle the MFDs; R changes radar range; N selects the ground-target preview.\n"
                    "Shift+N toggles infrared night vision; Y/U adjust HUD brightness; apostrophe opens/closes the refuelling hookup.\n"
-                   "I or backslash toggles the instrument landing system.\n"
+                   "I or backslash toggles ILS; Alt+L requests automatic landing.\n"
+                   "A toggles autopilot; 7/8/9/0 choose waypoint/heading/track/speed hold; arrows adjust targets.\n"
+                   "5 toggles stick pressure; 6 selects cruise speed; Tab toggles recovery.\n"
                    "Page Up/Down raise and lower the cockpit; Shift+arrows turn the view.\n"
                    "F1 cockpit; Shift+F1 full forward; F2/F3 look left/right; F4 rear; F5 chase.\n"
                    "F6 fly-past; F7 tactical; F8 fired-store camera (twice: nose view).\n"
@@ -100,7 +103,9 @@ auto main(int const argc, char const *const argv[])->int try {
       auto const selected{value()};
       if(selected == "arcade") model = tfx::simulation::flight_model::arcade;
       else if(selected == "simple") model = tfx::simulation::flight_model::simple;
-      else throw std::runtime_error{"flight model must be arcade or simple"};
+      else if(selected == "military-spec") model = tfx::simulation::flight_model::military_spec;
+      else if(selected == "realistic") model = tfx::simulation::flight_model::realistic;
+      else throw std::runtime_error{"flight model must be arcade, simple, military-spec or realistic"};
     } else if(key == "--scale") {
       scale = number(value());
       if(scale > 16) throw std::runtime_error{"window scale must be between 0 (automatic) and 16"};

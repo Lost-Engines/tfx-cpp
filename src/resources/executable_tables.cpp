@@ -13,6 +13,8 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   if(source.size() != 1032503 || checksum != 0xcc1e305ba7e177f0ull) throw std::runtime_error{"this reconstruction currently requires the September 1994 TFX 2.05 executable (TFX.DAT)"};
   weapons = weapons::load_definitions(source);
   airframes = flight::load_airframes(source);
+  aerodynamic_airframes = flight::load_aerodynamic_airframes(source);
+  aerodynamic_wind = flight::load_aerodynamic_wind_parameters(source);
   pointers = presentation::load_pointers(source);
   pilot_assets = std::make_unique<presentation::pilot_assets>(source);
   score_data = std::make_unique<presentation::score_assets>(source);
