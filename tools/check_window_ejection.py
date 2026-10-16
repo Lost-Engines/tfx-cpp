@@ -16,6 +16,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--data-dir',type=Path,required=True)
 parser.add_argument('--mission',default='830')
+parser.add_argument('--flight-model',choices=('arcade','simple'),default='arcade')
 a=parser.parse_args();executable=(a.build/'tfx').resolve();data=a.data_dir.resolve()
 with tempfile.TemporaryDirectory(prefix='tfx-x11-ejection-') as temporary:
     directory=Path(temporary);read,write=os.pipe();display=subprocess.Popen(['Xvfb','-displayfd',str(write),'-screen','0','1024x768x24','-nolisten','tcp'],pass_fds=(write,),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);os.close(write);game=None
@@ -51,6 +52,15 @@ continue
 end
 run
 ''')
+        if a.flight_model=='simple':
+            observations=[]
+            for number,(function,condition,label) in enumerate([
+                ('tfx::flight::update_simple_controls','context.keys.down','DOWN'),
+                ('tfx::flight::update_simple_controls','context.alt && context.keys.left','RUDDER'),
+                ('tfx::flight::advance_simple','state.flight.arrestor_hook','HOOK'),
+            ],start=3):
+                observations.extend([f'break {function} if {condition}','commands','silent',f'printf "TFX_TEST_SIMPLE_{label}\\n"',f'disable {number}','continue','end'])
+            debugger.write_text(debugger.read_text().replace('\nrun\n','\n'+'\n'.join(observations)+'\nrun\n'))
         with (directory/'game.log').open('w+') as log:
             def output():
                 log.flush();return (directory/'game.log').read_text()
@@ -60,7 +70,7 @@ run
                     if text in output():return
                     time.sleep(.1)
                 raise RuntimeError('missing '+text+':\n'+output()[-5000:])
-            game=subprocess.Popen(['gdb','--quiet','--batch','-x',str(debugger),'--args',str(executable),'--data-dir',str(data),'--mission',a.mission,'--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
+            game=subprocess.Popen(['gdb','--quiet','--batch','-x',str(debugger),'--args',str(executable),'--data-dir',str(data),'--mission',a.mission,'--flight-model',a.flight_model,'--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+20;window=None
             while time.monotonic()<deadline and game.poll() is None:
                 found=subprocess.run(['xdotool','search','--onlyvisible','--name','TFX C'],env=env,capture_output=True,text=True)
@@ -68,6 +78,11 @@ run
                 time.sleep(.05)
             if window is None:raise RuntimeError('game window did not appear:\n'+output()[-5000:])
             run('xdotool','windowfocus','--sync',window);time.sleep(.5)
+            if a.flight_model=='simple':
+                tap('Down');await_text('TFX_TEST_SIMPLE_DOWN')
+                tap('Alt_L+Left');await_text('TFX_TEST_SIMPLE_RUDDER')
+                tap('h');await_text('TFX_TEST_SIMPLE_HOOK')
+                tap('h')
             tap('Escape',1)
             assert 'TFX_TEST_PILOT_LAUNCH' not in output() and 'Mission result:' not in output(),'first Escape must not eject or end flight'
             tap('Escape')
@@ -78,6 +93,7 @@ run
             assert '; outcome 3' in output(),output()[-5000:]
             tap('Escape');game.wait(timeout=10)
             assert game.returncode==0 and 'exited normally' in output() and 'Program received signal' not in output(),output()[-5000:]
+            if a.flight_model=='simple':print('Private X11 Simple controls passed: Down, Alt+Left and H reached their live flight consumers')
             print('Private X11 ejection passed: first press retained flight; authored SSD event launched pilot; parachute opened; Escape ran recovery/FINISH with outcome 3')
     finally:
         for process in (game,display):

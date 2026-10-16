@@ -1187,3 +1187,19 @@ All 15,360 updates agree in exact position/pose, both bases, residuals, Mach res
     python3 tools/check_simple.py
 
 Live model selection and the remaining disabled-flight/camera consumers are being connected separately.
+
+### Live Simple model, damaged flight and separate camera bases
+
+The live selector accepts --flight-model=arcade or --flight-model=simple, preserving Arcade as the default. Simple binds its original keyboard response and Alt-modified rudder; the native non-Arcade menu disables mouse steering. Input remains separate from numerical updates. The live loop propagates gear indication/damage, authored gear/chute model entries, H's arrestor-hook state and the SSD contact zone used by carrier arresting logic.
+
+The shared disabled-player callback now selects the correct basic speed response for each model. Another 36 persistent trajectories and 15,360 complete original updates verify the switch after 64 ordinary Simple frames. Both ordinary and disabled comparisons separately observe the physical basis, retained visible basis and actual renderer basis. Displayed G load is also separate: native disabled flight clears 0x133f4 while retaining the Simple calculation at 0x133c4. Both 15,360-update comparisons pass in development, Release and ASan/UBSan.
+
+Camera contexts retain the current renderer basis and can borrow a distinct physics basis. Ejection uses the physics basis; ordinary view composition retains the renderer basis. All 24 supported modes and 12,288 persistent original updates still agree with deliberately different bases and every refuelling phase. The live seat-release frame also retains the pilot's physical basis independently from that frame's visible aircraft pose.
+
+All 57 CTests pass in development, Release and ASan/UBSan. Every one of the 128 retail missions runs 1,024 steps and draws under sanitizers in both Arcade and Simple. Private-window checks verify real Simple Down/Alt+Left/H input, authored seat release, parachute opening and recovery/FINISH; the same sequence passes under sanitizers. Existing ILS, MFD, weapon release, cannon, designator, camera and mission-result window checks remain passing.
+
+    python3 tools/check_simple.py --disabled
+    python3 tools/check_view_cameras.py --refuelling --split-basis
+    python3 tools/check_window_ejection.py --flight-model simple --data-dir /path/to/TFX
+
+These checks establish the connected basic-model paths and their declared boundaries. Realistic/Military Spec dynamics, automatic recovery/landing, complete native input acquisition, remaining contact/rendering consumers, full campaign coverage and audio remain unfinished.

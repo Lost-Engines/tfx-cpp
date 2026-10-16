@@ -17,6 +17,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--refuelling',action='store_true',help='exercise all four refuelling model phases')
+parser.add_argument('--split-basis',action='store_true',help='supply distinct physics and renderer bases as used by Simple flight')
 a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');base=im.layout['objects'][0]['preferred_base']
 for address,reason in [(0x94efc,'Supply the player pose without the separate navigation-contact controller.'),(0xca780,'Exclude world-painter mode configuration; native camera matrix setters still execute.'),(0xca6fc,'Exclude missile-camera world-painter mode configuration.'),(0xb6ea4,'Exclude forwarding player angles into the model renderer.'),(0xb4fd0,'Exclude forwarding the player model into the scene queue.'),(0xcac04,'Exclude weather-distance advancement after the completed camera update.'),(0x90320,'Exclude forwarding the player pose into the model renderer.')]:im.intercept(address,reason,lambda im:im.return_from())
 model_entries=[]
@@ -35,6 +36,10 @@ for mode in modes:
         im.cpu.mem_write(0x300000,struct.pack('<9h',*identity))
         for entry,angle in zip((0xccf4c,0xcd058,0xcd15c),angles):im.call(entry,eax=0x300000,edx=angle)
         basis=list(struct.unpack('<9h',im.cpu.mem_read(0x300000,18)))
+        im.cpu.mem_write(0x300000,struct.pack('<9h',*basis))
+        im.call(0xccf4c,eax=0x300000,edx=(variant+1)*4096)
+        im.call(0xcd15c,eax=0x300000,edx=1024)
+        body=list(struct.unpack('<9h',im.cpu.mem_read(0x300000,18)))
         orbit=identity if variant<2 else basis
         for step in range(128):
             # Persistent runs include deliberate signed-angle wrap and floor contact.
@@ -46,15 +51,19 @@ for mode in modes:
             row += [int(step%7!=0),position[0]*256+32000,position[1]*256+8000,position[2]*256+24000,int((step+1)%11!=0),position[0]*256-16000,position[1]*256-10000,position[2]*256-32000,300,int(step%23==0)]
             row += [int(mode==7 or step<32 or step%17>4),q8[0]+1000,q8[1]-2000,q8[2]+4000,*angles,row[28],*row[29:32]]
             if step==0:row += [40 if mode==4 else 30 if mode==16 else 0,variant%2,20,variant//2,[0,300,2500,-100][variant],position[0]+100,position[1]-10,position[2]+100,*orbit]
+            if a.split_basis:row+=body
             cases.append(row)
 if a.refuelling:
     for index,row in enumerate(cases):row.append(index%4)
 command=[str((a.build/'view_camera_probe').resolve())]
 if a.refuelling:command.append('--refuelling')
+if a.split_basis:command.append('--split-basis')
 output=subprocess.check_output(command,input=('\n'.join(' '.join(str(int(v)) for v in row) for row in cases)+'\n').encode()).decode().splitlines();assert len(output)==len(cases)
 for index,(row,line) in enumerate(zip(cases,output)):
     phase=row[-1] if a.refuelling else 0
     if a.refuelling:row=row[:-1]
+    body=row[-9:] if a.split_basis else row[15:24]
+    if a.split_basis:row=row[:-9]
     im.write(0x13b04,'<B',phase)
     reset,mode=row[:2];position=row[2:5];q8=row[5:8];angles=row[8:11];elapsed,pan,ground,low=row[11:15];basis=row[15:24];tracked,tx,ty,tz,observed,ox,oy,oz,speed,landing=row[24:34]
     if reset:
@@ -69,7 +78,7 @@ for index,(row,line) in enumerate(zip(cases,output)):
     im.cpu.mem_write(0x310000,struct.pack('<3i',tx,ty,tz));im.cpu.mem_write(0x310100,struct.pack('<3i',ox,oy,oz))
     for field,value in zip((0x13424,0x13430,0x1343c),position):im.write(field,'<i',value)
     im.write(0x10f28,'<3i',*q8);im.write(0x86c8,'<3H',*angles);im.write(0x13476,'<H',elapsed);im.write(0x1358a,'<H',pan);im.write(0xabf2,'<h',ground);im.write(0xa4ea,'<B',low)
-    im.cpu.mem_write(base+0x47c38,struct.pack('<9h',*basis));im.write(0x1345e,'<9h',*basis)
+    im.cpu.mem_write(base+0x47c38,struct.pack('<9h',*basis));im.write(0x1345e,'<9h',*body)
     for field,value in zip((0x1341c,0x13428,0x13434),q8):im.write(field,'<f',value/256)
     model_entries.clear()
     im.call(0x92144,limit=2000000)
