@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/program.cpp
+  src/presentation/program.h
+  src/presentation/runtime.cpp
+  src/presentation/runtime.h
   src/resources/media.cpp
   src/resources/media.h
   src/actors/surface_combat.cpp
@@ -109,6 +113,15 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(presentation_tests tests/presentation_test.cpp)
+  target_link_libraries(presentation_tests PRIVATE tfx_core)
+  configure_first_party(presentation_tests)
+  add_test(NAME presentation.control_flow_and_boundaries COMMAND presentation_tests)
+
+  add_executable(presentation_probe tests/presentation_probe.cpp)
+  target_link_libraries(presentation_probe PRIVATE tfx_core)
+  configure_first_party(presentation_probe)
+
   add_executable(media_tests tests/media_test.cpp)
   target_link_libraries(media_tests PRIVATE tfx_core)
   configure_first_party(media_tests)

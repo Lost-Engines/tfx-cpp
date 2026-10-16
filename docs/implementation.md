@@ -382,3 +382,15 @@ python3 tools/check_media.py --build build-san
 The C++ media library now decodes original `war ` screen images, four-plane sprites and the word-bit compressed delta animations (`0xde8cc`) directly from external archive resources. It keeps indexed pixels and the original palette, validates each delta run within its VGA plane and can retain the preceding screen as a delta background. Stored animation blocks and the declared playback frame count remain separate: three original resources contain extra stored blocks, whose playback meaning must be handled by the presentation caller rather than guessed by the decoder.
 
 All **116 indexed screens, 39 sprite resources and 40 animations / 1,606 compressed blocks** compare byte for byte with independent extraction. Every animation block also executes in the original x86 decoder before final composed pixels and written coverage are compared. The complete corpus passes with ASan/UBSan, alongside synthetic literal-refill, retained-background and malformed-stream tests. No game artwork or original instructions are bundled. This establishes the media layer; original presentation scheduling, fades, fonts, menus and campaign dispatch are still being connected.
+
+### Presentation graph decoding and control flow
+
+```sh
+python3 tools/check_presentations.py
+```
+
+All nine retail saved parser graphs now decode into typed clip/text, branch, assignment, audio, planner, menu and launch records. Editor linked-list/pointer bytes are discarded; destination ordinals and resource strings retain their actual data meaning. CP437 text is bounded by its saved length, which excludes a terminator in the retail files. Unsupported retained node families are preserved as opaque data rather than interpreted as a guessed action.
+
+Every decoded semantic field, including offsets, text settings and native audio modes, matches independent extraction. The original numeric handlers agree for all **254 retail branch records and 163 assignments / 991 supplied-state cases**, including native gosub/return state and 32-bit wrap. This is the retail subset of the research corpus; the demo's additional 17-byte text layout is not silently accepted as retail.
+
+The C++ control-flow runtime executes assignments, conditional/unconditional branches and subroutine returns until an explicit media/menu/session action is ready for its host. Synthetic tests cover wrapping arithmetic, return to the statement after a call, suspension/resumption and every truncated prefix of a test graph. Reconstruction safety limits reject non-yielding control flow and excessive calls instead of reproducing out-of-bounds memory access. This is not yet a claim of complete original front-end, pilot persistence or campaign-session execution; those host consumers remain in progress.
