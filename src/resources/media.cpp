@@ -11,6 +11,19 @@ unsigned int constexpr plane_count{4}, screen_pixels{render::screen_width * rend
 
 } // anonymous namespace
 
+monochrome_image decode_monochrome(std::span<uint8_t const> const source) {
+  binary_view const view{source};
+  vec2<unsigned int> const size{view.byte(0),view.byte(1)};
+  if(!size.x || !size.y) throw std::runtime_error{"empty native monochrome bitmap"};
+  unsigned int const count{((size.x + 7) / 8) * size.y};
+  auto const rows{view.slice(2,count)};
+  if(source.size() != count + 2) throw std::runtime_error{"unused monochrome bitmap bytes"};
+  return {
+    .size{vec2<unsigned int>{size}},
+    .rows{rows.begin(),rows.end()},
+  };
+}
+
 screen_image decode_screen(std::span<uint8_t const> const source) {
   binary_view const view{source};
   if(source.size() != pixel_offset + screen_pixels || std::string_view{reinterpret_cast<char const*>(source.data()),4} != "war ") throw std::runtime_error{"invalid native screen image"};
