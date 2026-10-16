@@ -2,7 +2,7 @@
 
 Reference: September 1994 TFX 2.05. The project remains a native C++26 reconstruction using original installation data and the existing software-rendering/window approach. CD music remains deferred, and CI remains unconfigured.
 
-The current executable directly launches Arcade flight, with live aircraft routes/combat, projectiles, countermeasures and a player cannon, plus route-driven surface vehicles; the developer scene inspector remains available. Resource loading, model interpretation, scenery assembly, parts of rasterisation and local scenery animation have substantial checks; a complete flight session has not been reconstructed. See [implementation.md](implementation.md) for the current evidence and limits.
+The current executable directly launches Arcade flight, with live aircraft routes/combat, projectiles, countermeasures and player cannon/carried-store controls with air-to-air acquisition, plus route-driven surface vehicles; the developer scene inspector remains available. Resource loading, model interpretation, scenery assembly, parts of rasterisation and local scenery animation have substantial checks; a complete flight session has not been reconstructed. See [implementation.md](implementation.md) for the current evidence and limits.
 
 The aim is to reach a substantially complete, automatically exercised game before requesting interactive review. The order below brings the largest uncertainties—runtime timing, aerodynamics and context-dependent callbacks—into the early work. Each increment should include its verification and be committed independently.
 

@@ -45,9 +45,11 @@ std::vector<definition> load_definitions(std::span<uint8_t const> const executab
       .carried{name(source.le32(at + 8)).substr(0,8)},
       .fired{("x" + name(source.le32(at + 8))).substr(0,8)},
       .secondary{name(source.le32(at + 12)).substr(0,8)},
+      .role{static_cast<weapon_role>(source.byte(at + 20))},
       .category{source.byte(at + 29)},
       .mass{source.signed_le16(at + 31)},
       .range{std::bit_cast<int32_t>(source.le32(at + 35))},
+      .minimum_range{source.signed_le16(at + 33)},
       .launch_speed{source.signed_le16(at + 41)},
       .stages{},
     };

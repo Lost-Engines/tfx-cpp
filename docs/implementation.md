@@ -268,7 +268,7 @@ Native gun stages at `0xa422c` and `0xa42bc` have identical motion but different
 
 AI request delivery is synchronous: a newly launched missile can become an incoming threat before the next aircraft is updated in the same tick. Chaff/flare diversion clears the previous threat association immediately and points guidance at the decoy's current position. Decoy expiry changes diverted missiles to the native coasting callback with its 30,000-tick lifetime. The live aircraft and projectile systems share one gameplay random stream; procedural vertex jitter remains separate.
 
-All **128 retail missions** run 1,024 integrated four-tick steps and render under AddressSanitizer/UndefinedBehaviorSanitizer with live aircraft weapon releases and contacts. This is a robustness sweep, not a claim that every mission or end condition has been completed. Explosion/impact effect spawning, complete player damage, carried-store selection/release, flak/surface targeting and the mission-result bridge still need integration.
+All **128 retail missions** run 1,024 integrated four-tick steps and render under AddressSanitizer/UndefinedBehaviorSanitizer with live aircraft weapon releases and contacts. This is a robustness sweep, not a claim that every mission or end condition has been completed. Explosion/impact effect spawning, complete player damage, ground/designator targeting, flak/surface targeting and the mission-result bridge still need integration.
 
 ### Player cannon and mounting geometry
 
@@ -278,10 +278,27 @@ python3 tools/check_cannon.py --save-fixture tests/reference/cannon.txt
 python3 tools/check_window_controls.py --data-dir /path/to/TFX
 ```
 
-Space now follows the original keyboard cannon branch (`0x86898` → `0xa2fdc`), with the F-117 exclusion, landed/death/inhibition checks, gun/fire-control eligibility, finite ammunition and alternating muzzle. The original starts at **1,760 rounds** and debits ten per visible projectile, including when fewer than ten remain. A failed fire-control system consumes a gameplay random value even without a shot. Host keyboard polling drives this branch once per accepted flight frame, after player physics and before the other actors update; separate mouse/store-fire dispatch still needs implementation.
+Space now follows the original keyboard cannon branch (`0x86898` → `0xa2fdc`), with the F-117 exclusion, landed/death/inhibition checks, gun/fire-control eligibility, finite ammunition and alternating muzzle. The original starts at **1,760 rounds** and debits ten per visible projectile, including when fewer than ten remain. A failed fire-control system consumes a gameplay random value even without a shot. Host keyboard polling drives this branch once per accepted flight frame, after player physics and before the other actors update; separate mouse-trigger acquisition remains unfinished. The Space-edge carried-store path is now connected as described below.
 
 Native keyboard comparisons cover **4,096 original-mount cases** and **1,024 cases with test-authored mounts**, including negative/low ammunition, both barrels, every eligibility flag, wrapped coordinates and random-state effects. Cannon audio is a declared output boundary; the absent optional external-device callback executes normally. The synthetic cases run through CTest without game files. An isolated virtual X11 check additionally verifies actual Space input changes the live ammunition HUD and Escape exits.
 
 Cannon and store mounts load from the original executable for all three aircraft. The complete native anchor transform agrees in **4,096 cases** (512 saved asset-free cases). Each signed high-word product is rounded separately before wrapped accumulation; replacing it with a conventional matrix dot product changes the result. Mounted-store attachment in live projectile motion now uses this geometry.
 
 The original projectile constructor only updates its retained mount byte when the release angles match the current player angles. Untargeted releases also share one mutable aim point; every subsequent such release can change it. The population comparison now includes both details and totals **3,220 frames** at the native 98-slot capacity. Native substep elapsed values are used during child births; outside the update, releases see the caller's current elapsed word.
+
+### Carried armament and air-to-air acquisition
+
+```sh
+python3 tools/check_loadout.py --save-fixture tests/reference/loadout.txt
+python3 tools/check_sensors.py --save-fixture tests/reference/sensors.txt
+```
+
+Default loadout pairs, aircraft-specific mounting anchors and the pylon successor ring come from the selected original executable. The two native selection routines have different purposes: `0x8b9c4` skips another pylon of the current weapon type when cycling manually; `0x8bba0` advances to another usable store after release. The cannon is a separate sentinel in this ring, skipped by the F-117. The release primitive (`0x8bd8c`) retains byte-count wrap, the JP233 empty-pylon visual exception and Arcade/simulator unlimited-store configuration. Projectile construction runs before consumption/selection, so attachment observes the original launch pylon.
+
+**6,192 original-code comparisons** cover all 30 defined retail fits, 18 test-authored fits, both selectors, empty slots, all 27 weapons, inhibition/unlimited states, wrapped coordinates, mount transforms and target-clear side effects. Empty slots use byte 255; the original selector reads two metadata fields beyond its 27-record table even for these slots. The C++ reader owns those two bytes explicitly rather than indexing outside the weapon vector. The synthetic cases are replayed by CTest without game assets.
+
+Radar acquisition (`0x836ac`, `0x8296c`, `0x828b0`) preserves 20 contact slots across scans and fills holes with new contacts in original pool/enumeration order. Its 50-mile cutoff uses the original integer division and word operations. The air-to-air seeker (`0x93328`) preserves rear-aspect/cone/range/side tests, separate selected/tracked/guidance contacts, moving Q8 screen reticle and lock timers. Angular differences deliberately retain the original wide signed subtraction at the angle seam.
+
+**1,024 persistent radar frames and 4,096 acquisition/lock states** agree with original execution. Screen projection and sound/radio output are supplied boundaries in this comparison; it does not prove the graphics projection or the separate laser, anti-radiation, cruise and anti-ship controllers. Native contact-buffer overflow beyond the supported 20 slots is not reproduced as memory corruption.
+
+The live build connects Enter, Backspace/O, F, C and Space to selection, target cycling, cannon and finite carried-store release. The private X11 smoke test verifies both the store count and cannon ammunition change through actual keyboard input. All 128 retail missions initialise their default loadout, run 1,024 four-tick integration steps and render under AddressSanitizer/UndefinedBehaviorSanitizer. Complete cockpit radar drawing, ground/designator acquisition, separate mouse-trigger handling and missile-lock audio remain outstanding.

@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/sensors/air.cpp
+  src/sensors/air.h
+  src/weapons/loadout.cpp
+  src/weapons/loadout.h
   src/weapons/cannon.cpp
   src/weapons/cannon.h
   src/weapons/runtime.cpp
@@ -91,6 +95,16 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(sensors_probe tests/sensors_probe.cpp)
+  target_link_libraries(sensors_probe PRIVATE tfx_core)
+  configure_first_party(sensors_probe)
+  add_test(NAME sensors.native_air_radar_and_seeker COMMAND sensors_probe ${PROJECT_SOURCE_DIR}/tests/reference/sensors.txt)
+
+  add_executable(loadout_probe tests/loadout_probe.cpp)
+  target_link_libraries(loadout_probe PRIVATE tfx_core)
+  configure_first_party(loadout_probe)
+  add_test(NAME weapons.native_pylons COMMAND loadout_probe --check ${PROJECT_SOURCE_DIR}/tests/reference/loadout.txt)
+
   add_executable(cannon_probe tests/cannon_probe.cpp)
   target_link_libraries(cannon_probe PRIVATE tfx_core)
   configure_first_party(cannon_probe)

@@ -16,6 +16,15 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   circles.resize(limit);
   unsigned int constexpr data_file{973476}, mapping{data_file + 0x7a44}, advances{data_file + 0x7a84}, glyph_file{0xf5350};
   auto const anchor{[&](unsigned int const address) { return vec3<int16_t>{view.signed_le16(data_file + address),view.signed_le16(data_file + address + 2),view.signed_le16(data_file + address + 4)}; }};
+  unsigned int constexpr empty_record{data_file + 0x809c + weapons::empty_pylon * 48};
+  arming.empty_role = static_cast<weapons::weapon_role>(view.byte(empty_record + 20));
+  arming.empty_category = view.byte(empty_record + 29);
+  std::array<unsigned int,3> constexpr default_bases{0x7dd0,0x7ec0,0x7e48}, default_counts{12,6,12};
+  for(unsigned int aircraft{0}; aircraft != arming.defaults.size(); ++aircraft) {
+    arming.defaults[aircraft].resize(default_counts[aircraft]);
+    for(unsigned int fit{0}; fit != default_counts[aircraft]; ++fit) for(unsigned int pair{0}; pair != weapons::pylon_pairs; ++pair) arming.defaults[aircraft][fit][pair] = view.signed_le16(data_file + default_bases[aircraft] + (fit * weapons::pylon_pairs + pair) * 2);
+  }
+  for(unsigned int index{0}; index != arming.next.size(); ++index) arming.next[index] = view.le16(data_file + 0x869c + index * 2);
   for(unsigned int index{0}; index != cannon_mounts.size(); ++index) cannon_mounts[index] = anchor(0x8690 + index * 6);
   std::array<unsigned int,3> constexpr aircraft_mounts{0x8654,0x8618,0x85dc};
   for(unsigned int aircraft{0}; aircraft != store_mounts.size(); ++aircraft) for(unsigned int slot{0}; slot != store_mounts[aircraft].size(); ++slot) store_mounts[aircraft][slot] = anchor(aircraft_mounts[aircraft] + slot * 6);
