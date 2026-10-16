@@ -1,0 +1,47 @@
+#pragma once
+
+#include "flight/aerodynamic_commands.h"
+#include "flight/aerodynamic_realistic_ground.h"
+#include "flight/aerodynamic_response.h"
+#include "flight/aerodynamic_start.h"
+#include "flight/aerodynamic_wind.h"
+
+namespace tfx::flight {
+
+enum class aerodynamic_model { military_spec, realistic };
+
+struct aerodynamic_flight {
+  aerodynamic_airframe aircraft{};
+  aerodynamic_coefficient_parameters coefficient_parameters{};
+  aerodynamic_coefficients coefficients{};
+  aerodynamic_airdata data{};
+  aerodynamic_manual_state manual{};
+  aerodynamic_powerplant powerplant{};
+  aerodynamic_surface_state surfaces{};
+  aerodynamic_response_state response{};
+  aerodynamic_realistic_ground_state ground{};
+  aerodynamic_force_result forces{};
+  aerodynamic_commands commands{};
+  aerodynamic_wind wind{};
+  store_effects stores{};
+  aerodynamic_view view{};
+  aerodynamic_model model{aerodynamic_model::military_spec};
+  double seconds{.01};
+  double gear_fraction{0};
+  bool arrestor_hook_down{false};
+  bool chute_deployed{false};
+  bool chute_cutaway{false};
+};
+
+struct aerodynamic_initial_context {
+  aerodynamic_start_context placement{};
+  aerodynamic_model model{aerodynamic_model::military_spec};
+  aerodynamic_wind_context wind{};
+  std::optional<int16_t> surface_celsius{};
+};
+
+// Fresh native 0x95f3c numerical state. Cockpit/UI, control-device acquisition,
+// weather selection, campaign state and external output delivery remain callers.
+aerodynamic_flight initialise_aerodynamic_flight(aerodynamic_airframe const &aircraft, loadout const &stores, aerodynamic_initial_context const &context, aerodynamic_wind_parameters const &wind_parameters, damage_state &damage, math::random_state &random);
+
+} // namespace tfx::flight

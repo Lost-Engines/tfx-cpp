@@ -29,6 +29,10 @@ void profile(tfx::flight::aerodynamic_airframe const &frame) {
   auto carrier{frame};
   carrier.use_carrier_setup();
   for(auto const value : {carrier.ground.contact.maximum_sink_speed,carrier.surfaces.wing_area,carrier.coefficient_base.wing_area,carrier.surfaces.air_brake_drag}) number(value);
+  for(auto const value : {frame.rudder_effectiveness,frame.maximum_autopilot_speed,frame.atmosphere.sea_level_density,frame.atmosphere.temperature_lapse_per_metre,frame.atmosphere.temperature_lapse_limit_metres}) number(value);
+  number(frame.starting_coefficients.zero_lift_drag);
+  number(frame.starting_coefficients.lift_slope);
+  number(frame.starting_coefficients.elevator_lift);
   std::cout << '\n';
 }
 
