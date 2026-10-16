@@ -1147,3 +1147,13 @@ The full original routine, its joystick-direction helper, x87 normalisation and 
     python3 tools/check_simple_controls.py
 
 This is a verified response stage, not yet a live selectable Simple model. Bank-turn, ground handling, movement and the outer flight-model dispatch remain integration consumers.
+
+### Simple coordinated turn and G load
+
+Native 0x8d3cc combines attitude-weighted bank compensation, a retained correction word, two heading rotations through the shared residual, Mach-dependent turn response, and movement/speed/G stores. The C++ stage keeps the original transpose order, signed-word sector boundaries, sine limits and every float/double storage boundary. Its separate body basis is important: the later low-speed visual attitude does not replace the physics orientation.
+
+All 8,192 complete original matrix/residual/correction/speed/G cases agree without intercepted dependencies. They cover both sides of the bank sectors, the Mach 0.1 threshold, elapsed-word limits and prior heading residuals. Development, Release and ASan/UBSan comparisons pass; 123 compact captures bring the full CTest suite to 53 passing tests.
+
+    python3 tools/check_simple_turn.py
+
+The coordinated-turn and control-response stages are still being assembled with ground handling and the outer Simple flight dispatch.
