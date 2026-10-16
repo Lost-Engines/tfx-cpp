@@ -16,6 +16,7 @@ endfunction()
 add_library(tfx_core
   src/flight/aerodynamic_pose.cpp
   src/flight/aerodynamic_pose.h
+  src/flight/aerodynamic_airframes.h
   src/flight/aerodynamic_manual.cpp
   src/flight/aerodynamic_manual.h
   src/flight/aerodynamic_speed.cpp
@@ -449,6 +450,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_airframe_probe tests/aerodynamic_airframe_probe.cpp)
+  target_link_libraries(aerodynamic_airframe_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_airframe_probe)
+  add_test(NAME flight.native_airframe_pitch_calibration COMMAND aerodynamic_airframe_probe --calibration "${PROJECT_SOURCE_DIR}/tests/fixtures/airframe_calibration.txt")
 
   add_executable(aerodynamic_manual_probe tests/aerodynamic_manual_probe.cpp)
   target_link_libraries(aerodynamic_manual_probe PRIVATE tfx_core)
