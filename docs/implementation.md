@@ -394,3 +394,16 @@ All nine retail saved parser graphs now decode into typed clip/text, branch, ass
 Every decoded semantic field, including offsets, text settings and native audio modes, matches independent extraction. The original numeric handlers agree for all **254 retail branch records and 163 assignments / 991 supplied-state cases**, including native gosub/return state and 32-bit wrap. This is the retail subset of the research corpus; the demo's additional 17-byte text layout is not silently accepted as retail.
 
 The C++ control-flow runtime executes assignments, conditional/unconditional branches and subroutine returns until an explicit media/menu/session action is ready for its host. Synthetic tests cover wrapping arithmetic, return to the statement after a call, suspension/resumption and every truncated prefix of a test graph. Reconstruction safety limits reject non-yielding control flow and excessive calls instead of reproducing out-of-bounds memory access. This is not yet a claim of complete original front-end, pilot persistence or campaign-session execution; those host consumers remain in progress.
+
+### Original presentation fonts
+
+```sh
+python3 tools/check_fonts.py
+python3 tools/check_fonts.py --build build-san
+```
+
+All ten presentation fonts now load their original bitmap tables from external `TFX.DAT`. The two fixed fonts use code-object lookup rows; proportional fonts use their width, glyph-pointer and bitmap tables. No captured glyph images are bundled. The immutable executable asset tables own the decoded bank for presentation consumers.
+
+**1,104 glyphs and 132 complete-string cases** match fresh original VGA execution in every pixel, written coverage, native width word and line height. Cases include black ink, all horizontal phases of the fixed-font string renderer, all four clipped corners for proportional styles and empty-string metrics. Native measurement and drawing stay separate: case handling, final spacing and the small font's extended-glyph advance differ. The fixed eight-pixel renderer also narrows a following uppercase I, while its width calculation remains fixed. Null original title-font pointers remain explicitly unavailable rather than borrowing another font.
+
+The comparisons render complete VGA frames rather than relying on cropped glyph snapshots; a glyph can draw beyond the width reported by its measurement helper. Asset-free tests exercise owned table data, black coverage/transparent holes, extended baselines, distinct measurement/drawing advances and fixed-font termination. This establishes character/string rendering; briefing substitution, full text layout/reveal and presentation playback are the next consumers.

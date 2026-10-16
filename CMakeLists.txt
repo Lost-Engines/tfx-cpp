@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/fonts.cpp
+  src/presentation/fonts.h
   src/presentation/program.cpp
   src/presentation/program.h
   src/presentation/runtime.cpp
@@ -113,6 +115,15 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(font_tests tests/font_test.cpp)
+  target_link_libraries(font_tests PRIVATE tfx_core)
+  configure_first_party(font_tests)
+  add_test(NAME presentation.font_tables_and_coverage COMMAND font_tests)
+
+  add_executable(font_probe tests/font_probe.cpp)
+  target_link_libraries(font_probe PRIVATE tfx_core)
+  configure_first_party(font_probe)
+
   add_executable(presentation_tests tests/presentation_test.cpp)
   target_link_libraries(presentation_tests PRIVATE tfx_core)
   configure_first_party(presentation_tests)
