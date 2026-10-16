@@ -16,8 +16,9 @@ struct autopilot_display_state {
   double speed{0}; // Metres per second.
 };
 struct control_display_state {
-  vec2d surface_deflection{0,0}; // Native 0x14728 / 0x14720, in display order.
-  vec2d raptor_deflection{0,0}; // Native 0x14840 / 0x14838; only the F-22 draws these pointers.
+  double trailing_edge_flap{0}; // Native 0x14728.
+  double leading_edge_flap{0}; // Native 0x14720.
+  vec2d thrust_vector{0,0}; // Native 0x14840 / 0x14838; only the F-22 has thrust vectoring.
   autopilot_display_state autopilot;
   flight_configuration configuration{flight_configuration::combat};
 };

@@ -32,7 +32,7 @@ int main(int const argc, char const *const argv[]) try {
       unsigned int mode{0}, configuration{0};
       auto &values{state.controls};
       auto &autopilot{values.autopilot};
-      std::cin >> values.surface_deflection.x >> values.surface_deflection.y >> values.raptor_deflection.x >> values.raptor_deflection.y >> autopilot.enabled >> mode >> configuration >> autopilot.heading >> autopilot.waypoint >> autopilot.height >> autopilot.speed;
+      std::cin >> values.trailing_edge_flap >> values.leading_edge_flap >> values.thrust_vector.x >> values.thrust_vector.y >> autopilot.enabled >> mode >> configuration >> autopilot.heading >> autopilot.waypoint >> autopilot.height >> autopilot.speed;
       autopilot.mode = static_cast<tfx::cockpit::autopilot_mode>(mode);
       values.configuration = static_cast<tfx::cockpit::flight_configuration>(configuration);
     }

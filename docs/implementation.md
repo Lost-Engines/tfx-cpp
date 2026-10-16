@@ -700,7 +700,7 @@ python3 tools/check_auxiliary.py
 
 The warning-lamp painter retains the original gear, wheel-brake, hook, autopilot, warning/caution, fire, lock/launch, stall and threat sprite selection. It consumes typed system conditions and explicit display flags. Its four-draw phase and threat-sound latch belong to the painter's persistent state. Clearing the threat does not reset that original one-shot sound latch. Original lamp artwork and code consumers establish these meanings; nearby flags are not assumed to describe afterburner or ground contact.
 
-**1,024 complete native pixel/coverage/phase/sound frames agree**, including every system's failure/intermittent warning and tracked-weapon category branches. Another **512 complete native pixel/coverage/refresh-state frames agree** for engine lamps, approach cues, ground indicators and ammunition markers. The engine-cache bytes are read but not rewritten by this native region. Ammunition pips are paired 2×2 points, rather than line segments; their original linear VGA edge wrapping is preserved. The approach-cue ordinal remains explicit until its selecting flight logic is ported.
+**1,024 complete native pixel/coverage/phase/sound frames agree**, including every system's failure/intermittent warning and tracked-weapon category branches. Another **512 complete native pixel/coverage/refresh-state frames agree** for engine lamps, approach cues, ground indicators and afterburner markers. The engine-cache bytes are read but not rewritten by this native region. Afterburner pips are paired 2×2 points, rather than line segments; their original linear VGA edge wrapping is preserved. The approach-cue ordinal remains explicit until its selecting flight logic is ported.
 
 These comparisons, the existing MFD/readout comparisons, and all 44 CTests pass in development, Release and ASan/UBSan. Sound requests are compared as events; the mixer and complete HUD composition remain in progress.
 
@@ -752,3 +752,16 @@ The controls MFD now draws the original surface pointers, F-22-specific indicato
 
 
 Scene submissions now seed the model condition byte from SSD part parameter zero, following native `0xcc001` and `0xbac16`. Previously the scene adapter copied the parameter array but left this separate initial condition at zero, preventing state-selected geometry such as the water-crash effect from selecting its authored branch. The original queue-to-dispatch path independently agrees for all 256 byte values; this corrects scene context, not model decoding or full-frame renderer fidelity.
+
+
+### Assembled instrument HUD
+
+```sh
+python3 tools/check_hud.py
+```
+
+The instrument compositor follows the complete original `0x803e8` draw order: range notice, readouts, left/centre/right MFDs, warning lamps, autopilot selection, then auxiliary indicators. Fuel status changes before the MFDs and warning lamps consume it, and is returned for the caller's system state. Both outer display dispatchers retain their previous page and request the original shared redraw on a change. Both moving maps share one blink clock; radar faults consume the same generator as gameplay. Aircraft and surface contacts, projectiles, targets and navigation are explicit borrowed inputs.
+
+**504 complete native pixel/coverage/animation/clip/random-state frames agree**, exercising all three aircraft, every currently implemented outer page, all centre modes, warning thresholds, page transitions and contacts. The original instrument routine runs as a whole; archive access, actor enumeration, surface-type lookup and warning sound output are declared boundaries. The separate upper aiming HUD is explicitly disabled in this capture, and the scene-camera pages remain a separate rendering consumer. Flight integration is the next step.
+
+The manual also identifies the control MFD's trailing/leading-edge flap pointers and F-22 thrust-vector indicators. Flight-state comparisons establish that the four lower-left pips show afterburner stages (`0x1496d`), so the earlier provisional ammunition name has been corrected without changing their painter.

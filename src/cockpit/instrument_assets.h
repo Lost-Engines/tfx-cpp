@@ -16,6 +16,7 @@ struct radar_scale {
 struct instrument_assets {
   std::array<uint8_t,64> character_map;
   std::string font_bank;
+  std::string in_range_label;
   std::array<std::string,2> unsigned_clock_formats;
   std::array<std::string,2> signed_clock_formats;
   std::string fuel_format;
@@ -50,7 +51,7 @@ struct instrument_assets {
   std::array<uint8_t,15> condition_frames;
   std::array<std::string,3> auxiliary_banks;
   std::array<uint8_t,2> engine_lamp_cache;
-  std::array<vec2<int16_t>,4> ammunition_pips;
+  std::array<vec2<int16_t>,4> afterburner_pips;
   std::array<vec2<int16_t>,3> display_origins;
   std::array<resources::monochrome_image,static_cast<unsigned int>(instrument_mask::count)> masks;
   std::array<std::array<uint8_t,10>,3> store_order;

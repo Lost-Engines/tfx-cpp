@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare original engine, approach, ground and ammunition indicators."""
+"""Compare original engine, approach, ground and afterburner indicators."""
 import argparse
 from pathlib import Path
 import random

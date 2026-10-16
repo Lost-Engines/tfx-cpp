@@ -27,6 +27,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   }};
   for(unsigned int index{0}; index != character_map.size(); ++index) character_map[index] = source.byte(data + 0x7688 + index);
   font_bank = resource(0x166c);
+  in_range_label = string(0x179c);
   unsigned_clock_formats = {string(0x17e4),string(0x17ec)};
   signed_clock_formats = {string(0x17f0),string(0x17f8)};
   fuel_format = string(0x17fc);
@@ -41,7 +42,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   for(unsigned int index{0}; index != condition_frames.size(); ++index) condition_frames[index] = source.byte(data + 0x7626 + index);
   auxiliary_banks = {resource(0x16a4),resource(0x1658),resource(0x1648)};
   engine_lamp_cache = {source.byte(data + 0x7157),source.byte(data + 0x7156)};
-  for(unsigned int index{0}; index != ammunition_pips.size(); ++index) ammunition_pips[index] = {source.signed_le16(data + 0x6c44 + index * 4),source.signed_le16(data + 0x6c46 + index * 4)};
+  for(unsigned int index{0}; index != afterburner_pips.size(); ++index) afterburner_pips[index] = {source.signed_le16(data + 0x6c44 + index * 4),source.signed_le16(data + 0x6c46 + index * 4)};
   display_bank = resource(0x1694);
   controls_bank = resource(0x1620);
   autopilot_bank = resource(0x1680);
