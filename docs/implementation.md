@@ -1276,3 +1276,13 @@ All 8,192 complete original coefficient updates agree across all three aircraft,
 Tracing the following thrust producer (0x9cc54) identifies 0x147d8/0x147c0 as engine forces/moments, distinct from the ground loads at 0x14660/0x14648. Those fields now carry their correct names in the shared force stage. The response context likewise names 0x14878 as computed engine thrust, separately from the throttle request. Force and response comparisons remain exact after these naming corrections.
 
 The Mach-coefficient and complete response comparisons repeat exactly in Release and ASan/UBSan.
+
+### Owned aerodynamic powerplant, fuel and engine faults
+
+One powerplant owner now retains throttle request, computed thrust, both engines' delivery factors and fault states, F-22 nozzle angles, engine loads, fuel, flow and afterburner/readout state. Native 0x9cc54 computes dry/reheat thrust, altitude loss, engine availability and the F-22's separate nozzle forces and moments. Native 0x99424 retains dry/reheat fuel rates, idle-flow floor, fuel-specific warp/use scaling, wrapped whole-fuel readout, exhaustion and ordered afterburner-stop requests. Native 0x995e0 preserves gradual intermittent-engine decay, per-engine random sampling and the transition to failure.
+
+All 8,192 complete original cases agree, with the routines exercised separately and in their original frame order. This includes 847 exact ordered afterburner-stop request pairs. Original startup, random generation, fuel-stop handler and numerical routines execute; bounded FSIN/FCOS use hardware instructions, while sound/model delivery are explicit intercepted output boundaries. Retained untouched load axes, native random words and all double/readout bits are observed. There are 123 compact captures.
+
+    python3 tools/check_aerodynamic_powerplant.py
+
+All 66 CTests and the complete powerplant comparison pass in development, Release and ASan/UBSan.

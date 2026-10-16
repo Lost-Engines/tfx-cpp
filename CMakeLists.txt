@@ -16,6 +16,8 @@ endfunction()
 add_library(tfx_core
   src/flight/aerodynamic_pose.cpp
   src/flight/aerodynamic_pose.h
+  src/flight/aerodynamic_powerplant.cpp
+  src/flight/aerodynamic_powerplant.h
   src/flight/aerodynamic_coefficients.cpp
   src/flight/aerodynamic_coefficients.h
   src/flight/aerodynamic_airdata.cpp
@@ -438,6 +440,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_powerplant_probe tests/aerodynamic_powerplant_probe.cpp)
+  target_link_libraries(aerodynamic_powerplant_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_powerplant_probe)
+  add_test(NAME flight.native_aerodynamic_powerplant COMMAND aerodynamic_powerplant_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_powerplant.txt")
 
   add_executable(aerodynamic_coefficients_probe tests/aerodynamic_coefficients_probe.cpp)
   target_link_libraries(aerodynamic_coefficients_probe PRIVATE tfx_core)
