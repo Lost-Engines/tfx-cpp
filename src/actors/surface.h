@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <functional>
 #include <vector>
 #include "actors/program.h"
 
@@ -24,9 +25,10 @@ struct surface_state {
   int16_t input_ticks{0};
   int16_t wait_seconds{0};
   uint32_t actions{0};
+  uint8_t player_shots{0};
 };
 
 surface_state create_surface(initial_actor const &actor, program const &source);
-std::vector<surface_request> advance_surface(surface_state &state, profile const &profile);
+std::vector<surface_request> advance_surface(surface_state &state, profile const &profile, std::function<void(surface_request const&)> emitted = {});
 
 } // namespace tfx::actors

@@ -17,6 +17,7 @@
 #include "actors/air.h"
 #include "actors/program.h"
 #include "actors/surface.h"
+#include "actors/surface_combat.h"
 #include "actors/scenery.h"
 #include "actors/contact_region.h"
 #include "flight/arcade.h"
@@ -365,13 +366,31 @@ auto main(int const argc, char const *const argv[])->int try {
       }
       air_world.threats = threats;
       air_simulation.advance(air_world);
-      for(auto &actor : surface_actors) {
-        for(auto const &request : tfx::actors::advance_surface(actor.state,*actor.profile)) {
+      std::vector<tfx::actors::surface_air_target> surface_air_targets;
+      for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) if(auto const &actor{air_simulation.aircraft()[index]}) surface_air_targets.push_back({
+        .actor{index},
+        .position{vec3<int32_t>{actor->flight.pose.position}},
+        .flags{actor->flight.pose.flags},
+      });
+      for(unsigned int index{0}; index != surface_actors.size(); ++index) {
+        auto &actor{surface_actors[index]};
+        // Requests execute inside the route callback, before this unit's movement, matching the native launcher boundary.
+        tfx::actors::advance_surface(actor.state,*actor.profile,[&](tfx::actors::surface_request const &request) {
           if(request.kind == tfx::actors::surface_request_kind::radio) {
             radio_message = request.text;
             radio_ticks = 5 * 55;
+          } else if(request.kind == tfx::actors::surface_request_kind::nearby_targets) {
+            for(auto const &shot : tfx::actors::engage_surface_targets(actor.state,*actor.profile,{
+              .owner{index},
+              .player{vec3<int32_t>{air_world.player->position}},
+              .aircraft{player.aircraft},
+              .aircraft_targets{surface_air_targets},
+            },air_simulation.random_stream())) projectiles.launch(shot);
+          } else if(request.kind == tfx::actors::surface_request_kind::ground_target) {
+            bool const intact{request.cell.x >= 0 && request.cell.y >= 0 && scene.terrain_intact(static_cast<unsigned int>(request.cell.x),static_cast<unsigned int>(request.cell.y))};
+            if(auto const shot{tfx::actors::surface_ground_attack(actor.state,index,request,intact)}) projectiles.launch(*shot);
           }
-        }
+        });
       }
       if(radio_ticks > 0) --radio_ticks;
     }
