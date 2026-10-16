@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aerodynamic_navigation.cpp
+  src/flight/aerodynamic_navigation.h
   src/flight/aerodynamic_guidance.cpp
   src/flight/aerodynamic_guidance.h
   src/flight/aerodynamic_rotation_internal.h
@@ -473,6 +475,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_navigation_probe tests/aerodynamic_navigation_probe.cpp)
+  target_link_libraries(aerodynamic_navigation_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_navigation_probe)
+  add_test(NAME flight.native_aerodynamic_navigation COMMAND aerodynamic_navigation_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_navigation.txt")
 
   add_executable(aerodynamic_guidance_probe tests/aerodynamic_guidance_probe.cpp)
   target_link_libraries(aerodynamic_guidance_probe PRIVATE tfx_core)
