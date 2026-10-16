@@ -18,6 +18,12 @@ aerodynamic_flight initialise_aerodynamic_flight(aerodynamic_airframe const &air
   aerodynamic_flight state;
   state.aircraft = aircraft;
   state.model = initial.model;
+  if(initial.model == aerodynamic_model::realistic) state.input_gains = {
+    .pitch{.4},
+    .roll{.152},
+    .rudder{.024},
+    .joystick{1},
+  };
   state.coefficients = aircraft.starting_coefficients;
   state.gear_fraction = damage.condition(aircraft_system::landing_gear) == system_condition::active ? 1 : 0;
   state.manual.controls.autopilot.metres_per_second = initial_autopilot_speed;

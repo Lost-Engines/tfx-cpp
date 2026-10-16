@@ -10,6 +10,13 @@ namespace tfx::flight {
 
 enum class aerodynamic_model { military_spec, realistic };
 
+struct aerodynamic_input_gains {
+  double pitch{1};
+  double roll{.19};
+  double rudder{.03};
+  double joystick{1};
+};
+
 struct aerodynamic_flight {
   aerodynamic_airframe aircraft{};
   aerodynamic_coefficient_parameters coefficient_parameters{};
@@ -26,6 +33,7 @@ struct aerodynamic_flight {
   store_effects stores{};
   aerodynamic_view view{};
   aerodynamic_model model{aerodynamic_model::military_spec};
+  aerodynamic_input_gains input_gains{};
   double seconds{.01};
   double gear_fraction{0};
   bool arrestor_hook_down{false};

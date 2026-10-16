@@ -48,5 +48,10 @@ inline std::vector<uint64_t> aerodynamic_snapshot(tfx::flight::aerodynamic_fligh
   for(auto const value : {static_cast<unsigned int>(controls.autopilot.enabled),static_cast<unsigned int>(controls.autopilot.mode),static_cast<unsigned int>(controls.autopilot.heading),static_cast<unsigned int>(p.afterburner),static_cast<unsigned int>(p.afterburner_control),static_cast<unsigned int>(p.afterburner_display),static_cast<unsigned int>(s.response.low_speed_ground_contact),static_cast<unsigned int>(g.landed),static_cast<unsigned int>(g.ground_steering),static_cast<unsigned int>(g.arrestor),static_cast<unsigned int>(g.last_contact_kind),static_cast<unsigned int>(s.arrestor_hook_down),static_cast<unsigned int>(s.chute_deployed),static_cast<unsigned int>(s.chute_cutaway),static_cast<unsigned int>(surface.stalled),static_cast<unsigned int>(static_cast<uint16_t>(m.collision)),static_cast<unsigned int>(s.stores.fuel_tank)}) values.push_back(value);
   for(auto const condition : damage.systems) values.push_back(std::to_underlying(condition));
   values.push_back(random.low); values.push_back(random.high);
+  for(auto const value : {s.input_gains.pitch,s.input_gains.roll,s.input_gains.rudder,s.input_gains.joystick}) number(value);
+  for(auto const value : s.view.position) values.push_back(std::bit_cast<uint32_t>(value));
+  for(auto const value : s.view.integer_position) values.push_back(static_cast<uint32_t>(value));
+  for(auto const value : s.view.angles) values.push_back(value);
+  for(unsigned int row{0}; row != 3; ++row) for(auto const *value : {&s.view.orientation.right,&s.view.orientation.down,&s.view.orientation.forward}) values.push_back(static_cast<uint32_t>((*value)[row]));
   return values;
 }
