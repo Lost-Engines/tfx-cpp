@@ -26,6 +26,7 @@
 #include "cockpit/hud.h"
 #include "cockpit/radio_ticker.h"
 #include "cockpit/weapon_display.h"
+#include "cockpit/external_display.h"
 #include "cockpit/frame.h"
 #include "cockpit/view_camera.h"
 #include "cockpit/initialisation.h"
@@ -372,6 +373,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   tfx::cockpit::scene_displays scene_displays{tables.instruments()};
   tfx::cockpit::frame cockpit_frame{tables.instruments(),game};
   tfx::cockpit::weapon_display aiming{tables.instruments(),game};
+  tfx::cockpit::external_display const external_instruments{tables.instruments(),tables.presentation_fonts()};
   // The native ground-start fallback is zero for type 50, -20 otherwise (0x8c318).
   auto const start_x{static_cast<unsigned int>(std::clamp(mission_setup.start.position.x / tfx::world::cell_units,0,static_cast<int>(tfx::world::map_width) - 1))};
   auto const start_z{static_cast<unsigned int>(std::clamp(mission_setup.start.position.z / tfx::world::cell_units,0,static_cast<int>(tfx::world::map_height) - 1))};
@@ -930,7 +932,14 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
         draw_instruments(radio_window);
       } else if(!designator_view && callback == 0x80704) cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
-      else if(radio_window) instruments.draw_radio(renderer,*radio_window);
+      else {
+        if(!designator_view && callback == 0x80794) external_instruments.draw(renderer,{
+          .height{player.position.y},
+          .speed{player.fixed_speed},
+          .heading{player.angles.y},
+        });
+        if(radio_window) instruments.draw_radio(renderer,*radio_window);
+      }
       // The separate designator-view labels await their native camera callback.
       uint8_t constexpr hud_colour{15};
       if(designator_view) {

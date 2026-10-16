@@ -34,6 +34,8 @@ struct instrument_assets {
   std::array<std::string,3> brake_messages;
   std::array<std::string,5> hud_number_formats;
   std::array<std::string,4> target_formats;
+  std::array<std::string,3> external_number_formats;
+  float external_altitude_scale;
   float hud_altitude_scale;
   float hud_throttle_scale;
   std::array<std::string,2> unsigned_clock_formats;
