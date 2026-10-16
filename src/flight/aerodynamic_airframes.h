@@ -5,6 +5,7 @@
 #include "flight/aerodynamic_powerplant.h"
 #include "flight/aerodynamic_surfaces.h"
 #include "flight/aerodynamic_pose.h"
+#include "flight/aerodynamic_ground.h"
 
 namespace tfx::flight {
 
@@ -14,6 +15,7 @@ struct aerodynamic_airframe {
   aerodynamic_powerplant_parameters powerplant{};
   aerodynamic_surface_parameters surfaces{};
   aerodynamic_viewpoint viewpoint{};
+  aerodynamic_ground_parameters ground{};
   double empty_mass_kg{0};
   double maximum_g{0};
   double minimum_g{0};
