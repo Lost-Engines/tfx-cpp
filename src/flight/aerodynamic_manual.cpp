@@ -18,6 +18,7 @@ double constexpr eurofighter_speed_target{1.7}, eurofighter_limit_mach{2};
 double constexpr nighthawk_speed_target{.8}, nighthawk_limit_mach{.9};
 double constexpr stall_trim_scale{.02}, degrees_per_radian{180.0 / native_pi};
 double constexpr nozzle_angle{native_pi * nozzle_degrees * inverse_degrees};
+uint16_t constexpr external_control_mode{3};
 
 calculation asin(calculation const value) { return math::x87::atan2(value,std::sqrt(1.0L - value * value)); }
 calculation velocity_area(aerodynamic_airdata const &data, double const area) {
@@ -57,7 +58,7 @@ afterburner_change update_aerodynamic_manual(aerodynamic_manual_state &state, ae
   calculation const speed{data.metres_per_second}, alpha{data.angle_of_attack};
   bool const trim{speed > trim_minimum_speed && (context.source == control_source::joystick || (context.source == control_source::keyboard && controls.keyboard_elevator == 0))};
   if(trim) {
-    if(context.stick_pressure) {
+    if(context.stick_pressure && (!controls.autopilot.enabled || controls.autopilot.mode == external_control_mode)) {
       double const pitch{static_cast<double>(-asin(data.basis.forward.z))};
       auto const cosine{math::x87::cos(pitch)};
       double const stored_cosine{static_cast<double>(cosine)};

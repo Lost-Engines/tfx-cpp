@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aerodynamic_autopilot.cpp
+  src/flight/aerodynamic_autopilot.h
   src/flight/aerodynamic_navigation.cpp
   src/flight/aerodynamic_navigation.h
   src/flight/aerodynamic_guidance.cpp

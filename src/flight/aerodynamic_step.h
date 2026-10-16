@@ -33,15 +33,20 @@ struct aerodynamic_tick_context {
   bool wind_enabled{false};
   bool terrain_wind_boost{false};
   bool weather_wind_boost{false};
+  aerodynamic_navigation_context navigation{};
+  bool recovery_available{false};
+  bool recovery_inhibited{false};
+  bool ejected{false};
 };
 struct aerodynamic_tick_events {
   std::vector<afterburner_change> afterburner{};
   aerodynamic_ground_events ground{};
+  aerodynamic_recovery_change recovery{aerodynamic_recovery_change::none};
 };
 
-// Joined ordinary/manual 0x9fe14 / 0x9fe50 callbacks. Advanced autopilot and
-// recovery are still separate producers; their enable state is rejected here
-// while their control path is being reconstructed.
+// Joined 0x9fe14 / 0x9fe50 callbacks, including manual/autopilot control.
+// Automatic recovery engagement, pending model resets and automatic landing
+// remain separate producers to be joined.
 aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, damage_state &damage, math::random_state &random, aerodynamic_wind_parameters const &wind_parameters, aerodynamic_tick_context const &context);
 
 } // namespace tfx::flight

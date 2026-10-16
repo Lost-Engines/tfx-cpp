@@ -1439,3 +1439,13 @@ The preceding native stage (0x9adae..0x9b003), route selector 0x751a4 and follow
 All 8,192 bounded original navigation updates agree, including 357 route changes and 819 followed-aircraft targets. Original bearing, route and square-root helpers execute without any intercepted dependencies; 123 compact captures are retained.
 
     python3 tools/check_aerodynamic_navigation.py
+
+### Complete advanced autopilot controller and joined callbacks
+
+The complete 0x9ac9c controller now joins its initial low-lift speed recovery, manual/guided dispatch, navigation, guidance, control conversion and common limits/flap/nozzle suffix. Its eligibility gate tests the vertical component of the aircraft's right axis (bank), rather than pitch. The manual fallback also retains the original autopilot-specific stick-pressure rule. Shared ground/pitch-rate/roll-angle scratch transfers occur at their native call boundaries.
+
+Both advanced callbacks now consume autopilot targets and supplied route/followed-aircraft records. All 4,800 complete original flight updates agree across 1,200 scenes initialized by the full native initializer: three aircraft, both advanced models, all five autopilot modes, varied orientations/speeds and keyboard/joystick/mouse. Three manual warm-up updates precede each autopilot request. The comparison covers 787 guided branches, 722 speed-recovery calls, 35 recovery restorations and 373 ordered reheat changes, with all 314 numerical/control/navigation/ground/view/recovery fields and output events checked. Only host input/output delivery and the declared hardware transcendental adapters are execution boundaries; branch-entry hooks observe instructions without replacing them.
+
+    python3 tools/check_aerodynamic_autopilot.py
+
+This corpus ends after the autopilot update. Automatic recovery engagement, the requested next-frame physical reset, automatic landing and live-host selection remain to be joined; this is not yet a claim that the advanced models are ready for interactive play.

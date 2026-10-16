@@ -3,11 +3,13 @@
 #include <string_view>
 #include "flight/aerodynamic_step.h"
 #include "aerodynamic_snapshot.h"
+#include "aerodynamic_autopilot_snapshot.h"
 #include "weapons/definition.h"
 
 int main(int const argc, char const *const argv[]) try {
-  bool const trace{argc == 3 && std::string_view{argv[2]} == "--trace"};
-  if(argc != 2 && !trace) throw std::runtime_error{"expected TFX.DAT [--trace]"};
+  bool const autopilot_trace{argc == 3 && std::string_view{argv[2]} == "--autopilot-trace"};
+  bool const trace{autopilot_trace || (argc == 3 && std::string_view{argv[2]} == "--trace")};
+  if(argc != 2 && !trace) throw std::runtime_error{"expected TFX.DAT [--trace|--autopilot-trace]"};
   auto const source{tfx::resources::read_file(argv[1])};
   auto const frames{tfx::flight::load_aerodynamic_airframes(source)};
   auto const wind{tfx::flight::load_aerodynamic_wind_parameters(source)};
@@ -68,6 +70,30 @@ int main(int const argc, char const *const argv[]) try {
         uint64_t seconds; unsigned int source,up,left,down,right,alt,accelerate,decelerate,wind_enabled,warp,pressure,braking,crashing,wet,gear_damage,surface;
         int joystick_x,joystick_y,mouse_x,mouse_y;
         if(!(std::cin >> seconds >> source >> up >> left >> down >> right >> alt >> accelerate >> decelerate >> joystick_x >> joystick_y >> mouse_x >> mouse_y >> wind_enabled >> warp >> pressure >> braking >> crashing >> wet >> gear_damage >> surface)) throw std::runtime_error{"truncated aerodynamic trace input"};
+        tfx::flight::aerodynamic_navigation_context navigation;
+        std::vector<vec2<uint8_t>> cells;
+        if(autopilot_trace) {
+          unsigned int mode,enabled,heading,pitch,count,followed; int route_index;
+          uint64_t target_down,target_speed;
+          std::cin >> mode >> enabled >> heading >> target_down >> target_speed >> route_index >> pitch >> followed >> count;
+          auto &targets{state.manual.controls.autopilot};
+          targets.mode = static_cast<uint16_t>(mode);
+          targets.enabled = enabled != 0;
+          targets.heading = static_cast<tfx::math::angle>(heading);
+          targets.down_metres = std::bit_cast<double>(target_down);
+          targets.metres_per_second = std::bit_cast<double>(target_speed);
+          state.autopilot.navigation.route_index = static_cast<int16_t>(route_index);
+          state.autopilot.navigation.target_pitch = static_cast<tfx::math::angle>(pitch);
+          for(unsigned int cell{0}; cell != count; ++cell) {
+            unsigned int x,z; std::cin >> x >> z;
+            cells.emplace_back(static_cast<uint8_t>(x),static_cast<uint8_t>(z));
+          }
+          navigation.route_cells = cells;
+          tfx::flight::aerodynamic_follow_target target;
+          for(auto &value : target.position_q8) std::cin >> value;
+          std::cin >> target.speed_q16;
+          if(followed) navigation.followed_aircraft.emplace(target);
+        }
         tfx::flight::aerodynamic_tick_context const step{
           .input{
             .source{static_cast<tfx::flight::control_source>(source)},
@@ -98,11 +124,15 @@ int main(int const argc, char const *const argv[]) try {
           .wind_enabled{wind_enabled != 0},
           .terrain_wind_boost{terrain_boost != 0},
           .weather_wind_boost{boost != 0},
+          .navigation{navigation},
+          .recovery_available{true},
         };
         auto const events{tfx::flight::advance_aerodynamic_flight(state,damage,random,wind[0],step)};
         for(auto const value : aerodynamic_snapshot(state,damage,random)) std::cout << value << ' ';
+        if(autopilot_trace) for(auto const value : aerodynamic_autopilot_snapshot(state.autopilot)) std::cout << value << ' ';
         std::cout << events.ground.gear_impacts << ' ' << events.ground.cockpit_bump << ' ' << events.afterburner.size() << ' ';
         for(auto const change : events.afterburner) std::cout << std::to_underlying(change) << ' ';
+        if(autopilot_trace) std::cout << std::to_underlying(events.recovery) << ' ';
         std::cout << '\n';
       }
     }
