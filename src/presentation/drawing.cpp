@@ -27,7 +27,6 @@ void draw_line(render::framebuffer &image, vec2<int> from, vec2<int> const &to, 
   }
 }
 
-namespace {
 bool clip_line(vec2<int> &from, vec2<int> &to,
   vec2<int> const &minimum, vec2<int> const &maximum) {
   // Clip X before Y. Native 0xbf53d measures from the farther endpoint;
@@ -47,8 +46,6 @@ bool clip_line(vec2<int> &from, vec2<int> &to,
   if(from.x < minimum.x || from.x > maximum.x || to.x < minimum.x || to.x > maximum.x) return false;
   return true;
 }
-} // anonymous namespace
-
 void draw_clipped_line(render::framebuffer &image, vec2<int> from, vec2<int> to,
   vec2<int> const &minimum, vec2<int> const &maximum, uint8_t const colour) {
   if(clip_line(from,to,minimum,maximum)) draw_line(image,vec2<int>{from},to,colour);

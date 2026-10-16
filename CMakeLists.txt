@@ -14,6 +14,9 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/cockpit/target_display.cpp
+  src/cockpit/target_display.h
+  src/cockpit/format.h
   src/cockpit/radio_ticker.cpp
   src/cockpit/radio_ticker.h
   src/weapons/impact_prediction.cpp
@@ -372,6 +375,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(target_display_probe tests/target_display_probe.cpp)
+  target_link_libraries(target_display_probe PRIVATE tfx_core)
+  configure_first_party(target_display_probe)
 
   add_executable(radio_probe tests/radio_probe.cpp)
   target_link_libraries(radio_probe PRIVATE tfx_core)

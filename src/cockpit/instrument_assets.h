@@ -7,7 +7,7 @@
 
 namespace tfx::cockpit {
 
-enum class instrument_mask : unsigned int { store, throttle, fuel, gear, left_flap, right_flap, lower_flap, left_engine, right_engine, target_reticle, alternate_target_reticle, short_range_sight, medium_range_sight, long_range_sight, ground_sight, strafe_sight, weapon_centre_cue, impact_sight, count };
+enum class instrument_mask : unsigned int { store, throttle, fuel, gear, left_flap, right_flap, lower_flap, left_engine, right_engine, target_reticle, alternate_target_reticle, short_range_sight, medium_range_sight, long_range_sight, ground_sight, strafe_sight, weapon_centre_cue, impact_sight, air_target, air_lock, compact_air_target, compact_air_lock, count };
 
 struct radar_scale {
   int16_t label;
@@ -32,6 +32,7 @@ struct instrument_assets {
   std::array<std::string,7> aiming_labels;
   std::array<std::string,3> brake_messages;
   std::array<std::string,5> hud_number_formats;
+  std::array<std::string,4> target_formats;
   float hud_altitude_scale;
   float hud_throttle_scale;
   std::array<std::string,2> unsigned_clock_formats;

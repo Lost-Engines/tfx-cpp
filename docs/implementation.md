@@ -877,3 +877,14 @@ The original radio controller (`0x81174`–`0x813c3`) now owns its message histo
 Live mission, aircraft and surface-unit radio events now feed this controller, replacing the temporary five-second full-line label. The coloured radio display renders after the auxiliary instruments at the original cockpit position. Plain L invokes the original replay branch; Alt+L's separate landing controller remains unimplemented. Paused frames retain the current window. Other camera modes still await their complete native callbacks.
 
 The radio state/frame comparisons pass in development, Release and ASan/UBSan. The 504-frame original instrument-HUD comparison still agrees, all 44 existing CTests pass, and private-window firing, MFD, replay, pause and mission-result checks pass with live radio rendering.
+
+
+### Target telemetry and marker painters
+
+```sh
+python3 tools/check_target_display.py
+```
+
+The original target-information painter (`0x7f59c`) retains the uppercased first word of the aircraft name, signed-word speed conversion, heading scaled by 360/65,536, unsigned altitude and horizontal range steps. The direction cue (`0x7f000`) preserves wrapped matrix products and native angle-helper behavior, including phase zero when either reduced input is within -1..1. Both sizes of primary/acquired masks are decoded directly from the executable. The edge-marker helper (`0x7ee9c`) clips toward the secondary marker's top-left corner before painting it; its caller uses this while the seeker is acquiring, rather than as a general minimum-range indicator.
+
+**1,600 complete native pixel/coverage frames agree**, covering all five painter paths, names, signed telemetry, matrix overflow, projected/tracking points, eight cockpit offsets and four clip rectangles. The external aircraft-name lookup supplies text; native name conversion, formatting, geometry and VGA painters execute. Decimal readout formatting is shared with the already verified upper-HUD painter, and line clipping is exposed without changing its verified arithmetic. Live target-state composition follows separately.
