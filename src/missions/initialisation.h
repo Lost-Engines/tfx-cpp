@@ -52,8 +52,8 @@ struct setup {
   uint8_t weapons;
   bool default_weapons{false};
   std::optional<std::string> saved_start_extension{};
-  int16_t stationary_id{-1};
-  int16_t mobile_id{-1};
+  int16_t aircraft_type_filter{-1};
+  int16_t surface_type_filter{-1};
   std::optional<int32_t> timer{};
   script_time clock{0};
   std::vector<target> targets{};

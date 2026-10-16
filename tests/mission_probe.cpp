@@ -34,7 +34,7 @@ void state(tfx::missions::setup const &value) {
   auto const &position{value.start.position};
   std::cout << ",[" << position.x << ',' << position.y << ',' << position.z << ',' << value.start.landed << "]," << std::to_underlying(value.aircraft) << ",[" << value.angles.x << ',' << value.angles.y << ',' << value.angles.z << "]," << std::bit_cast<uint32_t>(value.speed_factor) << ',' << static_cast<unsigned int>(value.weapons) << ',' << value.default_weapons << ',';
   text(value.saved_start_extension);
-  std::cout << ',' << value.stationary_id << ',' << value.mobile_id << ',' << (value.timer ? *value.timer : -1) << ',' << value.clock << ",[";
+  std::cout << ',' << value.aircraft_type_filter << ',' << value.surface_type_filter << ',' << (value.timer ? *value.timer : -1) << ',' << value.clock << ",[";
   for(unsigned int i{0}; i != value.targets.size(); ++i) {
     if(i) std::cout << ',';
     auto const &target{value.targets[i]};

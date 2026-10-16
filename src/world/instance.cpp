@@ -43,6 +43,11 @@ void instance::apply_contact_damage(uint16_t const damage) {
   if(math::signed_word(health) <= 0) destroyed = true;
 }
 
+int16_t instance::type() const {
+  // Native 0xb7a3c distinguishes an untyped SSD from type zero.
+  return source.flags & 2 ? static_cast<int16_t>((source.flags & 255) >> 2) : -1;
+}
+
 instance_result instance::execute(unsigned int const entry, instance_context const &context) {
   instance_result result;
   if(entry >= source.entries.size()) return result;

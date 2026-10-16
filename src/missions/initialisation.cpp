@@ -134,8 +134,8 @@ setup initialise(std::string_view const script, inherited_setup const &inherited
       result.speed_factor = static_cast<float>(speed * static_cast<double>(fixed_speed_scale) * native_speed_scale * reference_speed_reciprocal);
     } else if(command == "weapons") result.weapons = static_cast<uint8_t>(fields.integer());
     else if(command == "default_weapons") result.default_weapons = true;
-    else if(command == "setidnum") result.stationary_id = math::signed_word(static_cast<uint16_t>(fields.integer()));
-    else if(command == "setmobileid") result.mobile_id = math::signed_word(static_cast<uint16_t>(fields.integer()));
+    else if(command == "setidnum") result.aircraft_type_filter = math::signed_word(static_cast<uint16_t>(fields.integer()));
+    else if(command == "setmobileid") result.surface_type_filter = math::signed_word(static_cast<uint16_t>(fields.integer()));
     else if(command == "timer") result.timer = fields.integer();
     else if(command == "unc_start") {
       auto const extension{fields.next()};

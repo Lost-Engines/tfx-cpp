@@ -14,6 +14,12 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/actors/contact_region.cpp
+  src/actors/contact_region.h
+  src/actors/scenery.cpp
+  src/actors/scenery.h
+  src/missions/progress.cpp
+  src/missions/progress.h
   src/flight/damage.cpp
   src/flight/damage.h
   src/sensors/air.cpp
@@ -97,6 +103,26 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(world_contacts_probe tests/world_contacts_probe.cpp)
+  target_link_libraries(world_contacts_probe PRIVATE tfx_core)
+  configure_first_party(world_contacts_probe)
+  add_test(NAME world.native_fixed_placements_and_surface_region COMMAND world_contacts_probe ${PROJECT_SOURCE_DIR}/tests/reference/world_contacts.txt)
+
+  add_executable(death_probe tests/death_probe.cpp)
+  target_link_libraries(death_probe PRIVATE tfx_core)
+  configure_first_party(death_probe)
+  add_test(NAME missions.native_player_loss_transition COMMAND death_probe ${PROJECT_SOURCE_DIR}/tests/reference/death.txt)
+
+  add_executable(credit_probe tests/credit_probe.cpp)
+  target_link_libraries(credit_probe PRIVATE tfx_core)
+  configure_first_party(credit_probe)
+  add_test(NAME missions.native_air_and_mobile_credit COMMAND credit_probe ${PROJECT_SOURCE_DIR}/tests/reference/credit.txt)
+
+  add_executable(progress_probe tests/progress_probe.cpp)
+  target_link_libraries(progress_probe PRIVATE tfx_core)
+  configure_first_party(progress_probe)
+  add_test(NAME missions.native_target_progress_and_termination COMMAND progress_probe ${PROJECT_SOURCE_DIR}/tests/reference/progress.txt)
+
   add_executable(damage_probe tests/damage_probe.cpp)
   target_link_libraries(damage_probe PRIVATE tfx_core)
   configure_first_party(damage_probe)

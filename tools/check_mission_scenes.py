@@ -34,12 +34,18 @@ for mission,line in zip(missions,actual):
     assert json.loads(line)==expected,(mission['name'],json.loads(line),expected)
 failures=[]
 notes=Counter()
+outcomes=[]
 for mission in missions:
     result=subprocess.run([str(build/'tfx'),'--data-dir',data,'--mission',mission['name'].removeprefix('miss'),'--flight-steps',str(args.flight_steps),'--screenshot',os.devnull],capture_output=True,text=True,timeout=20)
     if result.returncode:failures.append((mission['name'],result.stderr))
     else:
         assert 'model parts' in result.stdout and ': 0 model parts' not in result.stdout,mission['name']
+        finished=[line for line in result.stdout.splitlines() if line.startswith('Mission result:')]
+        assert len(finished)<=1,(mission['name'],finished)
+        if finished:outcomes.append((mission['name'],finished[0]))
         for line in result.stderr.splitlines():notes[line]+=1
 assert not failures,failures
 print(f'Mission scene startup passed: {len(missions)} retail missions; signed starts, regional geometry and separate weather palettes verified')
 print('Distinct preview limitations:',dict(notes))
+
+if args.flight_steps:print('Mission result handoffs reached exactly once:',len(outcomes),outcomes[:3])

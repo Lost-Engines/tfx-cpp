@@ -7,7 +7,7 @@
 namespace tfx::actors {
 
 enum class surface_action : uint8_t { route, retired, dead, normal, waiting };
-enum class surface_flag : uint16_t { destroyed = 0x0800, retired = 0x1000 };
+enum class surface_flag : uint8_t { suppress_steering = 1, hostile = 2, new_wait = 4, destroyed = 8, retired = 16 };
 enum class surface_request_kind { nearby_targets, ground_target, radio };
 struct surface_request {
   surface_request_kind kind;
