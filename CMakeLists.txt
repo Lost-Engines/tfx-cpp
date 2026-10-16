@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aerodynamic_pilot_keys.cpp
+  src/flight/aerodynamic_pilot_keys.h
   src/flight/automatic_landing.cpp
   src/flight/automatic_landing.h
   src/flight/automatic_approach.cpp

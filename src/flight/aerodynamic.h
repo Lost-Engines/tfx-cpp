@@ -45,6 +45,8 @@ struct aerodynamic_flight {
   bool chute_deployed{false};
   bool chute_cutaway{false};
   bool cold_start{false};
+  // Native 0x954fc, also called immediately by the autopilot toggle key.
+  void reset_motion(int16_t ground_elevation_steps, bool terrain_present);
 };
 
 struct aerodynamic_initial_context {

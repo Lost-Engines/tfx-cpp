@@ -26,39 +26,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   // Native 0x9fe14/0x9fe50 checks the prior-model marker only on entry.
   // The enclosing game loop acknowledges it AFTER this callback (0x8f98c),
   // so a request raised within this update does not cause a later reset.
-  if(state.autopilot.recovery.model_reset_requested) {
-    aerodynamic_start_state start{
-      .motion{motion},
-      .stores{state.stores},
-      .engine_factor{vec2d{powerplant.engine_factor}},
-      .fuel_kg{powerplant.fuel},
-      .mass_kg{data.mass_kg},
-      .seconds{state.seconds},
-      .g_load{state.response.g_load},
-      .track_heading{data.track_heading},
-      .ground_steering{ground.ground_steering},
-    };
-    initialise_aerodynamic_motion(start,state.aircraft,state.mounted_stores,{
-      .orientation{state.view.orientation},
-      .position{vec3f{state.view.position}},
-      .fixed_speed{data.fixed_speed},
-      .heading{state.view.angles.y},
-      .ground_elevation_steps{context.ground_elevation_steps},
-      .landed{ground.landed},
-      .cold_start{state.cold_start},
-      .terrain_present{context.terrain_present},
-    });
-    motion = start.motion;
-    state.stores = start.stores;
-    powerplant.engine_factor = start.engine_factor;
-    powerplant.fuel = start.fuel_kg;
-    data.mass_kg = start.mass_kg;
-    state.seconds = start.seconds;
-    state.response.g_load = start.g_load;
-    data.track_heading = start.track_heading;
-    ground.ground_steering = start.ground_steering;
-    state.coefficient_parameters.wing_area = state.aircraft.surfaces.wing_area;
-  }
+  if(state.autopilot.recovery.model_reset_requested) state.reset_motion(context.ground_elevation_steps,context.terrain_present);
   double const seconds{state.seconds};
 
   state.wind.simulation_seconds = data.simulation_seconds;
