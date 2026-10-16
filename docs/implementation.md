@@ -1140,7 +1140,7 @@ The live ejection change also passes all 51 tests in Release and ASan/UBSan, the
 
 ### Simple flight-model control response
 
-The Simple model has a separate G-limited response stage at native 0x8cfa0. It retains pitch/heading/roll rates and derived positive/negative pitch and roll limits. Aircraft G limits, stall speed, the prior coordinated-turn contribution, attitude and input-device capability are explicit inputs. Keyboard decay and competing-key priority, joystick threshold flags, direct-rudder steering and low-speed ground rules remain distinct branches. The low-speed formula uses a literal nine-G coefficient even for the F-117's six-G preset; that native quirk is preserved.
+The Simple model has a separate G-limited response stage at native 0x8cfa0. It retains pitch/heading/roll rates and derived positive/negative pitch and roll limits. Aircraft G limits, stall speed, the prior coordinated-turn contribution, attitude and the Alt modifier are explicit inputs. Keyboard decay and competing-key priority, joystick threshold flags, Alt-modified rudder steering and low-speed ground rules remain distinct branches. The low-speed formula uses a literal nine-G coefficient even for the F-117's six-G preset; that native quirk is preserved.
 
 The full original routine, its joystick-direction helper, x87 normalisation and power routine agree across 8,192 exact float-bit/rate/limit/key updates. Coverage includes all input modes, the 150 m/s boundary, signed-zero joystick arithmetic, ground handling, key priority and wrapped maximum elapsed ticks. There are 123 compact original captures in the asset-free test suite. Development, Release and ASan/UBSan comparisons and all 52 CTests pass.
 
@@ -1160,7 +1160,7 @@ The coordinated-turn and control-response stages are still being assembled with 
 
 ### Simple low-speed attitude and touchdown
 
-The native stall-pitch stage (0x8d6e8) updates the visible basis separately from the body orientation, retaining its signed-word pitch, per-tick movement and distinct extended/double/float comparison boundaries. Ground contact (0x8d970) preserves sink below stall, gear clearance, inverted/gear-up impacts, filtered touchdown pitch/roll, previous-landed state, low-speed rolling contact and the surface-specific brake-chute cutaway latch.
+The native stall-pitch stage (0x8d6e8) updates the visible basis separately from the body orientation, retaining its signed-word pitch, per-tick movement and distinct extended/double/float comparison boundaries. Ground contact (0x8d970) preserves sink below stall, gear clearance, inverted/gear-up impacts, filtered touchdown pitch/roll, previous-landed state, low-speed rolling contact and the carrier arrestor-wire latch.
 
 All 8,192 complete original cases agree in both matrices, rotation residuals, altitude, contact/landing flags, signed words and speed/reference stores, without intercepted dependencies. The cases include independent and consecutive stage calls, gear-height boundaries, stall/reference thresholds, maximum elapsed words and prior contact state. Development, Release and ASan/UBSan checks pass; 123 compact native cases bring the normal CTest suite to 54 passing tests.
 
@@ -1173,3 +1173,17 @@ Native 0x8d7ec computes descent speed from the body's forward axis, applies airc
 All 8,192 complete original state/float-bit/audio cases agree, with sample delivery as the only intercepted boundary. They include healthy and already damaged gear, first and continuing ground contact, exact/adjacent speed thresholds and every resulting request sequence. Development, Release and ASan/UBSan checks pass; 123 compact native cases bring the CTest suite to 55 passing tests.
 
     python3 tools/check_landing_gear.py
+
+### Complete ordinary Simple flight callback
+
+The assembled Simple update retains the native mode-entry conversion from engine/start speed 250, the slower non-Arcade speed response, doubled fuel consumption relative to Arcade, input response and bank-turn ordering, body/visible basis separation, shared rotation residuals, normalization cadence, stall appearance, movement, gear damage, touchdown, single-step city wrapping and the final outer contact check. Basic aircraft limits are gathered beside their shared Arcade/Simple consumers.
+
+The full initialized callback agrees for 36 persistent trajectories and 15,360 original updates across all three aircraft. Keyboard and joystick inputs, Alt-modified rudder, engine changes, gear operations/damage, high-altitude recovery, city seams, runway and carrier starts, and engines off/on are covered. Native player/start initialization and the complete ordinary 0x8f56c callback execute; timer, input acquisition, the independently verified HUD/control setup and scene/audio notifications are declared boundaries. Initial ground placement executes before supplied engine/control changes. Automatic recovery, ILS and the separate disabled/pilot dispatcher paths are excluded from these ordinary Simple trajectories.
+
+Integration exposed two distinctions obscured by the prior local-stage names. The byte at raw key offset 0x38 is Alt, rather than an input-device capability. Data 0x8d12/0x8d14 are the arrestor hook and arrested state, not the brake chute; H's native handler and carrier zone 3 establish their use. Gear position and gear indication are also separate: the basic speed calculation applies gear drag only while the indication equals active, even when a damaged gear remains physically down. These native behaviours are retained.
+
+All 15,360 updates agree in exact position/pose, both bases, residuals, Mach response, controls/limits, gear, fuel and flags in development, Release and ASan/UBSan. The 36 compact trajectory captures bring CTest to 56 passing tests. Sharing the basic speed/fuel code also retains all 4,608 Arcade airborne and 9,216 ground-start/takeoff comparisons unchanged.
+
+    python3 tools/check_simple.py
+
+Live model selection and the remaining disabled-flight/camera consumers are being connected separately.

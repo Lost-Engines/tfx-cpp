@@ -14,6 +14,9 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/simple.cpp
+  src/flight/simple.h
+  src/flight/basic_parameters.h
   src/flight/landing_gear.cpp
   src/flight/landing_gear.h
   src/flight/simple_ground.cpp
@@ -409,6 +412,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(simple_probe tests/simple_probe.cpp)
+  target_link_libraries(simple_probe PRIVATE tfx_core)
+  configure_first_party(simple_probe)
+  add_test(NAME flight.native_simple_sequences COMMAND simple_probe --check "${PROJECT_SOURCE_DIR}/tests/fixtures/simple.txt")
 
   add_executable(landing_gear_probe tests/landing_gear_probe.cpp)
   target_link_libraries(landing_gear_probe PRIVATE tfx_core)

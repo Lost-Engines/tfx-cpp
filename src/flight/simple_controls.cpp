@@ -14,7 +14,7 @@ float constexpr low_speed_limit{150}, roll_limit_multiplier{3};
 float constexpr keyboard_response{.25f};
 double constexpr keyboard_retention{.85};
 float constexpr joystick_scale{1.0f / 512};
-int constexpr joystick_direction_threshold{40}, direct_rudder_rate{40};
+int constexpr joystick_direction_threshold{40}, alt_rate{40};
 int32_t constexpr rolling_rudder_speed{400};
 
 calculation normalised(int32_t const component) {
@@ -52,7 +52,7 @@ direction_keys update_simple_controls(simple_control_state &state, simple_contro
       else if(!context.pitch_inhibited && keys.down) pitch = approach(pitch,state.negative_pitch_limit,context.elapsed);
       else pitch = static_cast<float>(std::pow(static_cast<calculation>(keyboard_retention),static_cast<calculation>(context.elapsed)) * pitch);
     }
-    if(!context.direct_rudder && (!context.low_speed_ground_contact || context.fixed_speed > rolling_rudder_speed)) {
+    if(!context.alt && (!context.low_speed_ground_contact || context.fixed_speed > rolling_rudder_speed)) {
       state.angular_rate.y = 0;
       if(keys.left) roll = approach(roll,state.roll_limit,context.elapsed);
       else if(keys.right) roll = approach(roll,-state.roll_limit,context.elapsed);
@@ -68,8 +68,8 @@ direction_keys update_simple_controls(simple_control_state &state, simple_contro
     if(context.landed && context.metres_per_second < context.stall_metres_per_second) pitch = 0;
     roll = static_cast<float>(static_cast<calculation>(-static_cast<int>(context.joystick.x)) * state.roll_limit * joystick_scale);
   }
-  if(context.direct_rudder) {
-    int16_t const rate{context.low_speed_ground_contact ? math::signed_word(static_cast<uint16_t>(context.fixed_speed)) : int16_t{direct_rudder_rate}};
+  if(context.alt) {
+    int16_t const rate{context.low_speed_ground_contact ? math::signed_word(static_cast<uint16_t>(context.fixed_speed)) : int16_t{alt_rate}};
     state.angular_rate.y = keys.left ? static_cast<float>(-rate) : keys.right ? rate : 0;
     roll = static_cast<float>(static_cast<calculation>(roll) * .5f);
   }

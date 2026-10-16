@@ -33,7 +33,7 @@ int main(int const argc, char const *const argv[]) try {
     context.coordinated_turn_rate = read_float(input);
     for(unsigned int row{0}; row != 3; ++row) input >> orientation.right[row] >> orientation.down[row] >> orientation.forward[row];
     unsigned int elapsed, source;
-    input >> elapsed >> source >> context.joystick.x >> context.joystick.y >> context.keys.up >> context.keys.left >> context.keys.down >> context.keys.right >> context.landed >> context.low_speed_ground_contact >> context.pitch_inhibited >> context.direct_rudder;
+    input >> elapsed >> source >> context.joystick.x >> context.joystick.y >> context.keys.up >> context.keys.left >> context.keys.down >> context.keys.right >> context.landed >> context.low_speed_ground_contact >> context.pitch_inhibited >> context.alt;
     context.elapsed = static_cast<tfx::simulation::timer_ticks>(elapsed);
     context.source = static_cast<tfx::flight::control_source>(source);
     tfx::flight::simple_control_state state;

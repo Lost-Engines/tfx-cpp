@@ -1,6 +1,7 @@
 #pragma once
 
 #include "flight/stores.h"
+#include "flight/basic_parameters.h"
 #include "math/attitude.h"
 #include "simulation/timing.h"
 
@@ -46,7 +47,8 @@ struct arcade_state {
   bool wheel_brake{false};
   bool crashing{true};
   bool frozen{false};
-  bool hard_brake{false};
+  bool arrested{false};
+  bool arrestor_hook{false};
   bool recovering{false};
   int16_t collision{0};
   bool brake_chute{false};
@@ -63,6 +65,9 @@ struct arcade_state {
 };
 
 void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<math::angle> const &angles, float speed, bool landed, ground_contact ground = {});
+// Shared native 0x8c6e8/0x8cc80 stages; Simple consumes twice Arcade's fuel.
+void update_basic_speed(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, bool arcade, bool gear_drag);
+void consume_basic_fuel(arcade_state &state, simulation::timer_ticks elapsed, bool arcade);
 void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {});
 void advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {}, bool time_warp = false);
 

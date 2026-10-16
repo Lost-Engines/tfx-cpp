@@ -2,7 +2,7 @@
 """Compare the original complete Simple G-limited control response (0x8cfa0).
 
 The original joystick direction helper, x87 normalisation and power routine
-execute. Input-device capabilities, prior turn coupling, aircraft limits and
+execute. Alt-key state, prior turn coupling, aircraft limits and
 speed are supplied inputs; this is not the complete Simple flight model.
 """
 import argparse

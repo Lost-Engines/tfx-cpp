@@ -16,30 +16,13 @@ float constexpr sound_speed{340}, speed_metres_per_native_tick{122};
 float constexpr normalised_word{3.0518509447574615e-05f};
 float constexpr throttle_step{0.002f}, idle_throttle{0.6f};
 float constexpr mouse_angle_step{-22}, control_response{1.0f / 12};
-float constexpr speed_response{0.003f}, brake_response{0.01f}, hard_brake_response{0.02f};
+float constexpr speed_response{0.003f}, simple_speed_response{.0015f}, brake_response{0.01f}, arrested_response{0.02f};
 float constexpr fixed_speed_scale{256}, altitude_scale{feet_per_world_unit};
 double constexpr feet_to_metres{0.3047999902464003}, metres_to_km{0.001};
 double constexpr world_units_per_kilometre{0.0024383999407291412f};
 float constexpr fuel_rate{0.008f};
 
-struct performance {
-  float low_stall_mach;
-  float low_altitude;
-  float middle_stall_mach;
-  float middle_altitude;
-  float high_stall_mach;
-  float ceiling_km;
-  float high_maximum_mach;
-  float maximum_speed_altitude;
-  float low_maximum_mach;
-  float maximum_speed_base_altitude;
-  float gear_height;
-  double stall_metres_per_second;
-  double fuel_capacity;
-  double dry_thrust_fraction;
-  uint8_t afterburner_stages;
-};
-std::array<performance,3> constexpr performance_table{{
+std::array<basic_aircraft_parameters,3> constexpr performance_table{{
   {
     .low_stall_mach{0.15f},
     .low_altitude{0},
@@ -56,6 +39,12 @@ std::array<performance,3> constexpr performance_table{{
     .fuel_capacity{4000},
     .dry_thrust_fraction{0.65},
     .afterburner_stages{4},
+    .maximum_g{9},
+    .minimum_g{-3},
+    .low_speed_reference{61.8},
+    .gear_airborne_speed_limit{200},
+    .gear_ground_speed_limit{87.5},
+    .gear_touchdown_descent_limit{3.1},
   },
   {
     .low_stall_mach{0.15f},
@@ -73,6 +62,12 @@ std::array<performance,3> constexpr performance_table{{
     .fuel_capacity{7938},
     .dry_thrust_fraction{1},
     .afterburner_stages{0},
+    .maximum_g{6},
+    .minimum_g{-1},
+    .low_speed_reference{79.825},
+    .gear_airborne_speed_limit{205},
+    .gear_ground_speed_limit{120},
+    .gear_touchdown_descent_limit{5},
   },
   {
     .low_stall_mach{0.15f},
@@ -90,9 +85,15 @@ std::array<performance,3> constexpr performance_table{{
     .fuel_capacity{9979},
     .dry_thrust_fraction{0.85},
     .afterburner_stages{4},
+    .maximum_g{9},
+    .minimum_g{-3},
+    .low_speed_reference{77.25},
+    .gear_airborne_speed_limit{160},
+    .gear_ground_speed_limit{110},
+    .gear_touchdown_descent_limit{3.05},
   },
 }};
-performance const &parameters(player_aircraft const aircraft) {
+basic_aircraft_parameters const &parameters(player_aircraft const aircraft) {
   return performance_table.at(std::to_underlying(aircraft) - 1);
 }
 calculation interpolate(float const low_value, float const low_altitude, float const high_value, float const high_altitude, float const altitude) {
@@ -130,7 +131,7 @@ void recover(arcade_state &state, uint16_t const elapsed) {
   state.orientation = state.orientation.transposed();
   state.recovering = true;
 }
-void throttle(arcade_state &state, flight_controls const &controls, uint16_t const ticks, bool const disabled = false) {
+void throttle(arcade_state &state, flight_controls const &controls, uint16_t const ticks, bool const disabled, bool const arcade, bool const gear_drag) {
   auto const &model{parameters(state.aircraft)};
   calculation const movement{static_cast<calculation>(ticks) * throttle_step};
   if(state.left_engine || state.right_engine) {
@@ -170,13 +171,13 @@ void throttle(arcade_state &state, flight_controls const &controls, uint16_t con
     if(model.afterburner_stages) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) + (static_cast<calculation>(state.maximum_speed) - span) * state.afterburner / model.afterburner_stages);
   } else state.target_speed = 0;
   if(disabled) state.target_speed = 0.5f; // Native 0x8ca91 fixes the requested Mach after loss/ejection.
-  if(state.gear_down) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.95f);
+  if(gear_drag) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.95f);
   if(state.air_brake) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.8f);
-  if(!state.left_engine && !state.right_engine) { state.target_speed = 0; state.hard_brake = false; }
+  if(!state.left_engine && !state.right_engine) { state.target_speed = 0; state.arrested = false; }
   else if(!state.left_engine || !state.right_engine) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.5f);
-  float response{speed_response};
+  float response{arcade ? speed_response : simple_speed_response};
   if((state.landed && state.wheel_brake) || state.brake_chute) { state.target_speed = 0; response = brake_response; }
-  if(state.hard_brake) { state.target_speed = 0; response = hard_brake_response; }
+  if(state.arrested) { state.target_speed = 0; response = arrested_response; }
   if(!state.landed && !(state.speed_mach > state.minimum_speed && state.minimum_speed != state.maximum_speed && state.altitude_km <= model.ceiling_km)) {
     state.speed_mach = state.minimum_speed;
     if(state.target_speed == 0) state.target_speed = static_cast<float>(static_cast<calculation>(state.minimum_speed) - 0.1f);
@@ -188,11 +189,11 @@ void throttle(arcade_state &state, flight_controls const &controls, uint16_t con
   if(state.frozen && state.crashing) state.speed_mach = 0;
   state.speed_metres_per_second = static_cast<float>(static_cast<calculation>(state.speed_mach) * sound_speed);
 }
-void fuel(arcade_state &state, uint16_t const ticks) {
+void fuel(arcade_state &state, uint16_t const ticks, bool const arcade = true) {
   state.fuel_flow = static_cast<double>(static_cast<calculation>(state.fixed_speed) * 0.515f * fuel_rate);
   if(state.left_engine != state.right_engine) state.fuel_flow = static_cast<double>(static_cast<calculation>(state.fuel_flow) * 0.5);
   else if(!state.left_engine) state.fuel_flow = 0;
-  state.fuel_flow = static_cast<double>(static_cast<calculation>(state.fuel_flow) * 0.5);
+  if(arcade) state.fuel_flow = static_cast<double>(static_cast<calculation>(state.fuel_flow) * 0.5);
   state.fuel = static_cast<double>(static_cast<calculation>(state.fuel) - static_cast<calculation>(ticks) * state.fuel_flow * 0.02);
   state.fuel = std::max(state.fuel,0.0);
   auto const whole_fuel{math::signed_word(static_cast<uint16_t>(integer(state.fuel)))};
@@ -212,6 +213,11 @@ void filter_control(float &target, float &current, int16_t const delta, uint16_t
 }
 
 } // anonymous namespace
+
+basic_aircraft_parameters const &basic_parameters(player_aircraft const aircraft) { return parameters(aircraft); }
+void update_basic_speed(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, bool const arcade, bool const gear_drag) { throttle(state,controls,elapsed,false,arcade,gear_drag); }
+void consume_basic_fuel(arcade_state &state, simulation::timer_ticks const elapsed, bool const arcade) { fuel(state,elapsed,arcade); }
+
 
 void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<math::angle> const &angles, float const speed, bool const landed, ground_contact const ground) {
   /// Native mission start centres X/Z on their cells; ground placement uses the aircraft's own gear height
@@ -253,7 +259,7 @@ void advance_disabled(arcade_state &state, flight_controls const &controls, simu
   if(!state.collision) {
     recover(state,elapsed);
     if(state.position.y < 0) {
-      throttle(state,controls,elapsed,true);
+      throttle(state,controls,elapsed,true,true,state.gear_down);
       calculation const movement{static_cast<calculation>(state.speed_mach) * sound_speed * (1.0f / speed_metres_per_native_tick)};
       state.movement_per_tick = static_cast<float>(movement);
       state.fixed_speed = integer(movement * fixed_speed_scale);
@@ -280,7 +286,7 @@ void advance_arcade(arcade_state &state, flight_controls const &controls, simula
   if(state.aircraft == player_aircraft::eurofighter && state.gear_down && state.fixed_speed > 350) state.gear_down = false;
   if(state.landed && state.fixed_speed < 5 && state.brake_chute) { state.brake_chute = false; state.brake_chute_cut_away = true; }
   state.recovering = false;
-  throttle(state,controls,elapsed);
+  throttle(state,controls,elapsed,false,true,state.gear_down);
   calculation const movement{static_cast<calculation>(state.speed_mach) * sound_speed * (1.0f / speed_metres_per_native_tick)};
   state.movement_per_tick = static_cast<float>(movement);
   state.fixed_speed = integer(movement * fixed_speed_scale);

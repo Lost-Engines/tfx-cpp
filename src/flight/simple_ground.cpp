@@ -11,7 +11,7 @@ double constexpr stall_speed_interval{50}, stall_pitch_fraction{.02};
 float constexpr stall_pitch_scale{1024}, low_speed_sink_per_tick{.1f};
 float constexpr indicated_speed_scale{.515f};
 unsigned int constexpr angle_step{64};
-int16_t constexpr chute_cutaway_surface{3};
+int16_t constexpr carrier_surface{3};
 
 int16_t word(int32_t const value) { return math::signed_word(static_cast<uint16_t>(value)); }
 int32_t truncate(calculation const value) {
@@ -73,7 +73,7 @@ void update_simple_ground(simple_ground_state &state, simple_ground_context cons
     rotate_body(state,math::rotation_axis::pitch,static_cast<float>(-state.landing_angles.x));
     rotate_body(state,math::rotation_axis::roll,static_cast<float>(-state.landing_angles.y));
     state.landed = true;
-    if(context.surface_type == chute_cutaway_surface && context.brake_chute) state.brake_chute_cut_away = true;
+    if(context.surface_type == carrier_surface && context.arrestor_hook) state.arrested = true;
   } else if(state.position_y > 0) {
     state.position_y = context.ground.height;
     state.collision = 1;
