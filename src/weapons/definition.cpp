@@ -10,7 +10,8 @@ flight_stage callback(uint32_t const address) {
   case 0: return flight_stage::finished;
   case 0xa4380: return flight_stage::attached;
   case 0xa4414: return flight_stage::falling;
-  case 0xa422c: case 0xa42bc: return flight_stage::accelerating;
+  case 0xa422c: return flight_stage::accelerating;
+  case 0xa42bc: return flight_stage::accelerating_alias;
   case 0xa42c8: return flight_stage::coasting;
   case 0xa3b6c: return flight_stage::guided;
   case 0xa3d70: return flight_stage::sea_skimming;
@@ -40,9 +41,10 @@ std::vector<definition> load_definitions(std::span<uint8_t const> const executab
   for(unsigned int index{0}; index != weapon_count; ++index) {
     unsigned int const at{records + index * record_bytes};
     definition item{
-      .carried{name(source.le32(at + 4))},
-      .fired{name(source.le32(at + 8))},
-      .secondary{name(source.le32(at + 12))},
+      .label{name(source.le32(at + 4))},
+      .carried{name(source.le32(at + 8)).substr(0,8)},
+      .fired{("x" + name(source.le32(at + 8))).substr(0,8)},
+      .secondary{name(source.le32(at + 12)).substr(0,8)},
       .category{source.byte(at + 29)},
       .mass{source.signed_le16(at + 31)},
       .range{std::bit_cast<int32_t>(source.le32(at + 35))},

@@ -64,7 +64,7 @@ instance_result scene::terrain_event(unsigned int const x, unsigned int const z,
   });
 }
 
-instance_result scene::collide_terrain(vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t const damage, bool const player) {
+instance_result scene::collide_terrain(vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t const damage, bool const player, std::function<void(uint16_t)> response) {
   int const cell_x{current.x >> 11}, cell_z{current.z >> 11};
   auto const x{wrapped_cell(cell_x,map_width)};
   auto const z{map_height - 1 - wrapped_cell(static_cast<int>(map_height) - 1 - cell_z,map_height)};
@@ -80,6 +80,42 @@ instance_result scene::collide_terrain(vec3<int32_t> const &previous, vec3<int32
     .player_query{player},
     .impact_damage{damage},
     .status{terrain.status},
+    .collision_response{std::move(response)},
+  });
+}
+
+instance_result scene::collide_actor(scene_handle const handle, vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t const damage, std::function<void(uint16_t)> response) {
+  auto &actor{actors.at(handle.value)};
+  // Native moving assemblies retain axis-aligned SSD collision volumes; their full visual Euler rotation is separate.
+  vec3d const origin{std::floor(actor.position.x),std::floor(actor.position.y),std::floor(actor.position.z)};
+  return actor.state.execute(2,{
+    .movement{
+      .previous{word_position(vec3d{previous} - origin)},
+      .current{word_position(vec3d{current} - origin)},
+    },
+    .impact_damage{damage},
+    .status{terrain.status},
+    .collision_response{std::move(response)},
+  });
+}
+
+void scene::apply_actor_contact_damage(scene_handle const handle, uint16_t const damage) {
+  actors.at(handle.value).state.apply_contact_damage(damage);
+}
+
+bool scene::actor_destroyed(scene_handle const handle) const {
+  return actors.at(handle.value).state.destroyed;
+}
+
+uint16_t scene::actor_impact_damage(scene_handle const handle) const {
+  return actors.at(handle.value).state.impact_damage;
+}
+
+void scene::queue_actor(scene_handle const handle, vec3d const &position, vec3<math::angle> const &angles) {
+  submissions.push_back({
+    .handle{handle},
+    .position{vec3d{position}},
+    .rotation{math::rotation(angles)},
   });
 }
 
@@ -157,11 +193,10 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       }
     }
   }
-  for(auto &[_, actor] : actors) {
-    if(!actor.visible) continue;
+  auto const submit{[&](moving_instance &actor, vec3d const &position, mat3d const &rotation) {
     instance_context const context{
       .status{terrain.status},
-      .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(actor.position + actor.rotation * anchor - view.position)); }},
+      .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(position + rotation * anchor - view.position)); }},
     };
     for(auto const &draw : actor.state.execute(1,context).draws) {
       if(draw.kind == part_draw_kind::ground_shadow) continue;
@@ -169,14 +204,14 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       if(part.name.empty()) continue;
       try {
         auto const &shape{resources.shape(part.name)};
-        auto const origin{actor.position + actor.rotation * draw.anchor};
+        auto const origin{position + rotation * draw.anchor};
         auto const depth{view.transform(origin).z};
         if(depth < -cell_units || depth > view.far_distance + cell_units) continue;
         queue.push_back({
           .shape{&shape},
           .part{&part},
           .origin{vec3d{origin}},
-          .rotation{actor.rotation * math::rotation(part.rotation)},
+          .rotation{rotation * math::rotation(part.rotation)},
           .heading{0},
           .depth{depth},
           .sort_key{depth + shape.sort_depth_bias},
@@ -185,7 +220,10 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         warnings.insert(part.name + ": " + error.what());
       }
     }
-  }
+  }};
+  for(auto &[_, actor] : actors) if(actor.visible) submit(actor,actor.position,actor.rotation);
+  for(auto const &submission : submissions) submit(actors.at(submission.handle.value),submission.position,submission.rotation);
+  submissions.clear();
   std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
   for(auto const &item : queue) {
     try {

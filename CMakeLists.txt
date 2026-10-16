@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/weapons/runtime.cpp
+  src/weapons/runtime.h
   src/weapons/projectile.cpp
   src/weapons/projectile.h
   src/weapons/definition.cpp
@@ -87,6 +89,15 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(projectile_runtime_probe tests/projectile_runtime_probe.cpp)
+  target_link_libraries(projectile_runtime_probe PRIVATE tfx_core)
+  configure_first_party(projectile_runtime_probe)
+
+  add_executable(contact_tests tests/contact_test.cpp)
+  target_link_libraries(contact_tests PRIVATE tfx_core)
+  configure_first_party(contact_tests)
+  add_test(NAME weapons.native_contact_damage COMMAND contact_tests ${PROJECT_SOURCE_DIR}/tests/reference/contact.txt)
+
   add_executable(projectile_probe tests/projectile_probe.cpp)
   target_link_libraries(projectile_probe PRIVATE tfx_core)
   configure_first_party(projectile_probe)
@@ -96,6 +107,7 @@ if(BUILD_TESTING)
   target_link_libraries(air_combat_tests PRIVATE tfx_core)
   configure_first_party(air_combat_tests)
   add_test(NAME actors.native_air_combat COMMAND air_combat_tests ${PROJECT_SOURCE_DIR}/tests/reference/air_combat.txt)
+  add_test(NAME actors.native_air_death COMMAND air_combat_tests ${PROJECT_SOURCE_DIR}/tests/reference/air_death.txt --death)
 
   add_executable(air_tests tests/air_test.cpp)
   target_link_libraries(air_tests PRIVATE tfx_core)

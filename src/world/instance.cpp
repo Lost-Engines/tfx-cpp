@@ -37,6 +37,12 @@ std::optional<unsigned int> instance::stream_cursor(unsigned int const part, uns
   return stream->source + stream->player.position() * 2;
 }
 
+void instance::apply_contact_damage(uint16_t const damage) {
+  // Native 0xb79c0: the querying projectile also loses health, with a minimum contact cost of one.
+  health = static_cast<uint16_t>(health - (damage ? damage : 1));
+  if(math::signed_word(health) <= 0) destroyed = true;
+}
+
 instance_result instance::execute(unsigned int const entry, instance_context const &context) {
   instance_result result;
   if(entry >= source.entries.size()) return result;
@@ -92,10 +98,14 @@ void instance::interpret(unsigned int at, instance_context &context, instance_re
         .maximum{math::signed_word(a(3)),math::signed_word(a(4)),math::signed_word(a(5))},
       },context.movement,diagonal);
     }};
+    auto const collision{[&] {
+      ++result.collisions;
+      if(context.collision_response) { context.collision_response(impact_damage); modified = true; }
+    }};
     auto const damage{[&](uint16_t &lives) {
       modified = true;
       lives = static_cast<uint16_t>(lives - context.impact_damage);
-      ++result.collisions;
+      collision();
     }};
     auto const request{[&] {
       scene_request value{
@@ -173,7 +183,7 @@ void instance::interpret(unsigned int at, instance_context &context, instance_re
       if(hit(opcode == instruction::test_diagonal_box)) { result.volume_hit = true; return; }
       break;
     case instruction::collide_box: case instruction::collide_diagonal_box:
-      if(hit(opcode == instruction::collide_diagonal_box)) ++result.collisions;
+      if(hit(opcode == instruction::collide_diagonal_box)) collision();
       break;
     case instruction::damage_box_branch: case instruction::damage_diagonal_branch:
     case instruction::damage_box_call: case instruction::damage_diagonal_call:

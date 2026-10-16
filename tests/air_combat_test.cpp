@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <stdexcept>
 #include "air_snapshot.h"
 #include "actors/air.h"
@@ -25,7 +26,7 @@ tfx::resources::bytes bytes(std::string const &hex) {
 } // anonymous namespace
 
 auto main(int const argc, char const *const argv[])->int try {
-  if(argc != 2) throw std::runtime_error{"air_combat_tests REFERENCE_FIXTURE"};
+  if(argc < 2 || argc > 3) throw std::runtime_error{"air_combat_tests REFERENCE_FIXTURE"};
   std::ifstream input{argv[1]};
   if(!input) throw std::runtime_error{"cannot open air reference fixture"};
   unsigned int ticks{0},intact{0},cases{0};
@@ -33,7 +34,10 @@ auto main(int const argc, char const *const argv[])->int try {
   unsigned int pitch{0},heading{0},roll{0},aircraft{0},flags{0},weapons{0},incoming{0};
   std::string profile_hex,program_hex,formation_hex,manoeuvre_hex;
   uint64_t expected{0};
-  while(input >> ticks >> intact >> profile_hex >> program_hex >> formation_hex >> manoeuvre_hex >> x >> y >> z >> pitch >> heading >> roll >> speed >> aircraft >> flags >> weapons >> incoming >> expected) {
+  unsigned int damage_tick{0};
+  while(input >> ticks >> intact >> profile_hex >> program_hex >> formation_hex >> manoeuvre_hex >> x >> y >> z >> pitch >> heading >> roll >> speed >> aircraft >> flags >> weapons >> incoming) {
+    if(argc == 3) input >> damage_tick;
+    if(!(input >> expected)) throw std::runtime_error{"incomplete combat fixture digest"};
     auto const profiles{tfx::actors::profiles(bytes(profile_hex))};
     tfx::actors::program const program{bytes(program_hex)};
     auto const formation_bytes{bytes(formation_hex)};
@@ -80,7 +84,13 @@ auto main(int const argc, char const *const argv[])->int try {
     };
     uint64_t digest{14695981039346656037ULL};
     for(unsigned int tick{0}; tick != ticks; ++tick) {
-      auto const requests{state.advance(context)};
+      std::vector<tfx::actors::air_request> requests;
+      if(damage_tick && tick == damage_tick) for(unsigned int index{0}; index != state.aircraft().size(); ++index) if(state.aircraft()[index]) {
+        auto death{state.fatal_damage(index)};
+        requests.insert(requests.end(),std::make_move_iterator(death.begin()),std::make_move_iterator(death.end()));
+      }
+      auto updates{state.advance(context)};
+      requests.insert(requests.end(),std::make_move_iterator(updates.begin()),std::make_move_iterator(updates.end()));
       auto const sample{tfx::test::air_snapshot(program,state,requests,nullptr,true)};
       for(unsigned int shift{0}; shift != 64; shift += 8) digest = (digest ^ ((sample >> shift) & 255)) * 1099511628211ULL;
     }

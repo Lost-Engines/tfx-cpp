@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <bit>
 #include <stdexcept>
+#include <utility>
 
 namespace tfx::weapons {
 namespace {
@@ -55,13 +56,14 @@ projectile launch(definition const &weapon, uint8_t const index, vec3<int32_t> c
   return result;
 }
 
-motion_result advance_motion(projectile &state, definition const &weapon, motion_context const &context, math::random_state &random) {
+motion_result advance_motion(projectile &state, definition const &weapon, motion_context const &context, math::random_state &random, motion_hooks const &hooks) {
   motion_result result;
   if(state.motion == flight_stage::finished) return result;
   state.previous = state.position;
   uint16_t const elapsed{context.elapsed};
+  auto const current_weapon{[&]()->definition const& { return hooks.current_definition ? hooks.current_definition(state.weapon) : weapon; }};
   auto const falling{[&] {
-    expire(state,weapon,elapsed);
+    expire(state,current_weapon(),elapsed);
     travel(state,elapsed);
     gravity(state,elapsed);
   }};
@@ -69,24 +71,26 @@ motion_result advance_motion(projectile &state, definition const &weapon, motion
     uint16_t const z{static_cast<uint16_t>(random.next() & (wide ? 65535u : 511u))};
     uint16_t const y{static_cast<uint16_t>(random.next() & (wide ? 511u : 2047u))};
     uint16_t const x{static_cast<uint16_t>(random.next() & (wide ? 65535u : 511u))};
-    result.children.push_back({
+    child_release child{
       .position{wrap(static_cast<int64_t>(centre.x) + x),wrap(static_cast<int64_t>(centre.y) + y),wrap(static_cast<int64_t>(centre.z) + z)},
       .angles{vec3<math::angle>{context.player_angles}},
       .speed{context.player_speed},
       .weapon{bomblet_weapon},
-    });
+    };
+    if(hooks.release) hooks.release(child);
+    else result.children.push_back(std::move(child));
   }};
   switch(state.motion) {
   case flight_stage::attached:
-    expire(state,weapon,elapsed);
+    expire(state,current_weapon(),elapsed);
     if(context.player_owned) state.position = context.launch_anchor;
     else { state.motion = flight_stage::falling; falling(); }
     break;
   case flight_stage::falling: falling(); break;
-  case flight_stage::accelerating:
+  case flight_stage::accelerating: case flight_stage::accelerating_alias:
     state.secondary = true;
     result.reset_visual = true;
-    expire(state,weapon,elapsed);
+    expire(state,current_weapon(),elapsed);
     state.speed = wrap(static_cast<int64_t>(state.speed) + (state.acceleration >> 2));
     state.acceleration = std::min<int16_t>(word(state.acceleration + elapsed * 16),200);
     travel(state,elapsed);
@@ -97,7 +101,7 @@ motion_result advance_motion(projectile &state, definition const &weapon, motion
     falling();
     break;
   case flight_stage::falling_store:
-    expire(state,weapon,elapsed);
+    expire(state,current_weapon(),elapsed);
     gravity(state,elapsed,50);
     if(state.weapon != bomblet_weapon) state.angles.x = static_cast<math::angle>(std::min<int16_t>(word(state.angles.x + elapsed * 400),16384));
     break;
@@ -145,8 +149,8 @@ motion_result advance_motion(projectile &state, definition const &weapon, motion
         state.angles.y = static_cast<math::angle>(state.angles.y + heading);
       } else if(math::signed_word(state.angles.x) < guidance_capture_angle) state.angles.x = static_cast<math::angle>(state.angles.x + word(elapsed * guidance_turn_per_tick));
       travel(state,elapsed);
-      consume_range(state,weapon,elapsed);
-      if(sea_skimming && state.position.y >= -20480) next_stage(state,weapon);
+      consume_range(state,current_weapon(),elapsed);
+      if(sea_skimming && state.position.y >= -20480) next_stage(state,current_weapon());
     }
     break;
   case flight_stage::decoyed:
@@ -159,7 +163,7 @@ motion_result advance_motion(projectile &state, definition const &weapon, motion
       state.angles.y = static_cast<math::angle>(state.angles.y - word(elapsed * guidance_turn_per_tick));
     }
     travel(state,elapsed);
-    consume_range(state,weapon,elapsed);
+    consume_range(state,current_weapon(),elapsed);
     break;
   case flight_stage::finished: break;
   }
