@@ -221,7 +221,9 @@ void instance::interpret(unsigned int at, instance_context &context, instance_re
           if(math::signed_word(lives) < 0) lives = 0;
           int const total{math::signed_word(a(7))};
           if(!total) throw std::runtime_error{"SSD damage percentage has zero maximum health"};
-          result.damage_reports.push_back((total - math::signed_word(lives)) * 100 / total);
+          int const percentage{(total - math::signed_word(lives)) * 100 / total};
+          result.damage_reports.push_back(percentage);
+          if(context.damage_response) context.damage_response(percentage);
         }
         if(math::signed_word(lives) <= 0) call(branch(8));
       }

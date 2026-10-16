@@ -84,7 +84,7 @@ instance_result scene::collide_terrain(vec3<int32_t> const &previous, vec3<int32
   });
 }
 
-instance_result scene::collide_actor(scene_handle const handle, vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t const damage, std::function<void(uint16_t)> response) {
+instance_result scene::collide_actor(scene_handle const handle, vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t const damage, std::function<void(uint16_t)> response, std::function<void(int)> damage_response) {
   auto &actor{actors.at(handle.value)};
   // Native moving assemblies retain axis-aligned SSD collision volumes; their full visual Euler rotation is separate.
   vec3d const origin{std::floor(actor.position.x),std::floor(actor.position.y),std::floor(actor.position.z)};
@@ -96,6 +96,7 @@ instance_result scene::collide_actor(scene_handle const handle, vec3<int32_t> co
     .impact_damage{damage},
     .status{terrain.status},
     .collision_response{std::move(response)},
+    .damage_response{std::move(damage_response)},
   });
 }
 

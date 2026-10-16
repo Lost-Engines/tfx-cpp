@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/damage.cpp
+  src/flight/damage.h
   src/sensors/air.cpp
   src/sensors/air.h
   src/weapons/loadout.cpp
@@ -95,6 +97,11 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(damage_probe tests/damage_probe.cpp)
+  target_link_libraries(damage_probe PRIVATE tfx_core)
+  configure_first_party(damage_probe)
+  add_test(NAME flight.native_system_damage_and_repair COMMAND damage_probe ${PROJECT_SOURCE_DIR}/tests/reference/damage.txt)
+
   add_executable(sensors_probe tests/sensors_probe.cpp)
   target_link_libraries(sensors_probe PRIVATE tfx_core)
   configure_first_party(sensors_probe)
@@ -236,6 +243,7 @@ if(BUILD_TESTING)
   target_link_libraries(arcade_probe PRIVATE tfx_core)
   configure_first_party(arcade_probe)
   add_test(NAME flight.native_arcade_sequences COMMAND arcade_probe --check ${PROJECT_SOURCE_DIR}/tests/reference/arcade.txt)
+  add_test(NAME flight.native_disabled_sequences COMMAND arcade_probe --check-disabled ${PROJECT_SOURCE_DIR}/tests/reference/disabled.txt)
   add_test(NAME flight.native_ground_sequences COMMAND arcade_probe --check-ground ${PROJECT_SOURCE_DIR}/tests/reference/ground_flight.txt)
   set_tests_properties(flight.native_arcade_sequences flight.native_ground_sequences PROPERTIES SKIP_RETURN_CODE 77)
 

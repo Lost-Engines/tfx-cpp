@@ -11,7 +11,7 @@ void require(bool const condition, char const *const message) {
   if(!condition) throw std::runtime_error{message};
 }
 
-std::vector<uint8_t> program() {
+std::vector<uint8_t> program(bool const percentage = false) {
   /// An original test program, not copied game data: one part, six entries and a custom health word.
   std::vector<uint8_t> result(22);
   result[0] = 2;
@@ -37,8 +37,9 @@ std::vector<uint8_t> program() {
   entry(1);
   emit({7,0,0});
   entry(2);
-  unsigned int const death_branch{static_cast<unsigned int>(result.size()) + 16};
-  emit({64,65526,65526,65526,10,10,10,0,0,0});
+  unsigned int const death_branch{static_cast<unsigned int>(result.size()) + (percentage ? 18u : 16u)};
+  if(percentage) emit({80,65526,65526,65526,10,10,10,0,10,0,0});
+  else emit({64,65526,65526,65526,10,10,10,0,0,0});
   word(death_branch,static_cast<uint16_t>((result.size() - death_branch) / 2));
   entry(3);
   emit({16,3,0,1,27,0,4,6,4,5,0});
@@ -76,6 +77,17 @@ int main() try {
   first.execute(5);
   require(!first.destroyed && first.parts[0].name == "intact" && first.custom[0] == 10,"restoration event differs");
   require(first.execute(999).draws.empty(),"missing event should be ignored as in the original dispatcher");
+  tfx::world::definition const reporting_source{program(true),names};
+  tfx::world::instance reporting{reporting_source};
+  unsigned int notifications{0};
+  context.impact_damage = 10;
+  context.damage_response = [&](int const percentage) {
+    require(percentage == 100,"damage callback did not see the current cumulative percentage");
+    ++notifications;
+    reporting.execute(5);
+  };
+  reporting.execute(2,context);
+  require(notifications == 1 && !reporting.destroyed && reporting.custom[0] == 10,"damage callbacks must finish before the VM tests its fatal branch");
   std::cout << "Persistent SSD damage, animation events, stream replacement and restoration passed" << std::endl;
   return EXIT_SUCCESS;
 } catch(std::exception const &error) {

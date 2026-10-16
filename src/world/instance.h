@@ -18,6 +18,7 @@ struct instance_context {
   int16_t distance{0};
   std::function<int16_t(vec3d const&)> anchor_distance{};
   std::function<void(uint16_t)> collision_response{};
+  std::function<void(int)> damage_response{};
 };
 struct scene_request {
   unsigned int opcode;

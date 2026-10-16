@@ -30,9 +30,10 @@ void output(tfx::flight::arcade_state const &state, std::ostream &stream, bool c
 
 auto main(int const argc, char const *const argv[])->int try {
   if(std::numeric_limits<long double>::digits != 64) return 77;
+  bool const disabled{argc > 1 && (std::string_view{argv[1]} == "--disabled" || std::string_view{argv[1]} == "--check-disabled")};
   bool const ground_mode{argc > 1 && (std::string{argv[1]} == "--ground" || std::string{argv[1]} == "--check-ground")};
-  bool const check{argc == 3 && (std::string{argv[1]} == "--check" || std::string{argv[1]} == "--check-ground")};
-  if(argc != 1 && !check && !(argc == 2 && ground_mode)) throw std::runtime_error{"expected --check FILE or standard-input trace"};
+  bool const check{argc == 3 && (std::string{argv[1]} == "--check" || std::string{argv[1]} == "--check-ground" || disabled)};
+  if(argc != 1 && !check && !(argc == 2 && (ground_mode || disabled))) throw std::runtime_error{"expected --check FILE or standard-input trace"};
   std::ifstream fixture;
   if(check) {
     fixture.open(argv[2]);
@@ -65,7 +66,8 @@ auto main(int const argc, char const *const argv[])->int try {
       controls.mouse_buttons = static_cast<uint8_t>(buttons);
       controls.accelerate = accelerate != 0;
       controls.decelerate = decelerate != 0;
-      tfx::flight::advance_arcade(state,controls,static_cast<uint16_t>(ticks),ground);
+      if(disabled && frame >= 64) tfx::flight::advance_disabled(state,controls,static_cast<uint16_t>(ticks),ground);
+      else tfx::flight::advance_arcade(state,controls,static_cast<uint16_t>(ticks),ground);
       std::ostringstream row;
       output(state,row,ground_mode);
       if(check) for(unsigned char const byte : row.str()) hash = (hash ^ byte) * 1099511628211ULL;

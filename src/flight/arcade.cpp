@@ -130,7 +130,7 @@ void recover(arcade_state &state, uint16_t const elapsed) {
   state.orientation = state.orientation.transposed();
   state.recovering = true;
 }
-void throttle(arcade_state &state, flight_controls const &controls, uint16_t const ticks) {
+void throttle(arcade_state &state, flight_controls const &controls, uint16_t const ticks, bool const disabled = false) {
   auto const &model{parameters(state.aircraft)};
   calculation const movement{static_cast<calculation>(ticks) * throttle_step};
   if(state.left_engine || state.right_engine) {
@@ -169,6 +169,7 @@ void throttle(arcade_state &state, flight_controls const &controls, uint16_t con
     state.target_speed = static_cast<float>((static_cast<calculation>(state.throttle) - 0.6) * span * 2.5 + state.minimum_speed);
     if(model.afterburner_stages) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) + (static_cast<calculation>(state.maximum_speed) - span) * state.afterburner / model.afterburner_stages);
   } else state.target_speed = 0;
+  if(disabled) state.target_speed = 0.5f; // Native 0x8ca91 fixes the requested Mach after loss/ejection.
   if(state.gear_down) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.95f);
   if(state.air_brake) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.8f);
   if(!state.left_engine && !state.right_engine) { state.target_speed = 0; state.hard_brake = false; }
@@ -245,6 +246,32 @@ void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<
   }
   state.integer_position = vec3<int32_t>{state.position};
   state.angles = state.orientation.angles();
+}
+
+void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground) {
+  // Native 0x8e5a8, selected by the outer player callback after loss/ejection.
+  if(!state.collision) {
+    recover(state,elapsed);
+    if(state.position.y < 0) {
+      throttle(state,controls,elapsed,true);
+      calculation const movement{static_cast<calculation>(state.speed_mach) * sound_speed * (1.0f / speed_metres_per_native_tick)};
+      state.movement_per_tick = static_cast<float>(movement);
+      state.fixed_speed = integer(movement * fixed_speed_scale);
+      rotate(state,math::rotation_axis::roll,-static_cast<float>(elapsed * 128u));
+      if(state.normalisation_counter & 31) state.orientation.normalise();
+      ++state.normalisation_counter;
+      auto const &forward{state.orientation.forward};
+      auto const moved{[&](float const value, int32_t const direction) { return static_cast<float>(static_cast<calculation>(direction) * normalised_word * elapsed * state.movement_per_tick + value); }};
+      state.position = vec3f{moved(state.position.x,forward.x),moved(state.position.y,forward.y),moved(state.position.z,forward.z)};
+      state.position.y = static_cast<float>(static_cast<calculation>(elapsed) * state.movement_per_tick * 0.125f + state.position.y);
+    }
+    if(ground.present && state.position.y >= ground.height) { state.position.y = ground.height; state.collision = 2; }
+    else if(state.position.y >= 0) { state.position.y = 0; state.collision = 1; }
+  } else state.orientation = {};
+  state.integer_position = vec3<int32_t>{integer(state.position.x),integer(state.position.y),integer(state.position.z)};
+  state.angles = state.orientation.angles();
+  // The outer 0x8f56c callback repeats this supplied contact check after motion.
+  if((state.landed && state.orientation.down.y < 0) || (ground.present && state.position.y > ground.height)) { state.position.y = ground.height; state.collision = 2; }
 }
 
 void advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const time_warp) {

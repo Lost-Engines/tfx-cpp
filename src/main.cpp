@@ -17,6 +17,7 @@
 #include "actors/program.h"
 #include "actors/surface.h"
 #include "flight/arcade.h"
+#include "flight/damage.h"
 #include "missions/initialisation.h"
 #include "missions/timeline.h"
 #include "platform/window.h"
@@ -153,6 +154,8 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::sensors::air_lock seeker;
   std::vector<tfx::sensors::air_contact> radar_actors;
   tfx::weapons::cannon_state cannon;
+  tfx::flight::damage_state player_damage;
+  bool player_disabled{false};
   tfx::flight::arcade_state player;
   player.aircraft = mission_setup.aircraft;
   tfx::actors::air_context air_world{
@@ -174,6 +177,9 @@ auto main(int const argc, char const *const argv[])->int try {
   std::array<char const*,3> constexpr player_definitions{"efa","f_117a","f_22"};
   auto const player_visual{scene.create_actor(player_definitions.at(std::to_underlying(player.aircraft) - 1),{0,0,0},{0,0,0})};
   scene.show_actor(player_visual,false);
+  auto const damage_player{[&](int const percentage) {
+    tfx::flight::apply_damage(player_damage,percentage,air_simulation.random_stream(),false,[&] { scene.actor_event(player_visual,13); });
+  }};
   std::array<std::optional<tfx::weapons::projectile_id>,tfx::actors::player_air_target> incoming;
   std::array<std::optional<tfx::actors::air_threat>,tfx::actors::player_air_target> threats;
   auto const actor_position{[&](tfx::weapons::actor_identity const identity) {
@@ -240,7 +246,7 @@ auto main(int const argc, char const *const argv[])->int try {
       uint16_t const damage{scene.actor_impact_damage(source)};
       using tfx::weapons::flight_stage;
       bool const released{shot.state.motion != flight_stage::attached && shot.state.motion != flight_stage::falling && shot.state.motion != flight_stage::accelerating};
-      if(!scene.actor_destroyed(source) && released && shot.owner.pool != tfx::weapons::actor_pool::player) scene.collide_actor(player_visual,previous,current,damage,response);
+      if(!scene.actor_destroyed(source) && released && shot.owner.pool != tfx::weapons::actor_pool::player) scene.collide_actor(player_visual,previous,current,damage,response,damage_player);
       if(!scene.actor_destroyed(source) && released && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::chaff) && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::flare)) {
         int32_t const broad_phase{std::bit_cast<int32_t>(static_cast<uint32_t>(shot.state.speed) * ticks * 20u)};
         for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) {
@@ -404,6 +410,8 @@ auto main(int const argc, char const *const argv[])->int try {
     mission_time.reset();
     player = {};
     cannon = {};
+    player_damage = {};
+    player_disabled = false;
     armament.fit_default(mission_setup.weapons);
     armament.selected = 0;
     armament.select(mission_setup.aircraft == tfx::flight::player_aircraft::nighthawk ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false);
@@ -421,10 +429,12 @@ auto main(int const argc, char const *const argv[])->int try {
     launch_elapsed = elapsed;
     bool const flying{!player.collision};
     auto const previous{vec3<int32_t>{player.integer_position}};
-    if(release_store && !armament.guns && armament.selected >= 0 && armament.selected < tfx::weapons::cannon_pylon && !player.landed) {
+    if(release_store && !player_disabled && !armament.guns && armament.selected >= 0 && armament.selected < tfx::weapons::cannon_pylon && !player.landed) {
       auto const &weapon{tables.weapons.at(armament.pylons[static_cast<unsigned int>(armament.selected)].weapon)};
-      // The Space callback refuses laser-guided ground weapons without a designation; radar missiles may be released without a lock.
-      if(weapon.role != tfx::weapons::weapon_role::ground || weapon.category != 3) {
+      // The Space callback requires a designation for laser/anti-ship weapons; radar missiles may be released without a lock.
+      auto const status{player_damage.condition(tfx::flight::aircraft_system::weapons)};
+      bool const trigger_available{status != tfx::flight::system_condition::failed && (status != tfx::flight::system_condition::intermittent || air_simulation.random_stream().next() <= 3000)};
+      if(trigger_available && (weapon.role != tfx::weapons::weapon_role::ground || (weapon.category != 3 && weapon.category != 13))) {
         tfx::weapons::target_reference target{.untargeted{true}};
         if(seeker.guidance) target = {
           .actor{tfx::weapons::actor_identity{
@@ -443,7 +453,10 @@ auto main(int const argc, char const *const argv[])->int try {
         apply_selection(change);
       }
     }
-    if(flying) tfx::flight::advance_arcade(player,controls,elapsed,ground);
+    if(player_disabled) tfx::flight::advance_disabled(player,controls,elapsed,ground);
+    else if(flying) tfx::flight::advance_arcade(player,controls,elapsed,ground);
+    player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::left_engine)] = player.left_engine ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
+    player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::right_engine)] = player.right_engine ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
     // Native 0x86898 fires the held Space key after its player-physics callback, before other actors update.
     if(auto const shot{tfx::weapons::fire_cannon(cannon,{
       .aircraft{player.aircraft},
@@ -452,7 +465,10 @@ auto main(int const argc, char const *const argv[])->int try {
       .speed{player.fixed_speed},
       .trigger{fire},
       .gun_mode{armament.guns},
+      .fire_control{player_damage.condition(tfx::flight::aircraft_system::fire_control) != tfx::flight::system_condition::unavailable},
+      .gun{player_damage.condition(tfx::flight::aircraft_system::gun) != tfx::flight::system_condition::unavailable},
       .crashed{player.collision != 0},
+      .ejected{player_disabled},
       .landed{player.landed},
     },tables.cannon_mounts,air_simulation.random_stream())}) projectiles.launch(*shot);
     air_world.player = tfx::actors::air_contact{
@@ -461,10 +477,11 @@ auto main(int const argc, char const *const argv[])->int try {
       .speed{std::bit_cast<int32_t>(static_cast<uint32_t>(player.fixed_speed) << tfx::actors::speed_fraction_bits)},
     };
     scene.place_actor(player_visual,vec3d{player.position},player.angles);
+    tfx::flight::repair_systems(player_damage,elapsed);
     advance_actors(elapsed);
     if(flying) {
       // Native 0x72018 updates actors before collecting contacts; the next flight frame consumes this surface result.
-      auto const contact{scene.collide_terrain(previous,player.integer_position)};
+      auto const contact{scene.collide_terrain(previous,player.integer_position,0,true,[&](uint16_t const cost) { scene.apply_actor_contact_damage(player_visual,cost); damage_player(100); })};
       ground = {
         .present{contact.surface_present},
         .height{contact.surface_height},
@@ -472,6 +489,7 @@ auto main(int const argc, char const *const argv[])->int try {
       if(contact.collisions && player.crashing) player.collision = 1;
     }
     projectiles.advance(elapsed,air_simulation.random_stream());
+    if(!player_disabled && (player.collision || scene.actor_destroyed(player_visual))) { player_disabled = true; scene.actor_event(player_visual,21); }
     scene.advance(elapsed);
     refresh_sensors(elapsed);
   }};
@@ -524,7 +542,8 @@ auto main(int const argc, char const *const argv[])->int try {
         renderer.text(140,160,seeker.guidance ? "LOCK" : "ACQUIRING",hud_colour);
       }
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
-      if(player.collision) renderer.text(120,92,"COLLISION",hud_colour);
+      if(player_disabled) renderer.text(120,92,"AIRCRAFT LOST",hud_colour);
+      else if(player_damage.accumulated != 0) renderer.text(5,50,"SYSTEM DAMAGE",hud_colour);
       if(radio_ticks > 0) renderer.text(5,170,radio_message,hud_colour);
     }
   }};
@@ -610,7 +629,7 @@ auto main(int const argc, char const *const argv[])->int try {
       if(pressed(GLFW_KEY_F)) armament.guns = true;
       if(pressed(GLFW_KEY_C)) radar.next();
       if(pressed(GLFW_KEY_SPACE)) store_trigger = true;
-      if(!player.collision) {
+      if(!player.collision && !player_disabled) {
         if(pressed(GLFW_KEY_LEFT_BRACKET)) player.left_engine = !player.left_engine;
         if(pressed(GLFW_KEY_RIGHT_BRACKET)) player.right_engine = !player.right_engine;
         if(!player.left_engine && !player.right_engine) player.afterburner = 0;
