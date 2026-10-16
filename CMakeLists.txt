@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/resources/compiled_panel.cpp
+  src/resources/compiled_panel.h
   src/planning/document.cpp
   src/planning/document.h
   src/presentation/score_player.cpp

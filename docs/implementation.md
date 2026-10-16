@@ -529,3 +529,17 @@ Native `0xa7dc0` executes its complete line reader, scanning, path construction 
 The original header uses fifteen dword `%d` destinations spaced two bytes apart. Following fields overwrite preceding high halves, while a partial header leaves its final high-half write in the next word. The typed parameter loader preserves this effect, including legacy headers that provide only a format tag and retain initial defaults. Fields whose consumers are still unresolved remain explicitly retained. Native coordinate scanning also narrows to signed words; C++ does so without overflowing a waypoint allocation.
 
 Two retained version-1000 Somalia sources, `somal_n.way` and `somal_dc.way`, omit their first route name. They are outside the thirty retail planner actions. The 2.05 reader misinterprets the following lines; `somal_n` reaches a null command-pointer write. C++ rejects these malformed route headers explicitly. The comparison checks those rejections separately from the 180 matching valid loads. Asset-free tests cover preserved commands/briefing bytes, native header overlap/spill, omitted defaults, signed coordinate narrowing and all truncated prefixes before the final route terminator. All 41 CTests pass in development, Release and ASan/UBSan; the full document comparison also passes with the sanitizer-built loader.
+
+
+### Compiled planner artwork and palettes
+
+```sh
+python3 tools/check_planner_panel.py
+python3 tools/check_planner_panel.py --build build-san
+```
+
+The original planner's frame is an executable-backed painting stream (`0xa9c34`), rather than a separate bitmap. A bounded decoder reads that fixed 2.05 artwork representation from external `TFX.DAT` and produces indexed pixels with explicit written coverage. It accepts only the painter's ink/run, position, repeat and VGA-plane-mask operations; it does not execute original game code or introduce a CPU emulator into the game. No captured image or original painting program is bundled. The coverage mask keeps the map rectangle transparent and distinguishes untouched pixels from written black.
+
+The complete original painter agrees in **all 64,000 pixels and coverage bits**, including the curved frame details and plane-specific writes. The planner palette also agrees for **128 complete native compositions** through `0xab3ac`: map colours remain underneath the 80-entry interface ramp and sixteen marker colours. The interface bank lives beside the painter in the code object; the marker bank is in the data object. C++ reads both original banks as data. The comparison also passes with ASan/UBSan, and the Release/sanitizer planner tests check overlay composition without erasing uncovered map pixels.
+
+These assets are ready for the interactive planner consumer; loading a planner action remains an unfinished host boundary until its route briefing, editing and arming workflow are connected.
