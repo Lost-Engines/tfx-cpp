@@ -25,6 +25,8 @@ add_library(tfx_core
   src/flight/aircraft.h
   src/flight/stores.cpp
   src/flight/stores.h
+  src/missions/timeline.cpp
+  src/missions/timeline.h
   src/missions/rules.cpp
   src/missions/rules.h
   src/missions/initialisation.cpp
@@ -75,6 +77,11 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(timeline_probe tests/timeline_probe.cpp)
+  target_link_libraries(timeline_probe PRIVATE tfx_core)
+  configure_first_party(timeline_probe)
+  add_test(NAME missions.native_timeline_sequences COMMAND timeline_probe --check ${PROJECT_SOURCE_DIR}/tests/reference/timeline.txt)
+
   add_executable(world_probe tests/world_probe.cpp)
   target_link_libraries(world_probe PRIVATE tfx_core)
   configure_first_party(world_probe)
