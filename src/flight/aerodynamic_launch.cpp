@@ -53,11 +53,14 @@ aerodynamic_flight launch_aerodynamic_flight(aerodynamic_airframe const &aircraf
   state.powerplant.throttle = context.landed ? 0 : airborne_throttle;
   if(context.landed) {
     state.view.position.y = static_cast<float>(static_cast<calculation>(context.ground_elevation_steps) - basic_parameters(aircraft.stores_and_mounts.stores.aircraft).gear_height);
+    bool const advanced_setting{context.model == aerodynamic_model::military_spec || context.model == aerodynamic_model::realistic};
     if(context.ground_elevation_steps < carrier_height_limit) {
-      state.view.position.x = static_cast<float>(static_cast<calculation>(state.view.position.x) + carrier_start_offset.x);
-      state.view.position.z = static_cast<float>(static_cast<calculation>(state.view.position.z) + carrier_start_offset.y);
-      state.view.integer_position.x += static_cast<int32_t>(carrier_start_offset.x);
-      state.view.integer_position.z += static_cast<int32_t>(carrier_start_offset.y);
+      if(advanced_setting) {
+        state.view.position.x = static_cast<float>(static_cast<calculation>(state.view.position.x) + carrier_start_offset.x);
+        state.view.position.z = static_cast<float>(static_cast<calculation>(state.view.position.z) + carrier_start_offset.y);
+        state.view.integer_position.x += static_cast<int32_t>(carrier_start_offset.x);
+        state.view.integer_position.z += static_cast<int32_t>(carrier_start_offset.y);
+      }
     } else {
       for(unsigned int axis : {0u,2u}) {
         calculation const setback{static_cast<calculation>(math::signed_word(static_cast<uint16_t>(orientation.forward[axis]))) * normalised_word * runway_start_setback};
@@ -65,7 +68,7 @@ aerodynamic_flight launch_aerodynamic_flight(aerodynamic_airframe const &aircraf
         state.view.position[axis] = static_cast<float>(static_cast<calculation>(state.view.position[axis]) - setback);
       }
     }
-    state.reset_motion(context.ground_elevation_steps,true);
+    if(context.ground_elevation_steps >= carrier_height_limit || advanced_setting) state.reset_motion(context.ground_elevation_steps,true);
     state.cold_start = false;
   }
   state.autopilot.recovery.model_reset_requested = true;

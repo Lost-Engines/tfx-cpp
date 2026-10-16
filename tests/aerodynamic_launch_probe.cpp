@@ -13,7 +13,7 @@ int main(int const argc, char const *const argv[]) try {
   unsigned int craft,model,landed,route_count,slot,weapon,occupied,low,high; int height;
   while(std::cin >> craft >> model >> landed >> height >> route_count >> slot >> weapon >> occupied >> low >> high) {
     tfx::flight::aerodynamic_launch_context context{
-      .model{model ? tfx::flight::aerodynamic_model::realistic : tfx::flight::aerodynamic_model::military_spec},
+      .model{aerodynamic_test_model(model)},
       .player_route_points{route_count},
       .ground_elevation_steps{static_cast<int16_t>(height)},
       .landed{landed != 0},

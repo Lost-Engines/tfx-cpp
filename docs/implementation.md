@@ -1501,7 +1501,7 @@ The automatic-landing callback is reconstructed; Alt+L key selection, its view/w
 
 The original 6/5/7/8/9/0/A handlers are reconstructed: cruise-speed reset, auto stick pressure, waypoint/heading/track/autothrottle selection and autopilot enable/disable. Mode selection and engagement retain their different altitude/heading capture rules, including float-world-height conversion and the Realistic track-heading override. Normal toggles save/restore their own air-brake condition; recovery uses its separate saved state.
 
-A normal A toggle calls physical reset 0x954fc immediately. Recovery-mode A instead restores recovery and leaves its transition marker for the enclosing callback. Physical reset is now an operation of the owning aerodynamic flight state, shared by immediate key toggles and entry-time callback resets. The key result reports the immediate reset so the host can retain its authored 0.01-second timestep for that frame. The external named `autopilo` on/off callback and radio requests remain returned output events.
+A normal A toggle calls physical reset 0x954fc immediately. Recovery-mode A instead restores recovery and leaves its transition marker for the enclosing callback. Physical reset is now an operation of the owning aerodynamic flight state, shared by immediate key toggles and entry-time callback resets. The key result reports the immediate reset and its current 0.01-second timestep; the outer timer/dispatch order determines when that value is subsequently replaced. The external named `autopilo` on/off callback and radio requests remain returned output events.
 
 All 1,536 complete original key updates agree across initialized aircraft, both advanced models, enabled/disabled/unknown/recovery modes, guard conditions, stored air brakes, captures and speed presets. The comparison includes 74 immediate physical resets, 16 recovery restorations, 74 external on/off requests and 698 notices, with all 316 flight/control fields and output events checked. The full original key, reset, recovery and afterburner routines execute; only external delivery and explicit hardware transcendental adapters are boundaries.
 
@@ -1514,3 +1514,18 @@ The launch owner now joins original player setup 0x8c184, its full 0x95f3c initi
 All 768 complete original launches agree across all 316 flight/control fields and ordered random states: all aircraft, both advanced models, airborne/runway/carrier starts, raw angles, mounted stores, route sizes, temperature and wind inputs. Original setup, initializer, route and placement/physical-reset helpers execute. Only host mouse setup, supplied start-surface classification and explicit hardware transcendental adapters are boundaries. Instrument/system startup conditions use their separately verified native inputs.
 
     python3 tools/check_aerodynamic_launch.py
+
+### Configured mode versus active player callback
+
+The original dispatch (0x8f8e2..0x8f98c) distinguishes the configured mode from the callback selected for an update. Military Spec and Realistic use their corresponding callbacks. Arcade/Simple with autopilot enabled instead use the military callback at or below the authored four-tick threshold, and the Realistic callback above it. Disabled-aircraft, active-pilot and automatic-landing states take precedence; an active ejected pilot clears autopilot and automatic landing. Unknown mode slots retain their original no-update path.
+
+All 8,192 dispatch-only cases agree across every callback outcome, duration/NaN comparison boundaries and pilot-state flag clearing. Numerical callback entries are observer boundaries in this selection-only capture; those callbacks have their separate complete execution comparisons. There are 123 compact captures.
+
+    python3 tools/check_player_dispatch.py
+
+The aerodynamic owner now uses the canonical native configured-mode enum, while its tick context can select the callback separately. Configuration-dependent manual/guidance laws, Realistic ground-input overrides and response guards remain distinct from callback-dependent commands, ground model, load moments and motion integration. Gear-speed damage is a non-Arcade rule, including Simple's aerodynamic autopilot path.
+
+All 23,040 complete original updates agree across 240 initialized 96-frame scenes under all four configured modes, including both aerodynamic callbacks under Arcade/Simple: 14,626 guided updates, 12,068 speed recoveries, 73 automatic engagements, 35 restorations, 480 entry resets, 37 warnings and 532 reheat changes. All 319 snapshot fields and returned output events are checked. Complete startup/first-placement comparison also agrees in 1,536 setups across all configured modes, retaining the basic-mode carrier-placement distinction.
+
+    python3 tools/check_aerodynamic_autopilot.py --persistent --ils --all-models
+    python3 tools/check_aerodynamic_launch.py --all-models

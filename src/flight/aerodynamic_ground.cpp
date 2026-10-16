@@ -91,7 +91,7 @@ aerodynamic_ground_events update_aerodynamic_ground(aerodynamic_ground_state &st
   auto &gear{damage.systems[std::to_underlying(aircraft_system::landing_gear)]};
   if(context.gear_fraction != 0) {
     state.last_contact_kind = aerodynamic_contact_kind::wheel;
-    if(context.advanced_model) {
+    if(context.non_arcade_model) {
       if(context.metres_per_second > parameters.maximum_gear_speed && gear != system_condition::failed) gear = system_condition::intermittent;
       if(context.metres_per_second > wide(parameters.maximum_gear_speed) * gear_failure_multiplier && context.contact.gear_damage_enabled) gear = system_condition::failed;
     }

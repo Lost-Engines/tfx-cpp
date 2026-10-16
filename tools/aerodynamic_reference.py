@@ -4,7 +4,7 @@ import struct
 def initialise_reference(im,row,baseline):
     craft,model,landed,cold,terrain,boost,terrain_boost,gear,slot,weapon,occupied,low,high,height,speed=row[:15];position=row[15:18];frame=row[18:27];temperature,celsius=row[27:]
     im.cpu.mem_write(im.data,baseline)
-    for field,value,fmt in ((0x11b2a,craft-1,'<H'),(0x1347a,6 if model else 1,'<B'),(0x8d3a,landed,'<H'),(0x1347c,cold,'<B'),(0xabea,terrain,'<B'),(0xe774,128 if boost else 0,'<B'),(0xe762,terrain_boost,'<H'),(0xabf2,height,'<h'),(0x13444,speed,'<i')):im.write(field,fmt,value)
+    for field,value,fmt in ((0x11b2a,craft-1,'<H'),(0x1347a,(1,6,0,2)[model],'<B'),(0x8d3a,landed,'<H'),(0x1347c,cold,'<B'),(0xabea,terrain,'<B'),(0xe774,128 if boost else 0,'<B'),(0xe762,terrain_boost,'<H'),(0xabf2,height,'<h'),(0x13444,speed,'<i')):im.write(field,fmt,value)
     im.write(0x8f30,'<B',temperature);im.write(0x14956,'<H',0);im.write(0x8c98,'<h',celsius)
     im.write(0x1345e,'<9h',*frame)
     for field,value in zip((0x1341c,0x13428,0x13434),position):im.write(field,'<I',value)

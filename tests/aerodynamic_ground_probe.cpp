@@ -76,7 +76,7 @@ int main(int const argc, char const *const argv[]) try {
     uint32_t throttle; unsigned int advanced,carrier,hook;
     input >> throttle >> advanced >> carrier >> hook;
     ground_context.throttle = std::bit_cast<float>(throttle);
-    ground_context.advanced_model = advanced != 0;
+    ground_context.non_arcade_model = advanced != 0;
     ground_context.carrier_surface = carrier != 0;
     ground_context.arrestor_hook_down = hook != 0;
     auto const events{tfx::flight::update_aerodynamic_ground(ground,motion,damage,random,geometry,ground_context)};

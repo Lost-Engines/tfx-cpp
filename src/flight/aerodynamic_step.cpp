@@ -21,7 +21,9 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   auto const &aircraft{state.aircraft};
   auto const &geometry{aircraft.surfaces};
   auto const craft{aircraft.stores_and_mounts.stores.aircraft};
-  bool const realistic{state.model == aerodynamic_model::realistic};
+  bool const realistic_setting{state.model == aerodynamic_model::realistic};
+  bool const military_setting{state.model == aerodynamic_model::military_spec};
+  bool const realistic_callback{context.callback == aerodynamic_callback::realistic || (context.callback == aerodynamic_callback::configured && realistic_setting)};
   state.seconds = context.seconds;
   // Native 0x9fe14/0x9fe50 checks the prior-model marker only on entry.
   // The enclosing game loop acknowledges it AFTER this callback (0x8f98c),
@@ -102,7 +104,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .mouse{vec2<int16_t>{context.input.mouse}},
     .seconds{seconds},
     .metres_per_second{data.metres_per_second},
-    .pitch_gain{realistic && ground.landed ? realistic_ground_pitch_gain : state.input_gains.pitch},
+    .pitch_gain{realistic_setting && ground.landed ? realistic_ground_pitch_gain : state.input_gains.pitch},
     .roll_gain{state.input_gains.roll},
     .rudder_increment{state.input_gains.rudder},
     .joystick_gain{state.input_gains.joystick},
@@ -114,7 +116,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .decelerate{context.input.decelerate},
   };
   if(update_aerodynamic_controls(manual.controls,powerplant,control_context)) events.afterburner.push_back(afterburner_change::stopped);
-  if(realistic && ground.landed && data.metres_per_second < aircraft.stall_metres_per_second) manual.controls.elevator = manual.controls.keyboard_elevator = 0;
+  if(realistic_setting && ground.landed && data.metres_per_second < aircraft.stall_metres_per_second) manual.controls.elevator = manual.controls.keyboard_elevator = 0;
   manual.air_brake_condition = damage.condition(aircraft_system::air_brake);
   aerodynamic_manual_context const manual_context{
     .data{data},
@@ -131,7 +133,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .body_forward_force{state.forces.body_force.x},
     .accumulated_damage{damage.accumulated},
     .afterburner_stages{aircraft.powerplant.afterburner_stages},
-    .military{!realistic},
+    .military{military_setting},
     .stick_pressure{context.stick_pressure},
     .flaps_condition{damage.condition(aircraft_system::flaps)},
   };
@@ -168,7 +170,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   state.response.previous_pitch_rate = autopilot.guidance.ground_speed;
   state.ground.roll_angle = autopilot.guidance.roll_angle;
   damage.systems[std::to_underlying(aircraft_system::air_brake)] = manual.air_brake_condition;
-  if(realistic) update_aerodynamic_commands(state.commands,manual,powerplant,{
+  if(realistic_callback) update_aerodynamic_commands(state.commands,manual,powerplant,{
     .data{data},
     .coefficients{state.coefficients},
     .geometry{geometry},
@@ -195,7 +197,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .pitch_rate{motion.angular_rate.y},
     .roll_rate{motion.angular_rate.x},
     .chute_deployed{state.chute_deployed},
-    .calculate_moments{!realistic},
+    .calculate_moments{!realistic_callback},
     .flaps_condition{damage.condition(aircraft_system::flaps)},
   });
   update_aerodynamic_thrust(powerplant,aircraft.powerplant,engine_context);
@@ -218,12 +220,13 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .metres_per_second{data.metres_per_second},
     .seconds{seconds},
     .throttle{powerplant.throttle},
+    .non_arcade_model{state.model != aerodynamic_model::arcade},
     .carrier_surface{context.carrier_surface},
     .arrestor_hook_down{state.arrestor_hook_down},
   };
   // Native 0x143c8 is shared ground scratch and retained pitch-rate storage.
   ground.cable_speed = state.response.previous_pitch_rate;
-  if(realistic) {
+  if(realistic_callback) {
     state.ground.commanded_roll_rate = state.commands.roll_rate;
     state.ground.commanded_angle_of_attack = state.commands.angle_of_attack;
     events.ground = update_aerodynamic_realistic_ground(state.ground,motion,manual.controls,damage,random,aircraft.ground,{
@@ -294,7 +297,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .landed{ground.landed},
     .autopilot{manual.controls.autopilot.enabled},
     .rudder_inhibited{ground.ground_steering},
-    .realistic{realistic},
+    .realistic{realistic_setting},
     .stick_pressure{context.stick_pressure},
   });
   ground.cable_speed = state.response.previous_pitch_rate;
@@ -303,7 +306,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
     .time_warp{context.time_warp},
     .landed{ground.landed},
     .crashing{context.crashing},
-    .simplified_rotation{realistic},
+    .simplified_rotation{realistic_callback},
     .roll_rate_inhibited{context.refuelling_phase != 0},
     .commanded_roll_rate{state.commands.roll_rate},
     .commanded_angle_of_attack{state.commands.angle_of_attack},
@@ -311,7 +314,7 @@ aerodynamic_tick_events advance_aerodynamic_flight(aerodynamic_flight &state, da
   });
   state.view = update_aerodynamic_view(motion.pose,craft,aircraft.viewpoint);
   motion.integer_world_y = state.view.integer_position.y;
-  if(realistic && ground.contact.force.x != 0) motion.velocity_ned.z = 0;
+  if(realistic_callback && ground.contact.force.x != 0) motion.velocity_ned.z = 0;
   autopilot.guidance.ground_speed = state.response.previous_pitch_rate;
   autopilot.guidance.roll_angle = state.ground.roll_angle;
   state.approach.ground_speed = state.response.previous_pitch_rate;

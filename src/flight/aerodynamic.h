@@ -7,10 +7,11 @@
 #include "flight/aerodynamic_response.h"
 #include "flight/aerodynamic_start.h"
 #include "flight/aerodynamic_wind.h"
+#include "simulation/timing.h"
 
 namespace tfx::flight {
 
-enum class aerodynamic_model { military_spec, realistic };
+using aerodynamic_model = simulation::flight_model; // Configured native mode, distinct from the callback selected for this update.
 
 struct aerodynamic_input_gains {
   double pitch{1};

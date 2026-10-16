@@ -5,6 +5,11 @@
 #include <vector>
 #include "flight/aerodynamic.h"
 
+inline tfx::flight::aerodynamic_model aerodynamic_test_model(unsigned int const index) {
+  std::array constexpr models{tfx::flight::aerodynamic_model::military_spec,tfx::flight::aerodynamic_model::realistic,tfx::flight::aerodynamic_model::arcade,tfx::flight::aerodynamic_model::simple};
+  return models.at(index);
+}
+
 // Shared diagnostic encoding for initialization and connected flight traces.
 // Every group follows named owners; native offsets are in the reference tool.
 inline std::vector<uint64_t> aerodynamic_snapshot(tfx::flight::aerodynamic_flight const &s, tfx::flight::damage_state const &damage, tfx::math::random_state const &random) {
