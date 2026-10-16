@@ -33,8 +33,9 @@ im.cpu.mem_map(0x300000,4096)
 im.call(0xb94da,stack=(105,75,200,180))
 for file in (0xb9447,0xb944d,0xb9452):im.cpu.mem_write(im.native(file),bytes(4))
 points=[];expected=[]
-for _ in range(4096):
+for index in range(4096):
     point=[rng.randrange(-1000*65536,1000*65536),rng.randrange(-1000*65536,1000*65536),rng.randrange(17*65536,3000*65536)]
+    if index<128:point=[(index%5-2)*64*65536+(index%3-1),(index%7-3)*32*65536+(index%3-1),(17+index%16)*65536]
     im.cpu.mem_write(0x300000,bytes(20)+struct.pack('<3i',*point))
     im.cpu.reg_write(r.UC_X86_REG_EDI,0x300000)
     im.call(0xb9434,ecx=1)
@@ -43,6 +44,17 @@ actual=subprocess.check_output([str((args.build/'tfx_probe').resolve()),'model_p
 assert len(actual)==len(expected)
 for point,got,want in zip(points,actual,expected):assert list(map(int,got.split()))==want,(point,got,want)
 print(f'Native model projection agrees exactly for {len(points)} fractional signed-Q16 camera vertices')
+
+# Model camera scaling changes translation units without changing the native
+# near-depth/projection rules. Include exact whole-depth boundaries as well as
+# arbitrary Q16 fractions to expose floating-point rescaling at integer edges.
+scaled=[];scaled_expected=[]
+for scale in (2.0,1.0,.5,.1,.025,.005,.0025,1/7,1/23):
+    for point,want in zip(points,expected):scaled.append([*point,scale]);scaled_expected.append(want)
+actual=subprocess.check_output([str((args.build/'tfx_probe').resolve()),'model_projection_scaled'],input=''.join(' '.join(map(str,point))+'\n' for point in scaled).encode()).splitlines()
+assert len(actual)==len(scaled_expected)
+for point,got,want in zip(scaled,actual,scaled_expected):assert list(map(int,got.split()))==want,(point,got,want)
+print(f'Native projection agrees for {len(scaled)} rescaled camera vertices, including canopy-scale units')
 
 # Execute native opcode 98 with the independently verified camera matrix supplied
 # as the combined matrix (an identity actor rotation). Its products are Q15;

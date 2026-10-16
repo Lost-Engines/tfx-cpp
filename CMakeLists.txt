@@ -380,6 +380,10 @@ if(BUILD_TESTING)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
 
+  add_executable(scaled_projection_probe tests/scaled_projection_probe.cpp)
+  target_link_libraries(scaled_projection_probe PRIVATE tfx_core)
+  configure_first_party(scaled_projection_probe)
+
   add_executable(view_camera_probe tests/view_camera_probe.cpp)
   target_link_libraries(view_camera_probe PRIVATE tfx_core)
   configure_first_party(view_camera_probe)

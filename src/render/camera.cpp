@@ -7,12 +7,16 @@ vec3d camera::transform(vec3d const &world) const {
   auto const relative{world - position};
   return {relative.dot(right), relative.dot(down), relative.dot(forward)};
 }
-vec2d camera::project(vec3d const &point) const {
+vec2d camera::project(vec3d const &point, double const projection_scale) const {
   if(projection == projection_mode::original_model) {
     // Native 0xb9434: signed Q16 X/Y shifted by eight, divided by the signed
     // integer depth, then added to the viewport origin. IDIV truncates toward zero.
-    double const depth{std::floor(point.z)};
-    return projection_origin + vec2d{std::trunc(std::floor(point.x * 256) / depth),std::trunc(std::floor(point.y * 256) / depth)};
+    // Camera-space coordinates enter the native loop as signed Q16. Restore
+    // that grid after model-unit conversion; e.g. a 1/400 scale can otherwise
+    // turn an exact depth of 29 into 28.999999999999996 before the integer divide.
+    auto const q16{[projection_scale](double const value) { return std::nearbyint(value / projection_scale * 65536); }};
+    double const depth{std::floor(q16(point.z) / 65536)};
+    return projection_origin + vec2d{std::trunc(std::floor(q16(point.x) / 256) / depth),std::trunc(std::floor(q16(point.y) / 256) / depth)};
   }
   return {projection_origin.x + point.x * focal_distance / point.z,projection_origin.y + point.y * focal_distance / point.z};
 }

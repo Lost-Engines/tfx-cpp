@@ -13,6 +13,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--data-dir',type=Path,required=True)
 parser.add_argument('--save-directory',type=Path)
+parser.add_argument('--mission',default='501')
 a=parser.parse_args();executable=(a.build/'tfx').resolve();data=a.data_dir.resolve()
 with tempfile.TemporaryDirectory(prefix='tfx-x11-views-') as temporary:
     directory=Path(temporary);captures=a.save_directory or directory
@@ -27,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-views-') as temporary:
         def tap(key,settle=.25):
             run('xdotool','keydown',key);time.sleep(.1);run('xdotool','keyup',key);time.sleep(settle)
         with (directory/'game.log').open('w+') as log:
-            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','501','--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
+            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission',a.mission,'--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+15;window=None
             while time.monotonic()<deadline and game.poll() is None:
                 found=subprocess.run(['xdotool','search','--onlyvisible','--name','TFX C'],env=env,capture_output=True,text=True)

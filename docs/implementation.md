@@ -930,6 +930,23 @@ The camera dispatcher now retains the original head lift, yaw/pitch limits, head
 
 The comparison passes in development, Release and ASan/UBSan, as do all 9,690 view-selector updates. All 29 viewport records and the existing 198 cockpit-composition frames still agree. The existing 12,860 arming mount picks and 60 native arming-animation draws also pass after the shared-math change. Private-window checks cover chase/full/head/rear/tactical/target/virtual keys, cockpit-offset restoration, paused-frame retention, existing firing/MFD/designator controls and result handoff.
 
-Live flight selects the appropriate forward-HUD callback, preserves radio placement in other views and restores cockpit offsets after transitions. F1–F7, F9 and F10 are connected; F8 missile views, recovery/ejection cameras, the external-view information painter and complete frame/session verification remain open. Inspection also exposed a rendering limitation: the current scene painter's fixed world-space near plane removes the very small virtual-canopy geometry despite correct native model selection. Preserving each model's projection scale through clipping is the next renderer correction.
+Live flight selects the appropriate forward-HUD callback, preserves radio placement in other views and restores cockpit offsets after transitions. F1–F7, F9 and F10 are connected; F8 missile views, recovery/ejection cameras, the external-view information painter and complete frame/session verification remain open. Inspection also exposed the model-scale clipping limitation corrected below.
 
-All 44 CTests pass after rebuilding every development target. The remaining canopy limitation is recorded above rather than inferred away from passing camera-state tests.
+All 44 CTests pass after rebuilding every development target. These camera-state checks remain distinct from complete world-frame equivalence.
+
+
+### Model-scale clipping and virtual canopy
+
+```sh
+python3 tools/check_orbit_camera.py
+python3 tools/check_scaled_clipping.py
+python3 tools/check_window_views.py --data-dir /path/to/TFX --mission 601
+```
+
+The virtual-canopy models use an authored camera scale of 400. The earlier scene painter converted their vertices into world units but discarded that scale before near clipping, removing the entire canopy. Vertices now retain world units per native camera unit through polygons, lines, particles, carried-model attachments, facing tests, clipping and projection. The factor between Q15 model products and the Q16 camera loop is explicit. The original opaque canopy and static MFD textures consequently render in the live virtual and head-turn views.
+
+Original integer projection restores the native Q16 coordinate grid after unit conversion. This avoids a floating-point rescaling artefact where an exact depth such as 29 became 28.999999999999996 and selected the wrong integer divisor. No palette interpolation or artwork resampling is introduced.
+
+The existing **4,121 native matrix/orbit cases, 4,096 native model projections and 4,096 native model-vertex products agree**, with **36,864 additional rescaled projection cases** including exact depth boundaries, fractional signed coordinates and canopy units. A separate property check compares complete software output for **1,287 polygon/line/point cases** across nine unit scales, including near-plane crossings; this establishes clipper scale invariance, rather than claiming original complete-raster equivalence. Carried-model tests also check inherited and replaced projection units.
+
+These checks pass in development, Release and ASan/UBSan. All 44 CTests pass. Private-window camera/offset/pause checks pass in missions 501, 601 and 701; scratch captures permit visual inspection of the authored canopies. All 128 retail missions run 1,024 simulation steps and draw under sanitizers with the corrected path. Complete world transform/order, clipping/raster boundaries, camera callbacks and session equivalence remain separate work.

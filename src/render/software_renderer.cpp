@@ -12,6 +12,7 @@ models::model_vertex interpolate(models::model_vertex const &a, models::model_ve
     .position{a.position + (b.position - a.position) * t},
     .uv{a.uv + (b.uv - a.uv) * t},
     .shade{a.shade + (b.shade - a.shade) * t},
+    .projection_scale{a.projection_scale + (b.projection_scale - a.projection_scale) * t},
   };
 }
 
@@ -216,8 +217,8 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   auto const ink_index{static_cast<uint8_t>(source.colour)};
   if(source.kind == models::primitive_kind::point) {
     auto const &v{camera_vertices[0].position};
-    if(v.z <= view.near_distance || v.z > view.far_distance) return;
-    auto const point{view.project(v)};
+    if(v.z <= view.near_distance * camera_vertices.front().projection_scale || v.z > view.far_distance) return;
+    auto const point{view.project(v,camera_vertices.front().projection_scale)};
     if(point.x < -100 || point.x > screen_width + 100 || point.y < -100 || point.y > screen_height + 100) return;
     int const x{static_cast<int>(std::lround(point.x))}, y{static_cast<int>(std::lround(point.y))};
     if(source.pixel_size) {
@@ -228,9 +229,10 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   if(source.kind == models::primitive_kind::line && camera_vertices.size() == 2) {
     auto a{camera_vertices[0]}, b{camera_vertices[1]};
     for(unsigned int plane{0}; plane != 6; ++plane) {
-      auto const distance{[&view, plane](vec3d const &v){
+      auto const distance{[&view, plane](models::model_vertex const &vertex){
+        auto const &v{vertex.position};
         switch(plane) {
-        case 0: return v.z - view.near_distance;
+        case 0: return v.z - view.near_distance * vertex.projection_scale;
         case 1: return view.far_distance - v.z;
         case 2: return v.x + view.projection_origin.x / view.focal_distance * v.z;
         case 3: return -v.x + (screen_width - view.projection_origin.x) / view.focal_distance * v.z;
@@ -238,19 +240,20 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
         default: return -v.y + (screen_height - view.projection_origin.y) / view.focal_distance * v.z;
         }
       }};
-      double const da{distance(a.position)}, db{distance(b.position)};
+      double const da{distance(a)}, db{distance(b)};
       if(da < 0 && db < 0) return;
       if(da < 0) a = interpolate(a,b,da / (da - db));
       else if(db < 0) b = interpolate(a,b,da / (da - db));
     }
-    line(view.project(a.position),view.project(b.position),ink_index);
+    line(view.project(a.position,a.projection_scale),view.project(b.position,b.projection_scale),ink_index);
     return;
   }
   std::vector<models::model_vertex> clipped(camera_vertices.begin(),camera_vertices.end());
   for(unsigned int plane{0}; plane != 6; ++plane) {
-    auto const distance{[&view, plane](vec3d const &v){
+    auto const distance{[&view, plane](models::model_vertex const &vertex){
+      auto const &v{vertex.position};
       switch(plane) {
-      case 0: return v.z - view.near_distance;
+      case 0: return v.z - view.near_distance * vertex.projection_scale;
       case 1: return view.far_distance - v.z;
       case 2: return v.x + view.projection_origin.x / view.focal_distance * v.z;
       case 3: return -v.x + (screen_width - view.projection_origin.x) / view.focal_distance * v.z;
@@ -261,9 +264,9 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
     if(clipped.empty()) return;
     std::vector<models::model_vertex> next;
     auto previous{clipped.back()};
-    auto previous_distance{distance(previous.position)};
+    auto previous_distance{distance(previous)};
     for(auto const &current : clipped) {
-      auto const current_distance{distance(current.position)};
+      auto const current_distance{distance(current)};
       if((previous_distance >= 0) != (current_distance >= 0)) next.push_back(interpolate(previous,current,previous_distance / (previous_distance - current_distance)));
       if(current_distance >= 0) next.push_back(current);
       previous = current;
@@ -273,7 +276,7 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   }
   std::vector<screen_vertex> projected;
   for(auto const &v : clipped) projected.push_back({
-    .position{view.project(v.position)},
+    .position{view.project(v.position,v.projection_scale)},
     .uv{vec2d{v.uv}},
     .shade{v.shade},
   });
