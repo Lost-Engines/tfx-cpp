@@ -746,6 +746,9 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     advance_world({},4);
     finish_world(4);
   }
+  // Native 0x72588 resumes the parser directly after FINISH and teardown.
+  // A direct --mission launch keeps its standalone diagnostic result display.
+  if(campaign_flight && result_evaluated) return true;
   vec3d position{mission_setup.start.position};
   if(mission_setup.start.landed) position.y = -300;
   double heading{0}, pitch{-.12};
@@ -1303,6 +1306,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     draw();
     window.present(renderer.output.colourise(*frame_colours));
     if(frame_ticks) finish_world(*frame_ticks);
+    if(campaign_flight && result_evaluated) break;
     ++frames;
     ++interval_frames;
     if(now - title_time >= .5) {

@@ -1081,3 +1081,14 @@ The HUD first directs the player to the beacon, then computes the original later
 The combined forward-HUD comparison also agrees across **1,024 complete frames** with targets, refuelling contacts, BINGO/PULL UP warnings and ILS enabled together. It checks the original removal of NAV/ammunition labels, guidance placement, warning timing and retained landing state. Live flight binds original route data and SSD custom fields to this path. Private-window checks exercise both keys, forced NAV, subsequent weapon modes, pause and external-view return. Automatic landing, remaining flight-model consumers of the returned control coefficients and the autopilot's speed/altitude request producer are still separate work; audio requests await playback.
 
 The ILS controller, complete guidance and combined HUD comparisons pass in development, Release and ASan/UBSan. All 49 CTests pass. All 128 retail missions also advance 1,024 steps and draw under sanitizers after integration.
+
+
+### Automatic campaign return after flight
+
+```sh
+python3 tools/check_campaign_return.py --data-dir /path/to/TFX
+```
+
+Native launcher `0x72588` resumes its caller after the flight loop, result processing, FINISH and teardown; it has no extra diagnostic results wait. Campaign flight now returns as soon as FINISH completes, allowing the existing parser to select its original result, recovery, life-loss and next-mission presentations. Direct `--mission` launches retain their standalone diagnostic results page.
+
+A private-window integration check restores a disposable native-format pilot into the final Arcade mission with one life, uses the original arming screen, reaches aircraft loss through normal real-time simulation and observes the automatic return to the authored Arcade presentation. No damage, result or FINISH variables are injected. Shift+Q then exits the presentation normally. This tests the assembled return path; the original parser/rule subsystem comparisons remain its independent evidence, rather than a claim of complete native session equivalence.
