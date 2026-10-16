@@ -25,6 +25,7 @@ private:
   };
   std::map<unsigned int,moving_instance> actors;
   unsigned int next_actor{0};
+  instance &terrain_instance(unsigned int x, unsigned int z);
   void advance_instance(instance &state);
   animation_clock clock;
   math::jitter_state working_jitter;
@@ -39,6 +40,8 @@ public:
   void place_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
   instance_result collide_terrain(vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t damage = 0, bool player = true);
   instance_result actor_event(scene_handle handle, unsigned int entry);
+  void prepare_terrain_cell(unsigned int x, unsigned int z);
+  instance_result terrain_event(unsigned int x, unsigned int z, unsigned int entry);
   void advance(timer_ticks elapsed);
   void draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius);
 };

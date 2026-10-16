@@ -41,13 +41,27 @@ unsigned int wrapped_cell(int const value, unsigned int const dimension) {
 
 } // anonymous namespace
 
+instance &scene::terrain_instance(unsigned int const x, unsigned int const z) {
+  auto const &source{resources.object(terrain.variant(x,z))};
+  return instances.try_emplace(z * map_width + x,source).first->second;
+}
+
+void scene::prepare_terrain_cell(unsigned int const x, unsigned int const z) {
+  terrain_instance(x,z);
+}
+
+instance_result scene::terrain_event(unsigned int const x, unsigned int const z, unsigned int const entry) {
+  return terrain_instance(x,z).execute(entry,{
+    .status{terrain.status},
+  });
+}
+
 instance_result scene::collide_terrain(vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t const damage, bool const player) {
   int const cell_x{current.x >> 11}, cell_z{current.z >> 11};
   auto const x{wrapped_cell(cell_x,map_width)};
   auto const z{map_height - 1 - wrapped_cell(static_cast<int>(map_height) - 1 - cell_z,map_height)};
   auto const &tile{terrain.tile(x,z)};
-  auto const &source{resources.object(terrain.variant(x,z))};
-  auto &state{instances.try_emplace(z * map_width + x,source).first->second};
+  auto &state{terrain_instance(x,z)};
   vec3d const origin{(cell_x + .5) * cell_units,0,(cell_z + .5) * cell_units};
   auto const inverse_heading{static_cast<math::angle>(-tile.rotation)};
   return state.execute(2,{
@@ -108,8 +122,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       auto const camera_centre{view.transform(centre)};
       if(camera_centre.z < -cell_units || camera_centre.z > view.far_distance + cell_units) continue;
       try {
-        auto const &object{resources.object(terrain.variant(col,row))};
-        auto &instance{instances.try_emplace(row * map_width + col,object).first->second};
+        auto &instance{terrain_instance(col,row)};
         instance_context const context{
           .status{terrain.status},
           .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(centre + math::rotate_tile(anchor,tile.rotation) - view.position)); }},

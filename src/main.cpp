@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include "missions/initialisation.h"
+#include "missions/timeline.h"
 #include "flight/arcade.h"
 #include "actors/program.h"
 #include "actors/surface.h"
@@ -113,6 +114,8 @@ auto main(int const argc, char const *const argv[])->int try {
   auto const colours{tfx::render::decode_palette(game.read("colours/" + environment.palette_name + ".col"))};
   tfx::world::assets assets{game};
   tfx::world::scene scene{environment,assets};
+  tfx::missions::timeline mission_time{mission_setup};
+  for(auto const &event : mission_setup.scenery_events) scene.prepare_terrain_cell(event.cell.x,event.cell.y);
   auto const profiles{tfx::actors::profiles(game.read("waybin/craftype.cfg"))};
   tfx::actors::program const actor_program{game.read("waybin/" + mission_setup.waypoints + ".way")};
   auto const actors{tfx::actors::initialise(actor_program,profiles,tables.formations)};
@@ -162,11 +165,16 @@ auto main(int const argc, char const *const argv[])->int try {
   auto const initial_ground{ground};
   auto const restart{[&]{
     ground = initial_ground;
+    mission_time.reset();
     player = {};
     player.aircraft = mission_setup.aircraft;
     tfx::flight::initialise_arcade(player,mission_setup.start.position,mission_setup.angles,mission_setup.speed_factor,mission_setup.start.landed,ground);
   }};
   auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed) {
+    for(auto const index : mission_time.begin_frame()) {
+      radio_message = mission_setup.messages[index].text;
+      radio_ticks = 5 * 55;
+    }
     bool const flying{!player.collision};
     auto const previous{vec3<int32_t>{player.integer_position}};
     if(flying) tfx::flight::advance_arcade(player,controls,elapsed,ground);
@@ -182,8 +190,17 @@ auto main(int const argc, char const *const argv[])->int try {
     }
     scene.advance(elapsed);
   }};
+  auto const finish_world{[&](tfx::simulation::timer_ticks const elapsed) {
+    for(auto const index : mission_time.finish_frame(elapsed)) {
+      auto const &event{mission_setup.scenery_events[index]};
+      scene.terrain_event(event.cell.x,event.cell.y,event.entry);
+    }
+  }};
   if(!inspect || flight_steps) restart();
-  for(unsigned int step{0}; step != flight_steps; ++step) advance_world({},4);
+  for(unsigned int step{0}; step != flight_steps; ++step) {
+    advance_world({},4);
+    finish_world(4);
+  }
   vec3d position{mission_setup.start.position};
   if(mission_setup.start.landed) position.y = -300;
   double heading{0}, pitch{-.12};
@@ -271,6 +288,7 @@ auto main(int const argc, char const *const argv[])->int try {
       last_mouse_y = mouse_y;
       mouse_started = true;
     }
+    std::optional<tfx::simulation::timer_ticks> frame_ticks;
     if(inspect) {
       heading += (down(GLFW_KEY_RIGHT) - down(GLFW_KEY_LEFT)) * elapsed;
       pitch += (down(GLFW_KEY_UP) - down(GLFW_KEY_DOWN)) * elapsed;
@@ -319,6 +337,7 @@ auto main(int const argc, char const *const argv[])->int try {
         pitch_input -= controls.pitch_delta;
         roll_input -= controls.roll_delta;
         advance_world(controls,step->world_ticks);
+        frame_ticks = step->world_ticks;
         flight_clock.begin({});
       } else {
         glfwWaitEventsTimeout(.002);
@@ -328,6 +347,7 @@ auto main(int const argc, char const *const argv[])->int try {
     if(paused) glfwWaitEventsTimeout(.01);
     draw();
     window.present(renderer.output.colourise(colours));
+    if(frame_ticks) finish_world(*frame_ticks);
     ++frames;
     ++interval_frames;
     if(now - title_time >= .5) {
