@@ -12,13 +12,13 @@ cmake --build build -j
 
 Requires CMake 3.30 or newer, a C++26 compiler and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, `libglfw3-dev` and `libgl1-mesa-dev` provide the desktop dependencies.
 
-Direct mission launches now provide **Arcade flight** for the selected aircraft, with live steering, thrust, engines, fuel, gear and brakes. Mission aircraft groups and surface units appear in the world; surface vehicles follow their compiled routes. Scenery now executes its original animation, damage and collision programs, including terrain and runway contacts. Timed mission instructions and scheduled scenery changes also run. The default is mission 501, the first FWS engagement; `--mission=830` selects another mission.
+Direct mission launches now provide **Arcade flight** for the selected aircraft, with live steering, thrust, engines, fuel, gear and brakes. Aircraft follow their original waypoint routes and formations, including waits, takeoffs and radio calls; surface vehicles also follow their compiled routes. Scenery now executes its original animation, damage and collision programs, including terrain and runway contacts. Timed mission instructions and scheduled scenery changes also run. The default is mission 501, the first FWS engagement; `--mission=830` selects another mission.
 
 The mouse or arrow keys steer. Hold either mouse button or `=`/`-` to change thrust. `[` and `]` toggle the engines, `G` operates the gear, `W` toggles wheel brakes and `B` operates the air brakes. `P` pauses and releases the mouse; Escape exits. See `--help` for the remaining controls and options.
 
 The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
 
-This is still an integration build. Moving-object collision, the full damage/death lifecycle, other flight models, automatic recovery, airborne AI, combat, the complete cockpit/HUD, menus, campaign progression and audio remain unfinished. The current numerical flight backend also requires a `long double` with a 64-bit significand. See [implementation status](docs/implementation.md) for precise verification boundaries.
+This is still an integration build. Moving-object collision, the full damage/death lifecycle, other flight models, automatic recovery, air combat and projectiles, the complete cockpit/HUD, menus, campaign progression and audio remain unfinished. The current numerical flight backend also requires a `long double` with a 64-bit significand. See [implementation status](docs/implementation.md) for precise verification boundaries.
 
 RelWithDebInfo retains the developer scene inspector and headless captures:
 

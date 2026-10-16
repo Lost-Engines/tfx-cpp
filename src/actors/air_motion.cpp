@@ -39,8 +39,8 @@ int16_t bank_component(int16_t const rate, int16_t const sine) {
 } // anonymous namespace
 
 air_performance decode_air_performance(profile const &source) {
-  if(source.kind != profile_kind::aircraft) throw std::invalid_argument{"air performance requires an aircraft profile"};
-  resources::binary_view const view{source.source};
+  // Missions 721/923 dispatch a surface DESTROYER through the aircraft controller; preserve its native cross-record reads within an owned, bounded window.
+  resources::binary_view const view{source.native_window.empty() ? source.source : source.native_window};
   return {
     .acceleration{std::bit_cast<int32_t>(view.le32(36))},
     .deceleration{std::bit_cast<int32_t>(view.le32(40))},
@@ -82,7 +82,9 @@ uint16_t cruise_speed(air_state const &state, air_performance const &performance
 
 void command_speed(air_state &state, air_performance const &performance, int32_t const requested) {
   auto const fixed{[](uint16_t const value) { return std::bit_cast<int32_t>(static_cast<uint32_t>(value) << speed_fraction_bits); }};
-  auto const target{std::clamp(requested,fixed(performance.minimum_speed),fixed(performance.maximum_speed))};
+  auto const minimum{fixed(performance.minimum_speed)}, maximum{fixed(performance.maximum_speed)};
+  // Native 0x75274 has a defined first-match order even when an incompatible profile supplies inverted bounds.
+  auto const target{requested <= minimum ? minimum : requested >= maximum ? maximum : requested};
   state.acceleration = std::clamp(wrap(static_cast<int64_t>(target) - state.pose.speed) / air_control_horizon,-performance.deceleration,performance.acceleration);
   reduce_ticks(state,air_control_horizon);
   if(state.pose.speed >= fixed(performance.afterburner_speed)) state.pose.flags |= std::to_underlying(air_flag::afterburner);
@@ -120,7 +122,8 @@ bool command_turn(air_state &state, air_performance const &performance, int16_t 
 
 int16_t altitude_pitch(air_state const &state, air_performance const &performance, int32_t const requested) {
   /// Native 0x75ee0 / 0x75ea8: altitude is Q8 world position (32 units per foot), with a 25-foot capture band.
-  auto const target{std::clamp(requested,-static_cast<int32_t>(performance.maximum_altitude) * 32,-static_cast<int32_t>(performance.minimum_altitude) * 32)};
+  auto const lower{-static_cast<int32_t>(performance.maximum_altitude) * 32}, upper{-static_cast<int32_t>(performance.minimum_altitude) * 32};
+  auto const target{requested < lower ? lower : requested > upper ? upper : requested};
   int32_t const error{wrap(static_cast<int64_t>(target) - state.pose.position.y)};
   int32_t const magnitude{error < 0 ? wrap(-static_cast<int64_t>(error)) : error};
   if(magnitude < 800) return 0;

@@ -80,7 +80,7 @@ std::vector<profile> profiles(std::span<uint8_t const> const source) {
   while(at < source.size()) {
     auto const type{static_cast<unsigned int>(view.byte(at) & 127)};
     if(type < 14 || type > 17) break;
-    static std::array<unsigned int,4> constexpr record_bytes{74,58,46,34};
+    static std::array<unsigned int,4> constexpr record_bytes{air_profile_bytes,58,46,34};
     unsigned int const size{record_bytes[type - 14]};
     auto const bytes{view.slice(at,size)};
     auto definition{string(view,at + 21,10)};
@@ -92,6 +92,8 @@ std::vector<profile> profiles(std::span<uint8_t const> const source) {
       .name{string(view,at + 1,20)},
       .definition{std::move(definition)},
       .source{bytes.begin(),bytes.end()},
+      // The native loader keeps contiguous records. Some shipped air groups use a surface profile and read into its successor.
+      .native_window{source.begin() + at,source.begin() + at + std::min<unsigned int>(air_profile_bytes,static_cast<unsigned int>(source.size() - at))},
     });
     at += size;
   }

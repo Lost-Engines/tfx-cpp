@@ -22,6 +22,7 @@ private:
     instance state;
     vec3d position;
     mat3d rotation;
+    bool visible{true};
   };
   std::map<unsigned int,moving_instance> actors;
   unsigned int next_actor{0};
@@ -38,6 +39,8 @@ public:
   scene(environment const &terrain, assets &resources);
   scene_handle create_actor(std::string const &definition, vec3d const &position, vec3<math::angle> const &angles);
   void place_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
+  void show_actor(scene_handle handle, bool visible);
+  bool terrain_intact(unsigned int x, unsigned int z);
   instance_result collide_terrain(vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t damage = 0, bool player = true);
   instance_result actor_event(scene_handle handle, unsigned int entry);
   void prepare_terrain_cell(unsigned int x, unsigned int z);

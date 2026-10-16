@@ -10,18 +10,21 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include "missions/initialisation.h"
-#include "missions/timeline.h"
-#include "flight/arcade.h"
+#include <type_traits>
+#include <utility>
+#include "actors/air.h"
 #include "actors/program.h"
 #include "actors/surface.h"
-#include "simulation/timing.h"
+#include "flight/arcade.h"
+#include "missions/initialisation.h"
+#include "missions/timeline.h"
 #include "platform/window.h"
 #include "render/camera.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
 #include "resources/executable_tables.h"
+#include "simulation/timing.h"
 #include "world/assets.h"
 #include "world/environment.h"
 #include "world/scene.h"
@@ -118,7 +121,9 @@ auto main(int const argc, char const *const argv[])->int try {
   for(auto const &event : mission_setup.scenery_events) scene.prepare_terrain_cell(event.cell.x,event.cell.y);
   auto const profiles{tfx::actors::profiles(game.read("waybin/craftype.cfg"))};
   tfx::actors::program const actor_program{game.read("waybin/" + mission_setup.waypoints + ".way")};
-  auto const actors{tfx::actors::initialise(actor_program,profiles,tables.formations)};
+  auto const initial_actors{tfx::actors::initialise(actor_program,profiles,tables.formations)};
+  tfx::actors::air_runtime air_simulation{actor_program,initial_actors,profiles,tables.formations,tables.aircraft_envelopes,environment.variant_random_state()};
+  std::array<std::optional<tfx::world::scene_handle>,tfx::actors::aircraft_per_side * 2> air_visuals;
   struct surface_actor {
     tfx::actors::surface_state state;
     tfx::world::scene_handle visual;
@@ -127,18 +132,34 @@ auto main(int const argc, char const *const argv[])->int try {
   std::vector<surface_actor> surface_actors;
   std::string radio_message;
   int radio_ticks{0};
-  for(auto const &actor : actors) {
+  for(auto const &actor : initial_actors) {
     auto const profile{std::ranges::find(profiles,actor.profile_id,&tfx::actors::profile::id)};
     auto const visual{scene.create_actor(profile->definition,vec3d{actor.position} / tfx::actors::position_unit,actor.angles)};
-    if(actor.kind == tfx::actors::record_kind::surface) surface_actors.push_back({
+    if(actor.kind == tfx::actors::record_kind::aircraft) air_visuals[tfx::actors::air_registry_index(actor)] = visual;
+    else if(actor.kind == tfx::actors::record_kind::surface) surface_actors.push_back({
       .state{tfx::actors::create_surface(actor,actor_program)},
       .visual{visual},
       .profile{&*profile},
     });
   }
+  tfx::actors::air_context const air_world{
+    .intact_ground_target{[&](vec2<int16_t> const &cell) {
+      return cell.x >= 0 && cell.y >= 0 && scene.terrain_intact(static_cast<unsigned int>(cell.x),static_cast<unsigned int>(cell.y));
+    }},
+  };
   auto const advance_actors{[&](unsigned int const ticks){
     // Native 0x75784 visits each actor once per elapsed tick, preserving pool order.
     for(unsigned int tick{0}; tick != std::max(1u,ticks); ++tick) {
+      for(auto const &request : air_simulation.advance(air_world)) {
+        std::visit([&](auto const &data) {
+          using data_type = std::remove_cvref_t<decltype(data)>;
+          if constexpr(std::is_same_v<data_type,tfx::actors::air_scenery_event>) scene.actor_event(*air_visuals.at(request.actor),data.entry);
+          else if constexpr(std::is_same_v<data_type,tfx::actors::air_radio>) {
+            radio_message = data.text;
+            radio_ticks = 5 * 55;
+          }
+        },request.data);
+      }
       for(auto &actor : surface_actors) {
         for(auto const &request : tfx::actors::advance_surface(actor.state,*actor.profile)) {
           if(request.kind == tfx::actors::surface_request_kind::radio) {
@@ -148,6 +169,14 @@ auto main(int const argc, char const *const argv[])->int try {
         }
       }
       if(radio_ticks > 0) --radio_ticks;
+    }
+    for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) {
+      auto const &actor{air_simulation.aircraft()[index]};
+      if(!actor) continue;
+      auto const visual{*air_visuals[index]};
+      auto const &pose{actor->flight.pose};
+      scene.place_actor(visual,vec3d{pose.position} / tfx::actors::position_unit,pose.angles);
+      scene.show_actor(visual,(pose.flags & std::to_underlying(tfx::actors::air_flag::retired)) == 0);
     }
     for(auto const &actor : surface_actors) scene.place_actor(actor.visual,vec3d{actor.state.pose.position} / tfx::actors::position_unit,actor.state.pose.angles);
   }};
