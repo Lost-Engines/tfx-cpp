@@ -1203,3 +1203,11 @@ All 57 CTests pass in development, Release and ASan/UBSan. Every one of the 128 
     python3 tools/check_window_ejection.py --flight-model simple --data-dir /path/to/TFX
 
 These checks establish the connected basic-model paths and their declared boundaries. Realistic/Military Spec dynamics, automatic recovery/landing, complete native input acquisition, remaining contact/rendering consumers, full campaign coverage and audio remain unfinished.
+
+### Aerodynamic physical-frame to world/view bridge
+
+The Realistic and Military Spec pipeline retains a North/East/Down physical frame in metres, distinct from the renderer's East/Down/North coordinates. Native 0x95aa0 normalises its Q15 basis, permutes both the local axes and world coordinates, applies the aircraft-specific eye height and the current forward/upward cockpit offsets, then exports float and integer positions, renderer basis and angles. The double normalization constant and intermediate double stores are preserved independently from the basic models' float normalization.
+
+All 8,192 complete original cases agree in normalized physical basis, both exported bases, exact float bits, integer coordinates and angles, without intercepted dependencies. Coverage includes arbitrary rotations, all three aircraft, signed-zero positions, variable viewpoint offsets and the original integer-indefinite result for out-of-range conversion. There are 123 compact asset-free captures. This is the shared pose bridge; the aerodynamic integrator is still being reconstructed.
+
+    python3 tools/check_aerodynamic_pose.py

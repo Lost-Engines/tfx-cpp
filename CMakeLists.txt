@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/aerodynamic_pose.cpp
+  src/flight/aerodynamic_pose.h
   src/flight/simple.cpp
   src/flight/simple.h
   src/flight/basic_parameters.h
@@ -412,6 +414,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_pose_probe tests/aerodynamic_pose_probe.cpp)
+  target_link_libraries(aerodynamic_pose_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_pose_probe)
+  add_test(NAME flight.native_aerodynamic_world_pose COMMAND aerodynamic_pose_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_pose.txt")
 
   add_executable(simple_probe tests/simple_probe.cpp)
   target_link_libraries(simple_probe PRIVATE tfx_core)
