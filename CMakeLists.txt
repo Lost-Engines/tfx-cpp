@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/render/point_projection.cpp
+  src/render/point_projection.h
   src/cockpit/view_camera.cpp
   src/cockpit/view_camera.h
   src/cockpit/view_control.cpp
@@ -379,6 +381,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(point_projection_probe tests/point_projection_probe.cpp)
+  target_link_libraries(point_projection_probe PRIVATE tfx_core)
+  configure_first_party(point_projection_probe)
+  add_test(NAME render.native_world_point_projection COMMAND point_projection_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/point_projection.txt")
 
   add_executable(scaled_projection_probe tests/scaled_projection_probe.cpp)
   target_link_libraries(scaled_projection_probe PRIVATE tfx_core)
