@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/timing.cpp
+  src/presentation/timing.h
   src/presentation/text.cpp
   src/presentation/text.h
   src/presentation/fonts.cpp
@@ -117,6 +119,11 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(presentation_timing_probe tests/presentation_timing_probe.cpp)
+  target_link_libraries(presentation_timing_probe PRIVATE tfx_core)
+  configure_first_party(presentation_timing_probe)
+  add_test(NAME presentation.native_input_waits_animation_fades COMMAND presentation_timing_probe ${PROJECT_SOURCE_DIR}/tests/reference/presentation_timing.txt)
+
   add_executable(text_clock_probe tests/text_clock_probe.cpp)
   target_link_libraries(text_clock_probe PRIVATE tfx_core)
   configure_first_party(text_clock_probe)
