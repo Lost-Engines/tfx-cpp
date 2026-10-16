@@ -121,16 +121,38 @@ screen_overlay decode_planner_panel(std::span<uint8_t const> const executable) {
   throw std::runtime_error{"compiled panel has no bounded end"};
 }
 
-std::array<uint8_t,256 * 3> planner_palette(std::span<uint8_t const> const map_colours, std::span<uint8_t const> const executable) {
+planner_artwork::planner_artwork(std::span<uint8_t const> const executable) : panel{decode_planner_panel(executable)} {
+  binary_view const source{executable};
+  unsigned int constexpr data{973476};
+  std::ranges::copy(source.slice(0xa9b44,interface_colours.size()),interface_colours.begin());
+  std::ranges::copy(source.slice(data + 0xa7ea,marker_colours.size()),marker_colours.begin());
+  for(unsigned int index{0}; index != region_names.size(); ++index) {
+    auto const address{data + source.le32(data + 0xa9c4 + index * 4)};
+    auto const bytes{source.slice(address,32)};
+    auto const end{std::ranges::find(bytes,uint8_t{0})};
+    if(end == bytes.end()) throw std::runtime_error{"unterminated original planner region name"};
+    region_names[index].assign(bytes.begin(),end);
+  }
+}
+screen_overlay const &planner_artwork::backdrop() const {
+  return panel;
+}
+std::array<uint8_t,256 * 3> planner_artwork::colours(std::span<uint8_t const> const map_colours) const {
   std::array<uint8_t,256 * 3> result;
   if(map_colours.size() != result.size()) throw std::runtime_error{"planner map palette has the wrong size"};
   std::ranges::copy(map_colours,result.begin());
-  binary_view const source{executable};
-  unsigned int constexpr interface_first{32}, interface_count{80}, marker_first{240}, marker_count{16};
+  unsigned int constexpr interface_first{32}, marker_first{240};
   // Native 0xab3ac replaces map colours with its code-object UI ramp and data-object marker bank.
-  std::ranges::copy(source.slice(0xa9b44,interface_count * 3),result.begin() + interface_first * 3);
-  std::ranges::copy(source.slice(973476 + 0xa7ea,marker_count * 3),result.begin() + marker_first * 3);
+  std::ranges::copy(interface_colours,result.begin() + interface_first * 3);
+  std::ranges::copy(marker_colours,result.begin() + marker_first * 3);
   return result;
+}
+std::string const &planner_artwork::region(std::string_view const world) const {
+  auto const upper{[](char const value) { return value >= 'a' && value <= 'z' ? static_cast<char>(value - ('a' - 'A')) : value; }};
+  for(unsigned int index{1}; index != region_names.size(); ++index) {
+    if(world.size() >= 3 && std::ranges::equal(world.substr(0,3),std::string_view{region_names[index]}.substr(0,3),[&](char const a, char const b) { return upper(a) == upper(b); })) return region_names[index];
+  }
+  return region_names.front();
 }
 
 } // namespace tfx::resources

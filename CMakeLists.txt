@@ -14,6 +14,14 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/drawing.cpp
+  src/presentation/drawing.h
+  src/planning/notes.cpp
+  src/planning/notes.h
+  src/planning/map_view.cpp
+  src/planning/map_view.h
+  src/presentation/widget_font.cpp
+  src/presentation/widget_font.h
   src/resources/compiled_panel.cpp
   src/resources/compiled_panel.h
   src/planning/document.cpp
@@ -149,6 +157,10 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(widget_font_probe tests/widget_font_probe.cpp)
+  target_link_libraries(widget_font_probe PRIVATE tfx_core)
+  configure_first_party(widget_font_probe)
+
   add_executable(planning_tests tests/planning_test.cpp)
   target_link_libraries(planning_tests PRIVATE tfx_core)
   configure_first_party(planning_tests)
