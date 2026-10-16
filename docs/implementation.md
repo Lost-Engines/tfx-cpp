@@ -765,3 +765,16 @@ The instrument compositor follows the complete original `0x803e8` draw order: ra
 **504 complete native pixel/coverage/animation/clip/random-state frames agree**, exercising all three aircraft, every currently implemented outer page, all centre modes, warning thresholds, page transitions and contacts. The original instrument routine runs as a whole; archive access, actor enumeration, surface-type lookup and warning sound output are declared boundaries. The separate upper aiming HUD is explicitly disabled in this capture, and the scene-camera pages remain a separate rendering consumer. Flight integration is the next step.
 
 The manual also identifies the control MFD's trailing/leading-edge flap pointers and F-22 thrust-vector indicators. Flight-state comparisons establish that the four lower-left pips show afterburner stages (`0x1496d`), so the earlier provisional ammunition name has been corrected without changing their painter.
+
+
+### MFD scene-camera requests
+
+```sh
+python3 tools/check_scene_displays.py
+```
+
+The FLIR/DLIR and ground-target database now prepare the original integer camera positions and view angles. The F-117 retains its ±45-degree free-camera gimbal limits. Target bearings, two-draw reticle phase, the fixed-distance ground orbit, height clamps, heading increments, range labels and reticle masks follow their original handlers. The scene consumer uses the independently verified native view matrix and projection origin.
+
+**2,304 native cases agree** in camera requests, persistent gimbal/orbit/reticle state and all overlay pixels, across both displays, all aircraft and three orbit-step seeds. Full world rendering and the projected reticle point are declared boundaries; this is not a complete 3D pixel comparison. The assembled 504-frame instrument HUD and 1,601 clipping comparisons continue to agree, as do all 44 CTests.
+
+An original bug is explicit: `0x88378` reads a roll word after `0xc9714` writes only pitch and heading. It can therefore inherit previous stack contents (the capture exposed a prior ground-camera height). The comparison supplies this otherwise unwritten input deliberately. The new native host will supply zero rather than depend on uninitialised C++ memory; a future DOS trace can establish whether a stable retail value deserves reproduction. Reticle testing also corrected monochrome painters to sign-extend their word coordinates, including MOVZX arguments that wrap at the top or left edge.

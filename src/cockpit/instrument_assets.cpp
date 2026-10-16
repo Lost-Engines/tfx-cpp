@@ -70,7 +70,13 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   };
   for(unsigned int index{0}; index != bvr_envelope.size(); ++index) bvr_envelope[index] = {source.signed_le16(data + 0x76d2 + index * 4),source.signed_le16(data + 0x76d4 + index * 4)};
   for(unsigned int index{0}; index != display_origins.size(); ++index) display_origins[index] = {source.signed_le16(data + 0x7c98 + index * 8),source.signed_le16(data + 0x7c9a + index * 8)};
-  std::array<unsigned int,9> constexpr bitmap_fields{0x7b84,0x7b8c,0x7b93,0x7b9a,0x7ba1,0x7ba9,0x7bb1,0x7bb7,0x7bcc};
+  for(unsigned int index{0}; index != display_sizes.size(); ++index) display_sizes[index] = {source.signed_le16(data + 0x7c9c + index * 8),source.signed_le16(data + 0x7c9e + index * 8)};
+  camera_blink = source.signed_le16(data + 0x7dc4);
+  camera_orbit_angles = {source.le16(data + 0x7dc6),source.le16(data + 0x7dc8),source.le16(data + 0x7dca)};
+  camera_orbit_step = source.signed_le16(data + 0x7dcc);
+  camera_height_bounds = {std::bit_cast<int32_t>(source.le32(data + 0xac58)),std::bit_cast<int32_t>(source.le32(data + 0xac5c))};
+  ground_range_format = string(0x1be8);
+  std::array<unsigned int,11> constexpr bitmap_fields{0x7b84,0x7b8c,0x7b93,0x7b9a,0x7ba1,0x7ba9,0x7bb1,0x7bb7,0x7bcc,0x7d9c,0x7db0};
   for(unsigned int index{0}; index != masks.size(); ++index) {
     auto const at{data + bitmap_fields[index]};
     unsigned int const size{2u + ((source.byte(at) + 7u) / 8u) * source.byte(at + 1)};
