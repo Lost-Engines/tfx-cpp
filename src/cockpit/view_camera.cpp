@@ -422,7 +422,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
   case view_mode::ejection: {
     // Native 0x91f00 uses the actual float pose and drops the final eight
     // fraction bits after applying its twelve-world-unit camera setback.
-    auto basis{context.basis};
+    auto basis{context.body_basis ? *context.body_basis : context.basis};
     int32_t constexpr level_near_ground{-80};
     if(context.position.y >= level_near_ground) basis.align_down({0,1,0});
     basis.rotate(math::rotation_axis::heading,0x6000);

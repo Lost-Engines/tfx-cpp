@@ -49,6 +49,14 @@ void initialise_simple(simple_state &state, vec3<int32_t> const &position, vec3<
   state.gear.down = landed;
   state.gear.condition = landed ? system_condition::active : system_condition::normal;
 }
+void advance_simple_disabled(simple_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground) {
+  state.flight.orientation = state.ground.body;
+  update_basic_disabled(state.flight,controls,elapsed,ground,false,state.gear.condition == system_condition::active);
+  state.ground.body = state.flight.orientation;
+  state.displayed_g_load = 0;
+  state.first_update = false;
+}
+
 simple_update advance_simple(simple_state &state, simple_inputs const &inputs, simulation::timer_ticks const elapsed, ground_contact const ground) {
   auto &flight{state.flight};
   auto const &parameters{basic_parameters(flight.aircraft)};
@@ -74,6 +82,7 @@ simple_update advance_simple(simple_state &state, simple_inputs const &inputs, s
     .pitch_rate{state.controls.angular_rate.x},
     .elapsed{elapsed},
   });
+  state.displayed_g_load = state.turn.g_load;
   flight.orientation = state.turn.orientation;
   flight.rotation_remainder.y = state.turn.heading_remainder;
   flight.movement_per_tick = state.turn.movement_per_tick;

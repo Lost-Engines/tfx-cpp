@@ -15,6 +15,7 @@ struct simple_state {
   simple_ground_state ground{};
   landing_gear_state gear{};
   float geometric_altitude_km{0};
+  float displayed_g_load{0};
   float reported_speed{.5f};
   bool first_update{true};
 };
@@ -31,6 +32,7 @@ struct simple_update {
 };
 
 void initialise_simple(simple_state &state, vec3<int32_t> const &position, vec3<math::angle> const &angles, float speed, bool landed, ground_contact ground = {});
+void advance_simple_disabled(simple_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {});
 simple_update advance_simple(simple_state &state, simple_inputs const &inputs, simulation::timer_ticks elapsed, ground_contact ground = {});
 
 } // namespace tfx::flight

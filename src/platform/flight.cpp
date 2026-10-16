@@ -24,6 +24,7 @@
 #include "flight/arcade.h"
 #include "flight/damage.h"
 #include "flight/ejection_sequence.h"
+#include "flight/simple.h"
 #include "flight/fuel_gauge.h"
 #include "cockpit/hud.h"
 #include "cockpit/radio_ticker.h"
@@ -63,6 +64,8 @@ namespace tfx::platform {
 
 bool fly_mission(resources::archive const &game, resources::executable_tables const &tables,
   flight_options const &options, missions::variables &campaign, window *const shared_window) {
+  bool const simple_mode{options.model == simulation::flight_model::simple};
+  if(!simple_mode && options.model != simulation::flight_model::arcade) throw std::runtime_error{"flight model is not implemented"};
   auto const &mission_name{options.mission};
   auto const &override_environment{options.environment};
   auto const &override_grid{options.grid};
@@ -162,9 +165,16 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   unsigned int ground_target_page{0};
   tfx::flight::fuel_gauge fuel_display{instrument_setup.fuel};
   auto const &player_disabled{mission_progress.player_ejected};
-  tfx::flight::arcade_state player;
+  tfx::flight::simple_state simple_player;
+  auto &player{simple_player.flight};
+  tfx::flight::simple_inputs simple_controls;
+  auto const body_basis{[&]() -> tfx::math::attitude const& {
+    if(ejection.value().stage == tfx::flight::ejection_stage::pilot) return ejection.value().pilot.orientation;
+    return simple_mode ? simple_player.ground.body : player.orientation;
+  }};
   player.aircraft = mission_setup.aircraft;
   tfx::actors::air_context air_world{
+    .model{options.model},
     .intact_ground_target{[&](vec2<int16_t> const &cell) {
       return cell.x >= 0 && cell.y >= 0 && scene.terrain_intact(static_cast<unsigned int>(cell.x),static_cast<unsigned int>(cell.y));
     }},
@@ -449,6 +459,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     .height{static_cast<int16_t>(mission_setup.start.landed && (!(flags & 2) || (flags & 255) >> 2 != 50) ? -20 : 0)},
   };
   auto const initial_ground{ground};
+  int16_t ground_zone{-1};
   auto const view_index{[&] { return static_cast<unsigned int>(std::to_underlying(views.value().current)); }};
   auto const camera_context{[&] {
     tfx::cockpit::view_camera_context context{
@@ -457,6 +468,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .position_f32{vec3f{player.position}},
       .angles{vec3<tfx::math::angle>{player.angles}},
       .basis{player.orientation},
+      .body_basis{&body_basis()},
       .elapsed{launch_elapsed},
       .pan{view_pan},
       .ground_height{ground.present ? ground.height : int16_t{0}},
@@ -591,6 +603,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   }};
   auto const restart{[&]{
     ground = initial_ground;
+    ground_zone = -1;
+    simple_controls = {};
     mission_time.reset();
     mission_progress.reset();
     result_evaluated = false;
@@ -629,7 +643,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     mobile_designation.reset();
     radiation_cursor = 0;
     player.aircraft = mission_setup.aircraft;
-    tfx::flight::initialise_arcade(player,mission_setup.start.position,mission_setup.angles,mission_setup.speed_factor,mission_setup.start.landed,ground);
+    if(simple_mode) tfx::flight::initialise_simple(simple_player,mission_setup.start.position,mission_setup.angles,mission_setup.speed_factor,mission_setup.start.landed,ground);
+    else tfx::flight::initialise_arcade(player,mission_setup.start.position,mission_setup.angles,mission_setup.speed_factor,mission_setup.start.landed,ground);
   }};
   auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed, bool const fire = false, bool const release_store = false) {
     if(mission_progress.ended) return;
@@ -639,6 +654,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     launch_elapsed = elapsed;
     bool const flying{!player.collision};
     auto const previous{vec3<int32_t>{player.integer_position}};
+    bool const previous_gear{player.gear_down}, previous_chute{player.brake_chute};
     if(release_store && !ejected() && !player_disabled && !armament.guns && armament.selected >= 0 && armament.selected < tfx::weapons::cannon_pylon && !player.landed) {
       auto const &weapon{tables.weapons.at(armament.pylons[static_cast<unsigned int>(armament.selected)].weapon)};
       // Native Space first acquires a ship for Harpoon; a subsequent press releases it. Laser stores require a designation.
@@ -695,11 +711,31 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         mission_progress.status = tfx::missions::session_status::aircraft_lost;
       }
       if(pilot.ended) mission_progress.ended = true;
-    } else if(player_disabled) tfx::flight::advance_disabled(player,controls,elapsed,ground);
-    else if(flying) tfx::flight::advance_arcade(player,controls,elapsed,ground);
+    } else if(player_disabled) {
+      if(simple_mode) {
+        simple_player.gear.condition = player_damage.condition(tfx::flight::aircraft_system::landing_gear);
+        tfx::flight::advance_simple_disabled(simple_player,controls,elapsed,ground);
+      }
+      else tfx::flight::advance_disabled(player,controls,elapsed,ground);
+    } else if(flying) {
+      if(simple_mode) {
+        simple_controls.controls = controls;
+        simple_controls.surface_type = ground_zone;
+        simple_player.gear.condition = player_damage.condition(tfx::flight::aircraft_system::landing_gear);
+        tfx::flight::advance_simple(simple_player,simple_controls,elapsed,ground);
+        player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::landing_gear)] = simple_player.gear.condition;
+      } else tfx::flight::advance_arcade(player,controls,elapsed,ground);
+    }
+    if(!ejected()) {
+      if(previous_gear != player.gear_down && player_damage.condition(tfx::flight::aircraft_system::landing_gear) != tfx::flight::system_condition::failed) {
+        player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::landing_gear)] = player.gear_down ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
+        scene.actor_event(player_visual,player.gear_down ? 3u : 4u);
+      }
+      if(previous_chute && !player.brake_chute) scene.actor_event(player_visual,16);
+    }
     // Native 0x70ec8 follows player physics; the SSD event switches actors here,
     // leaving the first launch update to the next flight frame.
-    if(ejection.advance_aircraft(player.position,player.orientation,player.fixed_speed,elapsed)) player_visual = pilot_visual;
+    if(ejection.advance_aircraft(player.position,body_basis(),player.fixed_speed,elapsed)) player_visual = pilot_visual;
     if(ejection.value().stage == tfx::flight::ejection_stage::pilot) scene.place_actor(aircraft_visual,vec3d{ejection.value().aircraft_position_q8} / tfx::actors::position_unit,ejection.value().aircraft_orientation.angles());
     auto const transfer{refuelling.transfer(player.fuel,player.fuel_capacity,player.afterburner != 0)};
     player.fuel = transfer.fuel;
@@ -747,7 +783,9 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       // Native 0x72018 updates actors before collecting contacts; the next flight frame consumes this surface result.
       auto const response{[&](uint16_t const cost) { if(!ejected()) { scene.apply_actor_contact_damage(player_visual,cost);damage_player(100); } }};
       ground.present = false;
+      ground_zone = -1;
       auto const collect{[&](tfx::world::instance_result const &contact) {
+        if(contact.zone != -1) ground_zone = contact.zone;
         if(contact.surface_present) { ground.present = true; ground.height = contact.surface_height; }
         if(contact.collisions && player.crashing) player.collision = 1;
       }};
@@ -874,6 +912,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     state.flares = instrument_setup.flares;
     state.stealth = instrument_setup.stealth;
     state.stall_recovery = player.recovering;
+    state.hook = player.arrestor_hook;
     // This host repaints the full framebuffer, so request a full refresh of cached indicators.
     state.redraw_phase = 2;
     state.afterburner_pips = player.afterburner;
@@ -1152,7 +1191,9 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   std::array<bool,GLFW_KEY_LAST + 1> held{false};
   tfx::simulation::timer_counter counter{0};
   tfx::simulation::flight_clock flight_clock{counter};
-  flight_clock.begin({});
+  flight_clock.begin({
+    .model{options.model},
+  });
   double pitch_input{0}, roll_input{0};
   while(window.poll()) {
     double const now{glfwGetTime()}, real_elapsed{now - previous_time}, elapsed{std::clamp(real_elapsed,0.0,.1)};
@@ -1177,7 +1218,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     if((down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)) && pressed(GLFW_KEY_Q)) break;
     if(result_evaluated && (pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER))) break;
     if(!inspect && !result_evaluated && pressed(GLFW_KEY_P)) paused = !paused;
-    bool const capture{inspect ? glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS : !paused && !result_evaluated};
+    bool const capture{inspect ? glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS : !simple_mode && !paused && !result_evaluated};
     if(capture != captured) {
       captured = capture;
       mouse_started = false;
@@ -1329,13 +1370,21 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         if(pressed(GLFW_KEY_LEFT_BRACKET)) player.left_engine = !player.left_engine;
         if(pressed(GLFW_KEY_RIGHT_BRACKET)) player.right_engine = !player.right_engine;
         if(!player.left_engine && !player.right_engine) player.afterburner = 0;
-        if(pressed(GLFW_KEY_G) && !player.landed && !(player.aircraft == tfx::flight::player_aircraft::eurofighter && !player.gear_down && player.fixed_speed > 350)) player.gear_down = !player.gear_down;
+        if(pressed(GLFW_KEY_G) && !player.landed && player_damage.condition(tfx::flight::aircraft_system::landing_gear) != tfx::flight::system_condition::failed) {
+          player.gear_down = !player.gear_down;
+          player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::landing_gear)] = player.gear_down ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
+          scene.actor_event(player_visual,player.gear_down ? 3u : 4u);
+        }
+        if(pressed(GLFW_KEY_H) && !down(GLFW_KEY_LEFT_ALT) && !down(GLFW_KEY_RIGHT_ALT)) {
+          player.arrestor_hook = !player.arrestor_hook;
+          if(!player.arrestor_hook) player.arrested = false;
+        }
         if(pressed(GLFW_KEY_W) && player.landed) player.wheel_brake = !player.wheel_brake;
         if(pressed(GLFW_KEY_B)) {
           if(down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT)) {
-            if(player.aircraft != tfx::flight::player_aircraft::raptor && !player.brake_chute_cut_away && player.fixed_speed >= 20) player.brake_chute = true;
+            if(player.aircraft != tfx::flight::player_aircraft::raptor && !player.brake_chute_cut_away && player.fixed_speed >= 20) { player.brake_chute = true;scene.actor_event(player_visual,15); }
           } else if(down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)) {
-            if(player.aircraft != tfx::flight::player_aircraft::raptor && player.brake_chute) { player.brake_chute = false; player.brake_chute_cut_away = true; }
+            if(player.aircraft != tfx::flight::player_aircraft::raptor && player.brake_chute) { player.brake_chute = false;player.brake_chute_cut_away = true;scene.actor_event(player_visual,16); }
           } else player.air_brake = !player.air_brake;
         }
       }
@@ -1352,10 +1401,18 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         int constexpr minimum_hud_green{90}, maximum_hud_green{127};
         hud_green = static_cast<int16_t>(std::clamp(hud_green + (hud_up ? 1 : 0) - (hud_down ? 1 : 0),minimum_hud_green,maximum_hud_green));
         // Keyboard supplies a relative stick input until the full native device adapter is restored.
-        if(!designator_view && !view_keys.shift) {
+        if(!simple_mode && !designator_view && !view_keys.shift) {
           pitch_input += (down(GLFW_KEY_UP) - down(GLFW_KEY_DOWN)) * step->world_ticks * 4;
           roll_input += (down(GLFW_KEY_RIGHT) - down(GLFW_KEY_LEFT)) * step->world_ticks * 4;
         }
+        bool const steer{!designator_view && !view_keys.shift};
+        simple_controls.keys = {
+          .up{steer && down(GLFW_KEY_UP)},
+          .left{steer && down(GLFW_KEY_LEFT)},
+          .down{steer && down(GLFW_KEY_DOWN)},
+          .right{steer && down(GLFW_KEY_RIGHT)},
+        };
+        simple_controls.alt = down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT);
         auto const input_word{[](double const value){ return static_cast<int16_t>(std::clamp(value,-32768.0,32767.0)); }};
         tfx::flight::flight_controls const controls{
           .pitch_delta{input_word(pitch_input)},
@@ -1369,7 +1426,9 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         advance_world(controls,step->world_ticks,down(GLFW_KEY_SPACE),store_trigger);
         store_trigger = false;
         frame_ticks = step->world_ticks;
-        flight_clock.begin({});
+        flight_clock.begin({
+          .model{options.model},
+        });
       } else {
         glfwWaitEventsTimeout(.002);
         continue;
@@ -1383,7 +1442,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     ++frames;
     ++interval_frames;
     if(now - title_time >= .5) {
-      window.title(std::string{inspect ? "TFX C++ — scene inspection — " : "TFX C++ — Arcade flight — "} + mission_name + " / " + environment.name + " / " + environment.lighting_name + " — " + std::to_string(static_cast<int>(interval_frames / (now - title_time))) + " fps");
+      window.title(std::string{inspect ? "TFX C++ — scene inspection — " : "TFX C++ — " + std::string{simple_mode ? "Simple" : "Arcade"} + " flight — "} + mission_name + " / " + environment.name + " / " + environment.lighting_name + " — " + std::to_string(static_cast<int>(interval_frames / (now - title_time))) + " fps");
       title_time = now;
       interval_frames = 0;
     }

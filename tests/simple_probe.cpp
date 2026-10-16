@@ -16,7 +16,7 @@ std::vector<uint64_t> words(tfx::flight::simple_state const &state) {
   auto const precise{[&](double const value) { values.push_back(std::bit_cast<uint64_t>(value)); }};
   for(auto const value : flight.position) floating(value);
   for(auto const value : flight.integer_position) integer(value);
-  for(auto const *basis : {&state.ground.body,&flight.orientation}) for(unsigned int row{0}; row != 3; ++row) {
+  for(auto const *basis : {&state.ground.body,&state.ground.visible,&flight.orientation}) for(unsigned int row{0}; row != 3; ++row) {
     integer(basis->right[row]);integer(basis->down[row]);integer(basis->forward[row]);
   }
   for(auto const value : flight.rotation_remainder) floating(value);
@@ -29,7 +29,7 @@ std::vector<uint64_t> words(tfx::flight::simple_state const &state) {
   for(auto const value : flight.angles) integer(value);
   for(auto const value : state.controls.angular_rate) floating(value);
   floating(state.controls.negative_pitch_limit);floating(state.controls.positive_pitch_limit);floating(state.controls.roll_limit);
-  floating(state.turn.turn_response);floating(state.turn.coordinated_turn_rate);floating(state.turn.metres_per_second);floating(state.turn.g_load);
+  floating(state.turn.turn_response);floating(state.turn.coordinated_turn_rate);floating(state.turn.metres_per_second);floating(state.displayed_g_load);floating(state.turn.g_load);
   integer(state.turn.bank_correction);integer(state.ground.stall_pitch);integer(state.ground.landing_angles.x);integer(state.ground.landing_angles.y);integer(state.ground.previous_landed);
   precise(state.ground.indicated_speed);precise(state.ground.low_speed_reference);
   floating(state.geometric_altitude_km);floating(state.gear.vertical_speed);floating(state.reported_speed);
@@ -39,8 +39,9 @@ std::vector<uint64_t> words(tfx::flight::simple_state const &state) {
 } // anonymous namespace
 
 int main(int const argc, char const *const argv[]) try {
-  bool const check{argc == 3 && std::string_view{argv[1]} == "--check"};
-  if(argc != 1 && !check) throw std::runtime_error{"expected --check FILE or Simple input trace"};
+  bool const disabled{argc >= 2 && (std::string_view{argv[1]} == "--disabled" || std::string_view{argv[1]} == "--check-disabled")};
+  bool const check{argc == 3 && (std::string_view{argv[1]} == "--check" || disabled)};
+  if(argc != 1 && !check && !(argc == 2 && disabled)) throw std::runtime_error{"expected --check FILE or Simple input trace"};
   std::ifstream fixture;
   if(check) fixture.open(argv[2]);
   if(check && !fixture) throw std::runtime_error{"cannot open Simple flight fixtures"};
@@ -72,7 +73,8 @@ int main(int const argc, char const *const argv[]) try {
         state.gear.condition = gear ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
       }
       if(engines >= 0) { state.flight.left_engine = engines & 1;state.flight.right_engine = engines & 2; }
-      tfx::flight::advance_simple(state,controls,static_cast<tfx::simulation::timer_ticks>(ticks),ground);
+      if(disabled && frame >= 64) tfx::flight::advance_simple_disabled(state,controls.controls,static_cast<tfx::simulation::timer_ticks>(ticks),ground);
+      else tfx::flight::advance_simple(state,controls,static_cast<tfx::simulation::timer_ticks>(ticks),ground);
       auto const values{words(state)};
       if(check) {
         for(auto const value : values) for(unsigned int shift{0}; shift != 64; shift += 8) digest = (digest ^ static_cast<uint8_t>(value >> shift)) * 1099511628211ULL;

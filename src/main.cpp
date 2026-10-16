@@ -33,6 +33,7 @@ auto main(int const argc, char const *const argv[])->int try {
   std::filesystem::path data_directory{"."};
   std::string mission_name{"miss501"}, override_environment, override_grid;
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0};
+  tfx::simulation::flight_model model{tfx::simulation::flight_model::arcade};
   bool inspect{false}, direct_mission{false}, skip_intro{false};
   std::string presentation, presentation_function, language{"english"};
   std::optional<vec2<unsigned int>> override_cell;
@@ -53,9 +54,11 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --mission N           Enter a mission directly instead of the original front end\n"
                    "  --skip-intro          Start at pilot enrolment without the opening sequence\n"
                    "  --language NAME       english, french, german, spanish or italian\n"
+                   "  --flight-model NAME   arcade (default) or simple\n"
                    "  --scale N             Window scale; 0 selects the largest fitting scale (default)\n"
-                   "\nArcade flight: mouse or arrows steer; hold left/right mouse or =/- for thrust.\n"
-                   "[ and ] toggle engines; G gear; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
+                   "\nFlight: hold left/right mouse or =/- for thrust.\n"
+                   "Arcade uses mouse/arrow steering; Simple uses the original arrow-key controls.\n"
+                   "[ and ] toggle engines; G gear; H arrestor hook; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
                    "Enter selects air-to-air weapons; Backspace/O air-to-ground; F selects cannon/navigation.\n"
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
                    "X clears targets; F1 returns to flight view; Space fires; P pauses; double Escape ejects; Shift+Q quits.\n"
@@ -93,6 +96,11 @@ auto main(int const argc, char const *const argv[])->int try {
       direct_mission = true;
       auto const selected{value()};
       mission_name = "miss" + std::to_string(number(selected));
+    } else if(key == "--flight-model") {
+      auto const selected{value()};
+      if(selected == "arcade") model = tfx::simulation::flight_model::arcade;
+      else if(selected == "simple") model = tfx::simulation::flight_model::simple;
+      else throw std::runtime_error{"flight model must be arcade or simple"};
     } else if(key == "--scale") {
       scale = number(value());
       if(scale > 16) throw std::runtime_error{"window scale must be between 0 (automatic) and 16"};
@@ -141,6 +149,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .scene_radius{scene_radius},
     .frame_limit{frame_limit},
     .flight_steps{flight_steps},
+    .model{model},
     .inspect{inspect},
   };
   if(direct_mission || inspect || flight_steps || !override_environment.empty() || !override_grid.empty()) {

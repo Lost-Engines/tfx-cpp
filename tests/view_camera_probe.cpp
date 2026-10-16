@@ -4,7 +4,13 @@
 #include "cockpit/view_camera.h"
 
 int main(int const argc, char const *const argv[]) {
-  bool const refuelling{argc == 2 && std::string_view{argv[1]} == "--refuelling"};
+  bool refuelling{false}, split_basis{false};
+  for(int index{1}; index != argc; ++index) {
+    auto const argument{std::string_view{argv[index]}};
+    if(argument == "--refuelling") refuelling = true;
+    else if(argument == "--split-basis") split_basis = true;
+    else return 2;
+  }
   using namespace tfx::cockpit;
   view_control views;
   view_camera motion;
@@ -35,6 +41,11 @@ int main(int const argc, char const *const argv[]) {
       for(unsigned int row{0}; row != 3; ++row) std::cin >> initial.orbit.right[row] >> initial.orbit.down[row] >> initial.orbit.forward[row];
       views = view_control{std::move(initial)};
       motion = view_camera{};
+    }
+    tfx::math::attitude body;
+    if(split_basis) {
+      for(unsigned int row{0}; row != 3; ++row) std::cin >> body.right[row] >> body.down[row] >> body.forward[row];
+      context.body_basis = &body;
     }
     if(refuelling) { unsigned int phase;std::cin >> phase;context.refuel_phase = static_cast<uint8_t>(phase); }
     auto active{views.value()};

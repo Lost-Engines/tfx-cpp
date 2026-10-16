@@ -254,12 +254,12 @@ void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<
   state.angles = state.orientation.angles();
 }
 
-void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground) {
+void update_basic_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const arcade, bool const gear_drag) {
   // Native 0x8e5a8, selected by the outer player callback after loss/ejection.
   if(!state.collision) {
     recover(state,elapsed);
     if(state.position.y < 0) {
-      throttle(state,controls,elapsed,true,true,state.gear_down);
+      throttle(state,controls,elapsed,true,arcade,gear_drag);
       calculation const movement{static_cast<calculation>(state.speed_mach) * sound_speed * (1.0f / speed_metres_per_native_tick)};
       state.movement_per_tick = static_cast<float>(movement);
       state.fixed_speed = integer(movement * fixed_speed_scale);
@@ -278,6 +278,10 @@ void advance_disabled(arcade_state &state, flight_controls const &controls, simu
   state.angles = state.orientation.angles();
   // The outer 0x8f56c callback repeats this supplied contact check after motion.
   if((state.landed && state.orientation.down.y < 0) || (ground.present && state.position.y > ground.height)) { state.position.y = ground.height; state.collision = 2; }
+}
+
+void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground) {
+  update_basic_disabled(state,controls,elapsed,ground,true,state.gear_down);
 }
 
 void advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const time_warp) {

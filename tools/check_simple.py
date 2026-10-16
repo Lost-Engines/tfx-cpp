@@ -16,19 +16,21 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--record',type=Path)
+parser.add_argument('--disabled',action='store_true',help='switch to the original disabled-player callback after 64 ordinary frames')
 a=parser.parse_args();data=a.research/'installs/cd_1994_09/TFX'
 names=[]
 names += ['position_'+axis for axis in 'xyz']+['integer_'+axis for axis in 'xyz']
-names += [basis+str(i) for basis in ('body','visible') for i in range(9)]
+names += [basis+str(i) for basis in ('body','visible','renderer') for i in range(9)]
 names += ['remainder_'+axis for axis in 'xyz']
 names += ['mach','throttle','minimum_mach','maximum_mach','target_mach','metres_per_second','altitude','movement','unrounded_mach','fixed_speed']
 names += ['landed','low_speed_ground','recovering','gear_down','brake_chute','chute_cutaway','arrestor_hook','arrested','left_engine','right_engine','collision','gear_condition','afterburner','fuel_readout','normalisation_counter','fuel','fuel_flow']
-names += ['pitch','heading','roll','pitch_rate','heading_rate','roll_rate','negative_pitch_limit','positive_pitch_limit','roll_limit','turn_response','turn_rate','turn_speed','g_load','bank_correction','stall_pitch','landing_pitch','landing_roll','previous_landed','indicated_speed','low_speed_reference','geometric_altitude','gear_descent_speed','reported_speed']
+names += ['pitch','heading','roll','pitch_rate','heading_rate','roll_rate','negative_pitch_limit','positive_pitch_limit','roll_limit','turn_response','turn_rate','turn_speed','g_load','simple_g_load','bank_correction','stall_pitch','landing_pitch','landing_roll','previous_landed','indicated_speed','low_speed_reference','geometric_altitude','gear_descent_speed','reported_speed']
 
 def words(im):
     result=[im.read(p,'<I')[0] for p in (0x1341c,0x13428,0x13434)]
     result += [im.read(p,'<i')[0]&0xffffffff for p in (0x13424,0x13430,0x1343c)]
     result += [v&0xffffffff for p in (0x1345e,0x1344c) for v in im.read(p,'<9h')]
+    result += [v&0xffffffff for v in struct.unpack('<9h',im.cpu.mem_read(im.native(0x70aa4+0x47c38),18))]
     result += list(im.read(0x13480,'<3I'))
     result += [im.read(p,'<I')[0] for p in (0x86f4,0x133f8,0x133bc,0x133b8,0x133cc,0x133e8,0x133d8,0x133c0)]
     result += [im.read(0x14778,'<Q')[0],im.read(0x13444,'<i')[0]&0xffffffff]
@@ -39,7 +41,7 @@ def words(im):
     result += [im.read(0x12c04,'<h')[0]&0xffffffff,im.read(0x7d7a,'<B')[0],im.read(0x1496d,'<B')[0],im.read(0x6c3c,'<h')[0]&0xffffffff,im.read(0x86fa,'<H')[0]]
     result += [im.read(p,'<Q')[0] for p in (0x14858,0x14308)]
     result += list(im.read(0x86c8,'<3H'))
-    result += [im.read(p,'<I')[0] for p in (0x86dc,0x86e0,0x86e4,0x133d0,0x133d4,0x133a4,0x133a0,0x133c8,0x1339c,0x133f4)]
+    result += [im.read(p,'<I')[0] for p in (0x86dc,0x86e0,0x86e4,0x133d0,0x133d4,0x133a4,0x133a0,0x133c8,0x1339c,0x133f4,0x133c4)]
     result += [im.read(p,'<h')[0]&0xffffffff for p in (0x878e,0x8790,0x8792,0x8794)]
     result += [int(im.read(0x86b4,'<H')[0]!=0)]
     result += [im.read(p,'<Q')[0] for p in (0x14418,0x14290)]
@@ -67,7 +69,8 @@ for craft in (1,2,3):
             controls=[[4,0,0,0,0,int(bool(engines) and frame in (180,240,300)),0,0,1,0,-1,engines if frame==0 else -1] for frame in range(768)]
             cases.append((header,controls))
 payload='\n'.join(' '.join(str(int(v)) if isinstance(v,bool) else str(v) for v in row) for header,controls in cases for row in (header,*controls))+'\n'
-output=subprocess.check_output([str((a.build/'simple_probe').resolve())],input=payload.encode()).decode().splitlines();assert len(output)==sum(len(c) for h,c in cases)
+command=[str((a.build/'simple_probe').resolve())]+(['--disabled'] if a.disabled else [])
+output=subprocess.check_output(command,input=payload.encode()).decode().splitlines();assert len(output)==sum(len(c) for h,c in cases)
 cursor=0;fixtures=[]
 for case,(header,controls) in enumerate(cases):
     craft,frames,x,y,z,pitch,heading,roll,speed,source,landed,present,height,rudder,entry=header
@@ -97,6 +100,7 @@ for case,(header,controls) in enumerate(cases):
     previous_buttons=0;digest=14695981039346656037;fixtures.append(' '.join(str(int(v)) if isinstance(v,bool) else str(v) for v in header))
     for frame,row in enumerate(controls):
         ticks,joyx,joyy,up,left,down,right,buttons,accelerate,decelerate,gear,engines=row
+        if a.disabled:im.write(0x86ce,'<B',int(frame>=64))
         im.write(0x13476,'<H',ticks);im.write(0xac60,'<2h',joyx,joyy);im.write(0x5968,'<H',buttons);im.write(0x596a,'<H',previous_buttons)
         for p,v in zip((0x13256,0x13258,0x1325c,0x1325e,0x1325a,0x13260),(up,left,down,right,accelerate,decelerate)):im.write(p,'<H',v)
         if gear>=0:im.write(0x146d8,'<d',float(gear));im.write(0x7d7a,'<B',1 if gear else 2)
