@@ -23,10 +23,13 @@ This is still an integration build. Complete sensor displays and crash/result ar
 RelWithDebInfo retains the developer scene inspector and headless captures:
 
 ```sh
+./build/tfx --data-dir /path/to/TFX --presentation cdintro
 ./build/tfx --data-dir /path/to/TFX --inspect
 ./build/tfx --data-dir /path/to/TFX --cell=136,114
 ./build/tfx --data-dir /path/to/TFX --flight-steps=100 --screenshot=/tmp/tfx.ppm
 ```
+
+The presentation player runs original images, delta animations, captions and palette fades; Space finishes a caption or advances a scene, Escape skips the sequence, and Shift+Q exits. Other presentation graphs include `cdcolint`, `cdsomint`, `cdfwsint`, `cdyugint` and `cdyugmid`; `--language` selects briefing text. Audio remains deferred.
 
 In the inspector, WASD moves, R/F rises/descends, arrows or right-drag look around and Shift moves faster. Release builds omit the developer options. No CI or automatic release process is configured.
 

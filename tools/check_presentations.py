@@ -34,7 +34,7 @@ for program in programs:
         for node in function['nodes']:
             kind=node['type'];raw=bytes.fromhex(node['payload_hex']);word(node['offset'],kind)
             if kind in (0,1,2):
-                string(node.get('resource',''));word(node.get('fade_in',0),node.get('fade_out',0),node.get('frame_delay_bios_ticks',0),node['wait_ticks'],int(node.get('play_until_end',False)),int('text' in node))
+                string(node.get('resource',''));word(node.get('fade_in',0),node.get('fade_out',0),node.get('frame_delay_bios_ticks',0),node['wait_ticks'],int(node.get('play_until_end',False)),int(kind==2 and raw[2]==1),int('text' in node))
                 if 'text' in node:
                     layout=node['text']['native_layout'];word(layout['x'],layout['y'],layout['alignment'],layout['shadow'],layout['reveal'],layout['font'],layout['colour']);string(node['text']['text'])
             elif kind==3:word(raw[0]!=0,struct.unpack_from('<I',raw,1)[0],raw[5],struct.unpack_from('<I',raw,6)[0],raw[10]==1,raw[11],raw[12])

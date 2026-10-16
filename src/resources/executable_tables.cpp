@@ -1,5 +1,6 @@
 #include "executable_tables.h"
 #include <stdexcept>
+#include <algorithm>
 
 namespace tfx::resources {
 
@@ -16,6 +17,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   auto const limit{view.le16(circle_limit_field)};
   circles.resize(limit);
   unsigned int constexpr data_file{973476}, mapping{data_file + 0x7a44}, advances{data_file + 0x7a84}, glyph_file{0xf5350};
+  std::ranges::copy(view.slice(data_file + 0xd55c,text_palette.size()),text_palette.begin());
   for(unsigned int index{0}; index != 512; ++index) {
     auto const character{view.byte(data_file + 0xa8 + index)};
     if(!character) break;

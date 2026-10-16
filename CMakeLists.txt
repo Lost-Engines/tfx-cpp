@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/session.cpp
+  src/presentation/session.h
+  src/presentation/player.cpp
+  src/presentation/player.h
   src/presentation/timing.cpp
   src/presentation/timing.h
   src/presentation/text.cpp
@@ -112,6 +116,8 @@ configure_first_party(tfx_core)
 
 add_executable(tfx
   src/main.cpp
+  src/platform/presentations.cpp
+  src/platform/presentations.h
   src/platform/window.cpp
   src/platform/window.h
 )
@@ -119,6 +125,15 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(player_tests tests/player_test.cpp)
+  target_link_libraries(player_tests PRIVATE tfx_core)
+  configure_first_party(player_tests)
+  add_test(NAME presentation.scene_phases_and_caption_input COMMAND player_tests)
+
+  add_executable(player_probe tests/player_probe.cpp)
+  target_link_libraries(player_probe PRIVATE tfx_core)
+  configure_first_party(player_probe)
+
   add_executable(presentation_timing_probe tests/presentation_timing_probe.cpp)
   target_link_libraries(presentation_timing_probe PRIVATE tfx_core)
   configure_first_party(presentation_timing_probe)

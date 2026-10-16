@@ -26,6 +26,7 @@
 #include "missions/timeline.h"
 #include "missions/progress.h"
 #include "platform/window.h"
+#include "platform/presentations.h"
 #include "render/camera.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
@@ -57,6 +58,7 @@ auto main(int const argc, char const *const argv[])->int try {
   std::string mission_name{"miss501"}, override_environment, override_grid;
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0};
   bool inspect{false};
+  std::string presentation, presentation_function, language{"english"};
   std::optional<vec2<unsigned int>> override_cell;
   std::optional<std::filesystem::path> screenshot;
   for(int i{1}; i != argc; ++i) {
@@ -73,6 +75,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "Usage: tfx --data-dir DIRECTORY [--mission 501] [--scale N]\n"
                    "  --data-dir DIRECTORY  Original TFX 2.05 installation (DID.DAT and TFX.DAT)\n"
                    "  --mission N           Select a mission (default 501, first FWS engagement)\n"
+                   "  --language NAME       english, french, german, spanish or italian\n"
                    "  --scale N             Window scale; 0 selects the largest fitting scale (default)\n"
                    "\nArcade flight: mouse or arrows steer; hold left/right mouse or =/- for thrust.\n"
                    "[ and ] toggle engines; G gear; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
@@ -82,6 +85,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "This is a flight integration build; combat, campaign flow and audio are still in progress.\n";
 #ifndef NDEBUG
       std::cout << "\nDeveloper options:\n"
+                   "  --presentation NAME[:FUNCTION]  Play an original presentation graph\n"
                    "  --inspect             Free scene camera: WASD, R/F, arrows/right-drag, Shift\n"
                    "  --flight-steps N      Advance N four-tick flight steps before initial capture\n"
                    "  --environment NAME    Override mission lighting/weather\n"
@@ -94,6 +98,11 @@ auto main(int const argc, char const *const argv[])->int try {
       return EXIT_SUCCESS;
     }
     if(key == "--data-dir") data_directory = value();
+    else if(key == "--language") {
+      language = value();
+      std::array<std::string_view,5> constexpr languages{"english","french","german","spanish","italian"};
+      if(std::ranges::find(languages,language) == languages.end()) throw std::runtime_error{"unknown TFX language: " + language};
+    }
     else if(key == "--mission") {
       auto const selected{value()};
       mission_name = "miss" + std::to_string(number(selected));
@@ -102,6 +111,12 @@ auto main(int const argc, char const *const argv[])->int try {
       if(scale > 16) throw std::runtime_error{"window scale must be between 0 (automatic) and 16"};
     }
 #ifndef NDEBUG
+    else if(key == "--presentation") {
+      auto const selection{value()};
+      auto const colon{selection.find(':')};
+      presentation = selection.substr(0,colon);
+      if(colon != std::string_view::npos) presentation_function = selection.substr(colon + 1);
+    }
     else if(key == "--inspect") inspect = true;
     else if(key == "--flight-steps") flight_steps = number(value());
     else if(key == "--environment") override_environment = value();
@@ -124,6 +139,10 @@ auto main(int const argc, char const *const argv[])->int try {
   auto const archive_path{tfx::resources::find_game_archive(data_directory)};
   tfx::resources::archive const game{archive_path};
   tfx::resources::executable_tables const tables{archive_path.parent_path() / "TFX.DAT"};
+  if(!presentation.empty()) {
+    tfx::platform::play_presentation(game,tables,presentation,presentation_function,language,scale,frame_limit,screenshot);
+    return EXIT_SUCCESS;
+  }
   tfx::world::mission const selected{game,mission_name};
   auto const mission_setup{tfx::missions::initialise(selected.script)};
   tfx::world::environment const environment{game,override_grid.empty() ? selected.grid_name() : override_grid,override_environment.empty() ? mission_setup.environment : override_environment};

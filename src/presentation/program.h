@@ -33,6 +33,7 @@ struct clip {
   uint16_t frame_delay{0};
   int16_t wait_ticks{0};
   bool play_until_end{false};
+  bool default_text_palette{false};
   std::optional<text_block> text{};
 };
 struct branch {
