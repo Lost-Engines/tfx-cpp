@@ -232,10 +232,10 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
         switch(plane) {
         case 0: return v.z - view.near_distance;
         case 1: return view.far_distance - v.z;
-        case 2: return v.x + centre_x / focal_length * v.z;
-        case 3: return -v.x + centre_x / focal_length * v.z;
-        case 4: return v.y + centre_y / focal_length * v.z;
-        default: return -v.y + centre_y / focal_length * v.z;
+        case 2: return v.x + view.projection_origin.x / focal_length * v.z;
+        case 3: return -v.x + (screen_width - view.projection_origin.x) / focal_length * v.z;
+        case 4: return v.y + view.projection_origin.y / focal_length * v.z;
+        default: return -v.y + (screen_height - view.projection_origin.y) / focal_length * v.z;
         }
       }};
       double const da{distance(a.position)}, db{distance(b.position)};
@@ -252,10 +252,10 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
       switch(plane) {
       case 0: return v.z - view.near_distance;
       case 1: return view.far_distance - v.z;
-      case 2: return v.x + centre_x / focal_length * v.z;
-      case 3: return -v.x + centre_x / focal_length * v.z;
-      case 4: return v.y + centre_y / focal_length * v.z;
-      default: return -v.y + centre_y / focal_length * v.z;
+      case 2: return v.x + view.projection_origin.x / focal_length * v.z;
+      case 3: return -v.x + (screen_width - view.projection_origin.x) / focal_length * v.z;
+      case 4: return v.y + view.projection_origin.y / focal_length * v.z;
+      default: return -v.y + (screen_height - view.projection_origin.y) / focal_length * v.z;
       }
     }};
     if(clipped.empty()) return;

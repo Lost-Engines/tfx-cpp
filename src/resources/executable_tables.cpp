@@ -11,9 +11,11 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   for(auto const byte : source) checksum = (checksum ^ byte) * 1099511628211ull;
   if(source.size() != 1032503 || checksum != 0xcc1e305ba7e177f0ull) throw std::runtime_error{"this reconstruction currently requires the September 1994 TFX 2.05 executable (TFX.DAT)"};
   weapons = weapons::load_definitions(source);
+  airframes = flight::load_airframes(source);
   pointers = presentation::load_pointers(source);
   pilot_assets = std::make_unique<presentation::pilot_assets>(source);
   score_data = std::make_unique<presentation::score_assets>(source);
+  arming_data = std::make_unique<presentation::arming_assets>(source);
   widget_font_data = std::make_unique<presentation::widget_font>(source);
   planner_art_data = std::make_unique<planner_artwork>(source);
   font_data = std::make_unique<presentation::fonts>(source);
@@ -81,6 +83,9 @@ planner_artwork const &executable_tables::planner_art() const {
 }
 presentation::score_assets const &executable_tables::scores() const {
   return *score_data;
+}
+presentation::arming_assets const &executable_tables::arming_art() const {
+  return *arming_data;
 }
 presentation::pilot_assets const &executable_tables::pilots() const {
   return *pilot_assets;

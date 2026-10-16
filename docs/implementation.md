@@ -604,4 +604,23 @@ Both new comparisons and all 42 CTests pass in development, Release and ASan/UBS
 python3 tools/check_attachments.py --build build --research ../tfx-reverse
 ```
 
-Twenty original-handler executions verify present/absent handles, anchor installation, child condition and parent restoration. A separate comparison covers **726 complete preview loadouts**: all 22 selectable stores, each of ten mounts and all mounts together, on each of the three player aircraft. Every primitive and vertex agrees with the independent inspection interpreter. This latter comparison does not establish complete native camera projection or raster equivalence. Asset-free tests also exercise shared vertex storage, absolute child scale, absent stores and recursive malformed programs.
+Twenty original-handler executions verify present/absent handles, anchor installation, child condition and parent restoration. A separate comparison covers **1,452 complete preview loadouts**: all 22 selectable stores, each of ten mounts and all mounts together, on each of the three player aircraft and their three dedicated arming models. Every primitive and vertex agrees with the independent inspection interpreter. This latter comparison does not establish complete native camera projection or raster equivalence. Asset-free tests also exercise shared vertex storage, absolute child scale, absent stores and recursive malformed programs.
+
+### Original arming controls, readouts and preview camera
+
+```sh
+python3 tools/check_airframes.py
+python3 tools/check_arming_controls.py
+python3 tools/check_arming_screen.py
+python3 tools/check_orbit_camera.py
+```
+
+The external executable supplies arming labels, hit rectangles, aircraft preview names, slot pairs and label positions. Aircraft store mounts and fuel capacity are decoded from literal assignments in the original compiled initializers. The Eurofighter and F-117 base moments retain their original square-root and ordered multiplication calculations; all **99 double fields agree bit for bit** with the three native initializers.
+
+The controller owns its temporary mount markers separately from actual inventory. Markers participate in the original F-117/F-22 exclusion rules while compatible slots are marked sequentially. Placing and clearing affect the paired slot too. Escape selects the mission's defaults only if the native model table is empty, including its temporary markers; placeholders are then removed on exit. Right mouse cancels placement. The original strict rectangle edges, pointer adjustment and last-match precedence are retained. **3,072 native placement/clearing/exit sequences and 7,241 native hit tests agree.** Input-release waits and 3D picking are explicitly outside these controlled calls.
+
+**192 complete arming widget frames agree pixel for pixel**, covering all aircraft, all selectable stores, scrolling positions, empty and mixed loads, mass, drag and inertia. The original drag display uses the preceding frame's accumulator. Watcom silently drops a malformed trailing percent sign in its format string; this omission is preserved. The comparison supplies original background artwork at the image-driver boundary and excludes 3D preview drawing; original formatting, font painting, outlines and arithmetic execute.
+
+The arming screen uses `efa_glob`, `f17_glob` and `f22_glob`, which have dedicated mount-selection collision boxes. Original startup issues event 5 after the fade-in; the latter two definitions use it to open their weapon bays. The preview camera uses native `0xdabd8`, whose shift/negation order differs from the ordinary component matrix. Native `0xb9b7a` also orbits with a one-table-step phase offset at zero. **4,121 complete view matrices and signed Q16 camera positions agree exactly.** Custom projection origins leave the existing flight projection's operation order unchanged.
+
+The aircraft, control, widget and camera comparisons, plus all 43 CTests, pass in development, Release and ASan/UBSan. These are subsystem comparisons; the assembled 3D screen and its live flight handoff remain in progress.
