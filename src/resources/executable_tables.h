@@ -6,6 +6,7 @@
 #include <vector>
 #include "resources/binary.h"
 #include "actors/program.h"
+#include "actors/air_motion.h"
 
 namespace tfx::resources {
 
@@ -22,6 +23,7 @@ private:
 
 public:
   std::array<actors::formation_offset,actors::aircraft_per_group> formations;
+  std::array<uint8_t,actors::envelope_bytes> aircraft_envelopes;
   executable_tables(std::filesystem::path const &path);
   std::span<uint8_t const> circle(unsigned int radius) const;
   hud_glyph const *glyph(unsigned char character) const;

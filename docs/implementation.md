@@ -203,3 +203,14 @@ python3 tools/check_timeline.py --data-dir /path/to/TFX
 ```
 
 The original `0x71b40` and `0x70e44` agree across **4,096 frame boundaries**, including equality, unsorted event times, zero steps, signed-looking authored times and unsigned wrapping. Message display, SSD dispatch and player SSD refresh are declared capture boundaries; full SSD entry execution is verified separately above. The compact original-result fixture also runs in CTest without game files.
+
+
+## Airborne controller arithmetic
+
+`actors/air_motion` supplies typed aircraft performance, pitch/turn/speed commands, altitude capture, controller-step shortening and bank-coupled Q8 motion. It preserves wrapped angle/product arithmetic and emits typed afterburner SSD events on display-state edges. Other flight models can use the original six-class turn-envelope data read from the external executable; Arcade retains its profile/speed rule.
+
+```sh
+python3 tools/check_air_motion.py --research ../tfx-reverse
+```
+
+**9,216 native cases across all 29 aircraft profiles**, plus **576 test-authored cases**, agree for the native controller primitives, envelope selection and motion step. CTest replays the latter without original assets. The afterburner event callback is a declared capture boundary. These checks establish the numerical controller foundation; airborne waypoint, formation and combat dispatch are still being joined, and aircraft in the live scene do not yet execute that dispatcher.

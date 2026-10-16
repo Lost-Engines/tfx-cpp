@@ -14,6 +14,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   auto const limit{view.le16(circle_limit_field)};
   circles.resize(limit);
   unsigned int constexpr data_file{973476}, mapping{data_file + 0x7a44}, advances{data_file + 0x7a84}, glyph_file{0xf5350};
+  for(unsigned int i{0}; i != aircraft_envelopes.size(); ++i) aircraft_envelopes[i] = view.byte(data_file + 0x93b4 + i);
   for(unsigned int i{0}; i != formations.size(); ++i) {
     auto const at{data_file + 0x5984 + i * 14};
     formations[i] = {
