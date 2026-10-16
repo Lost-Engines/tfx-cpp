@@ -1135,3 +1135,15 @@ A private-window check sends real Escape keys and observes the pilot controller 
 
     python3 tools/check_recovery.py
     python3 tools/check_window_ejection.py --data-dir /path/to/TFX
+
+The live ejection change also passes all 51 tests in Release and ASan/UBSan, the private-window ejection sequence under sanitizers, the ordinary campaign restore/arming/loss/FINISH/presentation return, and all 128 retail missions with 1,024 simulation steps plus rendering each.
+
+### Simple flight-model control response
+
+The Simple model has a separate G-limited response stage at native 0x8cfa0. It retains pitch/heading/roll rates and derived positive/negative pitch and roll limits. Aircraft G limits, stall speed, the prior coordinated-turn contribution, attitude and input-device capability are explicit inputs. Keyboard decay and competing-key priority, joystick threshold flags, direct-rudder steering and low-speed ground rules remain distinct branches. The low-speed formula uses a literal nine-G coefficient even for the F-117's six-G preset; that native quirk is preserved.
+
+The full original routine, its joystick-direction helper, x87 normalisation and power routine agree across 8,192 exact float-bit/rate/limit/key updates. Coverage includes all input modes, the 150 m/s boundary, signed-zero joystick arithmetic, ground handling, key priority and wrapped maximum elapsed ticks. There are 123 compact original captures in the asset-free test suite. Development, Release and ASan/UBSan comparisons and all 52 CTests pass.
+
+    python3 tools/check_simple_controls.py
+
+This is a verified response stage, not yet a live selectable Simple model. Bank-turn, ground handling, movement and the outer flight-model dispatch remain integration consumers.

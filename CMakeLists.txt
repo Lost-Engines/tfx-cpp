@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/simple_controls.cpp
+  src/flight/simple_controls.h
   src/missions/recovery.cpp
   src/missions/recovery.h
   src/flight/ejection_sequence.cpp
@@ -401,6 +403,11 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(simple_controls_probe tests/simple_controls_probe.cpp)
+  target_link_libraries(simple_controls_probe PRIVATE tfx_core)
+  configure_first_party(simple_controls_probe)
+  add_test(NAME flight.native_simple_control_response COMMAND simple_controls_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/simple_controls.txt")
 
   add_executable(recovery_probe tests/recovery_probe.cpp)
   target_link_libraries(recovery_probe PRIVATE tfx_core)
