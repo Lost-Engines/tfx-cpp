@@ -1386,3 +1386,13 @@ Native wind initialization and complete 0x996c0 now retain surface-speed smoothi
 All 512 complete original initialization cases and 8,192 complete original wind updates agree, including 5,805 gust renewals and every random-state/output-float bit. The selected weather is supplied just before the original initialization block, allowing all five table entries to be checked even though retail initialization normally selects zero. Original instructions and random generation execute; FPATAN/FSIN/FCOS/FPTAN use the hardware adapter. There are 130 compact captures.
 
     python3 tools/check_aerodynamic_wind.py
+
+### Assembled fresh advanced-flight initialization
+
+The numerical owners now compose into one flight state, initialized through the decoded aircraft profile, original-ordered wind/store/physical setup and pitch calibration. It retains the preset's initial lift/drag/elevator coefficients, initial air/body velocity distinction, selected temperature, mode, gear/chute/hook state, carrier setup timing, engine state and ordered random consumption. Cockpit/device/campaign setup remains caller-owned. This is fresh initialization; it does not yet claim warm mission-to-mission retention of every native global.
+
+The full original 0x95f3c executes in 768 controlled scene/cockpit setups. All 260 observed fields agree exactly across three aircraft, both advanced model settings, gear, mounted stores, temperature, cold/ground/carrier starts and random seeds. Only the explicit hardware transcendental adapters replace emulator arithmetic. Reference diagnostics group fields by C++ owner and identify the native offset of a difference. The decoded preset check also covers atmosphere/control constants and the preset's starting coefficient values.
+
+    python3 tools/check_aerodynamic_initialisation.py
+
+The assembled state is not yet a selectable live flight model: connected multi-tick callback comparison, advanced autopilot/recovery and live host bindings remain required.

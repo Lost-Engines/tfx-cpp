@@ -222,6 +222,11 @@ std::array<aerodynamic_airframe,3> load_aerodynamic_airframes(std::span<uint8_t 
       .roll_damping_gradient{literals.number(0x14168)},
       .aileron_gradient{literals.number(0x140b0)},
     };
+    profile.starting_coefficients = {
+      .zero_lift_drag{aircraft == 0 ? literals.number(0x14160) : 0},
+      .lift_slope{literals.number(0x14420)},
+      .elevator_lift{aircraft == 1 ? literals.number(0x141d0) : 0},
+    };
     auto const craft{static_cast<player_aircraft>(aircraft + 1)};
     profile.powerplant = {
       .aircraft{craft},
@@ -275,6 +280,14 @@ std::array<aerodynamic_airframe,3> load_aerodynamic_airframes(std::span<uint8_t 
     profile.low_speed_reference = literals.number(0x14548);
     profile.cruise_mach = literals.number(0x14698);
     preset_literals const carrier{source,0x968d4,0x96918};
+    preset_literals const atmosphere{source,0x95d44,0x95dc8};
+    profile.atmosphere = {
+      .sea_level_density{atmosphere.number(0x141e8)},
+      .temperature_lapse_per_metre{atmosphere.number(0x14210)},
+      .temperature_lapse_limit_metres{atmosphere.number(0x14260)},
+    };
+    profile.rudder_effectiveness = literals.number(0x140c8);
+    profile.maximum_autopilot_speed = literals.number(0x13d28);
     profile.carrier_setup = {
       .maximum_sink_speed{carrier.number(0x14568)},
       .wing_area{carrier.number(0x147a0)},

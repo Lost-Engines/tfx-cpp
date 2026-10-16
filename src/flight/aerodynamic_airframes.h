@@ -6,6 +6,7 @@
 #include "flight/aerodynamic_surfaces.h"
 #include "flight/aerodynamic_pose.h"
 #include "flight/aerodynamic_ground.h"
+#include "flight/atmosphere.h"
 
 namespace tfx::flight {
 
@@ -17,11 +18,15 @@ struct aerodynamic_carrier_setup {
 struct aerodynamic_airframe {
   airframe stores_and_mounts{};
   aerodynamic_coefficient_parameters coefficient_base{};
+  aerodynamic_coefficients starting_coefficients{};
   aerodynamic_powerplant_parameters powerplant{};
   aerodynamic_surface_parameters surfaces{};
   aerodynamic_viewpoint viewpoint{};
   aerodynamic_ground_parameters ground{};
   aerodynamic_carrier_setup carrier_setup{};
+  atmosphere_parameters atmosphere{};
+  double rudder_effectiveness{0};
+  double maximum_autopilot_speed{0};
   double empty_mass_kg{0};
   double maximum_g{0};
   double minimum_g{0};

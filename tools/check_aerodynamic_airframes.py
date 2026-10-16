@@ -37,6 +37,8 @@ for craft in range(3):
     wanted += [im.read(field,'<Q')[0] for field in (0x14550,0x13d40,0x13d98)]
     im.call(0x968d4)
     wanted += [im.read(field,'<Q')[0] for field in (0x14568,0x147a0,0x14430,0x14568,0x147a0,0x147a0,0x14430)]
+    wanted += [im.read(field,'<Q')[0] for field in (0x140c8,0x13d28,0x141e8,0x14210,0x14260)]
+    wanted += [im.read(field,'<Q')[0] for field in (0x14160,0x14420,0x141d0)]
     observed=list(map(int,actual[craft].split()));assert observed==wanted,(craft,[(i,x,y) for i,(x,y) in enumerate(zip(observed,wanted)) if x!=y],len(observed),len(wanted))
     for case in range(128):
         previous=0 if case==0 else rng.uniform(-.1,.1)
