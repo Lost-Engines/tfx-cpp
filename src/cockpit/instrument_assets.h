@@ -22,6 +22,11 @@ struct instrument_assets {
   std::string stealth_label;
   std::array<std::string,2> decoy_formats;
   std::string display_bank;
+  std::array<std::string,2> warning_banks;
+  std::array<uint8_t,15> condition_frames;
+  std::array<std::string,3> auxiliary_banks;
+  std::array<uint8_t,2> engine_lamp_cache;
+  std::array<vec2<int16_t>,4> ammunition_pips;
   std::array<vec2<int16_t>,3> display_origins;
   std::array<resources::monochrome_image,static_cast<unsigned int>(instrument_mask::count)> masks;
   std::array<std::array<uint8_t,10>,3> store_order;

@@ -690,3 +690,16 @@ python3 tools/check_overlays.py
 The bitmap compiler's restricted literal pixel/plane streams now decode into indexed artwork records. Canopy column-entry tables become bounded data with their original horizontal-byte and vertical-row offsets. The fixed missile/map overlays retain their fixed placement, even when offset arguments are supplied. Explicit black writes retain coverage separately from untouched pixels. No original x86 code executes in the game.
 
 **68 complete native pixel/coverage frames agree** across `infcock.hud`, `cockpit.bin`, its `a.bin` alias, `misshud.hud` and `cockmap.bin`, including extreme legal horizontal pans and vertical shifts. Asset-free tests cover every truncated prefix, unsupported tokens, invalid plane masks, out-of-screen addresses, unused bytes and fixed-overlay argument handling. The native captures and all 44 CTests pass in development, Release and ASan/UBSan. Viewport selection, the companion lower-panel upload and flight composition remain separate integration work; decoding retained artwork does not establish that every resource is selected in retail flight.
+
+### Warning and auxiliary indicators
+
+```sh
+python3 tools/check_warnings.py
+python3 tools/check_auxiliary.py
+```
+
+The warning-lamp painter retains the original gear, wheel-brake, hook, autopilot, warning/caution, fire, lock/launch, stall and threat sprite selection. It consumes typed system conditions and explicit display flags. Its four-draw phase and threat-sound latch belong to the painter's persistent state. Clearing the threat does not reset that original one-shot sound latch. Original lamp artwork and code consumers establish these meanings; nearby flags are not assumed to describe afterburner or ground contact.
+
+**1,024 complete native pixel/coverage/phase/sound frames agree**, including every system's failure/intermittent warning and tracked-weapon category branches. Another **512 complete native pixel/coverage/refresh-state frames agree** for engine lamps, approach cues, ground indicators and ammunition markers. The engine-cache bytes are read but not rewritten by this native region. Ammunition pips are paired 2×2 points, rather than line segments; their original linear VGA edge wrapping is preserved. The approach-cue ordinal remains explicit until its selecting flight logic is ported.
+
+These comparisons, the existing MFD/readout comparisons, and all 44 CTests pass in development, Release and ASan/UBSan. Sound requests are compared as events; the mixer and complete HUD composition remain in progress.
