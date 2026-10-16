@@ -5,10 +5,10 @@
 namespace tfx::weapons {
 
 std::optional<release> fire_cannon(cannon_state &state, cannon_context const &context, std::span<vec3<int16_t> const> const mounts, math::random_state &random) {
-  // Native keyboard path 0x86898: the F-117 has no cannon. A failed fire-control system still advances the gameplay generator.
+  // Native keyboard path 0x86898: the F-117 has no cannon. This branch tests the flap and communications slots, not the HUD gun slot.
   if(!context.trigger || !context.gun_mode || context.aircraft == flight::player_aircraft::nighthawk) return {};
-  if(!context.fire_control) { random.next(); return {}; }
-  if(!context.gun || context.inhibited || context.protected_player || context.crashed || context.ejected || context.landed || state.ammunition <= 0) return {};
+  if(!context.flaps_available) { random.next(); return {}; }
+  if(!context.communications_available || context.inhibited || context.protected_player || context.crashed || context.ejected || context.landed || state.ammunition <= 0) return {};
   if(mounts.size() != 2 || state.barrel >= mounts.size()) throw std::runtime_error{"invalid alternating cannon mount state"};
   // Native 0xa2fdc consumes ten rounds per visible projectile, even when fewer than ten remain.
   state.ammunition = math::signed_word(static_cast<uint16_t>(state.ammunition - ammunition_per_release));

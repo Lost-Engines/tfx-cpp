@@ -43,6 +43,7 @@ def main():
             row=[plane,flags,ammo,barrel,*position,*angles,speed];rows.append(row)
             image.cpu.mem_write(0x300039,bytes([int(bool(flags&1))]));image.write(0x7140,'<B',int(not(flags&2)))
             image.write(0x11b2a,'<H',plane);image.write(0x16e9a,'<h',ammo);image.write(0x16e96,'<H',barrel)
+            # These first two availability checks really read FLP and COM, respectively.
             for address,bit,fmt in ((0x7d71,4,'<B'),(0x7d70,8,'<B'),(0x13b04,16,'<B'),(0xabe9,32,'<B'),(0x12c04,64,'<H'),(0x86ce,128,'<B'),(0x8d3a,256,'<H')):image.write(address,fmt,int(bool(flags&bit)))
             for address,value in zip((0x13424,0x13430,0x1343c),position):image.write(address,'<i',value)
             image.write(0x86c8,'<3H',*angles);image.write(0x13444,'<i',speed)
@@ -63,7 +64,7 @@ def main():
     if args.save_fixture:
         args.save_fixture.write_text(''.join(fixtures))
         subprocess.run([str(args.build/'cannon_probe'),'--check',str(args.save_fixture)],check=True)
-    print(total,'native keyboard fire-control states verified')
+    print(total,'native keyboard cannon states verified')
 
 
 if __name__=='__main__':main()

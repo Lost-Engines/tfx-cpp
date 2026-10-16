@@ -17,8 +17,8 @@ struct cannon_context {
   int32_t speed;
   bool trigger{false};
   bool gun_mode{true};
-  bool fire_control{true};
-  bool gun{true};
+  bool flaps_available{true};
+  bool communications_available{true};
   bool inhibited{false};
   bool protected_player{false};
   bool crashed{false};

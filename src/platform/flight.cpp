@@ -519,6 +519,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::left_engine)] = player.left_engine ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
     player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::right_engine)] = player.right_engine ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
     // Native 0x86898 fires the held Space key after its player-physics callback, before other actors update.
+    // Original nonzero checks read FLP and COM slots, despite their unrelated display names.
     if(auto const shot{tfx::weapons::fire_cannon(cannon,{
       .aircraft{player.aircraft},
       .position{vec3<int32_t>{player.integer_position}},
@@ -526,8 +527,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .speed{player.fixed_speed},
       .trigger{fire},
       .gun_mode{armament.guns},
-      .fire_control{player_damage.condition(tfx::flight::aircraft_system::fire_control) != tfx::flight::system_condition::unavailable},
-      .gun{player_damage.condition(tfx::flight::aircraft_system::gun) != tfx::flight::system_condition::unavailable},
+      .flaps_available{player_damage.condition(tfx::flight::aircraft_system::flaps) != tfx::flight::system_condition::unavailable},
+      .communications_available{player_damage.condition(tfx::flight::aircraft_system::communications) != tfx::flight::system_condition::unavailable},
       .crashed{player.collision != 0},
       .ejected{player_disabled},
       .landed{player.landed},

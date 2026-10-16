@@ -66,7 +66,7 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
     int const width{math::signed_word(static_cast<uint16_t>(renderer.text_width(message)))};
     text({29 - (width >> 1),row},message,colour);
   }};
-  auto const status{[&](unsigned int const index) { return std::to_underlying(state.systems.at(index)); }};
+  auto const status{[&](flight::aircraft_system const system) { return std::to_underlying(state.systems.at(std::to_underlying(system))); }};
   auto const fill{[&](vec2<int> const &low, vec2<int> const &high, uint8_t const colour) {
     rectangle(renderer.output,point(low),point(high),colour,coverage);
   }};
@@ -105,7 +105,7 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
     text({24,2},formatted(assets.flight_formats[0],static_cast<double>(static_cast<long double>(state.speed) * assets.speed_scale)),3);
     text({24,9},formatted(assets.flight_formats[0],static_cast<double>(-static_cast<long double>(state.height) * assets.altitude_scale)),1);
     text({24,16},formatted(assets.flight_formats[1],static_cast<unsigned int>(state.heading / 182)),1);
-    text({24,23},formatted(assets.flight_formats[0],state.fuel),status(8));
+    text({24,23},formatted(assets.flight_formats[0],state.fuel),status(flight::aircraft_system::fuel));
     if(state.smoothed_fuel_burn) {
       auto const product{std::bit_cast<int32_t>(static_cast<uint32_t>(state.speed) * static_cast<uint32_t>(static_cast<int32_t>(state.fuel_gauge)))};
       long const range{static_cast<int64_t>(product) / state.smoothed_fuel_burn / 1000};
@@ -133,13 +133,13 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
       }
       remaining -= cell_capacity;
     }
-    centred(30,formatted(assets.fuel_total_format,state.fuel),status(8));
+    centred(30,formatted(assets.fuel_total_format,state.fuel),status(flight::aircraft_system::fuel));
     break;
   }
   case display_page::systems:
     background(4);
     for(unsigned int index{0}; index != state.systems.size(); ++index) {
-      if(state.systems[index] != flight::system_condition::normal) text(vec2<int>{assets.system_positions[index]},assets.system_labels[index],status(index));
+      if(state.systems[index] != flight::system_condition::normal) text(vec2<int>{assets.system_positions[index]},assets.system_labels[index],status(static_cast<flight::aircraft_system>(index)));
       if(state.systems[index] != flight::system_condition::failed) continue;
       auto const &box{assets.system_boxes[index]};
       auto const low{point(vec2<int>{box[0]})}, high{point(vec2<int>{box[1]})};
@@ -151,18 +151,18 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
     break;
   case display_page::engine_load:
     background(2);
-    mask(instrument_mask::left_engine,{22,10},status(2));
-    mask(instrument_mask::right_engine,{30,10},status(5));
-    text({2,30},formatted(assets.engine_formats[0],static_cast<double>(static_cast<long double>(state.engine_load[0]) * assets.engine_percent)),status(2));
-    text({30,30},formatted(assets.engine_formats[1],static_cast<double>(static_cast<long double>(state.engine_load[1]) * assets.engine_percent)),status(5));
+    mask(instrument_mask::left_engine,{22,10},status(flight::aircraft_system::left_engine));
+    mask(instrument_mask::right_engine,{30,10},status(flight::aircraft_system::right_engine));
+    text({2,30},formatted(assets.engine_formats[0],static_cast<double>(static_cast<long double>(state.engine_load[0]) * assets.engine_percent)),status(flight::aircraft_system::left_engine));
+    text({30,30},formatted(assets.engine_formats[1],static_cast<double>(static_cast<long double>(state.engine_load[1]) * assets.engine_percent)),status(flight::aircraft_system::right_engine));
     break;
   case display_page::schematic:
     background(2);
-    for(auto const &position : {vec2<int>{26,13},vec2<int>{19,20},vec2<int>{33,20}}) mask(instrument_mask::gear,position,status(10));
-    mask(instrument_mask::left_flap,{10,8},status(1));
-    mask(instrument_mask::right_flap,{41,8},status(1));
-    mask(instrument_mask::lower_flap,{7,27},status(1));
-    mask(instrument_mask::lower_flap,{34,27},status(1));
+    for(auto const &position : {vec2<int>{26,13},vec2<int>{19,20},vec2<int>{33,20}}) mask(instrument_mask::gear,position,status(flight::aircraft_system::landing_gear));
+    mask(instrument_mask::left_flap,{10,8},status(flight::aircraft_system::flaps));
+    mask(instrument_mask::right_flap,{41,8},status(flight::aircraft_system::flaps));
+    mask(instrument_mask::lower_flap,{7,27},status(flight::aircraft_system::flaps));
+    mask(instrument_mask::lower_flap,{34,27},status(flight::aircraft_system::flaps));
     break;
   default: throw std::runtime_error{"this MFD page still needs its native scene/input integration"};
   }

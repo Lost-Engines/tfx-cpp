@@ -23,10 +23,10 @@ def main():
     rows=[];expected=[]
     for case in range(8192):
         severity=rng.choice((-32768,-1,0,1,2,5,10,49,50,99,100,200,32767,32768,65535,65536));invulnerable=int(case%4==0);elapsed=rng.choice((0,1,4,10,55,1080,1081,30000,65535));low=rng.randrange(65536);high=rng.randrange(65536)
-        accumulated=struct.unpack('<Q',struct.pack('<d',rng.uniform(-100,100)))[0];warning=rng.randrange(-32768,32768)
+        accumulated=struct.unpack('<Q',struct.pack('<d',rng.uniform(-100,100)))[0];display_selection=rng.randrange(-32768,32768)
         conditions=[rng.choice((0,1,2,11,14,255)) for _ in range(12)];repair=[rng.choice((0,1,1079,1080,1081,32767,65535)) for _ in range(12)]
-        rows.append([severity,invulnerable,elapsed,low,high,accumulated,warning,*conditions,*repair])
-        image.write(0x13250,'<H',invulnerable);image.write(0x8e18,'<Q',accumulated);image.write(0x713e,'<h',warning);image.write(0x7d70,'<12B',*conditions);image.write(0x1328c,'<12H',*repair);image.write(0x13476,'<H',elapsed)
+        rows.append([severity,invulnerable,elapsed,low,high,accumulated,display_selection,*conditions,*repair])
+        image.write(0x13250,'<H',invulnerable);image.write(0x8e18,'<Q',accumulated);image.write(0x713e,'<h',display_selection);image.write(0x7d70,'<12B',*conditions);image.write(0x1328c,'<12H',*repair);image.write(0x13476,'<H',elapsed)
         image.cpu.mem_write(image.native(0xc9894),struct.pack('<2H',low,high));notifications.clear()
         image.call(0x8f460,eax=severity&0xffffffff);image.call(0x871d4)
         expected.append([*struct.unpack('<2H',image.cpu.mem_read(image.native(0xc9894),4)),image.read(0x8e18,'<Q')[0],image.read(0x713e,'<H')[0],len(notifications),*image.read(0x7d70,'<12B'),*image.read(0x1328c,'<12H')])
