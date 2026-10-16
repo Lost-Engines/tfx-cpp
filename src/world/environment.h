@@ -47,6 +47,7 @@ public:
   std::string lighting_name;
   std::string config;
   std::string palette_name;
+  std::string schematic_name;
   uint16_t status{0};
   std::vector<terrain_tile> tiles;
 

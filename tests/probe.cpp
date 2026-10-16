@@ -270,7 +270,7 @@ auto main(int const argc, char const *const argv[])->int try {
         }
         std::cout << "]]\n";
       }
-    } else if(mode == "environment") {
+    } else if(mode == "environment" || mode == "environment_bindings") {
       std::string specification;
       while(std::getline(std::cin,specification)) {
         std::istringstream fields{specification};
@@ -278,6 +278,10 @@ auto main(int const argc, char const *const argv[])->int try {
         fields >> name >> lighting;
         if(name.empty()) continue;
         tfx::world::environment const environment{game,name,lighting};
+        if(mode == "environment_bindings") {
+          std::cout << '[' << environment.status << ',' << std::quoted(environment.palette_name) << ',' << std::quoted(environment.schematic_name) << "]\n";
+          continue;
+        }
         std::cout << '[' << environment.status << ',' << std::quoted(environment.palette_name) << ",[";
         bool first{true};
         for(unsigned int z{0}; z != tfx::world::map_height; ++z) {

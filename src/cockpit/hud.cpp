@@ -4,6 +4,35 @@
 
 namespace tfx::cockpit {
 
+void hud_selection::cycle_left(bool const has_ground_targets) {
+  left = static_cast<uint16_t>(left + 1);
+  if(left == 7 && !has_ground_targets) ++left;
+}
+void hud_selection::cycle_centre(flight::player_aircraft const aircraft) {
+  auto mode{static_cast<uint16_t>(std::to_underlying(centre) + 1)};
+  if(aircraft == flight::player_aircraft::nighthawk && mode == 1) mode = 2;
+  centre = static_cast<centre_display>(mode);
+}
+void hud_selection::cycle_right(flight::player_aircraft const aircraft, uint8_t const weapon_category) {
+  right = static_cast<uint16_t>(right + 1);
+  if(right == 6 && weapon_category != 3 && aircraft != flight::player_aircraft::nighthawk) ++right;
+}
+void hud_selection::cycle_range() {
+  if(centre == centre_display::horizontal_radar) {
+    horizontal_range = static_cast<uint16_t>(horizontal_range - 1);
+    if(math::signed_word(horizontal_range) < 0) horizontal_range = 3;
+  } else if(centre == centre_display::bvr_radar) {
+    bvr_range = static_cast<uint16_t>(bvr_range - 1);
+    if(math::signed_word(bvr_range) < 0) bvr_range = 2;
+  }
+}
+void hud_selection::normalise() {
+  // Original draw-time signed-word checks; the key callbacks only increment.
+  if(math::signed_word(left) >= 9) left = 0;
+  if(math::signed_word(right) >= 9) right = 0;
+  if(math::signed_word(std::to_underlying(centre)) > 2) centre = centre_display::horizontal_radar;
+}
+
 hud::hud(instrument_assets const &source, resources::archive const &game, std::span<weapons::definition const> const definitions, std::string const &schematic)
   : assets{source}, weapons{definitions}, numbers{assets,game}, displays{assets,game,weapons}, map{game,schematic}, radar_display{assets,game}, warnings{assets,game}, auxiliary{assets,game} {
 }
@@ -16,7 +45,7 @@ hud_animation hud::animation() const {
     .redraw_phase{redraw_phase},
   };
 }
-hud_effects hud::draw(render::software_renderer &renderer, hud_selection const &selection, hud_state const &state, math::random_state &random, render::framebuffer *const coverage, scene_display const &scene) {
+hud_effects hud::draw(render::software_renderer &renderer, hud_selection &selection, hud_state const &state, math::random_state &random, render::framebuffer *const coverage, scene_display const &scene) {
   // Native 0x803e8: fuel status changes before either MFD or the warning lamps reads it.
   renderer.clipping = render::raster_clip::viewport({0,0},{render::screen_width - 1,render::screen_height - 1});
   redraw_phase = state.redraw_phase;
@@ -59,6 +88,7 @@ hud_effects hud::draw(render::software_renderer &renderer, hud_selection const &
     .navigation_cell{state.navigation_cell},
     .offset{vec2<int16_t>{offset}},
   };
+  selection.normalise();
   auto const outer{[&](display_side const side, unsigned int const selected) {
     unsigned int const normalized{selected < 9 ? selected : 0};
     auto &last_page{last_outer_pages[std::to_underlying(side)]};
