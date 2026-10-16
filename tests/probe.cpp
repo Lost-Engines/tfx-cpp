@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -46,6 +47,14 @@ auto main(int const argc, char const *const argv[])->int try {
   } else if(mode == "sine") {
     for(auto const value : tfx::math::sine_table()) std::cout << value << ' ';
     std::cout << std::endl;
+  } else if(mode == "orbit") {
+    unsigned int pitch{0}, yaw{0}, roll{0};int32_t distance{0};
+    while(std::cin >> pitch >> yaw >> roll >> distance) {
+      auto const camera{tfx::render::orbit_camera(vec3<tfx::math::angle>{static_cast<uint16_t>(pitch),static_cast<uint16_t>(yaw),static_cast<uint16_t>(roll)},distance,{105,75})};
+      for(auto const *axis : {&camera.right,&camera.down,&camera.forward}) for(unsigned int i{0}; i != 3; ++i) std::cout << static_cast<int>(std::lround((*axis)[i] * tfx::math::matrix_unit)) << ' ';
+      for(unsigned int i{0}; i != 3; ++i) std::cout << static_cast<int32_t>(camera.position[i] * 65536) << ' ';
+      std::cout << '\n';
+    }
   } else if(mode == "rotation") {
     unsigned int x{0}, y{0}, z{0};
     while(std::cin >> x >> y >> z) {

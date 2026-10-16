@@ -30,6 +30,7 @@ struct definition {
   int32_t range{0};
   int16_t minimum_range{0};
   int16_t launch_speed{0};
+  float drag{0};
   std::vector<stage> stages{};
 };
 std::vector<definition> load_definitions(std::span<uint8_t const> executable);

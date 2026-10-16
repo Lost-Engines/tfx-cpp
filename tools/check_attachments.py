@@ -48,7 +48,7 @@ models=json.loads((root/'analysis/models/data.js').read_text().split('=',1)[1].s
 weapons=[]
 for i in range(1,23):
  ptr=struct.unpack_from('<I',raw,data+0x809c+i*48+8)[0];name=raw[data+ptr:].split(b'\0',1)[0].decode()[:8];weapons.append(byname[name])
-cases=[(byname[n],w,slot) for n in ['efa','f117','f22'] for w in weapons for slot in range(11)]
+cases=[(byname[n],w,slot) for n in ['efa','f117','f22','efa_glob','f17_glob','f22_glob'] for w in weapons for slot in range(11)]
 script=r'''
 const fs=require('fs'),vm=require('vm');
 for(const f of ['analysis/models/data.js','analysis/models/model.js'])vm.runInThisContext(fs.readFileSync(f,'utf8'));

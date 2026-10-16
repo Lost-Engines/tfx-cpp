@@ -17,6 +17,8 @@
 #include "actors/air_motion.h"
 #include "weapons/definition.h"
 #include "weapons/loadout.h"
+#include "flight/airframes.h"
+#include "presentation/arming_assets.h"
 
 namespace tfx::resources {
 
@@ -33,12 +35,14 @@ private:
   std::unique_ptr<planner_artwork const> planner_art_data;
   std::unique_ptr<presentation::pilot_assets const> pilot_assets;
   std::unique_ptr<presentation::score_assets const> score_data;
+  std::unique_ptr<presentation::arming_assets const> arming_data;
   std::array<uint8_t,64> character_map;
   std::array<hud_glyph,51> glyphs;
 
 public:
   std::vector<weapons::definition> weapons;
   weapons::arming_tables arming;
+  std::array<flight::airframe,3> airframes;
   std::string timer_expired_message;
   presentation::dac_palette text_palette;
   std::array<presentation::pointer_style,2> pointers;
@@ -53,6 +57,7 @@ public:
   planner_artwork const &planner_art() const;
   presentation::pilot_assets const &pilots() const;
   presentation::score_assets const &scores() const;
+  presentation::arming_assets const &arming_art() const;
   std::span<uint8_t const> circle(unsigned int radius) const;
   hud_glyph const *glyph(unsigned char character) const;
 };
