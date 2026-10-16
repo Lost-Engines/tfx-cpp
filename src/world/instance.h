@@ -59,6 +59,7 @@ public:
 
   explicit instance(definition const &source);
   void apply_contact_damage(uint16_t damage);
+  int16_t type() const;
   instance_result execute(unsigned int entry, instance_context const &context = {});
   instance_result animate(instance_context const &context = {});
   std::optional<unsigned int> stream_cursor(unsigned int part, unsigned int parameter) const;

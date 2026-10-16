@@ -48,9 +48,10 @@ public:
   void show_actor(scene_handle handle, bool visible);
   bool terrain_intact(unsigned int x, unsigned int z);
   instance_result collide_terrain(vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t damage = 0, bool player = true, std::function<void(uint16_t)> response = {});
-  instance_result collide_actor(scene_handle handle, vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t damage, std::function<void(uint16_t)> response = {}, std::function<void(int)> damage_response = {});
+  instance_result collide_actor(scene_handle handle, vec3<int32_t> const &previous, vec3<int32_t> const &current, uint16_t damage, std::function<void(uint16_t)> response = {}, std::function<void(int)> damage_response = {}, bool player = false);
   void apply_actor_contact_damage(scene_handle handle, uint16_t damage);
   bool actor_destroyed(scene_handle handle) const;
+  int16_t actor_type(scene_handle handle) const;
   uint16_t actor_impact_damage(scene_handle handle) const;
   void queue_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
   instance_result actor_event(scene_handle handle, unsigned int entry);

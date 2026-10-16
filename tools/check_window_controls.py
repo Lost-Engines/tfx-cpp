@@ -29,6 +29,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
         environment=dict(os.environ,DISPLAY=':'+number,LIBGL_ALWAYS_SOFTWARE='1',XDG_RUNTIME_DIR=temporary,XMODIFIERS='@im=none')
         for name in ('WAYLAND_DISPLAY','XDG_SESSION_TYPE','DBUS_SESSION_BUS_ADDRESS'):environment.pop(name,None)
         def run(*command,**options):return subprocess.run(command,env=environment,timeout=5,**options)
+        def tap(key):
+            run('xdotool','keydown',key,check=True);time.sleep(.15)
+            run('xdotool','keyup',key,check=True);time.sleep(.15)
         with (directory/'game.log').open('w+') as log:
             game=subprocess.Popen([str(executable),'--data-dir',str(data),'--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+10;window=None
@@ -41,15 +44,17 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('xdotool','windowfocus','--sync',window,check=True);time.sleep(.5)
             before_path=directory/'before.png';after_path=directory/'after.png'
             run('import','-window',window,str(before_path),check=True)
-            run('xdotool','key','Return',check=True);time.sleep(.3)
+            tap('Return')
             store_before=directory/'store-before.png';store_after=directory/'store-after.png'
             run('import','-window',window,str(store_before),check=True)
-            run('xdotool','key','space',check=True);time.sleep(.3)
+            tap('space')
             run('import','-window',window,str(store_after),check=True)
             def store_readout(path):
                 with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((5,41,150,48)).tobytes()
             if store_readout(store_before)==store_readout(store_after):raise RuntimeError('Enter/Space did not change the carried-weapon inventory readout')
-            run('xdotool','key','f',check=True);time.sleep(.1)
+            # Three distinct type changes reach the cannon sentinel after the first missile release.
+            for _ in range(3):tap('Return')
+            tap('f')
             run('xdotool','keydown','space',check=True);time.sleep(1.5)
             run('xdotool','keyup','space',check=True);time.sleep(.2)
             run('import','-window',window,str(after_path),check=True)
@@ -59,7 +64,25 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('xdotool','key','Escape',check=True);game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
-            print('Private X11 controls passed: Enter/Space releases a store; F/Space fires cannon; Escape exits cleanly')
+            print('Private X11 controls passed: Enter/Space releases a store; cannon sentinel/F/Space fires; Escape exits cleanly')
+            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','605','--flight-steps','1024','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
+            deadline=time.monotonic()+10;window=None
+            while time.monotonic()<deadline and game.poll() is None:
+                found=run('xdotool','search','--onlyvisible','--name','TFX C',capture_output=True,text=True)
+                if found.stdout.strip():window=found.stdout.splitlines()[0];break
+                time.sleep(.05)
+            if window is None:raise RuntimeError('mission-result window did not appear')
+            log.flush();log.seek(0)
+            if 'Mission result:' not in log.read():raise RuntimeError('flight did not reach the FINISH handoff')
+            run('xdotool','windowfocus','--sync',window,check=True);time.sleep(.2)
+            result_a=directory/'result-a.png';result_b=directory/'result-b.png'
+            run('import','-window',window,str(result_a),check=True);time.sleep(.3)
+            run('import','-window',window,str(result_b),check=True)
+            with Image.open(result_a) as a,Image.open(result_b) as b:
+                if a.tobytes()!=b.tobytes():raise RuntimeError('mission result display kept changing after termination')
+            tap('Return');game.wait(timeout=10)
+            if game.returncode:raise RuntimeError('Enter did not close the result display cleanly')
+            print('Private X11 mission results passed: live combat reaches FINISH; result display is stable; Enter closes')
     finally:
         for process in (game,display):
             if process is not None and process.poll() is None:

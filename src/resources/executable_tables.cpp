@@ -15,6 +15,12 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   auto const limit{view.le16(circle_limit_field)};
   circles.resize(limit);
   unsigned int constexpr data_file{973476}, mapping{data_file + 0x7a44}, advances{data_file + 0x7a84}, glyph_file{0xf5350};
+  for(unsigned int index{0}; index != 512; ++index) {
+    auto const character{view.byte(data_file + 0xa8 + index)};
+    if(!character) break;
+    timer_expired_message.push_back(static_cast<char>(character));
+    if(index == 511) throw std::runtime_error{"unterminated native timer message"};
+  }
   auto const anchor{[&](unsigned int const address) { return vec3<int16_t>{view.signed_le16(data_file + address),view.signed_le16(data_file + address + 2),view.signed_le16(data_file + address + 4)}; }};
   unsigned int constexpr empty_record{data_file + 0x809c + weapons::empty_pylon * 48};
   arming.empty_role = static_cast<weapons::weapon_role>(view.byte(empty_record + 20));

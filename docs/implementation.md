@@ -13,7 +13,7 @@ Reference: TFX 2.05, September 1994 CD. Native offsets refer to `TFX.DAT`, SHA-2
 * All 128 retail mission scene selections, signed starting coordinates and optional aircraft assignments match their source metadata, and every initial scene renders successfully. Five original-code captures verify the separation of regional terrain from weather/lighting configuration.
 * A headless timing replay matches 4,096 original-code frames, including timer polling, filtered float/timestep double bits, previous-frame animation gating and ordered projectile substeps. This is a subsystem sequence with declared external inputs, not a complete flight session.
 * The complete native mission-script loader agrees with typed C++ INIT results for all 128 retail missions in two prior-state contexts (256 setups), including target/message text, speed bits, timing, flak and scenery-event declarations. Resource/actor creation and FINISH execution are outside this capture.
-* All 128 retail FINISH programs agree with original execution across 8,192 supplied result states: scoring, signed-word conditions, target flags, branch/return handling and campaign statistics. Combat itself and persistent campaign/front-end execution are not implemented.
+* All 128 retail FINISH programs agree with original execution across 8,192 supplied result states: scoring, signed-word conditions, target flags, branch/return handling and campaign statistics. Live combat/mission integration is described below; persistent campaign/front-end execution remains outstanding.
 * Carried-store mass, drag, both moment contributions and aircraft-specific fuel capacity match the original x87 routine bit for bit in 1,197 loadouts, including every store/aircraft/slot combination and fractional mixed mounts.
 * Arcade aircraft motion is translated and checked against original execution (details below); audio and complete flight sessions remain outstanding.
 
@@ -319,3 +319,26 @@ A lost player now enters the translated disabled/ejected flight branch (`0x8e5a8
 Weapon-system faults participate in Space-edge store release, while the separate held-key cannon branch retains its original nonzero-byte checks. Engine display states are refreshed from the engine fields at the original frame boundary. The Arcade model's original handling is retained; physical-model damage effects and complete cockpit fault displays are still outstanding.
 
 After joining these paths, all 128 retail missions again run 1,024 integrated four-tick steps under AddressSanitizer/UndefinedBehaviorSanitizer. All 24 CTests pass in normal, sanitizer and Release builds; private-window weapon input also passes. These are bounded subsystem/robustness checks, not completed-mission or end-to-end campaign proofs.
+
+### Live mission outcomes and actor surfaces
+
+```sh
+python3 tools/check_progress.py --save-fixture tests/reference/progress.txt
+python3 tools/check_credit.py --save-fixture tests/reference/credit.txt
+python3 tools/check_death.py --save-fixture tests/reference/death.txt
+python3 tools/check_world_contacts.py --save-fixture tests/reference/world_contacts.txt
+```
+
+The live session now drives authored target destruction/credit, all six completion kinds, protection failure, per-target timers, return-to-base scoring and delayed termination. Airborne starts use the native completion delay; landed starts require stopping after return. Timer comparisons preserve their strict boundaries, signed/unsigned distinctions and word wrap. The return-to-base award belongs to the parser's score variable, separately from the combat score passed to FINISH. **4,439 original-code frames across 512 supplied-outcome sequences** verify this rule/termination layer.
+
+Aircraft and mobile losses now supply native type-filtered mission counts and combat credit. The player's kill acknowledgement consumes a random value before the fatal-aircraft routine chooses ejection/falling. Native quirks remain: some mobile/air credit is independent of the shot owner. **4,096 controlled native credit cases** cover ownership, permission, type filters, signed score wrap and violations. `setidnum` and `setmobileid` are named aircraft/surface type filters in C++, following their actual consumers rather than assuming the first only concerns static scenery.
+
+Player loss and impact remain separate stages. **4,096 native transition cases** verify outcome/status codes and the strict 200-tick post-impact countdown, including repeated loss and invulnerability. The live FINISH handoff occurs once per terminated flight, using fresh direct-entry pilot statistics. A simple result display shows the resulting score/mission value until the original front-end graph and pilot persistence are connected. This is not a replacement campaign UI or a proof of a completed normal mission.
+
+Player surface queries now include nearby mobile SSD assemblies, including carrier decks, after the terrain query. The native broad-phase box has a minimum radius of 1,024 world units and excludes its exact edges; **8,192 original region/eligibility cases** match, including word/dword wrap. Without this bridge, carrier starts lost their deck contact and eventually crashed while parked. These starts now remain on their actual deck. Surface flags use the native byte representation, distinct from aircraft word flags; hostile/dead/retired handling now follows that byte.
+
+Compiled type-17 fixed placements also load, preserve authored initial events and traverse in the native reverse order. None is present in the 192 audited reference programs; **1,408 test-authored placements** verify the retained loader/list path against original execution. Surface heights remain the authored absolute word, rather than adding the actor's visual Y translation.
+
+The private X11 input check additionally reaches a result through the live mission 605 combat path, verifies the result image stays stable after termination and closes it with Enter. Ground/designator targeting, complete permissions/court-martial handling, water/aftermath crash effects, moving-deck velocity transfer, the refuelling-aircraft collision path and original front-end result artwork remain outstanding. Direct launches currently use Arcade scoring eligibility; persistent game-mode configuration belongs to the pending front end.
+
+All 28 CTests pass in normal, Release and sanitizer builds. All 128 retail missions again run 1,024 integrated four-tick steps under ASan/UBSan; the sweep checks that any reached FINISH handoff occurs exactly once. Mission 605 reaches its loss/result path naturally in this bounded run. Carrier-start mission 504 remains parked after the actor-surface fix. Full original/C++ mission traces remain a separate verification gate.
