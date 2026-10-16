@@ -1092,3 +1092,19 @@ python3 tools/check_campaign_return.py --data-dir /path/to/TFX
 Native launcher `0x72588` resumes its caller after the flight loop, result processing, FINISH and teardown; it has no extra diagnostic results wait. Campaign flight now returns as soon as FINISH completes, allowing the existing parser to select its original result, recovery, life-loss and next-mission presentations. Direct `--mission` launches retain their standalone diagnostic results page.
 
 A private-window integration check restores a disposable native-format pilot into the final Arcade mission with one life, uses the original arming screen, reaches aircraft loss through normal real-time simulation and observes the automatic return to the authored Arcade presentation. No damage, result or FINISH variables are injected. Shift+Q then exits the presentation normally. This tests the assembled return path; the original parser/rule subsystem comparisons remain its independent evidence, rather than a claim of complete native session equivalence.
+
+
+### Ejected-pilot motion and down-axis alignment
+
+```sh
+python3 tools/check_down_alignment.py
+python3 tools/check_ejection.py
+```
+
+The pilot (`0x8f198`) has distinct seat launch, powered-seat flight, fall, parachute opening, suspended descent and landed-wait stages. Its typed state retains float position/velocity, the Q15 orientation, stage timers, chute state, collision/termination and fatal-impact latch. Model events remain explicit outputs. Native float storage boundaries, extended intermediate products, signed-word pose handoff, wrapped counters and invalid integer-conversion results are preserved.
+
+**12,288 complete original controller updates agree** in exact stored float bits, integer pose, orientation, angles, timers, stage/termination state and ordered model-entry requests. These include eight persistent trajectories and synthetic phase/timer/impact boundaries. The original phase helpers, orientation code and pose handoff execute; terrain classification/height, world-water status and timer increments are supplied. SSD animation requests are recorded separately. **141 compact original cases** run without game data.
+
+Pilot descent and its camera use duplicate native down-axis builders (`0x8e86c` and `0x91c48`). One shared C++ implementation retains their float normalization and cross-product stores, separately from the existing integer attitude normalizer. **4,096 complete original matrix updates agree across both copies**, including rejected small/degenerate axes; **121 cases** run without game data. Both comparisons pass in development, Release and ASan/UBSan, and all 51 CTests pass.
+
+These are controller kernels. The Escape input sequence, animation-triggered player/pilot handoff, abandoned-aircraft motion, ejection camera, recovery-region classification and live outcome selection are the next integration consumers; this evidence does not establish a complete ejection session.

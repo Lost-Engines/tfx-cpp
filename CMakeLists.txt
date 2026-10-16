@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/ejection.cpp
+  src/flight/ejection.h
   src/flight/landing.cpp
   src/flight/landing.h
   src/cockpit/landing_display.cpp
@@ -396,6 +398,14 @@ if(BUILD_TESTING)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
 
+  add_executable(ejection_probe tests/ejection_probe.cpp)
+  target_link_libraries(ejection_probe PRIVATE tfx_core)
+  configure_first_party(ejection_probe)
+  add_test(NAME flight.native_ejected_pilot_motion COMMAND ejection_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/ejection.txt")
+  add_executable(down_alignment_probe tests/down_alignment_probe.cpp)
+  target_link_libraries(down_alignment_probe PRIVATE tfx_core)
+  configure_first_party(down_alignment_probe)
+  add_test(NAME math.native_down_axis_alignment COMMAND down_alignment_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/down_alignment.txt")
   add_executable(landing_tests tests/landing_tests.cpp)
   target_link_libraries(landing_tests PRIVATE tfx_core)
   configure_first_party(landing_tests)
