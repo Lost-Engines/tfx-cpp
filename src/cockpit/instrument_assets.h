@@ -3,6 +3,7 @@
 #include <array>
 #include <string>
 #include "resources/media.h"
+#include "cockpit/viewport_layout.h"
 
 namespace tfx::cockpit {
 
@@ -75,8 +76,8 @@ struct instrument_assets {
   double gauge_fuel_scale;
   float gauge_throttle_scale;
   double engine_percent;
-  int16_t initial_fuel_gauge;
-  int16_t initial_fuel_burn;
+  std::array<viewport_layout,viewport_count> viewports;
+  std::array<int16_t,22> cockpit_steps;
   explicit instrument_assets(std::span<uint8_t const> executable);
 };
 

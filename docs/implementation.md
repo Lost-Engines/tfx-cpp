@@ -790,3 +790,20 @@ The flight host now binds the instrument compositor to live player pose, engines
 The outer player callback's fuel-gauge/burn filter is also translated: **4,246 native cases agree**, including signed-word boundaries and the minimum burn estimate. This feeds the flight-data page's range estimate instead of inventing a fuel-flow approximation (`tools/check_fuel_gauge.py`).
 
 A private X11 test exercises store and cannon firing, all three MFD key paths (including scene-camera pages), range/target keys, pause stability, designator controls and mission termination. **All 128 retail missions start with the live HUD**, and another pass advances **1,024 simulation steps in every mission under ASan/UBSan** before drawing. The existing 44 CTests and Release/HUD comparisons pass. These are integration checks, not complete native flight-frame comparisons. Static cockpit framing, upper aiming symbology, radio layout, full view selection and remaining flight-system bindings are still being connected; their diagnostic adapter remains visible.
+
+
+### Default cockpit and instrument startup
+
+```sh
+python3 tools/check_cockpit_setup.py
+python3 tools/check_cockpit_frames.py
+```
+
+The native viewport table begins at DATA `0x5da4` / file `0xf3848`. Its projection row, panel/overlay bindings, bottom edge and callback form a 20-byte record with the callback at offset 16, called by `0x73f4b`. The earlier research decoder began four bytes too early and associated each view with the preceding callback; it has been corrected in `tfx-reverse`. The preceding DATA `0x5da0` byte is a separate effect flag. **All 29 corrected native records agree.** The forward cockpit is view zero, with its original `infcock.hud` overlay, 55-row planar panel and instrument callback.
+
+Native `0x7df30` overwrites the stored instrument defaults at mission startup. It selects flight data on the left, 50/100-mile radar ranges, full fuel gauge, fifteen chaff/flares and the lowered cockpit. The F-117 begins in stealth with a central map and right-hand systems page. Engine/gear indicators distinguish airborne and landed starts. **All six aircraft/start combinations agree.** Animated Page Up/Page Down follows the original 22-position sequence; **2,048 multi-frame steps agree**, including a full-height view interrupting motion.
+
+The live host now paints that cockpit artwork and uses the native viewport projection origin. The existing approximate horizon respects the selected origin/focal length; the complete original sky/weather renderer remains separate. **198 complete pixel/coverage/offset/origin frames agree** against original composition across six views, three horizontal offsets and vertical clipping boundaries. The compiled overlays execute unchanged in the comparison. The VGA-to-VGA panel transfer is a declared hardware boundary: its original source/destination rectangle is applied to independently deplaned source bytes. Projection setup is checked with the clamped coordinates; this is not a complete pre-render camera-order comparison. The missile view's five-byte `.hdd` placeholder has no visible footer and is intentionally not decoded as a bitmap.
+
+
+The setup, positioning and frame comparisons pass in development, Release and ASan/UBSan. Real-window MFD/designator/weapon/result checks still pass with the restored cockpit, as do all 44 CTests. Every retail mission starts successfully, including a further sanitizer run after 1,024 simulation steps per mission. The upper aiming and radio adapters remain the next visual integration work.

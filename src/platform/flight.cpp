@@ -24,6 +24,8 @@
 #include "flight/damage.h"
 #include "flight/fuel_gauge.h"
 #include "cockpit/hud.h"
+#include "cockpit/frame.h"
+#include "cockpit/initialisation.h"
 #include "cockpit/scene_display.h"
 #include "missions/initialisation.h"
 #include "missions/timeline.h"
@@ -120,12 +122,11 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   bool designate_trigger{false};
   tfx::weapons::cannon_state cannon;
   tfx::flight::damage_state player_damage;
-  tfx::cockpit::hud_selection display_selection;
+  auto const instrument_setup{tfx::cockpit::initialise_instruments(mission_setup.aircraft,mission_setup.start.landed)};
+  tfx::cockpit::hud_selection display_selection{instrument_setup.displays};
+  tfx::cockpit::cockpit_position cockpit_position{tables.instruments(),instrument_setup.offset};
   unsigned int ground_target_page{0};
-  tfx::flight::fuel_gauge fuel_display{
-    .reading{tables.instruments().initial_fuel_gauge},
-    .smoothed_burn{tables.instruments().initial_fuel_burn},
-  };
+  tfx::flight::fuel_gauge fuel_display{instrument_setup.fuel};
   auto const &player_disabled{mission_progress.player_ejected};
   tfx::flight::arcade_state player;
   player.aircraft = mission_setup.aircraft;
@@ -355,6 +356,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   tfx::render::software_renderer renderer{tables}, camera_renderer{tables};
   tfx::cockpit::hud instruments{tables.instruments(),game,tables.weapons,environment.schematic_name};
   tfx::cockpit::scene_displays scene_displays{tables.instruments()};
+  tfx::cockpit::frame cockpit_frame{tables.instruments(),game};
   std::vector<vec3<int32_t>> map_targets;
   for(auto const &target : mission_setup.targets) map_targets.emplace_back(target.position);
   // The native ground-start fallback is zero for type 50, -20 otherwise (0x8c318).
@@ -469,12 +471,10 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     player = {};
     cannon = {};
     player_damage = {};
-    display_selection = {};
+    display_selection = instrument_setup.displays;
+    player_damage.systems = instrument_setup.systems;
     ground_target_page = 0;
-    fuel_display = {
-      .reading{tables.instruments().initial_fuel_gauge},
-      .smoothed_burn{tables.instruments().initial_fuel_burn},
-    };
+    fuel_display = instrument_setup.fuel;
     armament.pylons = initial_stores;
     armament.selected = 0;
     armament.select(mission_setup.aircraft == tfx::flight::player_aircraft::nighthawk ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false);
@@ -592,6 +592,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     if(mission_progress.observe_player_loss(scene.actor_destroyed(player_visual),player.collision != 0,elapsed)) scene.actor_event(player_visual,21);
     projectiles.advance(elapsed,air_simulation.random_stream());
     scene.advance(elapsed);
+    cockpit_position.advance(tables.instruments().viewports[tfx::cockpit::forward_cockpit].bottom);
     refresh_sensors(elapsed);
   }};
   auto const finish_world{[&](tfx::simulation::timer_ticks const elapsed) {
@@ -659,6 +660,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     tfx::cockpit::hud_state state;
     auto &readings{state.instruments};
     readings.aircraft = player.aircraft;
+    readings.offset = cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value());
     readings.systems = player_damage.systems;
     auto const switched_system{[&](tfx::flight::aircraft_system const system, bool const active) {
       auto &condition{readings.systems[std::to_underlying(system)]};
@@ -681,6 +683,9 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     state.ticks = mission_time.elapsed();
     state.clock_offset = static_cast<uint32_t>(mission_setup.clock);
     state.elapsed = launch_elapsed;
+    state.chaff = instrument_setup.chaff;
+    state.flares = instrument_setup.flares;
+    state.stealth = instrument_setup.stealth;
     state.stall_recovery = player.recovering;
     // This host repaints the full framebuffer, so request a full refresh of cached indicators.
     state.redraw_phase = 2;
@@ -755,6 +760,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       double constexpr radians_per_angle{2 * std::numbers::pi / 65536};
       view = tfx::render::inspection_camera(vec3d{designator.camera},designator.heading * radians_per_angle,-tfx::math::signed_word(designator.pitch) * radians_per_angle);
     }
+    if(!inspect && !designator_view) view.projection_origin = cockpit_frame.projection_origin(tfx::cockpit::forward_cockpit,cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value()));
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
     queue_projectiles();
@@ -769,6 +775,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       renderer.text(25,115,std::format("SCORE {}  RESULT {}",campaign["score"],campaign["miss_val"]),15);
       renderer.text(40,160,"ENTER OR ESCAPE TO CLOSE",15);
     } else if(!inspect) {
+      if(!designator_view) cockpit_frame.paint(renderer.output,tfx::cockpit::forward_cockpit,cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value()));
       draw_instruments();
       // Upper aiming symbology and radio layout still use the diagnostic adapter.
       uint8_t constexpr hud_colour{15};
@@ -916,6 +923,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       };
       if(pressed(GLFW_KEY_SPACE)) store_trigger = true;
       if(!player.collision && !player_disabled) {
+        if(pressed(GLFW_KEY_PAGE_UP)) cockpit_position.raise();
+        if(pressed(GLFW_KEY_PAGE_DOWN)) cockpit_position.lower();
         if(pressed(GLFW_KEY_LEFT_BRACKET)) player.left_engine = !player.left_engine;
         if(pressed(GLFW_KEY_RIGHT_BRACKET)) player.right_engine = !player.right_engine;
         if(!player.left_engine && !player.right_engine) player.afterburner = 0;

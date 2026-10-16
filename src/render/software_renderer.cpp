@@ -110,7 +110,7 @@ void software_renderer::patterned_span(int const y, double const left, double co
 void software_renderer::background(camera const &view, uint8_t const sky, uint8_t const ground) {
   /// A simple horizon for scene inspection; original sky, weather and altitude palette transitions are still separate work
   for(int y{0}; y != screen_height; ++y) {
-    auto const ray_y{view.forward.y + (y + .5 - centre_y) / focal_length * view.down.y};
+    auto const ray_y{view.forward.y + (y + .5 - view.projection_origin.y) / view.focal_distance * view.down.y};
     auto const colour{ray_y > 0 ? ground : sky};
     std::fill_n(output.pixels.begin() + y * screen_width, screen_width, colour);
   }

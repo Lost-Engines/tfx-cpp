@@ -14,6 +14,11 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/cockpit/frame.cpp
+  src/cockpit/frame.h
+  src/cockpit/viewport_layout.h
+  src/cockpit/initialisation.cpp
+  src/cockpit/initialisation.h
   src/flight/fuel_gauge.h
   src/cockpit/scene_display.cpp
   src/cockpit/scene_display.h
@@ -355,6 +360,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(cockpit_frame_probe tests/cockpit_frame_probe.cpp)
+  target_link_libraries(cockpit_frame_probe PRIVATE tfx_core)
+  configure_first_party(cockpit_frame_probe)
 
   add_executable(fuel_gauge_probe tests/fuel_gauge_probe.cpp)
   target_link_libraries(fuel_gauge_probe PRIVATE tfx_core)
