@@ -16,9 +16,10 @@ struct location {
   unsigned int statement;
   bool operator==(location const&) const = default;
 };
+enum class text_alignment : uint8_t { left, right, centred };
 struct text_block {
   vec2<int16_t> position;
-  uint8_t alignment;
+  text_alignment alignment;
   bool shadow;
   bool reveal;
   uint8_t font;

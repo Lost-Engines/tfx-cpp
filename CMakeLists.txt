@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/text.cpp
+  src/presentation/text.h
   src/presentation/fonts.cpp
   src/presentation/fonts.h
   src/presentation/program.cpp
@@ -115,6 +117,20 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(text_clock_probe tests/text_clock_probe.cpp)
+  target_link_libraries(text_clock_probe PRIVATE tfx_core)
+  configure_first_party(text_clock_probe)
+  add_test(NAME presentation.native_reveal_clock COMMAND text_clock_probe ${PROJECT_SOURCE_DIR}/tests/reference/text_clock.txt)
+
+  add_executable(text_tests tests/text_test.cpp)
+  target_link_libraries(text_tests PRIVATE tfx_core)
+  configure_first_party(text_tests)
+  add_test(NAME presentation.native_text_boundaries COMMAND text_tests)
+
+  add_executable(text_probe tests/text_probe.cpp)
+  target_link_libraries(text_probe PRIVATE tfx_core)
+  configure_first_party(text_probe)
+
   add_executable(font_tests tests/font_test.cpp)
   target_link_libraries(font_tests PRIVATE tfx_core)
   configure_first_party(font_tests)

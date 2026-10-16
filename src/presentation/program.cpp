@@ -31,7 +31,7 @@ program::program(std::span<uint8_t const> const source) {
     auto const content{take(header.le16(10))};
     return text_block{
       .position{header.signed_le16(2),header.signed_le16(0)},
-      .alignment{header.byte(4)},
+      .alignment{static_cast<text_alignment>(header.byte(4))},
       .shadow{header.byte(6) != 0},
       .reveal{header.byte(7) != 0},
       .font{header.byte(8)},

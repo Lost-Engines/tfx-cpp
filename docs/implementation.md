@@ -407,3 +407,18 @@ All ten presentation fonts now load their original bitmap tables from external `
 **1,104 glyphs and 132 complete-string cases** match fresh original VGA execution in every pixel, written coverage, native width word and line height. Cases include black ink, all horizontal phases of the fixed-font string renderer, all four clipped corners for proportional styles and empty-string metrics. Native measurement and drawing stay separate: case handling, final spacing and the small font's extended-glyph advance differ. The fixed eight-pixel renderer also narrows a following uppercase I, while its width calculation remains fixed. Null original title-font pointers remain explicitly unavailable rather than borrowing another font.
 
 The comparisons render complete VGA frames rather than relying on cropped glyph snapshots; a glyph can draw beyond the width reported by its measurement helper. Asset-free tests exercise owned table data, black coverage/transparent holes, extended baselines, distinct measurement/drawing advances and fixed-font termination. This establishes character/string rendering; briefing substitution, full text layout/reveal and presentation playback are the next consumers.
+
+### Complete briefing text and reveal
+
+```sh
+python3 tools/check_text.py
+python3 tools/check_text_clock.py --save-fixture tests/reference/text_clock.txt
+```
+
+Text preparation (`0xb1714`, `0xb14dc`) now handles original line breaks, ASCII uppercasing, named substitutions, signed numeric formatting and `^briefNNN.txt` language-file replacement. Substitution occurs after literal uppercasing, so inserted pilot strings retain their own case. Line widths, left/right/centred positions, line heights, shadows and visible prefixes follow the native routines. A bare CR retains its original two-byte skip. All shipped captions and language files fit the original twenty 80-byte line buffers; oversized/cyclic custom input receives a bounded error instead of overwriting neighbouring state.
+
+**435 complete text cases and 123 revealed-prefix cases** match original preparation and VGA composition in every line, coordinate, count, pixel and written-coverage bit. These include **275 external references across all five languages**. The native file-loading boundary receives actual independently extracted language bytes; C++ reads those same assets directly from the archive. Static and partial drawing execute unchanged in the original, including whole-line shadow-before-foreground ordering.
+
+Reveal timing (`0xb1b28`, `0xb1268`, `0xb1c16`) retains the fast counter's signed low-word delta, per-frame increment clamp of 1–50, two ticks per character, fractional remainder and Space consumption. **2,048 sequences / 131,072 native transitions** agree, including low-word/full counter wrap and completed/empty captions. Compact synthetic cases are replayed by CTest without game data. The input counter and the following VGA draw are explicit boundaries in that arithmetic comparison; the separate prefix comparisons establish the resulting drawn text. Full scene wait/fade/animation scheduling remains the next integration step.
+
+All 35 CTests pass in normal, Release and sanitizer builds. The complete multilingual/prefix comparison also passes with ASan/UBSan. Font and text checks share a small declared planar VGA write-capture helper; it does not emulate the rest of the original game or hardware.
