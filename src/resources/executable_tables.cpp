@@ -1,6 +1,7 @@
 #include "executable_tables.h"
 #include <algorithm>
 #include <stdexcept>
+#include <utility>
 
 namespace tfx::resources {
 
@@ -51,6 +52,9 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   for(unsigned int index{0}; index != cannon_mounts.size(); ++index) cannon_mounts[index] = anchor(0x8690 + index * 6);
   std::array<unsigned int,3> constexpr aircraft_mounts{0x8654,0x8618,0x85dc};
   for(unsigned int aircraft{0}; aircraft != store_mounts.size(); ++aircraft) for(unsigned int slot{0}; slot != store_mounts[aircraft].size(); ++slot) store_mounts[aircraft][slot] = anchor(aircraft_mounts[aircraft] + slot * 6);
+  // Native 0x8b984 also accepts the empty/cannon sentinels. Their addresses
+  // intentionally overlap adjoining stored records; retain those read bytes.
+  for(unsigned int aircraft{0}; aircraft != sight_mount_data.size(); ++aircraft) for(unsigned int index{0}; index != sight_pylon_count; ++index) sight_mount_data[aircraft][index] = anchor(static_cast<unsigned int>(static_cast<int>(aircraft_mounts[aircraft]) + (static_cast<int>(index) + first_sight_pylon) * 6));
   for(unsigned int i{0}; i != aircraft_envelopes.size(); ++i) aircraft_envelopes[i] = view.byte(data_file + 0x93b4 + i);
   for(unsigned int i{0}; i != formations.size(); ++i) {
     auto const at{data_file + 0x5984 + i * 14};
@@ -78,6 +82,11 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
     auto const spans{view.slice(circle_base + view.le16(circle_base + (radius - 1) * 2), radius)};
     circles[radius].assign(spans.begin(), spans.end());
   }
+}
+
+vec3<int16_t> const &executable_tables::sight_mount(flight::player_aircraft const aircraft, int16_t const pylon) const {
+  if(pylon < first_sight_pylon || pylon > weapons::cannon_pylon) throw std::out_of_range{"HUD sight requires a native pylon or sentinel"};
+  return sight_mount_data.at(std::to_underlying(aircraft) - 1).at(static_cast<unsigned int>(pylon - first_sight_pylon));
 }
 
 presentation::fonts const &executable_tables::presentation_fonts() const { return *font_data; }

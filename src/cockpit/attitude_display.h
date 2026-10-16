@@ -21,8 +21,8 @@ private:
 
 public:
   attitude_display(instrument_assets const &assets, resources::archive const &game);
-  void draw_heading(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *coverage = nullptr) const;
-  void draw_pitch(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *coverage = nullptr) const;
+  vec2<int> draw_heading(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *coverage = nullptr) const;
+  void draw_pitch(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *coverage = nullptr, vec2<int> const &line_limit = {319,199}) const;
 };
 
 } // namespace tfx::cockpit

@@ -39,6 +39,8 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
     };
   }
   in_range_label = string(0x179c);
+  aiming_bank = resource(0x1634);
+  aiming_labels = {string(0x16f0),string(0x1710),string(0x1744),string(0x16f8),string(0x1718),string(0x1704),string(0x170c)};
   brake_messages = {string(0x171c),string(0x1728),string(0x1734)};
   hud_number_formats = {string(0x1768),string(0x1770),string(0x1778),string(0x1780),string(0x1784)};
   hud_altitude_scale = std::bit_cast<float>(source.le32(data + 0x178b));
@@ -91,7 +93,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   camera_orbit_step = source.signed_le16(data + 0x7dcc);
   camera_height_bounds = {std::bit_cast<int32_t>(source.le32(data + 0xac58)),std::bit_cast<int32_t>(source.le32(data + 0xac5c))};
   ground_range_format = string(0x1be8);
-  std::array<unsigned int,11> constexpr bitmap_fields{0x7b84,0x7b8c,0x7b93,0x7b9a,0x7ba1,0x7ba9,0x7bb1,0x7bb7,0x7bcc,0x7d9c,0x7db0};
+  std::array<unsigned int,18> constexpr bitmap_fields{0x7b84,0x7b8c,0x7b93,0x7b9a,0x7ba1,0x7ba9,0x7bb1,0x7bb7,0x7bcc,0x7d9c,0x7db0,0x605c,0x6360,0x6664,0x67ce,0x6c54,0x6f03,0x6e48};
   for(unsigned int index{0}; index != masks.size(); ++index) {
     auto const at{data + bitmap_fields[index]};
     unsigned int const size{2u + ((source.byte(at) + 7u) / 8u) * source.byte(at + 1)};

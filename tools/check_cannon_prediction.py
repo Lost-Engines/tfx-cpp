@@ -47,3 +47,13 @@ for index,row in enumerate(cases):
     got=list(map(int,output[index].split()));assert got==points,(row,got,points)
     assert im.read(0x13476,'<H')[0]==index%55 and im.read(0x16e92,'<H')[0]==0
 print(f'HUD-only cannon prediction agrees for {len(cases)} native trajectories and {len(cases)*5} sampled points, with native timer restoration')
+
+mount_image=NativeReference(directory/'TFX.DAT');expected=[]
+for aircraft in range(3):
+    mount_image.write(0x11b2a,'<H',aircraft)
+    for pylon in range(-1,11):
+        address=mount_image.call(0x8b984,eax=pylon&0xffffffff)
+        expected.append(list(struct.unpack('<3h',mount_image.cpu.mem_read(address,6))))
+output=subprocess.check_output([str((args.build/'cannon_prediction_probe').resolve()),str(directory),'mounts']).splitlines()
+assert [list(map(int,line.split())) for line in output]==expected
+print('All 36 native sight-mount lookups agree, including empty/cannon sentinels and their adjoining stored records')
