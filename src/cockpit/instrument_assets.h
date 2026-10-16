@@ -6,7 +6,7 @@
 
 namespace tfx::cockpit {
 
-enum class instrument_mask : unsigned int { store, throttle, fuel, gear, left_flap, right_flap, lower_flap, left_engine, right_engine, count };
+enum class instrument_mask : unsigned int { store, throttle, fuel, gear, left_flap, right_flap, lower_flap, left_engine, right_engine, target_reticle, alternate_target_reticle, count };
 
 struct radar_scale {
   int16_t label;
@@ -53,6 +53,12 @@ struct instrument_assets {
   std::array<uint8_t,2> engine_lamp_cache;
   std::array<vec2<int16_t>,4> afterburner_pips;
   std::array<vec2<int16_t>,3> display_origins;
+  std::array<vec2<int16_t>,3> display_sizes;
+  int16_t camera_blink;
+  vec3<math::angle> camera_orbit_angles;
+  int16_t camera_orbit_step;
+  vec2<int32_t> camera_height_bounds;
+  std::string ground_range_format;
   std::array<resources::monochrome_image,static_cast<unsigned int>(instrument_mask::count)> masks;
   std::array<std::array<uint8_t,10>,3> store_order;
   std::array<std::array<vec2<int16_t>,10>,3> store_positions;

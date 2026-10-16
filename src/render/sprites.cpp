@@ -38,10 +38,12 @@ void draw_sprite(framebuffer &target, resources::indexed_image const &image, vec
 }
 void draw_monochrome(framebuffer &target, resources::monochrome_image const &image, vec2<int> const &position, uint8_t const colour, framebuffer *const coverage, raster_clip const &clip) {
   // Native 0xcda48 uses a top-left origin and MSB-first packed rows. A set bit may paint black.
+  // Native arguments are sign-extended words, including callers that supplied MOVZX values.
+  vec2<int> const origin{math::signed_word(static_cast<uint16_t>(position.x)),math::signed_word(static_cast<uint16_t>(position.y))};
   unsigned int const stride{(image.size.x + 7) / 8};
-  for(int y{std::max({0,position.y,clip.glyph_minimum.y})}; y < std::min({screen_height,position.y + static_cast<int>(image.size.y),clip.glyph_limit.y}); ++y) {
-    for(int x{std::max({0,position.x,clip.glyph_minimum.x})}; x < std::min({screen_width,position.x + static_cast<int>(image.size.x),clip.glyph_limit.x}); ++x) {
-      unsigned int const column{static_cast<unsigned int>(x - position.x)}, row{static_cast<unsigned int>(y - position.y)};
+  for(int y{std::max({0,origin.y,clip.glyph_minimum.y})}; y < std::min({screen_height,origin.y + static_cast<int>(image.size.y),clip.glyph_limit.y}); ++y) {
+    for(int x{std::max({0,origin.x,clip.glyph_minimum.x})}; x < std::min({screen_width,origin.x + static_cast<int>(image.size.x),clip.glyph_limit.x}); ++x) {
+      unsigned int const column{static_cast<unsigned int>(x - origin.x)}, row{static_cast<unsigned int>(y - origin.y)};
       if(!(image.rows.at(row * stride + column / 8) & (128u >> (column % 8)))) continue;
       auto const destination{static_cast<unsigned int>(y * screen_width + x)};
       target.pixels[destination] = colour;
