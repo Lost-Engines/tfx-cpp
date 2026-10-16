@@ -74,7 +74,7 @@ lighting_configuration::lighting_configuration(resources::archive const &game, s
     if(token == "night") status |= night_status;
     if(token == "night" || token == "day") {
       settings >> palette_name;
-      // Native 0x747fc reads five distance boundaries around four higher-altitude
+      // Native 0x747fc reads five altitude boundaries around four higher-altitude
       // palettes, followed by the infrared palette and the map sprite basename.
       for(unsigned int index{0}; index != upper_palette_names.size(); ++index) settings >> palette_altitudes[index] >> upper_palette_names[index];
       if(!(settings >> palette_altitudes.back() >> infrared_palette_name >> schematic_name)) throw std::runtime_error{"environment lacks its palette/schematic bindings: " + name};
@@ -121,7 +121,6 @@ environment::environment(resources::archive const &game, std::string source_name
       choices[target] = static_cast<uint16_t>(random.next() % tiles[cells[target]].variants.size());
     }
   }
-
 }
 
 math::random_state environment::variant_random_state() const {

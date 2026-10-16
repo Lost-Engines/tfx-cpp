@@ -40,6 +40,7 @@
 #include "render/camera.h"
 #include "render/point_projection.h"
 #include "render/palette_selection.h"
+#include "render/palette_lighting.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
@@ -69,11 +70,19 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   tfx::world::mission const selected{game,mission_name};
   auto const mission_setup{tfx::missions::initialise(selected.script)};
   tfx::world::environment const environment{game,override_grid.empty() ? selected.grid_name() : override_grid,override_environment.empty() ? mission_setup.environment : override_environment};
-  auto const colours{tfx::render::decode_palette(game.read("colours/" + environment.lighting.palette_name + ".col"))};
+  std::array<tfx::render::dac_palette,tfx::render::altitude_palette_count> altitude_palettes;
+  for(unsigned int bank{0}; bank != altitude_palettes.size(); ++bank) {
+    auto const bytes{game.read("colours/" + (bank ? environment.lighting.upper_palette_names[bank - 1] : environment.lighting.palette_name) + ".col")};
+    if(bytes.size() != altitude_palettes[bank].size()) throw std::runtime_error{"invalid environment altitude palette"};
+    std::ranges::copy(bytes,altitude_palettes[bank].begin());
+  }
+  tfx::render::palette_lighting palette_lighting{altitude_palettes,environment.lighting.palette_altitudes,tables.fixed_flight_palette};
+  auto colours{tfx::render::expand_dac_palette(palette_lighting.colours())};
   auto const infrared_colours{tfx::render::decode_palette(game.read("colours/" + environment.lighting.infrared_palette_name + ".col"))};
   auto const *frame_colours{&colours};
   tfx::render::palette_selection palette_selection;
   bool night_vision{false};
+  int16_t hud_green{tables.hud_green};
   tfx::world::assets assets{game};
   tfx::world::scene scene{environment,assets};
   tfx::missions::timeline mission_time{mission_setup};
@@ -917,13 +926,25 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       view = tfx::render::inspection_camera(vec3d{designator.camera},designator.heading * radians_per_angle,-tfx::math::signed_word(designator.pitch) * radians_per_angle);
     }
     if(!inspect) {
+      auto const lighting{palette_lighting.advance({
+        .camera_y{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},
+        .pitch{player.angles.x},
+        .roll{player.angles.z},
+        .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
+        .hud_green{static_cast<uint8_t>(hud_green)},
+        .normal_changed{palette_selection.value().normal_changed},
+      })};
+      if(lighting.changed) palette_selection.invalidate_normal();
       if(auto const upload{palette_selection.advance({
         .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
         .projectiles_present{!projectiles.projectiles().empty()},
         .infrared_available{!environment.lighting.infrared_palette_name.empty()},
         .night{(environment.lighting.status & tfx::world::night_status) != 0},
         .night_vision{night_vision},
-      })}) frame_colours = *upload == tfx::render::palette_bank::infrared ? &infrared_colours : &colours;
+      })}) {
+        if(*upload == tfx::render::palette_bank::normal) colours = tfx::render::expand_dac_palette(palette_lighting.colours());
+        frame_colours = *upload == tfx::render::palette_bank::infrared ? &infrared_colours : &colours;
+      }
     }
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
@@ -1142,6 +1163,12 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       counter += ticks;
       auto const step{flight_clock.poll(counter)};
       if(step) {
+        // Native 0x86820 updates HUD intensity once per flight input frame.
+        // Either held key requests a palette upload, even if both cancel out.
+        bool const hud_up{down(GLFW_KEY_Y)}, hud_down{down(GLFW_KEY_U)};
+        if(hud_up || hud_down) palette_selection.invalidate_normal();
+        int constexpr minimum_hud_green{90}, maximum_hud_green{127};
+        hud_green = static_cast<int16_t>(std::clamp(hud_green + (hud_up ? 1 : 0) - (hud_down ? 1 : 0),minimum_hud_green,maximum_hud_green));
         // Keyboard supplies a relative stick input until the full native device adapter is restored.
         if(!designator_view && !view_keys.shift) {
           pitch_input += (down(GLFW_KEY_UP) - down(GLFW_KEY_DOWN)) * step->world_ticks * 4;

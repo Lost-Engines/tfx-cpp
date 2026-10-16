@@ -1,4 +1,5 @@
 #include "framebuffer.h"
+#include <algorithm>
 #include <fstream>
 #include <stdexcept>
 
@@ -37,6 +38,14 @@ palette decode_palette(std::span<uint8_t const> const source) {
     }
   }
   return result;
+}
+
+palette expand_dac_palette(dac_palette const &source) {
+  // VGA's six-bit DAC ignores the upper two bits. Live HUDCOL brightness
+  // deliberately stores 90..127; authored palette files remain strictly checked.
+  dac_palette visible;
+  std::ranges::transform(source,visible.begin(),[](uint8_t const value) { return static_cast<uint8_t>(value & 63); });
+  return decode_palette(visible);
 }
 
 } // namespace tfx::render
