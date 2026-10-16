@@ -27,6 +27,18 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   circles.resize(limit);
   unsigned int constexpr data_file{973476}, mapping{data_file + 0x7a44}, advances{data_file + 0x7a84}, glyph_file{0xf5350};
   std::ranges::copy(view.slice(data_file + 0xd55c,text_palette.size()),text_palette.begin());
+  // Native 0x73f5c/0x73964: magenta means leave that palette entry untouched.
+  for(unsigned int colour{0}; colour != 256; ++colour) {
+    fixed_flight_palette[colour * 3] = 63;
+    fixed_flight_palette[colour * 3 + 1] = 0;
+    fixed_flight_palette[colour * 3 + 2] = 63;
+  }
+  unsigned int constexpr fixed_colours{data_file + 0x6e4f};
+  for(unsigned int entry{fixed_colours}; view.byte(entry) != 255; entry += 4) {
+    unsigned int const colour{view.byte(entry)};
+    for(unsigned int channel{0}; channel != 3; ++channel) fixed_flight_palette[colour * 3 + channel] = view.byte(entry + 1 + channel);
+  }
+  hud_green = view.byte(data_file + 0xa4ec);
   for(unsigned int index{0}; index != 512; ++index) {
     auto const character{view.byte(data_file + 0xa8 + index)};
     if(!character) break;

@@ -46,7 +46,7 @@ public:
   bool advance(bool revealing);
   int32_t remaining() const;
 };
-using dac_palette = std::array<uint8_t,256 * 3>;
+using dac_palette = render::dac_palette;
 dac_palette fade_palette(dac_palette const &source, unsigned int level, unsigned int stages);
 
 } // namespace tfx::presentation

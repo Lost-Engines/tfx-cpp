@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/render/palette_lighting.cpp
+  src/render/palette_lighting.h
   src/render/palette_selection.cpp
   src/render/palette_selection.h
   src/cockpit/external_display.cpp
@@ -386,6 +388,13 @@ if(BUILD_TESTING)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
 
+  add_executable(dac_probe tests/dac_probe.cpp)
+  target_link_libraries(dac_probe PRIVATE tfx_core)
+  configure_first_party(dac_probe)
+  add_test(NAME render.native_vga_dac COMMAND dac_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/dac.txt")
+  add_executable(palette_lighting_probe tests/palette_lighting_probe.cpp)
+  target_link_libraries(palette_lighting_probe PRIVATE tfx_core)
+  configure_first_party(palette_lighting_probe)
   add_executable(environment_palette_probe tests/environment_palette_probe.cpp)
   target_link_libraries(environment_palette_probe PRIVATE tfx_core)
   configure_first_party(environment_palette_probe)

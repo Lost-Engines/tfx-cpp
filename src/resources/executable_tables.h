@@ -51,6 +51,8 @@ public:
   std::array<flight::airframe,3> airframes;
   std::string timer_expired_message;
   presentation::dac_palette text_palette;
+  render::dac_palette fixed_flight_palette;
+  uint8_t hud_green;
   std::array<presentation::pointer_style,2> pointers;
   std::vector<int16_t> ship_target_types;
   std::array<vec3<int16_t>,2> cannon_mounts;

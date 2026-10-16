@@ -852,7 +852,7 @@ python3 tools/check_impact_prediction.py
 python3 tools/check_window_controls.py --data-dir /path/to/TFX
 ```
 
-Original navigation, air-to-air and air-to-ground layouts now use the authored sight masks, labels, ammunition text, range-dependent reticles, suppression cross, ARM/LOCK labels and pitch ladder. **768 complete native layout frames agree**, including all aircraft, cannon/stores, lock flags, independent projection angles and eight offsets. Another **768 forward-composition frames agree**, executing original `0x800f4` with supplied cannon/impact screen samples and declared exclusions for the acquisition and cannon-selection controllers. These cases omit selected target contacts, landing approach and timed launch notices; they establish composition in the supplied context, not a complete cockpit/frame claim. The heading strip and cannon trace change the line viewport inherited by the later pitch ladder; this context is now explicit.
+Original navigation, air-to-air and air-to-ground layouts now use the authored sight masks, labels, ammunition text, range-dependent reticles, suppression cross, ARM/LOCK labels and pitch ladder. **768 complete native layout frames agree**, including all aircraft, cannon/stores, lock flags, independent projection angles and eight offsets. Another **768 forward-composition frames agree**, executing original `0x800f4` with supplied cannon/impact screen samples and declared exclusions for the acquisition and cannon-selection controllers. These cases omit selected target contacts, landing approach and temporary BINGO/PULL UP warnings; they establish composition in the supplied context, not a complete cockpit/frame claim. The heading strip and cannon trace change the line viewport inherited by the later pitch ladder; this context is now explicit.
 
 The original Mk82 impact predictor (`0xa29dc`) also runs independently of live projectiles. It keeps the bomb at its mount during the initial attached stage, advances at ten ticks per update and stops at ground/lifetime termination. **256 complete native trajectories agree**, including varied height limits, inverted flight and boundary starts, with the caller timer restored. The native category-9 set contains the Mk82; other bomb guidance categories use their own consumers. The impact marker is drawn inside its authored bounds, while its connecting line is always clipped to the weapon viewport.
 
@@ -900,7 +900,7 @@ The forward HUD now combines the original selected-aircraft data, heading chevro
 
 **1,024 original forward-HUD frames agree in pixels, coverage, retained animation and lock-cue requests** across selected/missing contacts, acquisition, confirmed/lost locks, suppressed radar cues, weapon changes, navigation, ground designation, offsets and resets. Original layout/controller/text/raster code executes. Sensor/selection state, world-screen projection and cannon/impact samples are supplied at their separately checked boundaries; audio/voice requests are observed without playback. These are supplied-state sequences, not complete simulated engagements.
 
-The ground outline retains the original fixed X clipping limits and category-11 anti-radiation exclusion. Live flight binds actor profile names, Q8 position, heading, Q16 speed, player orientation and verified seeker state to these painters, replacing the temporary white tracking box and ground-target footer. Native navigation-contact cues, landing-approach guidance, timed launch notices and other view callbacks still need their own consumers. Lock-cue effects are returned for the pending audio backend.
+The ground outline retains the original fixed X clipping limits and category-11 anti-radiation exclusion. Live flight binds actor profile names, Q8 position, heading, Q16 speed, player orientation and verified seeker state to these painters, replacing the temporary white tracking box and ground-target footer. Native navigation-contact cues, landing-approach guidance, temporary BINGO/PULL UP warnings and other view callbacks still need their own consumers. Lock-cue effects are returned for the pending audio backend.
 
 The target-controller comparison passes in development, Release and ASan/UBSan, as do the 1,600 standalone target-painter frames. The existing 768 forward-composition frames still agree under sanitizers. All 44 CTests pass; private-window checks cover firing, display controls, paused target state and result handoff, and all 128 retail missions run 1,024 simulation steps under sanitizers.
 
@@ -1008,3 +1008,22 @@ Lighting configuration now owns the five authored altitude palette names/boundar
 Development, Release and ASan/UBSan selector/configuration comparisons pass. All 47 development CTests pass. Complete scene lighting/remaps, altitude palette progression, weather and complete-frame/session equivalence remain open renderer gates.
 
 All 128 retail missions also run 1,024 simulation steps and draw under ASan/UBSan after the lighting-configuration separation.
+
+
+### Altitude palettes, protected colours and the VGA DAC
+
+```sh
+python3 tools/check_palette_lighting.py
+python3 tools/check_dac_upload.py
+python3 tools/check_window_palettes.py
+```
+
+The live world palette now follows the original five altitude banks and boundaries. Native `0x73214` selects a bank pair from the negated camera-anchor Y, retaining integer 50-stage blending, truncated divisions, the shared cached step and target-view exclusion. The fixed-colour overlay retains its pitch/roll phase, executable-backed colour entries and magenta leave-unchanged sentinel. These phases use the original player pitch/roll inputs separately from the camera altitude. Live startup also retains the original black first palette entry.
+
+The flash/redout/blackout palette painters preserve their native retained flash byte, update gates, byte wrapping and effect-sample requests. The original blackout branch's second sample threshold reads the redout word; this quirk is kept. **4,224 original updates agree in every palette byte, retained step/phase/flash value and effect request across all 33 environments**, including boundary heights, repeated state, target view, reserved colours, disabled effects, signed effect levels and high-bit HUD values. Original startup and complete palette helpers execute; authored banks and view/effect state are supplied. The check stops before the separately verified upload selector. Darkside planet blending and the controllers which produce flash/blackout/redout state remain outside this comparison; live flight currently binds the altitude/fixed-colour path, rather than inventing those effect triggers.
+
+Tracing the upload also corrected an earlier research interpretation of `HUDCOL`. It is the green component of palette entry 6, with a compiled value of 125 and original Y/U clamp of 90–127. Native `0xc770c` uploads these bytes unchanged; the six-bit VGA DAC discards their high two bits. Live palette expansion therefore models DAC masking, while external palette files still reject components greater than 63. The native differential uploader and a six-bit port model agree with C++ RGB presentation for **304 updates and 227,352 component writes**, including all byte values, the HUD range and repeated unchanged palettes. Another 26 compact native DAC cases run without original assets in CTest and retain strict asset-file validation.
+
+Y/U now change brightness at the original flight-input cadence and preserve the native dirty-palette request even when both keys cancel each other. Private-window checks observe the default green level and both clamps in the displayed HUD, alongside night-vision/camera palette handoffs. Atmospheric geometry, weather, colour remaps, effect-state producers and complete world-frame/session equivalence remain separate work.
+
+The palette and DAC comparisons pass in development, Release and ASan/UBSan. All 48 development CTests pass. All 128 retail missions run 1,024 simulation steps and draw under sanitizers with the new live palette path.
