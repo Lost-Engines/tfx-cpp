@@ -80,6 +80,7 @@ struct view_control_state {
 };
 
 class view_control {
+  friend class view_camera;
 private:
   view_control_state state;
   void centre(view_key_context const &context);

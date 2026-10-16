@@ -26,6 +26,8 @@ camera aircraft_camera(vec3f const &position, math::attitude const &orientation)
 
 camera orbit_camera(vec3<math::angle> const &angles, int32_t distance, vec2d const &projection_origin);
 
+camera original_camera(vec3<int32_t> const &position_q16, mat3<int32_t> const &matrix, vec2d const &projection_origin);
+
 camera inspection_camera(vec3d const &position, double heading, double pitch);
 
 } // namespace tfx::render

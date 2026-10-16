@@ -27,6 +27,7 @@
 #include "cockpit/radio_ticker.h"
 #include "cockpit/weapon_display.h"
 #include "cockpit/frame.h"
+#include "cockpit/view_camera.h"
 #include "cockpit/initialisation.h"
 #include "cockpit/scene_display.h"
 #include "missions/initialisation.h"
@@ -129,6 +130,9 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   auto const instrument_setup{tfx::cockpit::initialise_instruments(mission_setup.aircraft,mission_setup.start.landed)};
   tfx::cockpit::hud_selection display_selection{instrument_setup.displays};
   tfx::cockpit::cockpit_position cockpit_position{tables.instruments(),instrument_setup.offset};
+  tfx::cockpit::view_control views;
+  tfx::cockpit::view_camera view_motion;
+  uint16_t view_pan{0};
   unsigned int ground_target_page{0};
   tfx::flight::fuel_gauge fuel_display{instrument_setup.fuel};
   auto const &player_disabled{mission_progress.player_ejected};
@@ -359,13 +363,6 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   tfx::cockpit::scene_displays scene_displays{tables.instruments()};
   tfx::cockpit::frame cockpit_frame{tables.instruments(),game};
   tfx::cockpit::weapon_display aiming{tables.instruments(),game};
-  auto const flight_view{[&] {
-    auto view{tfx::render::aircraft_camera(player.position,player.orientation)};
-    view.projection_origin = cockpit_frame.projection_origin(tfx::cockpit::forward_cockpit,cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value()));
-    return view;
-  }};
-  std::vector<vec3<int32_t>> map_targets;
-  for(auto const &target : mission_setup.targets) map_targets.emplace_back(target.position);
   // The native ground-start fallback is zero for type 50, -20 otherwise (0x8c318).
   auto const start_x{static_cast<unsigned int>(std::clamp(mission_setup.start.position.x / tfx::world::cell_units,0,static_cast<int>(tfx::world::map_width) - 1))};
   auto const start_z{static_cast<unsigned int>(std::clamp(mission_setup.start.position.z / tfx::world::cell_units,0,static_cast<int>(tfx::world::map_height) - 1))};
@@ -375,6 +372,35 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     .height{static_cast<int16_t>(mission_setup.start.landed && (!(flags & 2) || (flags & 255) >> 2 != 50) ? -20 : 0)},
   };
   auto const initial_ground{ground};
+  auto const view_index{[&] { return static_cast<unsigned int>(std::to_underlying(views.value().current)); }};
+  auto const camera_context{[&] {
+    tfx::cockpit::view_camera_context context{
+      .position{vec3<int32_t>{player.integer_position}},
+      .position_q8{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
+      .angles{vec3<tfx::math::angle>{player.angles}},
+      .basis{player.orientation},
+      .elapsed{launch_elapsed},
+      .pan{view_pan},
+      .ground_height{ground.present ? ground.height : int16_t{0}},
+      .speed{player.fixed_speed},
+    };
+    if(ground_designation) context.tracking_target_q8.emplace(vec3<int32_t>{designated_point});
+    else if(radar.selected && air_simulation.aircraft()[*radar.selected]) context.tracking_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*radar.selected]->flight.pose.position});
+    if(context.tracking_target_q8) context.observed_target_q8.emplace(vec3<int32_t>{*context.tracking_target_q8});
+    return context;
+  }};
+  auto const flight_view{[&] {
+    auto const context{camera_context()};
+    tfx::cockpit::view_pose pose{
+      .anchor{vec3<int32_t>{context.position}},
+      .position_q16{vec3<int32_t>{vec3<uint32_t>{context.position_q8} * 256u}},
+      .angles{static_cast<tfx::math::angle>(-player.angles.x),static_cast<tfx::math::angle>(-player.angles.y),static_cast<tfx::math::angle>(-player.angles.z)},
+    };
+    pose.matrix = tfx::math::view_rotation_words(pose.angles);
+    return pose.camera(cockpit_frame.projection_origin(view_index(),cockpit_position.value()));
+  }};
+  std::vector<vec3<int32_t>> map_targets;
+  for(auto const &target : mission_setup.targets) map_targets.emplace_back(target.position);
   auto const apply_selection{[&](tfx::weapons::selection_change const &change) {
     if(change.clear_contact) radar.selected.reset();
     if(change.clear_tracking) { seeker.tracking.reset(); seeker.guidance.reset(); ground_designation.reset(); mobile_designation.reset(); }
@@ -495,6 +521,10 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     seeker = {};
     designator = {};
     designator_view = false;
+    views = tfx::cockpit::view_control{};
+    view_motion = tfx::cockpit::view_camera{};
+    view_pan = 0;
+    cockpit_position.move_to(instrument_setup.offset);
     ground_designation.reset();
     mobile_designation.reset();
     radiation_cursor = 0;
@@ -602,7 +632,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     if(mission_progress.observe_player_loss(scene.actor_destroyed(player_visual),player.collision != 0,elapsed)) scene.actor_event(player_visual,21);
     projectiles.advance(elapsed,air_simulation.random_stream());
     scene.advance(elapsed);
-    cockpit_position.advance(tables.instruments().viewports[tfx::cockpit::forward_cockpit].bottom);
+    cockpit_position.advance(tables.instruments().viewports[view_index()].bottom);
     refresh_sensors(elapsed);
   }};
   auto const finish_world{[&](tfx::simulation::timer_ticks const elapsed) {
@@ -639,7 +669,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   auto const queue_projectiles{[&] {
     for(auto const &[_,shot] : projectiles.projectiles()) if(!shot->spent) scene.queue_actor(weapon_visuals[shot->state.weapon][shot->state.secondary],vec3d{shot->state.position} / tfx::actors::position_unit,shot->state.angles);
   }};
-  auto const draw_instruments{[&] {
+  auto const draw_instruments{[&](std::optional<std::string> const &radio_window) {
     std::array<std::vector<tfx::cockpit::radar_aircraft>,2> air_contacts;
     std::array<std::vector<tfx::cockpit::radar_surface>,2> surface_contacts;
     for(unsigned int pool{0}; pool != air_contacts.size(); ++pool) for(unsigned int reverse{tfx::actors::aircraft_per_side}; reverse; --reverse) {
@@ -722,7 +752,6 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       int32_t const distance{tfx::math::distance_estimate(player.integer_position,*range_target)};
       state.in_range = distance != 0 && distance < range_weapon.range;
     }
-    auto const radio_window{radio.advance(launch_elapsed)};
     if(radio_window) state.radio_message = *radio_window;
     auto const result{instruments.draw(renderer,display_selection,state,air_simulation.random_stream(),nullptr,[&](tfx::cockpit::display_side const side, tfx::cockpit::display_page const page, tfx::cockpit::mfd_state const &display) {
       tfx::cockpit::scene_camera_state camera_state{
@@ -761,10 +790,10 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::fuel)] = result.fuel_condition;
     // The compositor returns its warning sound event; the audio backend is still pending.
   }};
-  auto const draw_aiming{[&](tfx::render::camera const &view) {
+  auto const draw_aiming{[&](tfx::render::camera const &view, bool const limited) {
     auto const fault{player_damage.condition(tfx::flight::aircraft_system::hud)};
     if(fault == tfx::flight::system_condition::failed || (fault == tfx::flight::system_condition::intermittent && (air_simulation.random_stream().next() & 1))) return;
-    auto const offset{cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value())};
+    auto const offset{vec2<int16_t>{cockpit_position.value()}};
     unsigned int const weapon_index{armament.selected < 0 ? 0u : armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
     auto const &weapon{tables.weapons.at(weapon_index < tables.weapons.size() ? weapon_index : 0)};
     auto const role{armament.selected_role()};
@@ -778,6 +807,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .ammunition{cannon.ammunition},
       .air_lock{seeker.guidance.has_value()},
       .ground_lock{ground_designation.has_value()},
+      .limited{limited},
       .attitude{
         .angles{vec3<tfx::math::angle>{player.angles}},
         .projection_angles{static_cast<tfx::math::angle>(-player.angles.x),static_cast<tfx::math::angle>(-player.angles.z)},
@@ -843,7 +873,15 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       renderer.text(140,80,"PAUSED",15);
       return;
     }
-    auto view{inspect ? tfx::render::inspection_camera(position,heading,pitch) : flight_view()};
+    if(!inspect && !designator_view) {
+      if(view_index() == tfx::cockpit::forward_cockpit) cockpit_position.move_to(cockpit_frame.clamp(view_index(),cockpit_position.value()));
+      views.offset(cockpit_position.value());
+      if(!view_motion.advance(views,camera_context())) throw std::runtime_error{"unimplemented flight camera"};
+      auto const entry{view_motion.last_pose().player_model_entry};
+      scene.show_actor(player_visual,entry.has_value());
+      if(entry) scene.actor_event(player_visual,*entry);
+    } else scene.show_actor(player_visual,false);
+    auto view{inspect ? tfx::render::inspection_camera(position,heading,pitch) : designator_view ? flight_view() : view_motion.last_pose().camera(cockpit_frame.projection_origin(view_index(),cockpit_position.value()))};
     if(!inspect && designator_view) {
       double constexpr radians_per_angle{2 * std::numbers::pi / 65536};
       view = tfx::render::inspection_camera(vec3d{designator.camera},designator.heading * radians_per_angle,-tfx::math::signed_word(designator.pitch) * radians_per_angle);
@@ -862,9 +900,13 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       renderer.text(25,115,std::format("SCORE {}  RESULT {}",campaign["score"],campaign["miss_val"]),15);
       renderer.text(40,160,"ENTER OR ESCAPE TO CLOSE",15);
     } else if(!inspect) {
-      if(!designator_view) draw_aiming(view);
-      if(!designator_view) cockpit_frame.paint(renderer.output,tfx::cockpit::forward_cockpit,cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value()));
-      draw_instruments();
+      auto const radio_window{radio.advance(launch_elapsed)};
+      auto const callback{tables.instruments().viewports[view_index()].callback_file};
+      if(!designator_view && (callback == 0x806dc || callback == 0x80718 || callback == 0x80758)) draw_aiming(view,callback != 0x80758);
+      if(!designator_view && view_index() == tfx::cockpit::forward_cockpit) {
+        cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
+        draw_instruments(radio_window);
+      } else if(radio_window) instruments.draw_radio(renderer,*radio_window);
       // The separate designator-view labels await their native camera callback.
       uint8_t constexpr hud_colour{15};
       if(designator_view) {
@@ -876,6 +918,10 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
       if(player_disabled) renderer.text(120,92,"AIRCRAFT LOST",hud_colour);
       flight_frame = renderer.output;
+      if(!designator_view && views.value().ready) {
+        views.consume();
+        cockpit_position.move_to(views.value().offset);
+      }
     }
   }};
   draw();
@@ -981,7 +1027,37 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         }
       }
       if(pressed(GLFW_KEY_X)) { ground_designation.reset(); mobile_designation.reset(); radar.selected.reset(); seeker.clear(); }
-      if(pressed(GLFW_KEY_F1)) designator_view = false;
+      auto const context{camera_context()};
+      tfx::cockpit::view_key_context const view_keys{
+        .crashed{player.collision != 0},
+        .ejected{player_disabled},
+        .shift{down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)},
+        .speed{player.fixed_speed},
+        .position{vec3<int32_t>{player.integer_position}},
+        .angles{vec3<tfx::math::angle>{player.angles}},
+        .height_bounds{vec2<int32_t>{tables.instruments().camera_height_bounds}},
+        .target_available{context.observed_target_q8.has_value()},
+        .target_is_ground{ground_designation.has_value()},
+        .tracking_available{context.tracking_target_q8.has_value()},
+      };
+      std::array<std::pair<int,tfx::cockpit::view_key>,9> constexpr view_bindings{{
+        {GLFW_KEY_F1,tfx::cockpit::view_key::front},
+        {GLFW_KEY_F2,tfx::cockpit::view_key::left},
+        {GLFW_KEY_F3,tfx::cockpit::view_key::right},
+        {GLFW_KEY_F4,tfx::cockpit::view_key::rear},
+        {GLFW_KEY_F5,tfx::cockpit::view_key::chase},
+        {GLFW_KEY_F6,tfx::cockpit::view_key::fly_past},
+        {GLFW_KEY_F7,tfx::cockpit::view_key::tactical},
+        {GLFW_KEY_F9,tfx::cockpit::view_key::target},
+        {GLFW_KEY_F10,tfx::cockpit::view_key::virtual_cockpit},
+      }};
+      views.offset(cockpit_position.value());
+      for(auto const &[key,action] : view_bindings) if(pressed(key)) {
+        views.press(action,view_keys);
+        cockpit_position.move_to(views.value().offset);
+        designator_view = false;
+      }
+      view_pan = view_keys.shift ? static_cast<uint16_t>((down(GLFW_KEY_LEFT) ? 1 : 0) | (down(GLFW_KEY_RIGHT) ? 2 : 0) | (down(GLFW_KEY_UP) ? 4 : 0) | (down(GLFW_KEY_DOWN) ? 8 : 0)) : 0;
       if(pressed(GLFW_KEY_COMMA) && designator_view && designator.zoom) --designator.zoom;
       if(pressed(GLFW_KEY_PERIOD) && designator_view && designator.zoom < 10) ++designator.zoom;
       designator_input = {
@@ -1014,7 +1090,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       auto const step{flight_clock.poll(counter)};
       if(step) {
         // Keyboard supplies a relative stick input until the full native device adapter is restored.
-        if(!designator_view) {
+        if(!designator_view && !view_keys.shift) {
           pitch_input += (down(GLFW_KEY_UP) - down(GLFW_KEY_DOWN)) * step->world_ticks * 4;
           roll_input += (down(GLFW_KEY_RIGHT) - down(GLFW_KEY_LEFT)) * step->world_ticks * 4;
         }

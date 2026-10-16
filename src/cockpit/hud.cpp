@@ -36,6 +36,10 @@ void hud_selection::normalise() {
 hud::hud(instrument_assets const &source, resources::archive const &game, std::span<weapons::definition const> const definitions, std::string const &schematic)
   : assets{source}, weapons{definitions}, numbers{assets,game}, displays{assets,game,weapons}, map{game,schematic}, radar_display{assets,game}, warnings{assets,game}, auxiliary{assets,game} {
 }
+void hud::draw_radio(render::software_renderer &renderer, std::string_view const message) const {
+  renderer.clipping = render::raster_clip::viewport({0,0},{render::screen_width - 1,render::screen_height - 1});
+  numbers.draw_radio(renderer,message,false);
+}
 hud_animation hud::animation() const {
   return {
     .warnings{warnings.state()},
