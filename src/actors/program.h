@@ -9,6 +9,7 @@
 
 namespace tfx::actors {
 
+unsigned int constexpr air_profile_bytes{74};
 unsigned int constexpr aircraft_per_group{10}, aircraft_per_side{50}, surface_capacity{50};
 int constexpr position_fraction_bits{8}, speed_fraction_bits{16};
 int constexpr position_unit{1 << position_fraction_bits};
@@ -44,12 +45,14 @@ struct profile {
   std::string name;
   std::string definition;
   resources::bytes source;
+  resources::bytes native_window{};
 };
 std::vector<profile> profiles(std::span<uint8_t const> source);
 struct formation_offset {
   math::angle heading;
   int32_t distance;
   int32_t height;
+  int32_t forward_distance{0};
 };
 struct initial_actor {
   record_kind kind;

@@ -93,7 +93,6 @@ environment::environment(resources::archive const &game, std::string source_name
     tiles.push_back(std::move(tile));
   }
   if(cursor != table.size()) throw std::runtime_error{"terrain variant table has unexplained trailing bytes"};
-  math::random_state random;
   for(unsigned int x{0}; x != map_width; ++x) {
     for(unsigned int row{0}; row != map_height; ++row) {
       auto const source{x * map_height + row}, target{(map_height - 1 - row) * map_width + x};
@@ -111,6 +110,10 @@ environment::environment(resources::archive const &game, std::string source_name
     if(token == "night" || token == "day") settings >> palette_name;
   }
   if(palette_name.empty()) throw std::runtime_error{"environment has no base day/night palette: " + name};
+}
+
+math::random_state environment::variant_random_state() const {
+  return random;
 }
 
 terrain_tile const &environment::tile(unsigned int const x, unsigned int const z) const {

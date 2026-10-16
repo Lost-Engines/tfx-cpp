@@ -26,6 +26,14 @@ void scene::place_actor(scene_handle const handle, vec3d const &position, vec3<m
   actor.rotation = math::rotation(angles);
 }
 
+void scene::show_actor(scene_handle const handle, bool const visible) {
+  actors.at(handle.value).visible = visible;
+}
+
+bool scene::terrain_intact(unsigned int const x, unsigned int const z) {
+  return x < map_width && z < map_height && !terrain_instance(x,z).destroyed;
+}
+
 namespace {
 
 vec3<int16_t> word_position(vec3d const &position) {
@@ -150,6 +158,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     }
   }
   for(auto &[_, actor] : actors) {
+    if(!actor.visible) continue;
     instance_context const context{
       .status{terrain.status},
       .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(actor.position + actor.rotation * anchor - view.position)); }},

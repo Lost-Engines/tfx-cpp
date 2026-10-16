@@ -21,6 +21,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
       .heading{view.le16(at)},
       .distance{std::bit_cast<int32_t>(view.le32(at + 6))},
       .height{std::bit_cast<int32_t>(view.le32(at + 10))},
+      .forward_distance{std::bit_cast<int32_t>(view.le32(at + 2))},
     };
   }
   for(unsigned int i{0}; i != character_map.size(); ++i) character_map[i] = view.byte(mapping + i);

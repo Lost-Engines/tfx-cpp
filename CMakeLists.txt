@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/actors/air.cpp
+  src/actors/air.h
   src/actors/air_motion.cpp
   src/actors/air_motion.h
   src/actors/program.cpp
@@ -79,6 +81,15 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(air_tests tests/air_test.cpp)
+  target_link_libraries(air_tests PRIVATE tfx_core)
+  configure_first_party(air_tests)
+  add_test(NAME actors.native_air_sequences COMMAND air_tests ${PROJECT_SOURCE_DIR}/tests/reference/air.txt)
+
+  add_executable(air_probe tests/air_probe.cpp)
+  target_link_libraries(air_probe PRIVATE tfx_core)
+  configure_first_party(air_probe)
+
   add_executable(air_motion_probe tests/air_motion_probe.cpp)
   target_link_libraries(air_motion_probe PRIVATE tfx_core)
   configure_first_party(air_motion_probe)

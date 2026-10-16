@@ -40,6 +40,7 @@ class environment {
 private:
   std::array<uint16_t, map_width * map_height> cells;
   std::array<uint16_t, map_width * map_height> choices;
+  math::random_state random;
 
 public:
   std::string name;
@@ -53,6 +54,7 @@ public:
   terrain_tile const &tile(unsigned int x, unsigned int z) const;
   std::string const &variant(unsigned int x, unsigned int z) const;
   unsigned int tile_id(unsigned int x, unsigned int z) const;
+  math::random_state variant_random_state() const;
 };
 
 } // namespace tfx::world
