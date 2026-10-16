@@ -1165,3 +1165,11 @@ The native stall-pitch stage (0x8d6e8) updates the visible basis separately from
 All 8,192 complete original cases agree in both matrices, rotation residuals, altitude, contact/landing flags, signed words and speed/reference stores, without intercepted dependencies. The cases include independent and consecutive stage calls, gear-height boundaries, stall/reference thresholds, maximum elapsed words and prior contact state. Development, Release and ASan/UBSan checks pass; 123 compact native cases bring the normal CTest suite to 54 passing tests.
 
     python3 tools/check_simple_ground.py
+
+### Landing-gear damage
+
+Native 0x8d7ec computes descent speed from the body's forward axis, applies aircraft-specific touchdown/rolling/airborne limits, distinguishes intermittent gear damage from complete failure, retracts failed gear and emits ordered sample requests. The thresholds retain the native factors of two for landing descent and 1.4 for speed; the same frame can warn for ground speed and subsequently warn or fail for airborne speed.
+
+All 8,192 complete original state/float-bit/audio cases agree, with sample delivery as the only intercepted boundary. They include healthy and already damaged gear, first and continuing ground contact, exact/adjacent speed thresholds and every resulting request sequence. Development, Release and ASan/UBSan checks pass; 123 compact native cases bring the CTest suite to 55 passing tests.
+
+    python3 tools/check_landing_gear.py
