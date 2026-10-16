@@ -59,6 +59,10 @@ void readouts::number(render::software_renderer &renderer, vec2<int> const &posi
     x += 4;
   }
 }
+void readouts::draw_radio(render::software_renderer &renderer, std::string_view const message, bool const forward, vec2<int16_t> const &offset, render::framebuffer *const coverage) const {
+  if(forward) number(renderer,shifted({122,122},offset),message,coverage);
+  else renderer.text(122,179,message,6,coverage);
+}
 void readouts::draw_autopilot(render::software_renderer &renderer, autopilot_display_state const &state, vec2<int16_t> const &offset, render::framebuffer *const coverage) const {
   // Native 0x7e1f4 always prints the selected mode number, including while disengaged.
   if(state.enabled) {

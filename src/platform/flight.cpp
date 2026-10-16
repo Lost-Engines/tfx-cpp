@@ -24,6 +24,7 @@
 #include "flight/damage.h"
 #include "flight/fuel_gauge.h"
 #include "cockpit/hud.h"
+#include "cockpit/radio_ticker.h"
 #include "cockpit/weapon_display.h"
 #include "cockpit/frame.h"
 #include "cockpit/initialisation.h"
@@ -87,8 +88,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     tfx::actors::profile const *profile;
   };
   std::vector<surface_actor> surface_actors;
-  std::string radio_message;
-  int radio_ticks{0};
+  tfx::cockpit::radio_ticker radio{tables.instruments().radio_padding};
   for(auto const &actor : initial_actors) {
     auto const profile{std::ranges::find(profiles,actor.profile_id,&tfx::actors::profile::id)};
     auto const visual{scene.create_actor(profile->definition,vec3d{actor.position} / tfx::actors::position_unit,actor.angles)};
@@ -297,8 +297,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         };
         projectiles.countermeasure(owner,actor_position(owner),data.kind == tfx::actors::air_countermeasure_kind::radar,data.strength,air_simulation.random_stream());
       } else if constexpr(std::is_same_v<data_type,tfx::actors::air_radio>) {
-        radio_message = data.text;
-        radio_ticks = 5 * 55;
+        radio.show(data.text);
       }
     },request.data);
   };
@@ -327,8 +326,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         // Requests execute inside the route callback, before this unit's movement, matching the native launcher boundary.
         tfx::actors::advance_surface(actor.state,*actor.profile,[&](tfx::actors::surface_request const &request) {
           if(request.kind == tfx::actors::surface_request_kind::radio) {
-            radio_message = request.text;
-            radio_ticks = 5 * 55;
+            radio.show(request.text);
           } else if(request.kind == tfx::actors::surface_request_kind::nearby_targets) {
             for(auto const &shot : tfx::actors::engage_surface_targets(actor.state,*actor.profile,{
               .owner{index},
@@ -342,7 +340,6 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
           }
         });
       }
-      if(radio_ticks > 0) --radio_ticks;
     }
     for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) {
       auto const &actor{air_simulation.aircraft()[index]};
@@ -492,6 +489,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     armament.select(mission_setup.aircraft == tfx::flight::player_aircraft::nighthawk ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false);
     armament.guns = true;
     navigation_mode = true;
+    radio.clear();
     radar = {};
     seeker = {};
     designator = {};
@@ -505,8 +503,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed, bool const fire = false, bool const release_store = false) {
     if(mission_progress.ended) return;
     for(auto const index : mission_time.begin_frame()) {
-      radio_message = mission_setup.messages[index].text;
-      radio_ticks = 5 * 55;
+      radio.show(mission_setup.messages[index].text);
     }
     launch_elapsed = elapsed;
     bool const flying{!player.collision};
@@ -577,8 +574,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .speed{player.fixed_speed},
       .arcade{!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0)},
     })) {
-      radio_message = notice.kind == tfx::missions::notice_kind::target_destroyed ? *mission_setup.targets[notice.target].text : *mission_setup.completion->text;
-      radio_ticks = 5 * 55;
+      radio.show(notice.kind == tfx::missions::notice_kind::target_destroyed ? *mission_setup.targets[notice.target].text : *mission_setup.completion->text);
     }
     air_world.player = tfx::actors::air_contact{
       .position{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
@@ -614,7 +610,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       auto const &event{mission_setup.scenery_events[index]};
       scene.terrain_event(event.cell.x,event.cell.y,event.entry);
     }
-    if(mission_progress.finish_frame(elapsed)) { radio_message = tables.timer_expired_message; radio_ticks = 5 * 55; }
+    if(mission_progress.finish_frame(elapsed)) radio.show(tables.timer_expired_message);
     if(mission_progress.ended) {
       campaign["score"] = std::bit_cast<int32_t>(static_cast<uint32_t>(campaign["score"]) + static_cast<uint32_t>(mission_progress.return_score));
       campaign["outcome"] = std::to_underlying(mission_progress.outcome);
@@ -725,6 +721,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       int32_t const distance{tfx::math::distance_estimate(player.integer_position,*range_target)};
       state.in_range = distance != 0 && distance < range_weapon.range;
     }
+    auto const radio_window{radio.advance(launch_elapsed)};
+    if(radio_window) state.radio_message = *radio_window;
     auto const result{instruments.draw(renderer,display_selection,state,air_simulation.random_stream(),nullptr,[&](tfx::cockpit::display_side const side, tfx::cockpit::display_page const page, tfx::cockpit::mfd_state const &display) {
       tfx::cockpit::scene_camera_state camera_state{
         .aircraft{player.aircraft},
@@ -843,7 +841,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       if(!designator_view) draw_aiming(view);
       if(!designator_view) cockpit_frame.paint(renderer.output,tfx::cockpit::forward_cockpit,cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value()));
       draw_instruments();
-      // Remaining target outlines and radio placement retain the integration adapter.
+      // Target outlines retain their integration adapter pending the original cue painters.
       uint8_t constexpr hud_colour{15};
       if(designator_view) {
         renderer.line({150,100},{170,100},hud_colour);
@@ -861,7 +859,6 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
       if(player_disabled) renderer.text(120,92,"AIRCRAFT LOST",hud_colour);
       else if(player_damage.accumulated != 0) renderer.text(5,50,"SYSTEM DAMAGE",hud_colour);
-      if(radio_ticks > 0) renderer.text(5,120,radio_message,hud_colour);
       flight_frame = renderer.output;
     }
   }};
@@ -948,6 +945,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       if(pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER)) select_weapon(tfx::weapons::weapon_role::air);
       if(pressed(GLFW_KEY_BACKSPACE) || pressed(GLFW_KEY_O)) select_weapon(tfx::weapons::weapon_role::ground);
       if(pressed(GLFW_KEY_F)) { armament.guns = true;navigation_mode = true; }
+      if(pressed(GLFW_KEY_L) && !down(GLFW_KEY_LEFT_ALT) && !down(GLFW_KEY_RIGHT_ALT) && !player.collision && !player_disabled) radio.replay();
       if(pressed(GLFW_KEY_C)) cycle_target();
       if(pressed(GLFW_KEY_1)) display_selection.cycle_left(!mission_setup.targets.empty());
       if(pressed(GLFW_KEY_2)) display_selection.cycle_centre(player.aircraft);

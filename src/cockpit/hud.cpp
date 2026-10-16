@@ -146,6 +146,7 @@ hud_effects hud::draw(render::software_renderer &renderer, hud_selection &select
     .landed{state.landed},
     .offset{vec2<int16_t>{offset}},
   },coverage,renderer.clipping);
+  if(state.radio_message) numbers.draw_radio(renderer,*state.radio_message,true,offset,coverage);
   return {
     .fuel_condition{instruments.systems[std::to_underlying(flight::aircraft_system::fuel)]},
     .threat_sound{threat_sound},
