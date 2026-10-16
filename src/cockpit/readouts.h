@@ -33,6 +33,7 @@ private:
 
 public:
   readouts(instrument_assets const &assets, resources::archive const &game);
+  void draw_radio(render::software_renderer &renderer, std::string_view message, bool forward, vec2<int16_t> const &offset = {0,0}, render::framebuffer *coverage = nullptr) const;
   void draw_autopilot(render::software_renderer &renderer, autopilot_display_state const &state, vec2<int16_t> const &offset = {0,0}, render::framebuffer *coverage = nullptr) const;
   fuel_warning draw(render::software_renderer &renderer, readout_state const &state, render::framebuffer *coverage = nullptr) const;
 };

@@ -861,3 +861,19 @@ All **36 sight-mount lookups** agree with native `0x8b984`, including pylon -1 a
 Live flight now paints the verified readouts/heading/weapon layout before cockpit artwork and lower instruments, replacing the temporary top-of-screen diagnostic labels. F returns to navigation; weapon selection also retains the cannon's selected air/ground role. HUD faults retain the original intermittent/failed gate. Sensor acquisition now uses the actual forward-cockpit projection origin. Projected trajectories currently use the existing approximate world camera and stored movement bounds; original world initialisation/projection and complete-frame/session verification remain open. Target outlines and radio placement still use their integration adapter. The private-window checks exercise firing, display cycling, scene MFDs, pause, designator controls and result handoff, and all 128 retail missions start successfully with the new forward HUD.
 
 The forward composition, cannon/impact trajectories and sight-mount checks pass in development, Release and ASan/UBSan. All 44 existing CTests pass, and all 128 retail missions also draw after 1,024 simulation steps under sanitizers. These remain subsystem and integration checks rather than a complete original-session comparison.
+
+
+### Scrolling radio messages
+
+```sh
+python3 tools/check_radio.py
+python3 tools/check_radio.py --frames
+```
+
+The original radio controller (`0x81174`–`0x813c3`) now owns its message history, cursor, timing remainder and optional repeating pass. Messages retain both 20-character padding runs and native uppercase/digit filtering; the 19-character window is copied before advancement, and the final partial window is suppressed. Ordinary scrolling uses four ticks per character and time warp uses twenty. Clear, replacement and replay deliberately retain the timing remainder.
+
+**4,096 native state/window updates agree**, including empty, mixed-case, punctuation, extended-byte and NUL-terminated messages, replacement, clear, replay, repeated messages and both timing modes. Another **512 complete native pixel/coverage/state frames agree**, including both original fonts, view-zero offsets and clipping. Original string preparation, controller and VGA font painters execute with the external pitfont bank supplied unchanged.
+
+Live mission, aircraft and surface-unit radio events now feed this controller, replacing the temporary five-second full-line label. The coloured radio display renders after the auxiliary instruments at the original cockpit position. Plain L invokes the original replay branch; Alt+L's separate landing controller remains unimplemented. Paused frames retain the current window. Other camera modes still await their complete native callbacks.
+
+The radio state/frame comparisons pass in development, Release and ASan/UBSan. The 504-frame original instrument-HUD comparison still agrees, all 44 existing CTests pass, and private-window firing, MFD, replay, pause and mission-result checks pass with live radio rendering.

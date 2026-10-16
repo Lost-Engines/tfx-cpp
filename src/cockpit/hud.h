@@ -1,6 +1,8 @@
 #pragma once
 
 #include <functional>
+#include <optional>
+#include <string_view>
 #include "cockpit/auxiliary.h"
 #include "cockpit/mfd.h"
 #include "cockpit/moving_map.h"
@@ -55,6 +57,7 @@ struct hud_state {
   hud_contacts contacts;
   std::span<vec3<int32_t> const> targets;
   std::optional<vec2<int16_t>> navigation_cell;
+  std::optional<std::string_view> radio_message{};
 };
 struct hud_effects {
   flight::system_condition fuel_condition;

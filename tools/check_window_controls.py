@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
                 if panel(before_path,bounds)==panel(after_path,bounds):raise RuntimeError('MFD '+key+' did not change through keyboard input')
                 for _ in range(9):tap(key)
                 if game.poll() is not None:raise RuntimeError('cycling MFD '+key+' terminated flight')
-            tap('r');tap('n');tap('p')
+            tap('r');tap('n');tap('l');tap('p')
             run('import','-window',window,str(before_path),check=True);time.sleep(.3)
             run('import','-window',window,str(after_path),check=True)
             with Image.open(before_path) as before,Image.open(after_path) as after:

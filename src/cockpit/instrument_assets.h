@@ -27,6 +27,7 @@ struct instrument_assets {
   std::string pitch_bank;
   std::array<pitch_mark,42> pitch_marks;
   std::string in_range_label;
+  std::string radio_padding;
   std::string aiming_bank;
   std::array<std::string,7> aiming_labels;
   std::array<std::string,3> brake_messages;

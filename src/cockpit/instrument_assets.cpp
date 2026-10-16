@@ -39,6 +39,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
     };
   }
   in_range_label = string(0x179c);
+  radio_padding = string(0x17cc);
   aiming_bank = resource(0x1634);
   aiming_labels = {string(0x16f0),string(0x1710),string(0x1744),string(0x16f8),string(0x1718),string(0x1704),string(0x170c)};
   brake_messages = {string(0x171c),string(0x1728),string(0x1734)};
