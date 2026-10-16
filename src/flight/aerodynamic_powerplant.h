@@ -16,6 +16,7 @@ struct aerodynamic_powerplant_parameters {
   double roll_thrust_arm{0};
   double pitch_thrust_arm{0};
 };
+enum class afterburner_change { none, started, increased, decreased, stopped };
 struct aerodynamic_powerplant {
   vec2d engine_factor{1,1};
   std::array<system_condition,2> engine_condition{system_condition::normal,system_condition::normal};
@@ -24,6 +25,7 @@ struct aerodynamic_powerplant {
   vec3d engine_moment{0,0,0};
   float throttle{0};
   double thrust{0};
+  double throttle_target{0};
   double fuel{0};
   double fuel_capacity{0};
   double extra_fuel_capacity{0};
@@ -33,6 +35,8 @@ struct aerodynamic_powerplant {
   uint8_t afterburner_control{0};
   uint8_t afterburner_display{0};
   bool stop_afterburner();
+  afterburner_change increase_afterburner(unsigned int stages);
+  afterburner_change decrease_afterburner();
 };
 struct aerodynamic_powerplant_context {
   double altitude_km{0};
