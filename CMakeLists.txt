@@ -30,6 +30,8 @@ add_library(tfx_core
   src/planning/map_view.h
   src/presentation/widget_font.cpp
   src/presentation/widget_font.h
+  src/resources/compiled_overlay.cpp
+  src/resources/compiled_overlay.h
   src/resources/compiled_panel.cpp
   src/resources/compiled_panel.h
   src/planning/document.cpp
@@ -336,6 +338,15 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(overlay_tests tests/overlay_test.cpp)
+  target_link_libraries(overlay_tests PRIVATE tfx_core)
+  configure_first_party(overlay_tests)
+  add_test(NAME resources.compiled_overlay_bounds COMMAND overlay_tests)
+
+  add_executable(overlay_probe tests/overlay_probe.cpp)
+  target_link_libraries(overlay_probe PRIVATE tfx_core)
+  configure_first_party(overlay_probe)
 
   add_executable(mfd_probe tests/mfd_probe.cpp)
   target_link_libraries(mfd_probe PRIVATE tfx_core)

@@ -680,3 +680,13 @@ Seven original page painters now consume typed flight, fuel, damage and inventor
 The HUD width helper also agrees for all **576 font cases**. Native `0x87114` measures the full character byte instead of the painter's masked index, and its partial-register operation retains the upper word for negative mapping entries. Centred MFD labels retain the original signed low-word conversion. The comparison executes those original instructions rather than deriving expected widths from the C++ mapping.
 
 The MFD, readout and font comparisons and all 43 CTests pass in development, Release and ASan/UBSan. These remain verified pieces of the forthcoming cockpit composition, rather than a claim of a complete flight frame.
+
+### Compiled cockpit artwork
+
+```sh
+python3 tools/check_overlays.py
+```
+
+The bitmap compiler's restricted literal pixel/plane streams now decode into indexed artwork records. Canopy column-entry tables become bounded data with their original horizontal-byte and vertical-row offsets. The fixed missile/map overlays retain their fixed placement, even when offset arguments are supplied. Explicit black writes retain coverage separately from untouched pixels. No original x86 code executes in the game.
+
+**68 complete native pixel/coverage frames agree** across `infcock.hud`, `cockpit.bin`, its `a.bin` alias, `misshud.hud` and `cockmap.bin`, including extreme legal horizontal pans and vertical shifts. Asset-free tests cover every truncated prefix, unsupported tokens, invalid plane masks, out-of-screen addresses, unused bytes and fixed-overlay argument handling. The native captures and all 44 CTests pass in development, Release and ASan/UBSan. Viewport selection, the companion lower-panel upload and flight composition remain separate integration work; decoding retained artwork does not establish that every resource is selected in retail flight.
