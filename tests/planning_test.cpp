@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 #include "planning/document.h"
+#include "resources/compiled_panel.h"
 
 namespace {
 void require(bool const condition, char const *const message) {
@@ -33,6 +34,11 @@ int main() try {
   complete.back() = 0x12345678;
   tfx::planning::mission_parameters const parameters{complete};
   require(parameters.retained[2] == 0x5678 && parameters.retained[3] == 0x1234,"last native header dword lost its spill word");
+  tfx::resources::screen_overlay overlay;
+  overlay.coverage.pixels[0] = 255;overlay.image.pixels[0] = 0;
+  overlay.image.pixels[1] = 77;
+  tfx::render::framebuffer target;target.pixels.fill(12);overlay.paint(target);
+  require(target.pixels[0] == 0 && target.pixels[1] == 12,"compiled-panel composition lost written black or overwrote an uncovered map pixel");
   std::cout << "Planner metadata, editable routes/commands, original briefing bytes, overlapping scanf writes and truncation bounds passed\n";
   return EXIT_SUCCESS;
 } catch(std::exception const &error) {
