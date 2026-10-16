@@ -8,6 +8,11 @@ namespace tfx::cockpit {
 
 enum class instrument_mask : unsigned int { store, throttle, fuel, gear, left_flap, right_flap, lower_flap, left_engine, right_engine, count };
 
+struct radar_scale {
+  int16_t label;
+  int16_t world_per_pixel;
+};
+
 struct instrument_assets {
   std::array<uint8_t,64> character_map;
   std::string font_bank;
@@ -22,6 +27,11 @@ struct instrument_assets {
   std::string stealth_label;
   std::array<std::string,2> decoy_formats;
   std::string display_bank;
+  std::string radar_bank;
+  std::string radar_format;
+  std::array<radar_scale,4> horizontal_scales;
+  std::array<radar_scale,3> bvr_scales;
+  std::array<vec2<int16_t>,40> bvr_envelope;
   std::array<std::string,2> warning_banks;
   std::array<uint8_t,15> condition_frames;
   std::array<std::string,3> auxiliary_banks;

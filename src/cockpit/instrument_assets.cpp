@@ -43,6 +43,17 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   engine_lamp_cache = {source.byte(data + 0x7157),source.byte(data + 0x7156)};
   for(unsigned int index{0}; index != ammunition_pips.size(); ++index) ammunition_pips[index] = {source.signed_le16(data + 0x6c44 + index * 4),source.signed_le16(data + 0x6c46 + index * 4)};
   display_bank = resource(0x1694);
+  radar_bank = resource(0x1610);
+  radar_format = string(0x1884);
+  for(unsigned int index{0}; index != horizontal_scales.size(); ++index) horizontal_scales[index] = {
+    .label{source.signed_le16(data + 0x7d80 + index * 2)},
+    .world_per_pixel{source.signed_le16(data + 0x7d88 + index * 2)},
+  };
+  for(unsigned int index{0}; index != bvr_scales.size(); ++index) bvr_scales[index] = {
+    .label{source.signed_le16(data + 0x7d90 + index * 2)},
+    .world_per_pixel{source.signed_le16(data + 0x7d96 + index * 2)},
+  };
+  for(unsigned int index{0}; index != bvr_envelope.size(); ++index) bvr_envelope[index] = {source.signed_le16(data + 0x76d2 + index * 4),source.signed_le16(data + 0x76d4 + index * 4)};
   for(unsigned int index{0}; index != display_origins.size(); ++index) display_origins[index] = {source.signed_le16(data + 0x7c98 + index * 8),source.signed_le16(data + 0x7c9a + index * 8)};
   std::array<unsigned int,9> constexpr bitmap_fields{0x7b84,0x7b8c,0x7b93,0x7b9a,0x7ba1,0x7ba9,0x7bb1,0x7bb7,0x7bcc};
   for(unsigned int index{0}; index != masks.size(); ++index) {
