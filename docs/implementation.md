@@ -1346,3 +1346,11 @@ Native 0x9d734 evaluates gear and body contact points in physical North/East/Dow
 All 8,192 complete original contact-point cases agree, including 2,028 reactions, 851 random bumps and 109 failed-gear impact notification requests. Original startup, arithmetic, native square roots and random generator execute without numerical interception. Only the failed-gear output notification is intercepted and its request is observed. There are 123 compact asset-free captures.
 
     python3 tools/check_aerodynamic_contact.py
+
+### Complete military-spec ground pass and carrier arresting gear
+
+Native 0x9ce5c now combines all six original aircraft contact points, preserving shared point caches, random order, gear failure timing and the retained yaw moment at entry. Ground start assistance, cable engagement/stretch/damping, cable release/stopping, landed state, rollout distance and collision load clearing follow the original. The load threshold requests the original cockpit-bump callback; it is separate from gear damage and collision.
+
+All 8,192 complete original updates agree: 1,537 contact passes, 401 random bump sequences, 423 gear impact requests, 1,186 arrestor transitions and 1,563 cockpit bump requests. The complete ground routine and all six original point evaluations execute; only failed-gear output notification delivery is intercepted and counted. There are 123 compact captures. The checked aircraft-profile decoder also supplies all six contact offsets, hook geometry, suspension, friction/brake limits and carrier constants directly from preset data.
+
+    python3 tools/check_aerodynamic_ground.py

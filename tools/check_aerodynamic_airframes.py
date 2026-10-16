@@ -31,6 +31,10 @@ for craft in range(3):
     wanted=[im.read(offset,'<Q')[0] for offset in (0x142c8,0x14258,0x14850)]
     wanted += [im.read(base+slot*8,'<Q')[0] for slot in range(10) for base in (0x13bd0,0x13c20,0x13c70)]
     wanted += [im.read(offset,'<Q')[0] for offset in geometry+coefficients+other]+[im.read(0x8cd8+craft,'<B')[0]]
+    contact=[0x14570,0x14278,0x14568,0x14560,0x14558,0x13d38,0x13d30,0x13e50,0x13e88,0x13e80,0x14220,0x145e0,0x13da0]
+    wanted += [im.read(field,'<Q')[0] for field in contact]
+    wanted += [word for field in (0x13ed0,0x145d8,0x13df8,0x13d60,0x13d78,0x13e10,0x13dd8) for word in im.read(field,'<3Q')]
+    wanted += [im.read(field,'<Q')[0] for field in (0x14550,0x13d40,0x13d98)]
     observed=list(map(int,actual[craft].split()));assert observed==wanted,(craft,[(i,x,y) for i,(x,y) in enumerate(zip(observed,wanted)) if x!=y],len(observed),len(wanted))
     for case in range(128):
         previous=0 if case==0 else rng.uniform(-.1,.1)

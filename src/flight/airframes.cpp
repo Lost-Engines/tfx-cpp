@@ -238,6 +238,35 @@ std::array<aerodynamic_airframe,3> load_aerodynamic_airframes(std::span<uint8_t 
       .forward{literals.number(0x8d28)},
       .upward{literals.number(0x8d30)},
     };
+    preset_literals const common{source,0x95f3c,0x96918};
+    auto &ground{profile.ground};
+    std::array<unsigned int,6> constexpr contact_offsets{0x13ed0,0x145d8,0x13df8,0x13d60,0x13d78,0x13e10};
+    // F-22 overwrites its preliminary wing/body points later in the same
+    // straight-line preset. EF gear-forward positions subtract its authored CG.
+    preset_literals const final_body{source,aircraft == 2 ? 0x96ee8 : starts[aircraft],ends[aircraft]};
+    for(unsigned int point{0}; point != ground.offsets.size(); ++point) for(unsigned int axis{0}; axis != 3; ++axis) {
+      if(aircraft == 0 && point < 3 && axis == 0) ground.offsets[point][axis] = static_cast<double>(static_cast<long double>(value(point == 0 ? 0x2928 : 0x2930)) - literals.number(0x13b68));
+      else ground.offsets[point][axis] = (point < 3 ? literals : final_body).number(contact_offsets[point] + axis * 8u);
+    }
+    for(unsigned int axis{0}; axis != 3; ++axis) ground.hook_offset[axis] = literals.number(0x13dd8 + axis * 8u);
+    ground.maximum_gear_speed = literals.number(0x14550);
+    ground.arrestor_stiffness = literals.number(0x13d40);
+    ground.arrestor_damping = literals.number(0x13d98);
+    ground.contact = {
+      .spring_stiffness{literals.number(0x14570)},
+      .damping{literals.number(0x14278)},
+      .maximum_sink_speed{literals.number(0x14568)},
+      .rolling_warning_speed{literals.number(0x14560)},
+      .rolling_failure_speed{literals.number(0x14558)},
+      .brake_warning_speed{literals.number(0x13d38)},
+      .brake_failure_speed{literals.number(0x13d30)},
+      .braking_coefficient{literals.number(0x13e50)},
+      .wet_rolling_coefficient{common.number(0x13e88)},
+      .wet_braking_factor{common.number(0x13e80)},
+      .empty_mass_kg{literals.number(0x14220)},
+      .left_main_wheel_right{ground.offsets[1].y},
+      .unloaded_clearance{literals.number(0x13da0)},
+    };
     profile.empty_mass_kg = literals.number(0x14220);
     profile.maximum_g = literals.number(0x14488);
     profile.minimum_g = literals.number(0x14500);

@@ -17,7 +17,14 @@ void profile(tfx::flight::aerodynamic_airframe const &frame) {
   for(auto const value : {c.base_drag,c.critical_mach,c.full_wave_drag_mach,c.wave_drag_increment,c.wing_area,c.additional_lifting_area,c.pitch_stability_base,c.pitch_stability_correction,c.pitch_damping_mach_gradient,c.pitch_damping_base,c.elevator_moment_gradient,c.elevator_lift_gradient,c.roll_damping_gradient,c.aileron_gradient}) number(value);
   auto const &engine{frame.powerplant};
   for(auto const value : {engine.dry_thrust,engine.afterburner_thrust,engine.ceiling_km,engine.dry_fuel_coefficient,engine.afterburner_fuel_coefficient,engine.roll_thrust_arm,engine.pitch_thrust_arm,frame.viewpoint.forward,frame.viewpoint.upward,frame.empty_mass_kg,frame.maximum_g,frame.minimum_g,frame.cockpit_upward_metres,frame.stall_metres_per_second,frame.low_speed_reference,frame.cruise_mach}) number(value);
-  std::cout << static_cast<unsigned int>(engine.afterburner_stages) << '\n';
+  std::cout << static_cast<unsigned int>(engine.afterburner_stages) << ' ';
+  auto const &ground{frame.ground};
+  auto const &contact{ground.contact};
+  for(auto const value : {contact.spring_stiffness,contact.damping,contact.maximum_sink_speed,contact.rolling_warning_speed,contact.rolling_failure_speed,contact.brake_warning_speed,contact.brake_failure_speed,contact.braking_coefficient,contact.wet_rolling_coefficient,contact.wet_braking_factor,contact.empty_mass_kg,contact.left_main_wheel_right,contact.unloaded_clearance}) number(value);
+  for(auto const &offset : ground.offsets) for(auto const value : offset) number(value);
+  for(auto const value : ground.hook_offset) number(value);
+  for(auto const value : {ground.maximum_gear_speed,ground.arrestor_stiffness,ground.arrestor_damping}) number(value);
+  std::cout << '\n';
 }
 
 } // anonymous namespace
