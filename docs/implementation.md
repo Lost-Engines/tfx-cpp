@@ -595,3 +595,13 @@ Original weapon records now expose all three aircraft's mounting masks. The type
 The existing HUD glyph painter agrees with native `0x87154` across **576 complete frames**, including every byte code, black/white ink, all horizontal plane phases, clipping and embedded NUL. The C++ painter now stops at NUL, matching original strings. This font also draws the arming screen's small labels. Native VGA capture permits writes to each page's unused physical padding while retaining only visible pixels; all ninety planner map-page comparisons still pass.
 
 Both new comparisons and all 42 CTests pass in development, Release and ASan/UBSan. These changes provide inventory permissions and glyph rendering for the arming interface; its interactive controller and 3D preview remain in progress.
+
+## Carried-store model attachments
+
+`models::interpret` now executes model opcode 81 against a supplied, borrowed table of carried shapes. The disk slot operand indexes 16-bit handles, and each child starts at its first detail program with condition byte `0xf9`. It inherits the current transform and scale. Vertex storage remains shared: weapon programs deliberately use high vertex slots, and those writes survive the return. The parent translation and condition are restored. All nested models share the instruction and depth budgets. Emitted primitives retain their attachment slot for loadout selection.
+
+```sh
+python3 tools/check_attachments.py --build build --research ../tfx-reverse
+```
+
+Twenty original-handler executions verify present/absent handles, anchor installation, child condition and parent restoration. A separate comparison covers **726 complete preview loadouts**: all 22 selectable stores, each of ten mounts and all mounts together, on each of the three player aircraft. Every primitive and vertex agrees with the independent inspection interpreter. This latter comparison does not establish complete native camera projection or raster equivalence. Asset-free tests also exercise shared vertex storage, absolute child scale, absent stores and recursive malformed programs.

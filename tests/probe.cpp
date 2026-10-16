@@ -256,7 +256,7 @@ auto main(int const argc, char const *const argv[])->int try {
         }
         std::cout << "]]\n";
       }
-    } else if(mode == "shape") {
+    } else if(mode == "shape" || mode == "attachments") {
       uint32_t id{0};
       unsigned int status{0}, state{0}, level{0};
       while(std::cin >> id >> status >> state >> level) {
@@ -266,6 +266,17 @@ auto main(int const argc, char const *const argv[])->int try {
         context.parameters[7] = static_cast<uint8_t>(state);
         context.level = level;
         context.facing = false;
+        std::optional<tfx::models::shape> child;
+        std::array<tfx::models::shape const*,10> attachments{};
+        if(mode == "attachments") {
+          uint32_t child_id{0};
+          unsigned int slot{0};
+          std::cin >> child_id >> slot;
+          if(child_id) child.emplace(game.read(child_id));
+          if(slot == attachments.size()) attachments.fill(child ? &*child : nullptr);
+          else attachments.at(slot) = child ? &*child : nullptr;
+          context.attachments = attachments;
+        }
         auto const geometry{tfx::models::interpret(program, context)};
         std::cout << '[' << geometry.steps << ",[";
         bool first{true};

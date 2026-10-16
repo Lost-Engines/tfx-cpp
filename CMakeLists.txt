@@ -310,6 +310,11 @@ if(BUILD_TESTING)
   configure_first_party(sensors_probe)
   add_test(NAME sensors.native_air_radar_and_seeker COMMAND sensors_probe ${PROJECT_SOURCE_DIR}/tests/reference/sensors.txt)
 
+  add_executable(attachment_tests tests/attachment_test.cpp)
+  target_link_libraries(attachment_tests PRIVATE tfx_core)
+  configure_first_party(attachment_tests)
+  add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
   add_executable(arming_probe tests/arming_probe.cpp)
   target_link_libraries(arming_probe PRIVATE tfx_core)
   configure_first_party(arming_probe)
