@@ -24,6 +24,11 @@ void profile(tfx::flight::aerodynamic_airframe const &frame) {
   for(auto const &offset : ground.offsets) for(auto const value : offset) number(value);
   for(auto const value : ground.hook_offset) number(value);
   for(auto const value : {ground.maximum_gear_speed,ground.arrestor_stiffness,ground.arrestor_damping}) number(value);
+  auto const &settings{frame.carrier_setup};
+  for(auto const value : {settings.maximum_sink_speed,settings.wing_area,settings.air_brake_drag}) number(value);
+  auto carrier{frame};
+  carrier.use_carrier_setup();
+  for(auto const value : {carrier.ground.contact.maximum_sink_speed,carrier.surfaces.wing_area,carrier.coefficient_base.wing_area,carrier.surfaces.air_brake_drag}) number(value);
   std::cout << '\n';
 }
 
