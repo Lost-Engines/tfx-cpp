@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/save.cpp
+  src/presentation/save.h
   src/presentation/menu_player.cpp
   src/presentation/menu_player.h
   src/presentation/cursor.cpp
@@ -131,6 +133,15 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(save_tests tests/save_test.cpp)
+  target_link_libraries(save_tests PRIVATE tfx_core)
+  configure_first_party(save_tests)
+  add_test(NAME presentation.native_save_layout_and_bounds COMMAND save_tests)
+
+  add_executable(save_probe tests/save_probe.cpp)
+  target_link_libraries(save_probe PRIVATE tfx_core)
+  configure_first_party(save_probe)
+
   add_executable(cursor_probe tests/cursor_probe.cpp)
   target_link_libraries(cursor_probe PRIVATE tfx_core)
   configure_first_party(cursor_probe)

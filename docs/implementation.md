@@ -468,3 +468,15 @@ Both embedded cursor styles and their active/idle sprites load from `TFX.DAT`. *
 The menu host uses original indexed artwork, looping flag animation, palette fades and pointers. It applies a choice on press and waits for release before fading, matching the native `0xd5750` branch sequence. Asset-free tests cover held clicks and single assignment. A private X11 test clicks the FWS box through the corrected 4:3 viewport, checks that holding does not exit early, then releases and verifies the chosen index and clean exit. Pointer coordinates share the same fitted rectangle as final display, including framebuffer/window scale differences.
 
 Options nodes now suspend/resume the graph session through this host. Direct developer `--menu NAME` launches allow checking individual scripts before pilot and mission dispatch are complete. Full original pilot/save/load/planner flow remains outstanding; this work does not fabricate those state transitions.
+
+### Native pilot-save storage
+
+```sh
+python3 tools/check_saves.py
+```
+
+The save codec follows original writers/readers `0xb3aa8` and `0xb3c14`. Files contain **thirty fixed-order variable slots**, including three reserved numeric slots beyond the 27 declarations in retail `tfx.par`. Text occupies 21 bytes; numeric slots store complete little-endian dwords. A word return-stack depth precedes function/statement word pairs and the final resume pair. Return entries name the original call statements; native return processing advances past those sites. A function word of `0xffff` means there is no saved resume position.
+
+**512 original write/read states agree** across all four writer modes: no resume, previous statement, current statement and following statement. Cases include reserved-slot bits, signed numeric bit patterns, empty/maximal strings and up to five saved calls. All four existing DOS saves in the reference install decode and re-encode with only bytes after string terminators cleared. No installation file is modified by the checks. New files initialise that padding instead of copying DOS's stale memory.
+
+Asset-free tests cover complete round trips, every truncated prefix, trailing bytes, string limits and invalid saved graph positions. Loading rejects a stack beyond the original 100-entry storage and out-of-program positions rather than following arbitrary memory. The graph runtime can now snapshot all four native resume modes and restore saved call sites, values and reserved slots. A nested suspended-action test serializes, reloads and returns to the statement after the original call; the host explicitly completes the load action after restoration. This establishes file compatibility, serialization and runtime restore; pilot-selection UI, autosave timing and complete campaign-session wiring remain separate integration work.

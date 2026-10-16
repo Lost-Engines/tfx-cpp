@@ -24,7 +24,7 @@ std::optional<location> runtime::successor() const {
 }
 
 statement const *runtime::run() {
-  unsigned int constexpr control_flow_budget{65536}, maximum_call_depth{256};
+  unsigned int constexpr control_flow_budget{65536};
   for(unsigned int step{0}; step != control_flow_budget; ++step) {
     auto const *node{current()};
     if(!node) return nullptr;
@@ -32,8 +32,8 @@ statement const *runtime::run() {
       auto const &test{std::get<branch>(node->data)};
       if(branch_taken(test,source,state)) {
         if(test.subroutine) {
-          if(callers.size() == maximum_call_depth) throw std::runtime_error{"parser calls exceed the reconstruction's safety limit"};
-          callers.push_back(successor());
+          if(callers.size() == saved_return_limit) throw std::runtime_error{"parser calls exceed the reconstruction's safety limit"};
+          callers.push_back(*cursor);
         }
         cursor = test.target;
       } else cursor = successor();
@@ -44,6 +44,7 @@ statement const *runtime::run() {
       if(callers.empty()) throw std::runtime_error{"parser return has no caller"};
       cursor = callers.back();
       callers.pop_back();
+      cursor = successor();
     } else return node;
   }
   throw std::runtime_error{"parser control flow does not yield"};
@@ -52,6 +53,41 @@ statement const *runtime::run() {
 void runtime::complete() {
   if(!cursor) throw std::runtime_error{"cannot complete an ended parser action"};
   cursor = successor();
+}
+
+saved_state runtime::snapshot(save_mode const mode) const {
+  if(source.variables.size() > saved_variable_slots) throw std::runtime_error{"parser exceeds native save storage"};
+  saved_state result{
+    .values{state},
+    .reserved{reserved.empty() ? std::vector<uint32_t>(saved_variable_slots - source.variables.size(),0) : reserved},
+    .callers{callers},
+    .resume{},
+  };
+  if(mode == save_mode::without_resume) return result;
+  if(!cursor) throw std::runtime_error{"ended parser has no save resume statement"};
+  result.resume = cursor;
+  switch(mode) {
+  case save_mode::without_resume: break;
+  case save_mode::previous_statement:
+    if(!result.resume->statement) throw std::runtime_error{"first parser statement has no preceding save position"};
+    --result.resume->statement;
+    break;
+  case save_mode::current_statement: break;
+  case save_mode::following_statement:
+    if(!successor()) throw std::runtime_error{"last parser statement has no following save position"};
+    result.resume = successor();
+    break;
+  default: throw std::runtime_error{"unknown native save resume mode"};
+  }
+  return result;
+}
+void runtime::restore(saved_state const &saved) {
+  // Validate the entire file state before changing borrowed campaign variables or live control flow.
+  encode_save(source,saved);
+  for(auto const &variable : source.variables) state[variable.name] = saved.values.at(variable.name);
+  callers = saved.callers;
+  reserved = saved.reserved;
+  if(saved.resume) cursor = saved.resume;
 }
 
 } // namespace tfx::presentation
