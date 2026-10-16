@@ -1,6 +1,8 @@
 #include "native.h"
 #include <cmath>
 #include <numbers>
+#include <algorithm>
+#include "math/attitude.h"
 
 namespace tfx::math {
 
@@ -13,6 +15,18 @@ std::array<int16_t, angle_steps> const &sine_table() {
     return result;
   }()};
   return table;
+}
+
+vec2<angle> bearing(vec3<int32_t> const &from, vec3<int32_t> const &to) {
+  // Native 0xc9714: wrapped coordinate differences, Chebyshev pitch distance, then signed-word angle inputs.
+  auto const delta{[](int32_t const a, int32_t const b) { return std::bit_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }};
+  auto const magnitude{[&](int32_t const value) { return value < 0 ? delta(0,value) : value; }};
+  auto const angle_to{[](int32_t y, int32_t x) {
+    while(y < -32768 || y > 32767 || x < -32768 || x > 32767) { y >>= 1; x >>= 1; }
+    return direction_angle(static_cast<int16_t>(y),static_cast<int16_t>(x));
+  }};
+  int32_t const x{delta(to.x,from.x)}, y{delta(to.y,from.y)}, z{delta(to.z,from.z)};
+  return {angle_to(y,std::max(magnitude(x),magnitude(z))),angle_to(x,z)};
 }
 
 int16_t distance_word(vec3<int16_t> const &offset) {

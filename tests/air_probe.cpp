@@ -10,12 +10,18 @@
 #include "resources/executable_tables.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc < 2 || argc > 3) throw std::runtime_error{"air_probe DATA_DIRECTORY [--verbose]"};
-  bool const verbose{argc == 3 && std::string_view{argv[2]} == "--verbose"};
+  if(argc < 2 || argc > 4) throw std::runtime_error{"air_probe DATA_DIRECTORY [--verbose]"};
+  bool verbose{false},combat{false};
+  for(int i{2}; i < argc; ++i) {
+    if(std::string_view{argv[i]} == "--verbose") verbose = true;
+    else if(std::string_view{argv[i]} == "--combat") combat = true;
+    else throw std::runtime_error{"unrecognised air probe option"};
+  }
   auto const path{tfx::resources::find_game_archive(argv[1])};
   tfx::resources::archive const game{path};
   tfx::resources::executable_tables const tables{path.parent_path() / "TFX.DAT"};
   auto const profiles{tfx::actors::profiles(game.read("waybin/craftype.cfg"))};
+  auto const manoeuvres{combat ? tfx::actors::load_manoeuvres(game) : std::vector<tfx::actors::manoeuvre>{}};
   std::string name;
   unsigned int ticks{0},intact{0};
   while(std::cin >> name >> ticks >> intact) {
@@ -24,13 +30,34 @@ int main(int const argc, char const *const argv[]) try {
     auto const bytes{error == std::errc{} && end == name.data() + name.size() ? game.read(identifier) : game.read(name)};
     tfx::actors::program const program{bytes};
     auto const initial{tfx::actors::initialise(program,profiles,tables.formations)};
-    tfx::actors::air_runtime state{program,initial,profiles,tables.formations,tables.aircraft_envelopes};
-    tfx::actors::air_context const context{
+    tfx::actors::air_runtime state{program,initial,profiles,tables.formations,tables.aircraft_envelopes,{},manoeuvres};
+    tfx::actors::air_context context{
       .intact_ground_target{[intact](vec2<int16_t> const&) { return intact != 0; }},
     };
+    std::array<std::optional<tfx::actors::air_threat>,tfx::actors::player_air_target> threats;
+    if(combat) {
+      tfx::actors::air_contact player;
+      unsigned int aircraft{0},flags{0},weapons{0},incoming{0};
+      if(!(std::cin >> player.position.x >> player.position.y >> player.position.z >> player.angles.x >> player.angles.y >> player.angles.z >> player.speed >> aircraft >> flags >> weapons >> incoming)) throw std::runtime_error{"incomplete combat context"};
+      context.combat = true;
+      context.player = std::move(player);
+      context.player_aircraft = static_cast<tfx::flight::player_aircraft>(aircraft + 1);
+      context.combat_flags = static_cast<uint16_t>(flags);
+      context.weapons_enabled = weapons != 0;
+      if(incoming) for(unsigned int index{0}; index != state.aircraft().size(); ++index) if(state.aircraft()[index]) {
+        auto position{vec3<int32_t>{state.aircraft()[index]->flight.pose.position}};
+        position.x += incoming % 2 ? 300000 : -300000;
+        position.z += 200000;
+        threats[index] = tfx::actors::air_threat{
+          .position{vec3<int32_t>{position}},
+          .weapon{static_cast<uint8_t>(incoming % 3)},
+        };
+      }
+      context.threats = threats;
+    }
     for(unsigned int tick{0}; tick != ticks; ++tick) {
       auto const requests{state.advance(context)};
-      auto const digest{tfx::test::air_snapshot(program,state,requests,verbose ? &std::cout : nullptr)};
+      auto const digest{tfx::test::air_snapshot(program,state,requests,verbose ? &std::cout : nullptr,combat)};
       if(!verbose) std::cout << digest;
       std::cout << '\n';
     }

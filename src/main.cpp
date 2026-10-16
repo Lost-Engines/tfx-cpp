@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <charconv>
 #include <cmath>
 #include <cstdlib>
@@ -122,7 +123,8 @@ auto main(int const argc, char const *const argv[])->int try {
   auto const profiles{tfx::actors::profiles(game.read("waybin/craftype.cfg"))};
   tfx::actors::program const actor_program{game.read("waybin/" + mission_setup.waypoints + ".way")};
   auto const initial_actors{tfx::actors::initialise(actor_program,profiles,tables.formations)};
-  tfx::actors::air_runtime air_simulation{actor_program,initial_actors,profiles,tables.formations,tables.aircraft_envelopes,environment.variant_random_state()};
+  auto const manoeuvres{tfx::actors::load_manoeuvres(game)};
+  tfx::actors::air_runtime air_simulation{actor_program,initial_actors,profiles,tables.formations,tables.aircraft_envelopes,environment.variant_random_state(),manoeuvres};
   std::array<std::optional<tfx::world::scene_handle>,tfx::actors::aircraft_per_side * 2> air_visuals;
   struct surface_actor {
     tfx::actors::surface_state state;
@@ -142,10 +144,12 @@ auto main(int const argc, char const *const argv[])->int try {
       .profile{&*profile},
     });
   }
-  tfx::actors::air_context const air_world{
+  tfx::actors::air_context air_world{
     .intact_ground_target{[&](vec2<int16_t> const &cell) {
       return cell.x >= 0 && cell.y >= 0 && scene.terrain_intact(static_cast<unsigned int>(cell.x),static_cast<unsigned int>(cell.y));
     }},
+    .combat{true},
+    .player_aircraft{mission_setup.aircraft},
   };
   auto const advance_actors{[&](unsigned int const ticks){
     // Native 0x75784 visits each actor once per elapsed tick, preserving pool order.
@@ -207,6 +211,11 @@ auto main(int const argc, char const *const argv[])->int try {
     bool const flying{!player.collision};
     auto const previous{vec3<int32_t>{player.integer_position}};
     if(flying) tfx::flight::advance_arcade(player,controls,elapsed,ground);
+    air_world.player = tfx::actors::air_contact{
+      .position{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
+      .angles{vec3<tfx::math::angle>{player.angles}},
+      .speed{std::bit_cast<int32_t>(static_cast<uint32_t>(player.fixed_speed) << tfx::actors::speed_fraction_bits)},
+    };
     advance_actors(elapsed);
     if(flying) {
       // Native 0x72018 updates actors before collecting contacts; the next flight frame consumes this surface result.
