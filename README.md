@@ -18,18 +18,19 @@ The mouse or arrow keys steer. Hold either mouse button or `=`/`-` to change thr
 
 The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
 
-This is still an integration build. Complete sensor displays and crash/result artwork, aircraft-to-aircraft contacts, area flak, other flight models, automatic recovery, the complete cockpit/HUD, menus, campaign progression and audio remain unfinished. The current numerical flight backend also requires a `long double` with a 64-bit significand. See [implementation status](docs/implementation.md) for precise verification boundaries.
+This is still an integration build. Complete sensor displays and crash/result artwork, aircraft-to-aircraft contacts, area flak, other flight models, automatic recovery, the complete cockpit/HUD, pilot selection, campaign progression and audio remain unfinished. The current numerical flight backend also requires a `long double` with a 64-bit significand. See [implementation status](docs/implementation.md) for precise verification boundaries.
 
 RelWithDebInfo retains the developer scene inspector and headless captures:
 
 ```sh
 ./build/tfx --data-dir /path/to/TFX --presentation cdintro
+./build/tfx --data-dir /path/to/TFX --menu mastopts
 ./build/tfx --data-dir /path/to/TFX --inspect
 ./build/tfx --data-dir /path/to/TFX --cell=136,114
 ./build/tfx --data-dir /path/to/TFX --flight-steps=100 --screenshot=/tmp/tfx.ppm
 ```
 
-The presentation player runs original images, delta animations, captions and palette fades; Space finishes a caption or advances a scene, Escape skips the sequence, and Shift+Q exits. Other presentation graphs include `cdcolint`, `cdsomint`, `cdfwsint`, `cdyugint` and `cdyugmid`; `--language` selects briefing text. Audio remains deferred.
+The presentation player runs original images, delta animations, captions and palette fades; Space finishes a caption or advances a scene, Escape skips the sequence, and Shift+Q exits. Original menu scripts can also run independently with `--menu`, including the animated main menu (`mastopts`). Other presentation graphs include `cdcolint`, `cdsomint`, `cdfwsint`, `cdyugint` and `cdyugmid`; `--language` selects briefing text. Audio remains deferred.
 
 In the inspector, WASD moves, R/F rises/descends, arrows or right-drag look around and Shift moves faster. Release builds omit the developer options. No CI or automatic release process is configured.
 

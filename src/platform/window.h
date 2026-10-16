@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <GLFW/glfw3.h>
 #include "render/framebuffer.h"
@@ -29,6 +30,7 @@ public:
   GLFWwindow *get() const;
   bool focused() const;
   bool poll();
+  std::optional<vec2<int16_t>> cursor_position() const;
   void title(std::string const &text);
   void present(std::span<render::rgba_pixel const> pixels);
 };

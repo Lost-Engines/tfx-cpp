@@ -37,6 +37,22 @@ with tempfile.TemporaryDirectory(prefix='tfx-presentation-input-') as temporary:
             output=game.communicate(timeout=10)[0]
             if game.returncode:raise RuntimeError(output)
             print('Private X11 presentation: Space advances one scene;',key,'ends the sequence cleanly')
+        game=subprocess.Popen([str((args.build/'tfx').resolve()),'--data-dir',str(args.data_dir.resolve()),'--menu','mastopts','--scale','2'],env=environment,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+        deadline=time.monotonic()+10;window=None
+        while time.monotonic()<deadline and game.poll() is None:
+            found=subprocess.run(['xdotool','search','--onlyvisible','--name','TFX C'],env=environment,capture_output=True,text=True,timeout=5)
+            if found.stdout.strip():window=found.stdout.splitlines()[0];break
+            time.sleep(.05)
+        if window is None:raise RuntimeError('native menu window did not appear')
+        run('xdotool','windowfocus','--sync',window);time.sleep(1)
+        # 320x200 art is displayed as 640x480: click the FWS box at logical (120,76).
+        run('xdotool','mousemove','--window',window,'240','182')
+        run('xdotool','mousedown','1');time.sleep(1)
+        if game.poll() is not None:raise RuntimeError('menu exited before mouse release')
+        run('xdotool','mouseup','1')
+        output=game.communicate(timeout=10)[0]
+        if game.returncode or 'Menu choice: 1' not in output:raise RuntimeError('native menu did not choose FWS through the aspect-correct pointer: '+output)
+        print('Private X11 menu: original animated artwork, aspect-correct FWS click, hold until release, fade and exit passed')
     finally:
         if game and game.poll() is None:game.kill();game.wait()
         display.terminate();display.wait(timeout=5)

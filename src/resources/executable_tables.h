@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <memory>
 #include "presentation/fonts.h"
+#include "presentation/cursor.h"
 #include "presentation/timing.h"
 #include <array>
 #include <span>
@@ -32,6 +33,7 @@ public:
   weapons::arming_tables arming;
   std::string timer_expired_message;
   presentation::dac_palette text_palette;
+  std::array<presentation::pointer_style,2> pointers;
   std::vector<int16_t> ship_target_types;
   std::array<vec3<int16_t>,2> cannon_mounts;
   std::array<std::array<vec3<int16_t>,10>,3> store_mounts;
