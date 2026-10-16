@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/cockpit/hud_text.cpp
+  src/cockpit/hud_text.h
   src/cockpit/frame.cpp
   src/cockpit/frame.h
   src/cockpit/viewport_layout.h
@@ -360,6 +362,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(hud_text_probe tests/hud_text_probe.cpp)
+  target_link_libraries(hud_text_probe PRIVATE tfx_core)
+  configure_first_party(hud_text_probe)
 
   add_executable(cockpit_frame_probe tests/cockpit_frame_probe.cpp)
   target_link_libraries(cockpit_frame_probe PRIVATE tfx_core)

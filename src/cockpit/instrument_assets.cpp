@@ -28,6 +28,10 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   for(unsigned int index{0}; index != character_map.size(); ++index) character_map[index] = source.byte(data + 0x7688 + index);
   font_bank = resource(0x166c);
   in_range_label = string(0x179c);
+  brake_messages = {string(0x171c),string(0x1728),string(0x1734)};
+  hud_number_formats = {string(0x1768),string(0x1770),string(0x1778),string(0x1780),string(0x1784)};
+  hud_altitude_scale = std::bit_cast<float>(source.le32(data + 0x178b));
+  hud_throttle_scale = std::bit_cast<float>(source.le32(data + 0x178f));
   unsigned_clock_formats = {string(0x17e4),string(0x17ec)};
   signed_clock_formats = {string(0x17f0),string(0x17f8)};
   fuel_format = string(0x17fc);
