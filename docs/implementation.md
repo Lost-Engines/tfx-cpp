@@ -1473,3 +1473,11 @@ The complete 0x99a30 routine supplies reference flap fraction, lift, angle of at
 This reference calculation is joined at its original boundary after coefficients/fuel/faults and before automatic recovery and input. Toggling ILS on and off during all 11,520 persistent advanced-flight updates also agrees, now checking 319 numerical/navigation/approach/ground/view/recovery fields and output events. This calculation supplies reference values; the separate scripted automatic-landing callback remains to be reconstructed.
 
     python3 tools/check_aerodynamic_autopilot.py --persistent --ils
+
+### Scripted automatic approach, flare and rollout
+
+Native 0x9fecf..0xa028f is a separate kinematic landing path. It rebuilds the physical frame from runway heading and scripted pitch, follows the authored seven-degree approach, raises pitch near touchdown, clamps to runway/carrier height and reduces speed by an authored per-update amount during rollout. Its destination/player integers are metres in East/Down/North order, rather than the ordinary autopilot's world units.
+
+All 8,192 bounded original updates agree: 2,088 new flare transitions and 3,325 requests to enter the separate touchdown finalizer. Original angle helpers, integer conversions, square root, basis and motion calculations execute; hardware FSIN/FCOS adapters are the only numerical boundaries. Both return paths are observed before the separate finalizer/gear/view tail. There are 123 compact captures. Setup, finalization and the complete automatic-landing callback are still being joined.
+
+    python3 tools/check_automatic_approach.py
