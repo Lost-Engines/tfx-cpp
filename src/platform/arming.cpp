@@ -1,0 +1,66 @@
+#include "arming.h"
+#include <algorithm>
+#include "presentation/arming_screen.h"
+
+namespace tfx::platform {
+namespace {
+
+class arming_keys {
+private:
+  GLFWwindow *host;
+  presentation::arming_screen &screen;
+
+public:
+  arming_keys(GLFWwindow *const host, presentation::arming_screen &screen) : host{host}, screen{screen} {
+    glfwSetWindowUserPointer(host,this);
+    glfwSetKeyCallback(host,[](GLFWwindow *const host, int const key, int const, int const action, int const) {
+      if(action != GLFW_PRESS) return;
+      auto &controls{*static_cast<arming_keys*>(glfwGetWindowUserPointer(host))};
+      controls.screen.press(key == GLFW_KEY_ESCAPE ? 1 : key == GLFW_KEY_Q ? 0x10 : 0);
+    });
+  }
+  ~arming_keys() {
+    glfwSetKeyCallback(host,nullptr);
+    glfwSetWindowUserPointer(host,nullptr);
+    glfwSetInputMode(host,GLFW_CURSOR,GLFW_CURSOR_NORMAL);
+  }
+  arming_keys(arming_keys const&) = delete;
+  arming_keys &operator=(arming_keys const&) = delete;
+};
+
+} // anonymous namespace
+
+bool arm_mission(window &window, resources::archive const &game, resources::executable_tables const &tables,
+  weapons::armament &inventory, flight::player_aircraft const aircraft, unsigned int const default_fit) {
+  presentation::arming_screen screen{game,tables,inventory,aircraft,default_fit};
+  auto *const host{window.get()};
+  arming_keys keys{host,screen};
+  window.title("TFX C++ — Arming");
+  window.present(screen.image().colourise(screen.colours()));
+  double next_frame{glfwGetTime()};
+  std::optional<vec2<int16_t>> previous_pointer;
+  while(window.poll()) {
+    double const now{glfwGetTime()};
+    if(!window.focused()) {
+      next_frame = now;
+      previous_pointer.reset();
+      glfwSetInputMode(host,GLFW_CURSOR,GLFW_CURSOR_NORMAL);
+      glfwWaitEventsTimeout(.05);
+      continue;
+    }
+    if(now < next_frame) { glfwWaitEventsTimeout(std::min(.01,next_frame - now));continue; }
+    next_frame = now + 1.0 / 70;
+    auto const pointer{window.cursor_position()};
+    auto const position{pointer ? vec2<int16_t>{*pointer} : previous_pointer ? vec2<int16_t>{*previous_pointer} : vec2<int16_t>{100,75}};
+    auto const movement{pointer && previous_pointer ? *pointer - *previous_pointer : vec2<int16_t>{0,0}};
+    previous_pointer = pointer;
+    uint8_t const buttons{static_cast<uint8_t>(pointer ? (glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS ? 1 : 0) | (glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS ? 2 : 0) : 0)};
+    glfwSetInputMode(host,GLFW_CURSOR,GLFW_CURSOR_HIDDEN);
+    bool const finished{screen.advance(position,movement,buttons)};
+    window.present(screen.image().colourise(screen.colours()));
+    if(finished) return true;
+  }
+  return false;
+}
+
+} // namespace tfx::platform

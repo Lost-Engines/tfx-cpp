@@ -47,6 +47,29 @@ auto main(int const argc, char const *const argv[])->int try {
   } else if(mode == "sine") {
     for(auto const value : tfx::math::sine_table()) std::cout << value << ' ';
     std::cout << std::endl;
+  } else if(mode == "model_vertex") {
+    unsigned int pitch{0}, yaw{0}, roll{0};int x{0}, y{0}, z{0};
+    while(std::cin >> pitch >> yaw >> roll >> x >> y >> z) {
+      auto const camera{tfx::render::orbit_camera(vec3<tfx::math::angle>{static_cast<uint16_t>(pitch),static_cast<uint16_t>(yaw),static_cast<uint16_t>(roll)},0,{105,75})};
+      auto const point{camera.transform(vec3d{vec3<int>{x,y,z}} * .5)};
+      for(unsigned int axis{0}; axis != 3; ++axis) std::cout << static_cast<int32_t>(point[axis] * 65536) << ' ';
+      std::cout << '\n';
+    }
+  } else if(mode == "model_projection") {
+    int32_t x{0}, y{0}, z{0};
+    tfx::render::camera const camera{
+      .position{0,0,0},
+      .right{1,0,0},
+      .down{0,1,0},
+      .forward{0,0,1},
+      .projection_origin{105,75},
+      .focal_distance{256},
+      .projection{tfx::render::projection_mode::original_model},
+    };
+    while(std::cin >> x >> y >> z) {
+      auto const point{camera.project(vec3d{vec3<int32_t>{x,y,z}} / 65536)};
+      std::cout << static_cast<int>(point.x) << ' ' << static_cast<int>(point.y) << '\n';
+    }
   } else if(mode == "orbit") {
     unsigned int pitch{0}, yaw{0}, roll{0};int32_t distance{0};
     while(std::cin >> pitch >> yaw >> roll >> distance) {

@@ -87,12 +87,16 @@ class NativeReference:
     RETURN = 0x200000
     STACK = 0x380000
 
-    def __init__(self, filename):
+    def __init__(self, filename, *, data_base=None):
         executable = Path(filename).read_bytes()
         if hashlib.sha256(executable).hexdigest() != REFERENCE_SHA256:
             raise ValueError('native capture requires September 1994 TFX 2.05')
         self.executable = executable
         self.layout = load_le(executable)
+        # Keep the actual A0000 VGA aperture available when a capture needs
+        # native raster loops with embedded hardware addresses. All data
+        # references still use the executable's own LE relocation records.
+        if data_base is not None:self.layout['objects'][2]['preferred_base']=data_base
         self.cpu = Uc(UC_ARCH_X86, UC_MODE_32)
         for obj in self.layout['objects']:
             size = (obj['virtual_size'] + 4095) & ~4095

@@ -624,3 +624,25 @@ The controller owns its temporary mount markers separately from actual inventory
 The arming screen uses `efa_glob`, `f17_glob` and `f22_glob`, which have dedicated mount-selection collision boxes. Original startup issues event 5 after the fade-in; the latter two definitions use it to open their weapon bays. The preview camera uses native `0xdabd8`, whose shift/negation order differs from the ordinary component matrix. Native `0xb9b7a` also orbits with a one-table-step phase offset at zero. **4,121 complete view matrices and signed Q16 camera positions agree exactly.** Custom projection origins leave the existing flight projection's operation order unchanged.
 
 The aircraft, control, widget and camera comparisons, plus all 43 CTests, pass in development, Release and ASan/UBSan. These are subsystem comparisons; the assembled 3D screen and its live flight handoff remain in progress.
+
+### Live arming screen and flight handoff
+
+Normal campaign flight now opens arming unless the mission explicitly requests default weapons. It uses the original dedicated aircraft, carried-store and empty-pylon models, including the small aircraft pointer and rotating weapon previews. Store selection creates compatible mounting markers; the aircraft's original SSD collision entry picks a mount and fills its paired mount. Right mouse ends placement. The chosen inventory passes into flight without being replaced by the default fit. Direct mission launches retain automatic default fitting for analytical runs.
+
+```sh
+python3 tools/check_arming_picks.py
+./build/arming_preview_probe /path/to/TFX flow
+python3 tools/check_frontend_window.py --data-dir /path/to/TFX
+```
+
+**12,860 original mount selections agree**, covering each aircraft's actual selection boxes, directed edge cases, swept pointer segments and the initial zero position. The original query transform and SSD event dispatcher execute. The native actor draw wrapper also agrees with **60 complete arming bay-animation states**: arming holds the animation-enable byte at one, so these streams advance per draw rather than using the flight world's seven-tick animation clock. The original opening event is captured directly from the complete arming startup before its input loop.
+
+The view setter stores **rows**, used directly as right/down/forward. The model vertex multiplier produces Q15 values while actor and camera translations use Q16, so arming geometry uses half-sized model units. Native model projection shifts signed Q16 X/Y by eight and divides by signed integer depth, truncating towards zero. **4,096 complete vertex products and 4,096 projected vertices agree**, alongside the earlier 4,121 camera states. The existing flight/inspection camera retains its continuous projection and operation order.
+
+The unavailable-store panel and mounted-store labels agree in **82 complete original frames**, in addition to the 192 normal widget frames. Their rectangles include both far edges. These native solid spans require the actual A0000 VGA aperture; the harness now optionally relocates the data object using the executable's LE records, leaving the original raster instructions unchanged. Existing planner/font captures retain their previous default memory arrangement. The assembled arming screen also agrees with **81 complete palette frames** covering the original forty-stage fade-in, forty-stage fade-out and final black.
+
+Headless pointer flows select, place and retain the intended paired stores on all three aircraft. A private X11 test also selects AIM 9S, mounts it, ends placement and launches FWS flight with the original DONE button; it repeats after pilot reload and still covers Tour review/arming/flight. No user installation, saves or desktop input are modified.
+
+These comparisons establish the controlled subsystem boundaries above. They do not yet establish a complete original 3D arming-frame match. Full modal quit handling and input-release timing remain separate work, as do the broader flight-renderer and loadout/aerodynamics integrations.
+
+The assembled-screen comparisons, three pointer flows and all 43 CTests pass in development, Release and ASan/UBSan. The private custom-arming window flow passes in development and Release. The shared capture changes also preserve all ninety complete planner map pages and 576 HUD-font frames, and all 128 retail mission starts still render successfully.

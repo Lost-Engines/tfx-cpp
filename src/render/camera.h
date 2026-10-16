@@ -6,12 +6,16 @@
 
 namespace tfx::render {
 
+enum class projection_mode { continuous, original_model };
+
 struct camera {
   vec3d position;
   vec3d right;
   vec3d down;
   vec3d forward;
   vec2d projection_origin{centre_x,centre_y};
+  double focal_distance{focal_length};
+  projection_mode projection{projection_mode::continuous};
   double near_distance{16};
   double far_distance{20000};
   vec3d transform(vec3d const &world) const;

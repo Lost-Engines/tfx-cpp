@@ -13,13 +13,14 @@ from native_vga import VgaCapture
 
 
 class PlannerVideo(VgaCapture):
-    def __init__(self, image):
+    def __init__(self, image, aperture=0xe0000):
+        self.segment=aperture//16
         self.pages = [[bytearray(16000) for _ in range(4)] for _ in range(4)]
-        super().__init__(image)
+        super().__init__(image,aperture)
         self.image = image
-        for field, value in ((0x59a64,0xe000),(0x59a66,0xe400),(0x558ff,0xe800),
-                             (0x55901,0xec00),(0x55903,0xe800),(0x55907,0xe800),(0x55909,0xe800)):
-            self.set(field, value)
+        for field, offset in ((0x59a64,0),(0x59a66,0x400),(0x558ff,0x800),
+                              (0x55901,0xc00),(0x55903,0x800),(0x55907,0x800),(0x55909,0x800)):
+            self.set(field, self.segment+offset)
 
     def get(self, field):
         return struct.unpack('<H', self.image.cpu.mem_read(self.image.native(0x70aa4 + field), 2))[0]
@@ -28,18 +29,18 @@ class PlannerVideo(VgaCapture):
         self.image.cpu.mem_write(self.image.native(0x70aa4 + field), struct.pack('<H', value))
 
     def page(self, selector):
-        assert selector in (0xe000,0xe400,0xe800,0xec00), hex(selector)
-        return self.pages[(selector - 0xe000) // 0x400]
+        assert selector-self.segment in (0,0x400,0x800,0xc00), hex(selector)
+        return self.pages[(selector - self.segment) // 0x400]
 
     def _write(self, cpu, access, address, size, value, unused):
         # Each physical VGA page has 384 bytes of padding after its visible
         # 16000-byte plane. Drawing there is legal but contributes no pixels.
-        if address+size<=0xe0000 or address>=0xf0000:return
+        if address+size<=self.aperture or address>=self.aperture+0x10000:return
         raw=(value&((1<<(size*8))-1)).to_bytes(size,'little')
         for index,byte in enumerate(raw):
             location=address+index
-            if 0xe0000 <= location < 0xf0000:
-                number,offset=divmod(location-0xe0000,0x4000)
+            if self.aperture <= location < self.aperture+0x10000:
+                number,offset=divmod(location-self.aperture,0x4000)
                 if offset>=16000:continue
                 for plane in range(4):
                     if self.mask & (1<<plane):self.pages[number][plane][offset]=byte
@@ -62,19 +63,19 @@ class PlannerVideo(VgaCapture):
 
 
 class NativePlanner:
-    def __init__(self, directory, research):
+    def __init__(self, directory, research, *, aperture=0xe0000):
         sys.path.insert(0, str(Path(research) / 'did-unpack'))
         from did_unpack import Archive
         self.archive = Archive.read(Path(directory) / 'DID.DAT')
         self.entries = {entry.identifier: entry for entry in self.archive.entries}
-        self.image = im = NativeReference(Path(directory) / 'TFX.DAT')
+        self.image = im = NativeReference(Path(directory) / 'TFX.DAT',data_base=0x100000 if aperture==0xa0000 else None)
         self.cpu = cpu = im.cpu
         cpu.mem_map(0x400000, 0x400000)
         # Selection -1 still reads the preceding route header in native label
         # highlighting. Supply mapped zeroed guard storage, as the surrounding
         # DOS heap was mapped; no unselected route pointer can match that zero.
         self.heap = 0x401000
-        self.video = PlannerVideo(im)
+        self.video = PlannerVideo(im,aperture)
         self.polls = 0
         self.stop_after = None
         self.stopped = False
