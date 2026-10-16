@@ -23,6 +23,8 @@ private:
 
 public:
   explicit hud_text(instrument_assets const &assets);
+  void draw_values(render::software_renderer &renderer, hud_text_state const &state, render::framebuffer *coverage = nullptr) const;
+  void draw_messages(render::software_renderer &renderer, hud_text_state const &state, render::framebuffer *coverage = nullptr) const;
   void draw(render::software_renderer &renderer, hud_text_state const &state, render::framebuffer *coverage = nullptr) const;
 };
 

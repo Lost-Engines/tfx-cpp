@@ -22,7 +22,7 @@ attitude_display::attitude_display(instrument_assets const &source, resources::a
     arc[index + circle_steps + padding] = arc[index + padding];
   }
 }
-void attitude_display::draw_heading(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *const coverage) const {
+vec2<int> attitude_display::draw_heading(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *const coverage) const {
   // Native 0x80ffc, as called by the forward-HUD dispatcher. The scale
   // deliberately uses 183 units per degree and complements -heading.
   unsigned int const degrees{static_cast<uint16_t>(state.angles.y - 1) / 183u};
@@ -31,8 +31,9 @@ void attitude_display::draw_heading(render::software_renderer &renderer, attitud
   vec2<int> const high{std::min(319,word(200 + state.offset.x)),std::min(199,word(86 + state.offset.y))};
   renderer.clipping = render::raster_clip::viewport(low,high);
   render::draw_sprite(renderer.output,heading_strip,{static_cast<uint16_t>(160 + displacement + state.offset.x),static_cast<uint16_t>(6 + state.offset.y)},coverage,renderer.clipping);
+  return {std::min(319,word(214 + state.offset.x)),std::min(199,word(77 + state.offset.y))};
 }
-void attitude_display::draw_pitch(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *const coverage) const {
+void attitude_display::draw_pitch(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *const coverage, vec2<int> const &line_limit) const {
   // Native 0x80ab8 and the separate sky/HUD projection setter 0xc82b9.
   // This two-angle matrix is distinct from the model renderer's view matrix.
   auto const &table{math::sine_table()};
@@ -43,7 +44,7 @@ void attitude_display::draw_pitch(render::software_renderer &renderer, attitude_
   vec2<int32_t> const horizontal{(sine(pitch + roll) >> 1) - (sine(pitch - roll) >> 1),(cosine(pitch - roll) >> 1) - (cosine(pitch + roll) >> 1)};
   vec2<int32_t> const vertical{(cosine(pitch + roll) >> 1) + (cosine(pitch - roll) >> 1),(sine(pitch + roll) >> 1) + (sine(pitch - roll) >> 1)};
   vec2<int> const low{std::max(0,word(100 + state.offset.x)),std::max(0,word(15 + state.offset.y))};
-  vec2<int> const high{std::min(319,word(220 + state.offset.x)),std::min(199,word(120 + state.offset.y))};
+  vec2<int> const high{std::min(line_limit.x,word(220 + state.offset.x)),std::min(line_limit.y,word(120 + state.offset.y))};
   renderer.clipping = render::raster_clip::viewport(low,high);
   unsigned int const first{(state.angles.x & 0xffc0u) / 1820 + 1};
   uint8_t constexpr colour{6};

@@ -19,6 +19,8 @@ armament::armament(flight::player_aircraft const aircraft, std::span<definition 
   if(cursor != 0) throw std::runtime_error{"unterminated pylon selection ring"};
 }
 
+weapon_role armament::selected_role() const { return selected < 0 ? cannon_role : role(static_cast<unsigned int>(selected)); }
+
 bool armament::can_fit(unsigned int const slot, weapon_id const weapon) const {
   if(slot >= flight::store_slots) throw std::out_of_range{"mount permission requires a store slot"};
   auto const candidate{std::to_underlying(weapon)};

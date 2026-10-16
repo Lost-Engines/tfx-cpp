@@ -43,6 +43,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
                 log.seek(0);raise RuntimeError('game window did not appear:\n'+log.read()[-4000:])
             run('xdotool','windowfocus','--sync',window,check=True);time.sleep(.5)
             tap('Prior') # Raise the animated cockpit before comparing its MFD windows.
+            for _ in range(6):tap('1') # Flight-data -> stores; this mission skips the unavailable ground-data page.
             before_path=directory/'before.png';after_path=directory/'after.png'
             run('import','-window',window,str(before_path),check=True)
             tap('Return')
@@ -51,7 +52,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             tap('space')
             run('import','-window',window,str(store_after),check=True)
             def store_readout(path):
-                with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((5,41,150,48)).tobytes()
+                with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((55,132,112,170)).tobytes()
             if store_readout(store_before)==store_readout(store_after):raise RuntimeError('Enter/Space did not change the carried-weapon inventory readout')
             # Three distinct type changes reach the cannon sentinel after the first missile release.
             for _ in range(3):tap('Return')
@@ -60,7 +61,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('xdotool','keyup','space',check=True);time.sleep(.2)
             run('import','-window',window,str(after_path),check=True)
             def readout(path):
-                with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((5,32,65,39)).tobytes()
+                with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((96,91,140,98)).tobytes()
             if readout(before_path)==readout(after_path):raise RuntimeError('Space did not change the cannon ammunition readout')
             # Exercise actual MFD key bindings, including both scene-camera pages.
             def panel(path,bounds):
@@ -90,6 +91,8 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
                 time.sleep(.05)
             if window is None:raise RuntimeError('ground-targeting window did not appear')
             run('xdotool','windowfocus','--sync',window,check=True);time.sleep(.2)
+            tap('Prior')
+            for _ in range(7):tap('1')
             tap('o');tap('z')
             zoom_a=directory/'zoom-a.png';zoom_b=directory/'zoom-b.png'
             run('import','-window',window,str(zoom_a),check=True);tap('period')

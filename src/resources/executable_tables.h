@@ -30,6 +30,9 @@ struct hud_glyph {
 
 class executable_tables {
 private:
+  int16_t static constexpr first_sight_pylon{-1};
+  unsigned int static constexpr sight_pylon_count{weapons::cannon_pylon - first_sight_pylon + 1};
+  std::array<std::array<vec3<int16_t>,sight_pylon_count>,3> sight_mount_data;
   std::vector<bytes> circles;
   std::unique_ptr<presentation::fonts const> font_data;
   std::unique_ptr<presentation::widget_font const> widget_font_data;
@@ -62,6 +65,7 @@ public:
   presentation::score_assets const &scores() const;
   presentation::arming_assets const &arming_art() const;
   cockpit::instrument_assets const &instruments() const;
+  vec3<int16_t> const &sight_mount(flight::player_aircraft aircraft, int16_t pylon) const;
   std::span<uint8_t const> circle(unsigned int radius) const;
   hud_glyph const *glyph(unsigned char character) const;
   unsigned int glyph_measure(unsigned char character) const;

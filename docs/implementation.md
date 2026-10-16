@@ -840,3 +840,24 @@ python3 tools/check_cannon_prediction.py
 The HUD trajectory helper `0xa2878` uses a private temporary cannon shot: five warm-up updates, then up to eight updates before each of five displayed samples, at twenty native ticks per update. Ground contact or an ended motion callback stops further advancement. The trajectory neither enters the live projectile pool nor consumes ammunition. The caller's movement-height bounds are explicit inputs; the earlier projectile comparisons supplied different bounds from the executable's stored defaults, so those controlled defaults are no longer assumed by this predictor.
 
 **512 native trajectories and 2,560 Q8 samples agree**, including ground/ceiling boundaries, varied limits, inverted attitudes and negative/positive speeds. Original construction and motion callbacks execute with a supplied transformed launch anchor; screen projection is observed at its boundary. The native helper also restores its caller's elapsed timer. Mount transforms and projectile motion retain their separate comparisons; live aiming composition is the next consumer.
+
+
+### Forward weapon HUD and live aiming integration
+
+```sh
+python3 tools/check_weapon_display.py
+python3 tools/check_weapon_display.py --full
+python3 tools/check_cannon_prediction.py
+python3 tools/check_impact_prediction.py
+python3 tools/check_window_controls.py --data-dir /path/to/TFX
+```
+
+Original navigation, air-to-air and air-to-ground layouts now use the authored sight masks, labels, ammunition text, range-dependent reticles, suppression cross, ARM/LOCK labels and pitch ladder. **768 complete native layout frames agree**, including all aircraft, cannon/stores, lock flags, independent projection angles and eight offsets. Another **768 forward-composition frames agree**, executing original `0x800f4` with supplied cannon/impact screen samples and declared exclusions for the acquisition and cannon-selection controllers. These cases omit selected target contacts, landing approach and timed launch notices; they establish composition in the supplied context, not a complete cockpit/frame claim. The heading strip and cannon trace change the line viewport inherited by the later pitch ladder; this context is now explicit.
+
+The original Mk82 impact predictor (`0xa29dc`) also runs independently of live projectiles. It keeps the bomb at its mount during the initial attached stage, advances at ten ticks per update and stops at ground/lifetime termination. **256 complete native trajectories agree**, including varied height limits, inverted flight and boundary starts, with the caller timer restored. The native category-9 set contains the Mk82; other bomb guidance categories use their own consumers. The impact marker is drawn inside its authored bounds, while its connecting line is always clipped to the weapon viewport.
+
+All **36 sight-mount lookups** agree with native `0x8b984`, including pylon -1 and the cannon sentinel. Those sentinels read adjoining stored records rather than a separately authored cannon anchor for every aircraft; their bytes are retained. Ordinary carried-store and firing-cannon mounts remain separate.
+
+Live flight now paints the verified readouts/heading/weapon layout before cockpit artwork and lower instruments, replacing the temporary top-of-screen diagnostic labels. F returns to navigation; weapon selection also retains the cannon's selected air/ground role. HUD faults retain the original intermittent/failed gate. Sensor acquisition now uses the actual forward-cockpit projection origin. Projected trajectories currently use the existing approximate world camera and stored movement bounds; original world initialisation/projection and complete-frame/session verification remain open. Target outlines and radio placement still use their integration adapter. The private-window checks exercise firing, display cycling, scene MFDs, pause, designator controls and result handoff, and all 128 retail missions start successfully with the new forward HUD.
+
+The forward composition, cannon/impact trajectories and sight-mount checks pass in development, Release and ASan/UBSan. All 44 existing CTests pass, and all 128 retail missions also draw after 1,024 simulation steps under sanitizers. These remain subsystem and integration checks rather than a complete original-session comparison.

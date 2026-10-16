@@ -24,6 +24,7 @@
 #include "flight/damage.h"
 #include "flight/fuel_gauge.h"
 #include "cockpit/hud.h"
+#include "cockpit/weapon_display.h"
 #include "cockpit/frame.h"
 #include "cockpit/initialisation.h"
 #include "cockpit/scene_display.h"
@@ -46,6 +47,8 @@
 #include "world/scene.h"
 #include "weapons/runtime.h"
 #include "weapons/cannon.h"
+#include "weapons/cannon_prediction.h"
+#include "weapons/impact_prediction.h"
 
 namespace tfx::platform {
 
@@ -113,6 +116,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   std::vector<tfx::sensors::air_contact> radar_actors;
   tfx::sensors::designator designator;
   bool designator_view{false};
+  bool navigation_mode{true};
   std::optional<tfx::weapons::target_reference> ground_designation;
   vec3<int32_t> designated_point{0,0,0};
   std::optional<tfx::sensors::mobile_designation> mobile_designation;
@@ -357,6 +361,12 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   tfx::cockpit::hud instruments{tables.instruments(),game,tables.weapons,environment.schematic_name};
   tfx::cockpit::scene_displays scene_displays{tables.instruments()};
   tfx::cockpit::frame cockpit_frame{tables.instruments(),game};
+  tfx::cockpit::weapon_display aiming{tables.instruments(),game};
+  auto const flight_view{[&] {
+    auto view{tfx::render::aircraft_camera(player.position,player.orientation)};
+    view.projection_origin = cockpit_frame.projection_origin(tfx::cockpit::forward_cockpit,cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value()));
+    return view;
+  }};
   std::vector<vec3<int32_t>> map_targets;
   for(auto const &target : mission_setup.targets) map_targets.emplace_back(target.position);
   // The native ground-start fallback is zero for type 50, -20 otherwise (0x8c318).
@@ -375,6 +385,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   auto const select_weapon{[&](tfx::weapons::weapon_role const role) {
     if(player.collision) return;
     if(armament.selected == tfx::weapons::no_pylon) armament.selected = 0;
+    navigation_mode = false;
     apply_selection(armament.select(role,true));
     armament.guns = armament.selected == tfx::weapons::no_pylon || armament.selected == tfx::weapons::cannon_pylon;
   }};
@@ -447,12 +458,13 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     }
     unsigned int const weapon{armament.selected < 0 ? 0u : armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
     if(weapon >= tables.weapons.size()) { seeker.clear(); return; }
-    auto const view{tfx::render::aircraft_camera(player.position,player.orientation)};
+    auto const view{flight_view()};
     tfx::sensors::advance_air_lock(seeker,radar,radar_actors,tables.weapons[weapon],{
       .position{vec3<int32_t>{player.integer_position}},
       .angles{vec3<tfx::math::angle>{player.angles}},
       .elapsed{elapsed},
       .guns{armament.guns},
+      .centre{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
       .project{[&](vec3<int32_t> const &position) {
         auto const transformed{view.transform(vec3d{position})};
         if(transformed.z <= 0) return vec2<int16_t>{-32000,-32000};
@@ -479,6 +491,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     armament.selected = 0;
     armament.select(mission_setup.aircraft == tfx::flight::player_aircraft::nighthawk ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false);
     armament.guns = true;
+    navigation_mode = true;
     radar = {};
     seeker = {};
     designator = {};
@@ -749,18 +762,70 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::fuel)] = result.fuel_condition;
     // The compositor returns its warning sound event; the audio backend is still pending.
   }};
+  auto const draw_aiming{[&](tfx::render::camera const &view) {
+    auto const fault{player_damage.condition(tfx::flight::aircraft_system::hud)};
+    if(fault == tfx::flight::system_condition::failed || (fault == tfx::flight::system_condition::intermittent && (air_simulation.random_stream().next() & 1))) return;
+    auto const offset{cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value())};
+    unsigned int const weapon_index{armament.selected < 0 ? 0u : armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
+    auto const &weapon{tables.weapons.at(weapon_index < tables.weapons.size() ? weapon_index : 0)};
+    auto const role{armament.selected_role()};
+    tfx::cockpit::weapon_display_state state{
+      .mode{navigation_mode ? tfx::cockpit::aiming_mode::navigation : role == tfx::weapons::weapon_role::ground ? tfx::cockpit::aiming_mode::ground : tfx::cockpit::aiming_mode::air},
+      .aircraft{player.aircraft},
+      .weapon{weapon.label},
+      .range{weapon.range},
+      .cannon{weapon_index == 0},
+      .ammunition{cannon.ammunition},
+      .air_lock{seeker.guidance.has_value()},
+      .ground_lock{ground_designation.has_value()},
+      .contact_visible{radar.selected.has_value()},
+      .attitude{
+        .angles{vec3<tfx::math::angle>{player.angles}},
+        .projection_angles{static_cast<tfx::math::angle>(-player.angles.x),static_cast<tfx::math::angle>(-player.angles.z)},
+        .projection_origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
+        .offset{vec2<int16_t>{offset}},
+      },
+      .flight{
+        .height{player.position.y},
+        .speed{player.fixed_speed},
+        .mach{player.unrounded_speed_mach},
+        // The current Arcade pose handoff clears native DATA 0x133f4 to zero.
+        .load{0},
+        .throttle{player.throttle},
+        .position{vec3<int32_t>{player.integer_position}},
+        .air_brake{player.air_brake},
+        .brake_chute{player.brake_chute},
+        .offset{vec2<int16_t>{offset}},
+      },
+    };
+    if(state.mode == tfx::cockpit::aiming_mode::navigation || state.cannon || weapon.category == tfx::weapons::bomb_impact_category) {
+      vec3<int32_t> const origin{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)};
+      auto const anchor{tfx::math::place_anchor(origin,player.angles,tables.sight_mount(player.aircraft,armament.selected))};
+      auto const project_prediction{[&](vec3<int32_t> const &position) {
+        auto const point{view.transform(vec3d{position} / tfx::actors::position_unit)};
+        if(point.z <= 0) return vec2<int16_t>{-32000,-32000};
+        auto const screen{view.project(point)};
+        return vec2<int16_t>{static_cast<int16_t>(std::clamp(screen.x,-32000.0,32000.0)),static_cast<int16_t>(std::clamp(screen.y,-32000.0,32000.0))};
+      }};
+      if(state.mode == tfx::cockpit::aiming_mode::navigation || state.cannon) {
+        auto const samples{tfx::weapons::predict_cannon(tables.weapons[0],anchor,player.angles,player.fixed_speed,tables.instruments().camera_height_bounds)};
+        for(unsigned int index{0}; index != samples.size(); ++index) state.cannon_path[index] = project_prediction(samples[index]);
+      }
+      if(state.mode != tfx::cockpit::aiming_mode::navigation && weapon.category == tfx::weapons::bomb_impact_category) state.bomb_impact.emplace(project_prediction(tfx::weapons::predict_bomb_impact(weapon,static_cast<uint8_t>(weapon_index),anchor,player.angles,player.fixed_speed,tables.instruments().camera_height_bounds)));
+    }
+    aiming.draw_forward(renderer,state);
+  }};
   auto const draw{[&]{
     if(paused && !inspect) {
       renderer.output = flight_frame;
       renderer.text(140,80,"PAUSED",15);
       return;
     }
-    auto view{inspect ? tfx::render::inspection_camera(position,heading,pitch) : tfx::render::aircraft_camera(player.position,player.orientation)};
+    auto view{inspect ? tfx::render::inspection_camera(position,heading,pitch) : flight_view()};
     if(!inspect && designator_view) {
       double constexpr radians_per_angle{2 * std::numbers::pi / 65536};
       view = tfx::render::inspection_camera(vec3d{designator.camera},designator.heading * radians_per_angle,-tfx::math::signed_word(designator.pitch) * radians_per_angle);
     }
-    if(!inspect && !designator_view) view.projection_origin = cockpit_frame.projection_origin(tfx::cockpit::forward_cockpit,cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value()));
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
     queue_projectiles();
@@ -775,20 +840,11 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       renderer.text(25,115,std::format("SCORE {}  RESULT {}",campaign["score"],campaign["miss_val"]),15);
       renderer.text(40,160,"ENTER OR ESCAPE TO CLOSE",15);
     } else if(!inspect) {
+      if(!designator_view) draw_aiming(view);
       if(!designator_view) cockpit_frame.paint(renderer.output,tfx::cockpit::forward_cockpit,cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value()));
       draw_instruments();
-      // Upper aiming symbology and radio layout still use the diagnostic adapter.
+      // Remaining target outlines and radio placement retain the integration adapter.
       uint8_t constexpr hud_colour{15};
-      renderer.text(5,5,std::format("MACH {:.2f}  ALT {} FT",player.speed_mach,static_cast<int>(-player.position.y * tfx::flight::feet_per_world_unit)),hud_colour);
-      renderer.text(5,14,std::format("THR {}  FUEL {}  AB {}",static_cast<int>(player.throttle * 100),static_cast<int>(player.fuel),player.afterburner),hud_colour);
-      renderer.text(245,5,"ARCADE",hud_colour);
-      renderer.text(5,23,std::format("HOSTILE LOSSES {}  SHOTS {}",enemy_aircraft_lost,projectiles.projectiles().size()),hud_colour);
-      if(player.aircraft != tfx::flight::player_aircraft::nighthawk) renderer.text(5,32,std::format("GUN {}",cannon.ammunition),hud_colour);
-      if(!armament.guns && armament.selected >= 0) {
-        auto const weapon{armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
-        auto const count{std::ranges::count_if(armament.pylons,[&](auto const &slot) { return slot.weapon == weapon && slot.count; })};
-        renderer.text(5,41,std::format("{} X{}",tables.weapons[weapon].label,count),hud_colour);
-      }
       if(designator_view) {
         renderer.line({150,100},{170,100},hud_colour);
         renderer.line({160,90},{160,110},hud_colour);
@@ -801,7 +857,6 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         renderer.line(aim + vec2d{5,-5},aim + vec2d{5,5},hud_colour);
         renderer.line(aim + vec2d{5,5},aim + vec2d{-5,5},hud_colour);
         renderer.line(aim + vec2d{-5,5},aim + vec2d{-5,-5},hud_colour);
-        renderer.text(140,160,seeker.guidance ? "LOCK" : "ACQUIRING",hud_colour);
       }
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
       if(player_disabled) renderer.text(120,92,"AIRCRAFT LOST",hud_colour);
@@ -892,7 +947,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     } else if(!paused && !result_evaluated) {
       if(pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER)) select_weapon(tfx::weapons::weapon_role::air);
       if(pressed(GLFW_KEY_BACKSPACE) || pressed(GLFW_KEY_O)) select_weapon(tfx::weapons::weapon_role::ground);
-      if(pressed(GLFW_KEY_F)) armament.guns = true;
+      if(pressed(GLFW_KEY_F)) { armament.guns = true;navigation_mode = true; }
       if(pressed(GLFW_KEY_C)) cycle_target();
       if(pressed(GLFW_KEY_1)) display_selection.cycle_left(!mission_setup.targets.empty());
       if(pressed(GLFW_KEY_2)) display_selection.cycle_centre(player.aircraft);
