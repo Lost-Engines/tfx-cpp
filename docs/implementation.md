@@ -543,3 +543,22 @@ The original planner's frame is an executable-backed painting stream (`0xa9c34`)
 The complete original painter agrees in **all 64,000 pixels and coverage bits**, including the curved frame details and plane-specific writes. The planner palette also agrees for **128 complete native compositions** through `0xab3ac`: map colours remain underneath the 80-entry interface ramp and sixteen marker colours. The interface bank lives beside the painter in the code object; the marker bank is in the data object. C++ reads both original banks as data. The comparison also passes with ASan/UBSan, and the Release/sanitizer planner tests check overlay composition without erasing uncovered map pixels.
 
 These assets are ready for the interactive planner consumer; loading a planner action remains an unfinished host boundary until its route briefing, editing and arming workflow are connected.
+
+### Planner map, annotations and route artwork
+
+```sh
+python3 tools/check_widget_font.py
+python3 tools/check_planner_maps.py
+python3 tools/check_planner_notes.py
+python3 tools/check_planner_routes.py
+```
+
+The planner now owns its three original map layers, interface palette banks and region labels. Native order is physical relief, AWAC and political. The proportional widget font is separate from the presentation and HUD fonts and loads from the original executable. **416 complete native font cases agree** in width, pixels and written coverage, including every byte code, accents, plane phases, top clamping and the bottom edge. Immutable executable assets are decoded once and shared by their consumers.
+
+**90 complete map pages agree** in every pixel and DAC entry across all thirty retail planner actions and all three map layers. **174 complete annotation windows agree pixel for pixel**, including their original frame, positioning, text limit and text/frame overlap. **177 route pages agree** at every waypoint in the retail briefing reviews, including native line order, numeric labels, edge placement and clipping. These comparisons execute original loaders and complete painters with supplied DOS resource access, bounded heap storage and four separately captured VGA pages. Optional satellite/world 3D setup remains outside these 2D comparisons. No captured artwork or game instructions are bundled with the C++ runtime.
+
+Annotation indexing preserves the original discrepancy between its two number scanners. Blank lines after ESC in mission 829 cause notes 4 and 6 to replace key zero, while their widget headers still load correctly. Text is bounded to the original 400-byte buffer. Unselected native route labels read a header before the route array; the reference supplies zeroed mapped heap guard storage, while C++ expresses the unselected condition without that out-of-array access. Asset-free regressions cover annotation defaults, duplicate replacement, carriage returns and text bounds.
+
+The map/annotation/route painters are currently independent components; interactive planner state, route editing, loadout and flight handoff remain the next consumers rather than being implied by these frame comparisons.
+
+All four new native comparisons pass with development, Release and ASan/UBSan probes. All 41 CTests also pass in those three configurations.

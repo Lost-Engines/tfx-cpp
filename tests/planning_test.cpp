@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 #include "planning/document.h"
+#include "planning/notes.h"
 #include "resources/compiled_panel.h"
 
 namespace {
@@ -34,6 +35,15 @@ int main() try {
   complete.back() = 0x12345678;
   tfx::planning::mission_parameters const parameters{complete};
   require(parameters.retained[2] == 0x5678 && parameters.retained[3] == 0x1234,"last native header dword lost its spill word");
+  tfx::planning::notes const notes{
+    "0 255 25 8 13 15\r\nIntro\033\r\n1 255 0 22 10 0\r\nTake off\033\r\n\r\n4 255 7 10 6 2\r\nFirst\033\r\n\r\n6 255 13 12 9 2\r\nSecond\033\r\n"
+  };
+  require(notes.all().size() == 3 && notes.find(0) && notes.find(1),"planner annotation key order differs");
+  require(notes.find(1)->size.y == 1 && notes.find(1)->text == "Take off","annotation zero size or carriage-return removal differs");
+  require(!notes.find(4) && !notes.find(6) && notes.find(0,0)->text == "Second","original blank-line note replacement differs");
+  std::string long_note{"0 255 0 0 1 1\n"};long_note.append(410,'A');long_note += '\033';
+  tfx::planning::notes const truncated{long_note};
+  require(truncated.find(0)->text.size() == 400,"native annotation text buffer limit differs");
   tfx::resources::screen_overlay overlay;
   overlay.coverage.pixels[0] = 255;overlay.image.pixels[0] = 0;
   overlay.image.pixels[1] = 77;
