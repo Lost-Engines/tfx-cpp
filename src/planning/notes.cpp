@@ -9,12 +9,13 @@ uint16_t key(uint8_t const waypoint, uint8_t const route) {
 }
 } // anonymous namespace
 
-notes::notes(std::string_view source) {
+notes::notes(std::string_view const source) { append(source); }
+void notes::append(std::string_view const source) {
   // Native 0xaac40 removes CR and NUL before indexing ESC-terminated blocks.
   std::string compact;
   for(char const value : source) if(value != '\r' && value != '\0') compact += value;
   std::size_t at{0};
-  unsigned int constexpr maximum_notes{500}, maximum_text_bytes{400};
+  unsigned int constexpr maximum_notes{500};
   for(unsigned int index{0}; index != maximum_notes && at < compact.size(); ++index) {
     auto const end{compact.find('\x1b',at)};
     if(end == std::string::npos) break;
@@ -31,34 +32,47 @@ notes::notes(std::string_view source) {
       return static_cast<uint8_t>(value);
     }};
     uint8_t const waypoint{index_number()}, route{index_number()};
-    std::array<uint8_t,6> fields{};
-    std::size_t number{0};
-    for(auto &field : fields) {
-      while(number < block.size() && (block[number] < '0' || block[number] > '9')) ++number;
-      if(number == block.size()) throw std::runtime_error{"Incomplete planner annotation header"};
-      uint32_t value{0};
-      while(number < block.size() && block[number] >= '0' && block[number] <= '9') value = value * 10 + static_cast<unsigned int>(block[number++] - '0');
-      field = static_cast<uint8_t>(value);
-    }
-    auto const newline{block.find('\n',number)};
-    if(newline == std::string_view::npos) throw std::runtime_error{"Planner annotation has no text line"};
-    annotation note{
-      .waypoint{waypoint},
-      .route{route},
-      .position{fields[2],fields[3]},
-      .size{std::max(uint8_t{1},fields[4]),std::max(uint8_t{1},fields[5])},
-      .text{block.substr(newline + 1,maximum_text_bytes)},
-    };
-    entries.insert_or_assign(key(note.waypoint,note.route),std::move(note));
+    auto const identifier{key(waypoint,route)};
+    entries.insert_or_assign(identifier,std::string{block});
+    decoded.erase(identifier);
     // The source reader skips ESC and its following newline.
     at = std::min(end + 2,compact.size());
   }
 }
 annotation const *notes::find(uint8_t const waypoint, uint8_t const route) const {
-  auto const found{entries.find(key(waypoint,route))};
-  return found == entries.end() ? nullptr : &found->second;
+  auto const identifier{key(waypoint,route)};
+  if(auto const cached{decoded.find(identifier)}; cached != decoded.end()) return &cached->second;
+  auto const found{entries.find(identifier)};
+  if(found == entries.end()) return nullptr;
+  // Native indexing retains raw blocks and interprets widget fields only when a
+  // note is actually requested. French mission 829 has a stray "3" block that
+  // is replaced later; eager widget decoding would incorrectly reject the file.
+  std::string_view const block{found->second};
+  std::array<uint8_t,6> fields{};
+  std::size_t number{0};
+  for(auto &field : fields) {
+    while(number < block.size() && (block[number] < '0' || block[number] > '9')) ++number;
+    if(number == block.size()) throw std::runtime_error{"Incomplete planner annotation header"};
+    uint32_t value{0};
+    while(number < block.size() && block[number] >= '0' && block[number] <= '9') value = value * 10 + static_cast<unsigned int>(block[number++] - '0');
+    field = static_cast<uint8_t>(value);
+  }
+  auto const newline{block.find('\n',number)};
+  if(newline == std::string_view::npos) throw std::runtime_error{"Planner annotation has no text line"};
+  unsigned int constexpr maximum_text_bytes{400};
+  annotation note{
+    .waypoint{waypoint},
+    .route{route},
+    .position{fields[2],fields[3]},
+    .size{std::max(uint8_t{1},fields[4]),std::max(uint8_t{1},fields[5])},
+    .text{block.substr(newline + 1,maximum_text_bytes)},
+  };
+  return &decoded.emplace(identifier,std::move(note)).first->second;
 }
-std::map<uint16_t,annotation> const &notes::all() const { return entries; }
+std::map<uint16_t,annotation> const &notes::all() const {
+  for(auto const &[identifier,text] : entries) find(static_cast<uint8_t>(identifier),static_cast<uint8_t>(identifier >> 8));
+  return decoded;
+}
 
 void draw_annotation(render::framebuffer &image, presentation::widget_font const &font,
   annotation const &note) {

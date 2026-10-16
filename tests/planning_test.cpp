@@ -41,6 +41,10 @@ int main() try {
   require(notes.all().size() == 3 && notes.find(0) && notes.find(1),"planner annotation key order differs");
   require(notes.find(1)->size.y == 1 && notes.find(1)->text == "Take off","annotation zero size or carriage-return removal differs");
   require(!notes.find(4) && !notes.find(6) && notes.find(0,0)->text == "Second","original blank-line note replacement differs");
+  tfx::planning::notes replaced{"\n3\033\n\n6 255 13 12 9 2\nReplacement\033\n"};
+  require(replaced.find(0,0)->text == "Replacement","an overwritten malformed block was eagerly decoded");
+  replaced.append("0 255 1 1 1 1\nTranslated\033\n");
+  require(replaced.find(0)->text == "Translated" && replaced.find(0,0)->text == "Replacement","translated note overlay discarded other keys");
   std::string long_note{"0 255 0 0 1 1\n"};long_note.append(410,'A');long_note += '\033';
   tfx::planning::notes const truncated{long_note};
   require(truncated.find(0)->text.size() == 400,"native annotation text buffer limit differs");

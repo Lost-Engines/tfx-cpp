@@ -562,3 +562,21 @@ Annotation indexing preserves the original discrepancy between its two number sc
 The map/annotation/route painters are currently independent components; interactive planner state, route editing, loadout and flight handoff remain the next consumers rather than being implied by these frame comparisons.
 
 All four new native comparisons pass with development, Release and ASan/UBSan probes. All 41 CTests also pass in those three configurations.
+
+### Live Tour of Duty review and translated notes
+
+```sh
+python3 tools/check_planner_segments.py
+python3 tools/check_planner_review.py
+python3 tools/check_planner_languages.py
+./build/pilot_probe /path/to/TFX
+python3 tools/check_frontend_window.py --data-dir /path/to/TFX
+```
+
+The front-end now handles all thirty retail planner nodes. Their mode is **1**, which calls native `0xaceb4` to review the player route, queues action 2 and returns automatically to the presentation parser. This is distinct from the editable route/mission-authoring modes. There is no invented Enter-to-launch step: Space or held right mouse dismisses each available note, route legs reveal in order, and the authored graph then launches the mission.
+
+The animated line painter uses signed 16.16 DDA sampling and excludes its final endpoint, unlike the completed route's inclusive Bresenham lines. **727 complete native segment captures agree** in every pixel and returned remaining length, including zero, partial, complete and excessive extents. **Thirty complete original reviews agree in 2,004 note/reveal transitions and successful automatic return**. The original controller, note waits, geographic label loading and segment completion logic execute; optional world/satellite setup remains a supplied boundary. The original forty-retrace fade executes too: **1,230 complete displayed palettes agree**, including each ramp stage and the final black screen. These event comparisons complement the separate complete-frame painter comparisons; they do not claim an exact desktop-time/display-flip recording of an entire review.
+
+Translated `.way` files overlay notes by key rather than replacing all English waypoint instructions. **150 live introductory screens match the original pixel for pixel**, covering every retail review in English, French, German, Italian and Spanish. The check also verifies that Enter/Escape do not dismiss the C++ note and Space does. Notes retain their raw blocks until requested, matching native delayed widget decoding. This matters for French mission 829: a stray `3` block is replaced by a later note before it can be displayed. Eager decoding would reject valid gameplay. Asset-free tests cover this replacement and translated overlays retaining other keys.
+
+Pilot integration now follows the original main menu, Tour squadron choice, mission 801's review, its flight-launch boundary, a supplied successful result, and mission 802's review/launch. The supplied result tests campaign continuation independently of combat. All thirty text player routes also agree with their compiled flight waypoint lists. Editable authoring modes and loadout selection remain separate work. The segment/review/language comparisons and pilot integration pass in development, Release and ASan/UBSan; all 41 CTests pass in each configuration. A private X11 test also enters live FWS and Tour flight through the actual Release window, including pilot reload and held-right-button review dismissal.

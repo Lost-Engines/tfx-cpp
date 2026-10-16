@@ -6,7 +6,7 @@ namespace tfx::presentation {
 
 frontend::frontend(resources::archive const &game, resources::executable_tables const &tables,
   std::filesystem::path const &save_directory, std::string const &language, bool const skip_intro) :
-  game{game}, tables{tables}, schema{game.read("tfx.par")}, store{save_directory},
+  game{game}, tables{tables}, language{language}, schema{game.read("tfx.par")}, store{save_directory},
   parser{game,tables.presentation_fonts(),tables.text_palette,state,"tfx",{},language} {
   if(skip_intro) {
     // Enter at the authored enrolment action; subsequent main-menu assignments still execute.
@@ -22,6 +22,17 @@ statement const *frontend::advance(scene_counters const counters, scene_input &i
   std::optional<vec2<int16_t>> const &position) {
   bool const click{(input.mouse_buttons & 1) && !mouse_held};
   mouse_held = input.mouse_buttons & 1;
+  if(planner) {
+    bool const done{planner->advance(input.mouse_buttons)};
+    display = planner->image();
+    palette = planner->colours();
+    input.key = scene_key::none;
+    if(done) {
+      planner.reset();
+      parser.complete();
+    }
+    return nullptr;
+  }
   if(pilot) {
     if(click && position) pilot->click(*position);
     bool const done{pilot->advance(position)};
@@ -72,6 +83,13 @@ statement const *frontend::advance(scene_counters const counters, scene_input &i
       auto const media{game.read(script.animation.empty() ? "iff/raw/" + script.backdrop : "anim/" + script.animation + ".256")};
       menu = std::make_unique<menu_player>(std::move(script),media,state,tables.pointers,counters.bios);
       return nullptr;
+    } else if(action->kind == node_kind::planner) {
+      auto const &request{std::get<host_action>(action->data)};
+      if(request.mode != 1) return action;
+      planner = std::make_unique<planning::review>(game,tables.planner_art(),tables.interface_font(),request.resource,language);
+      display = planner->image();
+      palette = planner->colours();
+      return nullptr;
     } else if(action->kind == node_kind::launch) {
       auto const &command{std::get<host_action>(action->data).resource};
       if(command == "enrol") {
@@ -104,6 +122,7 @@ statement const *frontend::advance(scene_counters const counters, scene_input &i
 void frontend::press(uint8_t const scan, bool const control) {
   if(pilot) pilot->press(scan,control);
   if(scores) scores->press(scan);
+  if(planner) planner->press(scan);
 }
 void frontend::complete() {
   parser.complete();

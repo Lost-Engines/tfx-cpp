@@ -26,6 +26,7 @@ public:
     presentation::widget_font const &font, document const &plan);
   void select(map_layer layer);
   void route(render::framebuffer &target, unsigned int count) const;
+  unsigned int extend(render::framebuffer &target, unsigned int count, unsigned int extent) const;
   void draw();
   render::framebuffer const &image() const;
   std::array<uint8_t,256 * 3> const &palette() const;

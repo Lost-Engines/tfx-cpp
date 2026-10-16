@@ -17,12 +17,15 @@ retail=next(program for program in programs if program['name']=='tfx')
 names=sorted({node['resource'] for function in retail['functions'] for node in function['nodes'] if node['kind']=='waypoint_planner'})
 rows=[];expected=[];labels=[];counts=[]
 for name in names:
-    planner=NativePlanner(directory,args.research);planner.initialise(name)
+    planner=NativePlanner(directory,args.research)
+    planner.image.intercept(0xaae74,'Mission-note widget comparison excludes the separately loaded geographic cell-label table.',lambda im:im.return_from())
+    planner.initialise(name)
     rows.append(str(planner.archive.hash_name('waytxt/'+name+'.way'))+'\n')
     im=planner.image;cpu=planner.cpu;video=planner.video
     base=[bytes(plane) for plane in video.page(video.get(0x59a64))]
-    count=im.read(0xa7b4,'<H')[0];counts.append(count)
+    count=im.read(0xa7b4,'<H')[0]
     keys=[struct.unpack('<IH',cpu.mem_read(im.data+0x17320+index*6,6))[1] for index in range(count)]
+    counts.append(len(keys))
     for key in keys:
         video.set(0x55907,0xe800);video.set(0x55909,0xe800)
         for out,data in zip(video.page(0xe800),base):out[:]=data
