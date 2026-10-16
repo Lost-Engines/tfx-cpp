@@ -1,10 +1,13 @@
 #include <cstdlib>
 #include <iostream>
+#include <string_view>
+#include <utility>
 #include "cockpit/weapon_display.h"
 #include "weapons/impact_prediction.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 2) throw std::runtime_error{"usage: target_tracking_probe DATA_DIRECTORY"};
+  bool const alerts_mode{argc == 3 && std::string_view{argv[2]} == "--alerts"};
+  if(argc != 2 && !alerts_mode) throw std::runtime_error{"usage: target_tracking_probe DATA_DIRECTORY [--alerts]"};
   auto const archive{tfx::resources::find_game_archive(argv[1])};
   tfx::resources::archive const game{archive};
   tfx::resources::executable_tables const tables{archive.parent_path() / "TFX.DAT"};
@@ -17,6 +20,10 @@ int main(int const argc, char const *const argv[]) try {
     for(auto *axis : {&cue.orientation.right,&cue.orientation.down,&cue.orientation.forward}) for(auto &coordinate : *axis) std::cin >> coordinate;
     std::cin >> ground >> ground_point.x >> ground_point.y >> state.attitude.offset.x >> state.attitude.offset.y;
     if(reset) display.reset_tracking();
+    int request{-1};double fuel{10000};
+    if(alerts_mode) std::cin >> request >> fuel >> state.elapsed;
+    if(request >= 0) display.show_alert(static_cast<tfx::cockpit::hud_alert>(request));
+    display.check_fuel(fuel);
     state.mode = static_cast<tfx::cockpit::aiming_mode>(mode);
     state.aircraft = static_cast<tfx::flight::player_aircraft>(aircraft + 1);
     state.weapon = tables.weapons.at(weapon).label;state.range = tables.weapons.at(weapon).range;state.category = tables.weapons.at(weapon).category;
@@ -31,8 +38,8 @@ int main(int const argc, char const *const argv[]) try {
     renderer.output.pixels.fill(99);tfx::render::framebuffer coverage;
     auto const effects{display.draw_forward(renderer,state,&coverage)};
     auto const animation{display.animation()};
-    std::array<int32_t,4> const header{animation.blink,animation.had_lock,animation.sight == tfx::cockpit::target_sight::compact,effects.lock_acquired};
-    std::cout.write(reinterpret_cast<char const*>(header.data()),sizeof(header));
+    std::array<int32_t,6> const header{animation.blink,animation.had_lock,animation.sight == tfx::cockpit::target_sight::compact,effects.lock_acquired,static_cast<int32_t>(std::to_underlying(display.alert_state().alert)),display.alert_state().remaining};
+    std::cout.write(reinterpret_cast<char const*>(header.data()),(alerts_mode ? 6 : 4) * sizeof(int32_t));
     std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());
     std::cout.write(reinterpret_cast<char const*>(coverage.pixels.data()),coverage.pixels.size());
   }

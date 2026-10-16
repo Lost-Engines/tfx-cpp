@@ -832,6 +832,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     // The compositor returns its warning sound event; the audio backend is still pending.
   }};
   auto const draw_aiming{[&](tfx::render::camera const &view, bool const limited) {
+    aiming.check_fuel(player.fuel);
     auto const fault{player_damage.condition(tfx::flight::aircraft_system::hud)};
     if(fault == tfx::flight::system_condition::failed || (fault == tfx::flight::system_condition::intermittent && (air_simulation.random_stream().next() & 1))) return;
     auto const offset{vec2<int16_t>{cockpit_position.value()}};
@@ -849,6 +850,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .air_lock{seeker.guidance.has_value()},
       .ground_lock{ground_designation.has_value()},
       .limited{limited},
+      .elapsed{launch_elapsed},
       .attitude{
         .angles{vec3<tfx::math::angle>{player.angles}},
         .projection_angles{static_cast<tfx::math::angle>(-player.angles.x),static_cast<tfx::math::angle>(-player.angles.z)},

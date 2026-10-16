@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/cockpit/hud_alerts.cpp
+  src/cockpit/hud_alerts.h
   src/render/palette_lighting.cpp
   src/render/palette_lighting.h
   src/render/palette_selection.cpp
@@ -388,6 +390,9 @@ if(BUILD_TESTING)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
 
+  add_executable(hud_alert_probe tests/hud_alert_probe.cpp)
+  target_link_libraries(hud_alert_probe PRIVATE tfx_core)
+  configure_first_party(hud_alert_probe)
   add_executable(dac_probe tests/dac_probe.cpp)
   target_link_libraries(dac_probe PRIVATE tfx_core)
   configure_first_party(dac_probe)

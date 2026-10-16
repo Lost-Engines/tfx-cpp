@@ -112,3 +112,6 @@ Current evidence is indexed in [implementation.md](implementation.md). The sibli
 
 
 The view/night palette selector now also has 5,952 native state comparisons and live infrared/night-vision bindings. All 33 authored environment palette configurations are independently checked, including their five altitude banks/boundaries. Altitude/fixed-colour palette generation is now separately checked in 4,224 complete native updates, and VGA DAC upload/expansion in 304 updates. Live altitude colours and Y/U HUD intensity are connected. Flash/blackout painters are verified with supplied state; their producers, full scene lighting and weather remain separate renderer increments.
+
+
+Temporary BINGO/PULL UP HUD messages now have 512 complete native painter/state comparisons and 1,024 composed forward-HUD comparisons. Live low-fuel requests retain the original fault gate and paint cadence. PULL UP terrain-risk detection, refuelling contact selection and the remaining approach/navigation consumers are still separate increments.

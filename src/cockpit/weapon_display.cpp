@@ -12,10 +12,13 @@ uint8_t constexpr lock_blink_frames{9}, anti_radiation_category{11};
 } // anonymous namespace
 
 weapon_display::weapon_display(instrument_assets const &source, resources::archive const &game)
-  : assets{source}, attitude{source,game}, numbers{source}, targets{source}, framing{resources::decode_sprites(game.read(assets.aiming_bank)).at(0)} {
+  : assets{source}, attitude{source,game}, numbers{source}, targets{source}, alerts{source}, framing{resources::decode_sprites(game.read(assets.aiming_bank)).at(0)} {
 }
 void weapon_display::reset_tracking() { tracking = {}; }
 target_animation weapon_display::animation() const { return tracking; }
+void weapon_display::check_fuel(double const fuel) { alerts.check_fuel(fuel); }
+void weapon_display::show_alert(hud_alert const alert) { alerts.show(alert); }
+hud_alert_state weapon_display::alert_state() const { return alerts.value(); }
 weapon_effects weapon_display::draw_forward(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *const coverage) {
   // Native 0x800f4 ordering; general navigation/radar cues remain separate.
   auto const &offset{state.attitude.offset};
@@ -82,7 +85,11 @@ weapon_effects weapon_display::draw_forward(render::software_renderer &renderer,
     tracking.had_lock = state.air_lock;
   }
 
-  if(state.mode == aiming_mode::navigation) { full_clip();numbers.draw_messages(renderer,state.flight,coverage); }
+  if(state.mode == aiming_mode::navigation) {
+    // Native NAV draws its alert before the outer brake/chute message repeat.
+    alerts.draw(renderer,offset,state.elapsed,coverage);
+    full_clip();numbers.draw_messages(renderer,state.flight,coverage);
+  }
   else if(state.bomb_impact) {
     // Native 0x7f798: the impact marker is conditional, but its connecting
     // line is always sent to the original bounded weapon viewport.
@@ -93,6 +100,7 @@ weapon_effects weapon_display::draw_forward(render::software_renderer &renderer,
     presentation::draw_clipped_line(renderer.output,vec2<int>{origin},vec2<int>{impact},low,high,6);
     if(coverage) presentation::draw_clipped_line(*coverage,vec2<int>{origin},vec2<int>{impact},low,high,255);
   }
+  if(state.mode != aiming_mode::navigation) alerts.draw(renderer,offset,state.elapsed,coverage);
   return {.lock_acquired{new_lock}};
 }
 void weapon_display::draw(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *const coverage, vec2<int> const &line_limit) const {

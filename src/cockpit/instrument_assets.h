@@ -20,6 +20,12 @@ struct pitch_mark {
   std::array<vec2<int16_t>,6> vertices;
 };
 
+enum class hud_alert : unsigned int { bingo, pull_up };
+struct hud_segment {
+  vec2<int16_t> from;
+  vec2<int16_t> to;
+};
+
 struct instrument_assets {
   std::array<uint8_t,64> character_map;
   std::string font_bank;
@@ -32,6 +38,8 @@ struct instrument_assets {
   std::string aiming_bank;
   std::array<std::string,7> aiming_labels;
   std::array<std::string,3> brake_messages;
+  std::array<std::vector<hud_segment>,2> hud_alert_shapes;
+  double bingo_fuel;
   std::array<std::string,5> hud_number_formats;
   std::array<std::string,4> target_formats;
   std::array<std::string,3> external_number_formats;
