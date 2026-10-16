@@ -1378,3 +1378,11 @@ The complete native 0x954fc initializer now reconstructs physical axes/pose, mas
 All 8,192 complete original initializations agree, including 4,095 ground starts and 143 special carrier starts. All 27 original store definitions are sampled in a mounted slot with varied offsets, prior store mass and fuel. The native initializer, store accumulation and carrier tuning execute without interception. There are 123 compact captures. The complete preset comparison also checks all decoded carrier values and their applied surface/coefficient/contact fields.
 
     python3 tools/check_aerodynamic_start.py
+
+### Advanced wind initialization and updates
+
+Native wind initialization and complete 0x996c0 now retain surface-speed smoothing, direction/vertical modulation, gust renewal, weather/terrain boosts and upper-altitude wind blending. The original initializer's five parameter profiles come directly from executable tables. Its three random draws remain ordered, including a draw stored in a legacy field with no reader. Unwritten retained values remain explicit. Gust renewal resets the same clock that aerodynamic air data later advances; the connected caller must preserve that shared ownership.
+
+All 512 complete original initialization cases and 8,192 complete original wind updates agree, including 5,805 gust renewals and every random-state/output-float bit. The selected weather is supplied just before the original initialization block, allowing all five table entries to be checked even though retail initialization normally selects zero. Original instructions and random generation execute; FPATAN/FSIN/FCOS/FPTAN use the hardware adapter. There are 130 compact captures.
+
+    python3 tools/check_aerodynamic_wind.py
