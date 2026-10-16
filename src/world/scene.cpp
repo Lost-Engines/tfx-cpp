@@ -60,7 +60,7 @@ void scene::prepare_terrain_cell(unsigned int const x, unsigned int const z) {
 
 instance_result scene::terrain_event(unsigned int const x, unsigned int const z, unsigned int const entry) {
   return terrain_instance(x,z).execute(entry,{
-    .status{terrain.status},
+    .status{terrain.lighting.status},
   });
 }
 
@@ -79,7 +79,7 @@ instance_result scene::collide_terrain(vec3<int32_t> const &previous, vec3<int32
     },
     .player_query{player},
     .impact_damage{damage},
-    .status{terrain.status},
+    .status{terrain.lighting.status},
     .collision_response{std::move(response)},
   });
 }
@@ -95,7 +95,7 @@ instance_result scene::collide_actor(scene_handle const handle, vec3<int32_t> co
     },
     .player_query{player},
     .impact_damage{damage},
-    .status{terrain.status},
+    .status{terrain.lighting.status},
     .collision_response{std::move(response)},
     .damage_response{std::move(damage_response)},
   });
@@ -131,13 +131,13 @@ void scene::queue_actor(scene_handle const handle, vec3d const &position, vec3<m
 
 instance_result scene::actor_event(scene_handle const handle, unsigned int const entry) {
   return actors.at(handle.value).state.execute(entry,{
-    .status{terrain.status},
+    .status{terrain.lighting.status},
   });
 }
 
 void scene::advance_instance(instance &state) {
   state.animate({
-    .status{terrain.status},
+    .status{terrain.lighting.status},
   });
 }
 
@@ -178,7 +178,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       try {
         auto &instance{terrain_instance(col,row)};
         instance_context const context{
-          .status{terrain.status},
+          .status{terrain.lighting.status},
           .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(centre + math::rotate_tile(anchor,tile.rotation) - view.position)); }},
         };
         for(auto const &draw : instance.execute(1,context).draws) {
@@ -205,7 +205,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
   }
   auto const submit{[&](moving_instance &actor, vec3d const &position, mat3d const &rotation) {
     instance_context const context{
-      .status{terrain.status},
+      .status{terrain.lighting.status},
       .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(position + rotation * anchor - view.position)); }},
     };
     for(auto const &draw : actor.state.execute(1,context).draws) {
@@ -242,7 +242,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       std::copy(item.part->parameters.begin(),item.part->parameters.end(),context.parameters.begin());
       // Native 0xcc001 queues parameter 0; 0xbac16 seeds the shape condition from it.
       context.initial_state = item.part->parameters.front();
-      context.status = terrain.status;
+      context.status = terrain.lighting.status;
       context.jitter = &working_jitter;
       context.distance = static_cast<int16_t>(std::clamp(item.depth,-32768.0,32767.0));
       context.project = [&view, &placed](vec3d const &v, double const scale){

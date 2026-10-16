@@ -281,10 +281,10 @@ auto main(int const argc, char const *const argv[])->int try {
         if(name.empty()) continue;
         tfx::world::environment const environment{game,name,lighting};
         if(mode == "environment_bindings") {
-          std::cout << '[' << environment.status << ',' << std::quoted(environment.palette_name) << ',' << std::quoted(environment.schematic_name) << "]\n";
+          std::cout << '[' << environment.lighting.status << ',' << std::quoted(environment.lighting.palette_name) << ',' << std::quoted(environment.lighting.schematic_name) << "]\n";
           continue;
         }
-        std::cout << '[' << environment.status << ',' << std::quoted(environment.palette_name) << ",[";
+        std::cout << '[' << environment.lighting.status << ',' << std::quoted(environment.lighting.palette_name) << ",[";
         bool first{true};
         for(unsigned int z{0}; z != tfx::world::map_height; ++z) {
           for(unsigned int x{0}; x != tfx::world::map_width; ++x) {

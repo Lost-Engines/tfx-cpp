@@ -109,3 +109,6 @@ The exact stopping point cannot be guaranteed in advance. The highest-risk unkno
 Maintain separate labels for decoded data, isolated native comparisons, complete native-session comparisons, and inspection/inferred behaviour. Keep compact input/state/event fixtures and hashes in the repository. Generate bulk frame/audio captures in ignored scratch space and retain a capture only when it adds distinct evidence.
 
 Current evidence is indexed in [implementation.md](implementation.md). The sibling research tree's `analysis/game-logic.md`, `compiled-programs.md`, `weapons-and-dynamics.md`, `campaign-flow.md`, `configuration.md`, `cockpits.md`, `lighting.md` and `audio/README.md` identify the native entry points and existing captures on which this plan builds.
+
+
+The view/night palette selector now also has 5,952 native state comparisons and live infrared/night-vision bindings. All 33 authored environment palette configurations are independently checked, including their five altitude banks/boundaries. Altitude progression, flash/blackout generation, full scene lighting and weather remain separate renderer increments.

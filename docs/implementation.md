@@ -989,3 +989,22 @@ The external-camera callback now draws its original altitude/speed/heading strip
 **512 complete original pixel/coverage frames agree**, including enabled/disabled strips, positive/negative telemetry, heading wrap and all 256 background indices. The original polygon scanner, VGA logical operations, formatter and fixed-font painters execute; the already checked radio consumer is disabled at its own boundary. The comparison covers the full 320×200 external viewport, rather than claiming arbitrary clipped-panel behavior.
 
 The comparison passes in development, Release and ASan/UBSan. All 46 CTests pass, and private-window checks exercise the external view transitions and telemetry strip alongside cockpit restoration and paused-frame retention.
+
+
+### Infrared and night-view palette selection
+
+```sh
+python3 tools/check_palette_selection.py
+python3 tools/check_environment_palettes.py
+python3 tools/check_window_palettes.py
+```
+
+The original selector now owns its normal-palette dirty flag and infrared latch. The designator requests infrared directly. Missile nose view tests the original active-projectile-list condition independently of weapon guidance type. Night vision also checks the environment/night/request flags and preserves the original exclusions for particular external/transition views. Repeated requests suppress redundant uploads; a changed normal palette stays pending while infrared is displayed.
+
+**5,952 native selector updates agree** across all 29 views, every eligibility combination, dirty/infrared initial state and persistent switching sequences. The original selection tail executes unmodified with its saved-register stack supplied; hardware upload is observed at its external boundary. Altitude, flashes, blackout/redout generation and full session ordering remain separate work. Another **441 compact native cases** run without game assets in CTest.
+
+Lighting configuration now owns the five authored altitude palette names/boundaries, infrared palette, schematic and night status independently of terrain loading. All bindings agree with **33 independently captured native environment parses**. Keeping this separate also permits checking configurations whose names are not valid standalone terrain grids. Live flight uses these infrared bindings for missile/designator views and Shift+N night vision, including normal-colour restoration in the original excluded cameras. Private-window tests exercise Shift+N, day/night eligibility, chase-view exclusion and cockpit restoration, checking the displayed colours against the actual palette banks.
+
+Development, Release and ASan/UBSan selector/configuration comparisons pass. All 47 development CTests pass. Complete scene lighting/remaps, altitude palette progression, weather and complete-frame/session equivalence remain open renderer gates.
+
+All 128 retail missions also run 1,024 simulation steps and draw under ASan/UBSan after the lighting-configuration separation.
