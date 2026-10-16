@@ -1362,3 +1362,11 @@ Native 0x9e0f4 is translated separately from military-spec suspension. Its three
 All 8,192 complete original Realistic ground updates agree, including 1,042 random bump sequences, 830 failed-gear notifications and 1,317 arrestor transitions. The full routine and original wheel projections execute. FPATAN/FSIN/FCOS use the hardware adapter; failed-gear output is the only other interception and is counted. All physical position/velocity changes, control commands, point caches, damage, random seeds and output requests are observed. There are 123 compact captures. The complete military ground comparison repeats after sharing its checked carrier implementation.
 
     python3 tools/check_aerodynamic_realistic_ground.py
+
+### Realistic attitude commands
+
+The numerical suffix of 0x99ecc (0x99f6f..0x9a100) now converts the completed manual controls, aerodynamic derivatives and thrust-vector moments into Realistic-mode roll-rate/angle-of-attack commands. The low-speed path retains the previous roll command and copies the current attack angle. Stick-pressure correction and the original explicitly zero pitch-rate term remain. The constant 20-degree vector angle is precomputed with binary64 intermediates, matching the original 53-bit arithmetic instead of allowing compile-time extended-precision folding.
+
+All 8,192 bounded original suffix cases agree. A declared synthetic caller frame supplies only the enclosing saved EBP/return, and FSIN/FCOS use the hardware adapter. Input/manual control and derivative production are stage inputs, rather than silently stubbed original calls. There are 123 compact captures.
+
+    python3 tools/check_aerodynamic_commands.py
