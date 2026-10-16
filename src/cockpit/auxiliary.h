@@ -11,7 +11,7 @@ namespace tfx::cockpit {
 struct auxiliary_state {
   std::array<flight::system_condition,2> engines{};
   uint8_t redraw_phase{0};
-  unsigned int ammunition_pips{0};
+  unsigned int afterburner_pips{0};
   std::optional<uint8_t> approach_cue;
   bool approach_suppressed{false};
   bool low_speed_ground_contact{false};
@@ -20,7 +20,7 @@ struct auxiliary_state {
 };
 struct auxiliary_animation {
   uint8_t engine_refresh{0};
-  uint8_t ammunition_refresh{3};
+  uint8_t afterburner_refresh{3};
 };
 
 class auxiliary_lamps {

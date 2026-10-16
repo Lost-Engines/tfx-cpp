@@ -14,6 +14,9 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/cockpit/hud.cpp
+  src/cockpit/hud.h
+  src/cockpit/control_state.h
   src/cockpit/radar.cpp
   src/cockpit/radar.h
   src/cockpit/moving_map.cpp
@@ -349,6 +352,10 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(hud_probe tests/hud_probe.cpp)
+  target_link_libraries(hud_probe PRIVATE tfx_core)
+  configure_first_party(hud_probe)
 
   add_executable(radar_probe tests/radar_probe.cpp)
   target_link_libraries(radar_probe PRIVATE tfx_core)

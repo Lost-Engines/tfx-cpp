@@ -184,13 +184,13 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
         if(coverage) presentation::draw_line(*coverage,vec2<int>{from},to,255);
       }};
       auto const deflection{[&](double const value) { return math::signed_word(static_cast<uint16_t>(static_cast<int>(static_cast<long double>(value) * assets.surface_scale))); }};
-      pointer(43,10,90 + deflection(state.controls.surface_deflection.x));
-      pointer(32,5,-90 - deflection(state.controls.surface_deflection.y));
+      pointer(43,10,90 + deflection(state.controls.trailing_edge_flap));
+      pointer(32,5,-90 - deflection(state.controls.leading_edge_flap));
       if(state.aircraft == flight::player_aircraft::raptor) {
         double const scale{assets.raptor_degrees / assets.raptor_radians};
         for(unsigned int index{0}; index != 2; ++index) {
           auto const base{point({index ? 12 : 6,6})};
-          int const row{static_cast<int>(static_cast<long double>(base.y) + static_cast<long double>(state.controls.raptor_deflection[index]) * scale * assets.raptor_pointer_scale)};
+          int const row{static_cast<int>(static_cast<long double>(base.y) + static_cast<long double>(state.controls.thrust_vector[index]) * scale * assets.raptor_pointer_scale)};
           auto const shape{index ? instrument_mask::throttle : instrument_mask::fuel};
           render::draw_monochrome(renderer.output,assets.masks[std::to_underlying(shape)],{static_cast<uint16_t>(base.x),static_cast<uint16_t>(row)},1,coverage,renderer.clipping);
         }

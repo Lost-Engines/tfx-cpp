@@ -14,12 +14,12 @@ int main(int const argc, char const *const argv[]) try {
     tfx::cockpit::auxiliary_state state;
     state.engines = {static_cast<tfx::flight::system_condition>(left),static_cast<tfx::flight::system_condition>(right)};
     state.redraw_phase = static_cast<uint8_t>(redraw);
-    std::cin >> state.ammunition_pips >> cue >> state.approach_suppressed >> state.low_speed_ground_contact >> state.landed >> state.offset.x >> state.offset.y;
+    std::cin >> state.afterburner_pips >> cue >> state.approach_suppressed >> state.low_speed_ground_contact >> state.landed >> state.offset.x >> state.offset.y;
     if(cue >= 0) state.approach_cue = static_cast<uint8_t>(cue);
     tfx::render::framebuffer image, coverage;image.pixels.fill(99);
     lamps.draw(image,state,&coverage);
     std::cout.put(static_cast<char>(lamps.state().engine_refresh));
-    std::cout.put(static_cast<char>(lamps.state().ammunition_refresh));
+    std::cout.put(static_cast<char>(lamps.state().afterburner_refresh));
     std::cout.write(reinterpret_cast<char const*>(image.pixels.data()),image.pixels.size());
     std::cout.write(reinterpret_cast<char const*>(coverage.pixels.data()),coverage.pixels.size());
   }
