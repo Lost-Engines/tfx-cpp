@@ -1431,3 +1431,11 @@ The following native conversion (0x9bb20 to the common suffix at 0x9bfa5) also a
     python3 tools/check_aerodynamic_autopilot_controls.py
 
 These are checked autopilot stages; complete target/route selection, eligibility/dispatch and connected autopilot trajectories remain to be joined.
+
+### Autopilot route and aircraft-following targets
+
+The preceding native stage (0x9adae..0x9b003), route selector 0x751a4 and followed-actor decoder 0x938c4 are reconstructed. Route advancement uses one-based packed cell centres, retains target height, advances below 4,000 world units and wraps to the first point. Following mode instead reads a selected actor's Q8 position and Q16 speed, retaining its distinct height, bearing and scratch conversions. Heading-only and recovery modes preserve their original differing state updates.
+
+All 8,192 bounded original navigation updates agree, including 357 route changes and 819 followed-aircraft targets. Original bearing, route and square-root helpers execute without any intercepted dependencies; 123 compact captures are retained.
+
+    python3 tools/check_aerodynamic_navigation.py

@@ -5,12 +5,6 @@ The original bounded conversion executes with supplied completed guidance,
 current controls and aerodynamic derivatives. The enclosing frame supplies
 only scratch space. Hardware FSIN is the only intercepted numerical dependency;
 mode 3 retains its incoming controls while clearing the shared pitch bias.
-"""Compare native autopilot control conversion 0x9bb20..0x9bfa5.
-
-The bounded original region executes all guidance, direct attitude helpers,
-speed/reheat controllers and recovery restoration. Its enclosing caller frame
-only supplies saved scratch space. Output delivery and hardware transcendental
-adapters are the only intercepted dependencies; navigation precedes this stage.
 """
 import argparse
 from pathlib import Path
