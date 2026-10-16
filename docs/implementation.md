@@ -1330,3 +1330,11 @@ Preset inspection identifies 0x8cd0 as aircraft-specific elevator travel: the Eu
     python3 tools/check_aerodynamic_manual.py
 
 All 70 CTests pass in development, Release and ASan/UBSan. Complete manual-law, surface-force and response comparisons also pass in each build with the aircraft-specific elevator travel supplied.
+
+### Decoded complete aerodynamic aircraft profiles
+
+The selected executable's original preset data now supplies named surface geometry/limits, Mach coefficient bases, powerplant parameters, mass/store moments, mounts, G limits, cockpit offsets, stall/reference speeds and cruise Mach. Direct literal assignments and their repeated identical writes remain data reads; computed angles, drag terms and areas use explicitly translated formulas and the original constant operands. No original instructions execute inside the game. Original formulas and area-normalization literals are retained, including the F-22 gear-drag calculation's 50-square-metre normalization rather than its 78-square-metre wing area.
+
+The aircraft owner computes its initial pitch-stability correction and Mach-dependent damping from the original initializer equations. The retained prior flap-lift offset is an explicit input, rather than an accidental global dependency. All three complete decoded profiles agree word for word with the full original 0x95f3c initialization in fresh images. Another 384 full-initializer calibration cases agree with varied preceding flap offsets. Original startup, preset, mass/store setup and initialization execute; only FPTAN uses the hardware adapter. The compact asset-free suite retains 55 calibration captures; the complete profile check reads the user's selected reference executable.
+
+    python3 tools/check_aerodynamic_airframes.py
