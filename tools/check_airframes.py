@@ -9,7 +9,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--data-dir',type=Path,default=Path('../tfx-reverse/installs/cd_1994_09/TFX'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 args=parser.parse_args()
-image=NativeReference(args.data_dir/'TFX.DAT')
+image=NativeReference(args.data_dir/'TFX.DAT');image.call(0xde851)
 expected=[]
 for preset in (0x98234,0x97598,0x96918):
     image.call(preset)

@@ -1,3 +1,4 @@
+#include "math/floating_environment.h"
 #include "simple_turn.h"
 #include <algorithm>
 #include <bit>
@@ -41,6 +42,7 @@ void rotate_heading(simple_turn_state &state, float const amount) {
 } // anonymous namespace
 
 void update_simple_turn(simple_turn_state &state, simple_turn_context const &context) {
+  math::floating_environment const environment;
   float const right{static_cast<float>(normalised(state.orientation.right.y))};
   float const right_square{static_cast<float>(normalised(state.orientation.right.y) * right)};
   float const down{static_cast<float>(normalised(state.orientation.down.y))};

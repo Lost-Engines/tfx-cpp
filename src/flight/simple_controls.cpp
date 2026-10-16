@@ -1,3 +1,4 @@
+#include "math/floating_environment.h"
 #include "simple_controls.h"
 #include <cmath>
 
@@ -27,6 +28,7 @@ float approach(float const current, float const target, simulation::timer_ticks 
 } // anonymous namespace
 
 direction_keys update_simple_controls(simple_control_state &state, simple_control_context const &context) {
+  math::floating_environment const environment;
   auto keys{context.keys};
   if(context.fixed_speed <= 1) return keys;
   float pitch{static_cast<float>(static_cast<calculation>(state.angular_rate.x) * radians_per_angle * native_pi)};

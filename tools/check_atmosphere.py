@@ -16,7 +16,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--record',type=Path)
-a=p.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');rng=random.Random(0x992fc)
+a=p.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');im.call(0xde851);rng=random.Random(0x992fc)
 bits=lambda value:struct.unpack('<Q',struct.pack('<d',value))[0]
 climate=list(im.read(0x8c98,'<20h'));cases=[]
 for index in range(8192):

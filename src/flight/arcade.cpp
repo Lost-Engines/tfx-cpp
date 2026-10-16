@@ -1,3 +1,4 @@
+#include "math/floating_environment.h"
 #include "arcade.h"
 #include "world/environment.h"
 #include <algorithm>
@@ -215,11 +216,18 @@ void filter_control(float &target, float &current, int16_t const delta, uint16_t
 } // anonymous namespace
 
 basic_aircraft_parameters const &basic_parameters(player_aircraft const aircraft) { return parameters(aircraft); }
-void update_basic_speed(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, bool const arcade, bool const gear_drag) { throttle(state,controls,elapsed,false,arcade,gear_drag); }
-void consume_basic_fuel(arcade_state &state, simulation::timer_ticks const elapsed, bool const arcade) { fuel(state,elapsed,arcade); }
+void update_basic_speed(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, bool const arcade, bool const gear_drag) {
+  math::floating_environment const environment;
+  throttle(state,controls,elapsed,false,arcade,gear_drag);
+}
+void consume_basic_fuel(arcade_state &state, simulation::timer_ticks const elapsed, bool const arcade) {
+  math::floating_environment const environment;
+  fuel(state,elapsed,arcade);
+}
 
 
 void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<math::angle> const &angles, float const speed, bool const landed, ground_contact const ground) {
+  math::floating_environment const environment;
   /// Native mission start centres X/Z on their cells; ground placement uses the aircraft's own gear height
   if constexpr(std::numeric_limits<calculation>::digits != 64) throw std::runtime_error{"native flight currently requires an x87-precision arithmetic backend"};
   auto const &model{parameters(state.aircraft)};
@@ -255,6 +263,7 @@ void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<
 }
 
 void update_basic_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const arcade, bool const gear_drag) {
+  math::floating_environment const environment;
   // Native 0x8e5a8, selected by the outer player callback after loss/ejection.
   if(!state.collision) {
     recover(state,elapsed);
@@ -281,10 +290,12 @@ void update_basic_disabled(arcade_state &state, flight_controls const &controls,
 }
 
 void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground) {
+  math::floating_environment const environment;
   update_basic_disabled(state,controls,elapsed,ground,true,state.gear_down);
 }
 
 void advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const time_warp) {
+  math::floating_environment const environment;
   /// Native Arcade 0x8dc50: throttle/fuel, gear contact, filtered controls, coordinated bank turn, then movement
   auto const &model{parameters(state.aircraft)};
   if(state.aircraft == player_aircraft::eurofighter && state.gear_down && state.fixed_speed > 350) state.gear_down = false;

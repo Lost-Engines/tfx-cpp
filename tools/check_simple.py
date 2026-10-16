@@ -74,7 +74,7 @@ output=subprocess.check_output(command,input=payload.encode()).decode().splitlin
 cursor=0;fixtures=[]
 for case,(header,controls) in enumerate(cases):
     craft,frames,x,y,z,pitch,heading,roll,speed,source,landed,present,height,rudder,entry=header
-    im=NativeReference(data/'TFX.DAT');im.cpu.mem_map(0x300000,4096)
+    im=NativeReference(data/'TFX.DAT');im.call(0xde851);im.cpu.mem_map(0x300000,4096)
     im.intercept(0x744e4,'No host DOS mouse driver; original player setup executes',lambda image:(image.cpu.reg_write(r.UC_X86_REG_EAX,0),image.return_from()))
     for address,reason in ((0x74614,'Mouse range reset has no physics effect'),(0x8c43c,'Supply elapsed ticks; native timer has separate comparisons'),(0x74508,'Supply mouse/button samples explicitly'),(0xc4ac0,'Supply calibrated joystick axes explicitly; native Simple response executes'),(0xb52d4,'Record boundary for model-entry delivery; it does not change this flight-state capture'),(0x7dde4,'Warning presentation is outside the numerical callback comparison'),(0xa4dfc,'Sample playback is outside numerical flight state'),(0xa4edc,'Tone output is outside numerical flight state'),(0xa6068,'No optional external control device is connected')):
         im.intercept(address,reason,lambda image:image.return_from())

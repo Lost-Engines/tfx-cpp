@@ -1,5 +1,6 @@
 #include "atmosphere.h"
 #include <cmath>
+#include "math/floating_environment.h"
 
 namespace tfx::flight {
 namespace {
@@ -14,6 +15,7 @@ double constexpr sound_temperature_factor{401.8};
 } // anonymous namespace
 
 atmosphere_sample sample_atmosphere(double const altitude_km, double const down_metres, std::optional<int16_t> const surface_celsius, atmosphere_parameters const &parameters) {
+  math::floating_environment const environment;
   auto const height{static_cast<calculation>(altitude_km)};
   atmosphere_sample result{
     .density{static_cast<double>((density_height_scale - height) / (density_height_scale + height) * parameters.sea_level_density)},

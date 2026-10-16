@@ -1,3 +1,4 @@
+#include "math/floating_environment.h"
 #include "simple.h"
 #include "world/environment.h"
 #include <cmath>
@@ -34,6 +35,7 @@ void rotate(arcade_state &state, math::rotation_axis const axis, float const amo
 } // anonymous namespace
 
 void initialise_simple(simple_state &state, vec3<int32_t> const &position, vec3<math::angle> const &angles, float const speed, bool const landed, ground_contact const ground) {
+  math::floating_environment const environment;
   auto const aircraft{state.flight.aircraft};
   state = {};
   state.flight.aircraft = aircraft;
@@ -50,6 +52,7 @@ void initialise_simple(simple_state &state, vec3<int32_t> const &position, vec3<
   state.gear.condition = landed ? system_condition::active : system_condition::normal;
 }
 void advance_simple_disabled(simple_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground) {
+  math::floating_environment const environment;
   state.flight.orientation = state.ground.body;
   update_basic_disabled(state.flight,controls,elapsed,ground,false,state.gear.condition == system_condition::active);
   state.ground.body = state.flight.orientation;
@@ -58,6 +61,7 @@ void advance_simple_disabled(simple_state &state, flight_controls const &control
 }
 
 simple_update advance_simple(simple_state &state, simple_inputs const &inputs, simulation::timer_ticks const elapsed, ground_contact const ground) {
+  math::floating_environment const environment;
   auto &flight{state.flight};
   auto const &parameters{basic_parameters(flight.aircraft)};
   if(flight.aircraft == player_aircraft::eurofighter && flight.gear_down && flight.fixed_speed > 350 && !flight.collision && state.gear.condition != system_condition::failed) {

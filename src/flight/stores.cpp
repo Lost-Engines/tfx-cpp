@@ -1,3 +1,4 @@
+#include "math/floating_environment.h"
 #include "stores.h"
 #include <limits>
 #include <stdexcept>
@@ -5,6 +6,7 @@
 namespace tfx::flight {
 
 store_effects accumulate_stores(airframe_load const &airframe, loadout const &stores) {
+  math::floating_environment const environment;
   /// Native 0x95dc8 rounds each accumulated field to double, retaining extended intermediates within each contribution
   using calculation = long double;
   if constexpr(std::numeric_limits<calculation>::digits != 64) throw std::runtime_error{"native flight calculations currently require an x87-precision arithmetic backend"};

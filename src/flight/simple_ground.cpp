@@ -1,3 +1,4 @@
+#include "math/floating_environment.h"
 #include "simple_ground.h"
 #include <cmath>
 #include <limits>
@@ -31,6 +32,7 @@ void rotate_body(simple_ground_state &state, math::rotation_axis const axis, flo
 } // anonymous namespace
 
 void update_simple_stall_attitude(simple_ground_state &state, simple_ground_context const &context) {
+  math::floating_environment const environment;
   int16_t pitch{state.stall_pitch};
   if(!state.landed) {
     if(static_cast<calculation>(context.low_speed_reference) + stall_speed_interval > context.turn_metres_per_second && !context.pitch_inhibited) {
@@ -53,6 +55,7 @@ void update_simple_stall_attitude(simple_ground_state &state, simple_ground_cont
   state.visible.rotate(math::rotation_axis::pitch,static_cast<math::angle>(pitch));
 }
 void update_simple_ground(simple_ground_state &state, simple_ground_context const &context) {
+  math::floating_environment const environment;
   state.indicated_speed = static_cast<double>(static_cast<calculation>(context.reported_speed) * indicated_speed_scale);
   state.low_speed_reference = context.low_speed_reference;
   state.previous_landed = state.landed;

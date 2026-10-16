@@ -3,7 +3,7 @@
 
 Native player initialisation and the complete ordinary Arcade player callback run unmodified.
 Host mouse acquisition, supplied timer input and scene/audio notifications are intercepted.
-The x87 control word is the harness's controlled 0x037f, not a DOS startup capture.
+The original Watcom FPU detection/reset executes first (387, CW 0x127f).
 """
 import argparse
 from pathlib import Path
@@ -19,6 +19,7 @@ NAMES = ['x', 'y', 'z', 'int_x', 'int_y', 'int_z'] + [f'basis{i}' for i in range
 
 def capture(aircraft, position, angles, speed, controls, warp=False, landed=False, ground=None, engines=None, disabled=False):
     image = NativeReference(DATA / 'TFX.DAT')
+    image.call(0xde851)
     image.intercept(0x744e4, 'Host mouse initialisation; report no DOS mouse driver', lambda im: (im.cpu.reg_write(r.UC_X86_REG_EAX, 0), im.return_from()))
     image.intercept(0x74614, 'Host mouse range/position reset has no flight-state effect', lambda im: im.return_from())
     image.intercept(0x8c43c, 'Frame timer supplied explicitly; flight timing has its own original-code checks', lambda im: im.return_from())

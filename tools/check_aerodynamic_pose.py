@@ -16,7 +16,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--record',type=Path)
-a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');im.cpu.mem_map(0x300000,4096)
+a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');im.call(0xde851);im.cpu.mem_map(0x300000,4096)
 rng=random.Random(0x95aa0);bits=lambda v:struct.unpack('<Q',struct.pack('<d',v))[0];identity=[32767,0,0,0,32767,0,0,0,32767];cases=[]
 for index in range(8192):
     im.cpu.mem_write(0x300000,struct.pack('<9h',*identity))

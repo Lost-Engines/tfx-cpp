@@ -1,5 +1,6 @@
 #include "aerodynamic_pose.h"
 #include <cmath>
+#include "math/floating_environment.h"
 #include <limits>
 
 namespace tfx::flight {
@@ -42,6 +43,7 @@ math::attitude aerodynamic_frame::world_basis() const {
   };
 }
 aerodynamic_view update_aerodynamic_view(aerodynamic_pose &state, player_aircraft const aircraft, aerodynamic_viewpoint const &viewpoint) {
+  math::floating_environment const environment;
   state.frame.normalise();
   aerodynamic_view result{
     .orientation{state.frame.world_basis()},

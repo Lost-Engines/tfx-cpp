@@ -1,5 +1,6 @@
 #include "aerodynamic_forces.h"
 #include <cmath>
+#include "math/floating_environment.h"
 #include "math/x87.h"
 
 namespace tfx::flight {
@@ -10,19 +11,15 @@ double constexpr gravity{9.81}, fuel_roll_inertia{.004166666666666667};
 double constexpr refuelling_level_moment{10000};
 
 calculation native_asin(double const value) {
-  // Watcom's 0xd242c forms atan(x/sqrt(1-x*x)); atan's >1 branch
-  // uses pi/2 - atan(1/x). Calling libm asin directly changes cancellation.
+  // Detected 387 path: original 0xd242c then 0xd24a7's direct FPATAN.
   calculation const x{value};
-  calculation const ratio{x / std::sqrt(1.0L - x * x)};
-  calculation const magnitude{std::abs(ratio)};
-  calculation constexpr half_pi{0xc.90fdaa22168c235p-3L};
-  calculation const angle{magnitude > 1 ? half_pi - math::x87::atan2(1.0L,magnitude) : math::x87::atan2(magnitude,1.0L)};
-  return ratio < 0 ? -angle : angle;
+  return math::x87::atan2(x,std::sqrt(1.0L - x * x));
 }
 
 } // anonymous namespace
 
 aerodynamic_force_result update_aerodynamic_forces(aerodynamic_motion &state, aerodynamic_force_context const &context) {
+  math::floating_environment const environment;
   auto const &basis{context.basis};
   auto const &loads{context.loads};
   auto const &inertia{context.inertia};
