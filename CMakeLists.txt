@@ -14,6 +14,12 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/frontend.cpp
+  src/presentation/frontend.h
+  src/presentation/pilot_panel.cpp
+  src/presentation/pilot_panel.h
+  src/presentation/pilots.cpp
+  src/presentation/pilots.h
   src/presentation/save.cpp
   src/presentation/save.h
   src/presentation/menu_player.cpp
@@ -124,6 +130,8 @@ configure_first_party(tfx_core)
 
 add_executable(tfx
   src/main.cpp
+  src/platform/flight.cpp
+  src/platform/flight.h
   src/platform/presentations.cpp
   src/platform/presentations.h
   src/platform/window.cpp
@@ -133,6 +141,14 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(pilot_probe tests/pilot_probe.cpp)
+  target_link_libraries(pilot_probe PRIVATE tfx_core)
+  configure_first_party(pilot_probe)
+
+  add_executable(name_probe tests/name_probe.cpp)
+  target_link_libraries(name_probe PRIVATE tfx_core)
+  configure_first_party(name_probe)
+
   add_executable(save_tests tests/save_test.cpp)
   target_link_libraries(save_tests PRIVATE tfx_core)
   configure_first_party(save_tests)

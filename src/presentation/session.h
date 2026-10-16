@@ -35,6 +35,9 @@ public:
   statement const *advance(scene_counters counters, scene_input &input);
   statement const *pending() const;
   void complete();
+  saved_state snapshot(save_mode mode = save_mode::current_statement) const;
+  void restore(saved_state const &saved);
+  void seek(location position);
   bool finished() const;
   render::framebuffer const &image() const;
   render::palette colours() const;

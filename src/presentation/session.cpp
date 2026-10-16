@@ -85,8 +85,25 @@ statement const *session::advance(scene_counters const counters, scene_input &in
 statement const *session::pending() const { return scene || stack.empty() ? nullptr : stack.back()->execution.current(); }
 void session::complete() {
   if(scene || stack.empty()) throw std::runtime_error{"no suspended presentation host action"};
+  auto const *action{pending()};
+  if(action && (action->kind == node_kind::launch || action->kind == node_kind::planner)) sequence.skipped = false;
   stack.back()->execution.complete();
   node_start = true;
+}
+saved_state session::snapshot(save_mode const mode) const {
+  if(scene || stack.size() != 1) throw std::runtime_error{"pilot save requires a suspended root presentation"};
+  return stack.front()->execution.snapshot(mode);
+}
+void session::restore(saved_state const &saved) {
+  if(scene || stack.size() != 1) throw std::runtime_error{"pilot load requires a suspended root presentation"};
+  stack.front()->execution.restore(saved);
+  node_start = true;
+}
+void session::seek(location const position) {
+  auto saved{snapshot()};
+  saved.resume = position;
+  saved.callers.clear();
+  restore(saved);
 }
 bool session::finished() const { return stack.empty(); }
 render::framebuffer const &session::image() const { return display; }
