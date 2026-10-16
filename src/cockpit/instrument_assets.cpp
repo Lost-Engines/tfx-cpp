@@ -27,6 +27,17 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   }};
   for(unsigned int index{0}; index != character_map.size(); ++index) character_map[index] = source.byte(data + 0x7688 + index);
   font_bank = resource(0x166c);
+  heading_bank = resource(0x1590);
+  pitch_bank = resource(0x15a0);
+  for(unsigned int index{0}; index != pitch_marks.size(); ++index) {
+    auto &mark{pitch_marks[index]};
+    mark.label = source.signed_le16(data + 0x7170 + index * 4);
+    mark.dashed = source.le16(data + 0x7172 + index * 4) != 0;
+    for(unsigned int vertex{0}; vertex != mark.vertices.size(); ++vertex) mark.vertices[vertex] = {
+      source.signed_le16(data + 0x721c + index * 24 + vertex * 4),
+      source.signed_le16(data + 0x721e + index * 24 + vertex * 4),
+    };
+  }
   in_range_label = string(0x179c);
   brake_messages = {string(0x171c),string(0x1728),string(0x1734)};
   hud_number_formats = {string(0x1768),string(0x1770),string(0x1778),string(0x1780),string(0x1784)};

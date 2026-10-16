@@ -1,0 +1,28 @@
+#pragma once
+
+#include "cockpit/instrument_assets.h"
+#include "render/software_renderer.h"
+#include "resources/archive.h"
+
+namespace tfx::cockpit {
+
+struct attitude_display_state {
+  vec3<math::angle> angles{0,0,0};
+  vec2<math::angle> projection_angles{0,0};
+  vec2<int16_t> projection_origin{159,56};
+  vec2<int16_t> offset{0,0};
+};
+class attitude_display {
+private:
+  instrument_assets const &assets;
+  resources::indexed_image heading_strip;
+  std::vector<resources::indexed_image> numbers;
+  std::array<vec2<int16_t>,42> arc;
+
+public:
+  attitude_display(instrument_assets const &assets, resources::archive const &game);
+  void draw_heading(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *coverage = nullptr) const;
+  void draw_pitch(render::software_renderer &renderer, attitude_display_state const &state, render::framebuffer *coverage = nullptr) const;
+};
+
+} // namespace tfx::cockpit

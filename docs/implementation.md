@@ -818,3 +818,25 @@ python3 tools/check_hud_text.py
 The original numeric upper-HUD painter (`0x7f8e0`) and independent air-brake, brake-chute and arrester-cable labels (`0x7eb7c`) now have a dedicated renderer. Altitude, airspeed, Mach, load, map coordinates and throttle retain their original strings, word-coordinate wrapping, alignment and float/double storage boundaries. Watcom rounds a stored double after decimal scaling and suppresses the sign of rounded zero; host `printf` alone differs at values such as `0.005` and `1.015`. The reconstruction preserves this distinction for these unpadded readouts.
 
 **768 complete native pixel/coverage frames agree**, including adjacent doubles at decimal-rounding boundaries, all independent message combinations, negative/positive telemetry and ten instrument/clipping offsets. Original formatting and VGA text execute in the comparison. This verifies the painters from supplied telemetry; their live upper-HUD dispatcher and remaining aiming symbology are still being connected.
+
+
+### Heading strip and pitch ladder
+
+```sh
+python3 tools/check_attitude_display.py
+```
+
+The original forward-HUD heading strip (`0x80ffc`) and pitch ladder (`0x80ab8`) now render from their original sprite banks and 42 authored mark records. The ladder retains the 36-point, 1,820-angle-unit circle with three wraparound entries at each end, separate pitch/roll projection matrix, five visible marks, roll rotation, solid/dashed segments and VGA-group sprite clipping. Its projection remains distinct from the model renderer's camera matrix.
+
+**1,024 complete native pixel/coverage frames agree**, including steep/inverted attitudes, table-step boundaries, independently varied projection angles and ten instrument offsets. The native angle setup, projection, clipping and all raster loops execute; only resource resolution supplies original bytes. This comparison also corrected the shared line clipper: native `0xbf53d` measures from the farther endpoint before truncating, which can move a clipped ladder edge by one pixel. Patterned lines preserve the original plane-mask phase and X-major final-endpoint behavior. Live dispatcher integration follows separately.
+
+
+### Non-firing cannon prediction
+
+```sh
+python3 tools/check_cannon_prediction.py
+```
+
+The HUD trajectory helper `0xa2878` uses a private temporary cannon shot: five warm-up updates, then up to eight updates before each of five displayed samples, at twenty native ticks per update. Ground contact or an ended motion callback stops further advancement. The trajectory neither enters the live projectile pool nor consumes ammunition. The caller's movement-height bounds are explicit inputs; the earlier projectile comparisons supplied different bounds from the executable's stored defaults, so those controlled defaults are no longer assumed by this predictor.
+
+**512 native trajectories and 2,560 Q8 samples agree**, including ground/ceiling boundaries, varied limits, inverted attitudes and negative/positive speeds. Original construction and motion callbacks execute with a supplied transformed launch anchor; screen projection is observed at its boundary. The native helper also restores its caller's elapsed timer. Mount transforms and projectile motion retain their separate comparisons; live aiming composition is the next consumer.
