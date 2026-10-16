@@ -1232,3 +1232,15 @@ This exposed a limitation of the installed Unicorn build: its helper_fpatan_x86_
 Full aerodynamic force producers, control response, ground suspension and initialized Realistic/Military Spec trajectories remain subsequent consumers of these verified stages.
 
 All 61 CTests pass in development, Release and ASan/UBSan. The atmosphere, motion and force stage comparisons also pass in all three builds. These captures retain the controlled 0x037f FPU environment; tracing the actual Watcom startup environment remains necessary before claiming full-session arithmetic agreement.
+
+### Original Watcom startup precision
+
+The original FPU detection/reset path, 0xde851 -> 0xde81e -> 0xea0fc, now executes before numerical capture. Without intercepted dependencies it detects the 387 branch (data 0xacc8/0xacc9 = 3) and loads the compiled control word 0x127f: masked exceptions, round to nearest and **53-bit arithmetic precision**. This supersedes the explicitly controlled 0x037f/64-bit environment used in earlier local numerical checks. An instruction scan identifies the remaining control-word writes as integer-conversion, power-helper rounding, reset and exception-handler paths, rather than another game-selected arithmetic precision.
+
+The numerical flight entry points now scope that native environment and restore the host word on return, including nested calls and exceptions. The host window and libraries retain their own environment. The 387 asin path uses actual FPATAN directly after the original square-root expression; the capture adapter still supplies hardware FPATAN instead of Unicorn's narrowed implementation. New atmosphere, force, physical-motion and pose captures are regenerated under the executed startup settings. Simple local stages, gear damage and all 1,197 store loadouts and three aircraft presets agree under these settings too. Complete basic-model trajectories are checked separately before considering this audit complete.
+
+    python3 tools/check_fpu_environment.py
+
+Under the executed startup settings, complete Simple ordinary and disabled trajectories each retain exact agreement for 15,360 updates; Arcade retains 4,608 ordinary and 4,608 disabled updates, plus 9,216 ground-start/takeoff updates. The basic-model trajectory fixtures and affected stage captures are regenerated from the original under that environment. Development and Release each pass all 62 CTests, including explicit precision, nesting, host-restoration and exception-restoration checks.
+
+The same startup-precision audit passes all 62 tests and both complete 15,360-update Simple comparisons in ASan/UBSan as well. Release repeats of the advanced atmosphere, force and motion comparisons remain exact.

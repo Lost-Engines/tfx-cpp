@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--record', type=Path)
     args = parser.parse_args()
     image = NativeReference(args.data_dir / 'TFX.DAT')
+    image.call(0xde851)
     generator = random.Random(0x95dc8)
     requests, cases = [], []
     for aircraft, preset in enumerate((0x98234, 0x97598, 0x96918), 1):
@@ -67,7 +68,7 @@ def main():
         if observed != case['expected']:
             raise AssertionError((index, case, observed))
     if args.record:
-        args.record.write_text(json.dumps({'scope': __doc__, 'x87_control_word': '0x037f (controlled)', 'intercepted_dependencies': [], 'cases': cases}, separators=(',', ':')) + '\n')
+        args.record.write_text(json.dumps({'scope': __doc__, 'x87_control_word': '0x127f (executed original detection/reset)', 'intercepted_dependencies': [], 'cases': cases}, separators=(',', ':')) + '\n')
     print(f'{len(cases)} native/C++ loadouts passed bit for bit: all 27 stores, 3 aircraft, 10 slots and fractional mixed-load moments')
 
 

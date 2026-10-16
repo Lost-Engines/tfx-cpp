@@ -1,6 +1,7 @@
 #include "aerodynamic_motion.h"
 #include <bit>
 #include <cmath>
+#include "math/floating_environment.h"
 #include <limits>
 
 namespace tfx::flight {
@@ -45,6 +46,7 @@ void rotate(aerodynamic_motion &state, calculation const roll, calculation const
 } // anonymous namespace
 
 void advance_aerodynamic_motion(aerodynamic_motion &state, aerodynamic_motion_context const &context) {
+  math::floating_environment const environment;
   calculation const seconds{context.seconds};
   unsigned int const multiplier{context.time_warp && !context.landed ? time_warp_multiplier : 1};
   calculation down{0};

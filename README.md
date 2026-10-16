@@ -28,7 +28,7 @@ Apostrophe toggles aerial refuelling: the nearest allied tanker supplies the ori
 
 The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
 
-This is still an integration build. Complete sensor displays and crash/result artwork, aircraft-to-aircraft contacts, area flak, other flight models, automatic recovery, automatic landing and the remaining HUD cues, complete campaign progression and audio remain unfinished. The current numerical flight backend also requires a `long double` with a 64-bit significand. See [implementation status](docs/implementation.md) for precise verification boundaries.
+This is still an integration build. Complete sensor displays and crash/result artwork, aircraft-to-aircraft contacts, area flak, other flight models, automatic recovery, automatic landing and the remaining HUD cues, complete campaign progression and audio remain unfinished. The numerical flight backend currently requires x87 support; it preserves the original startup precision within flight calculations. See [implementation status](docs/implementation.md) for precise verification boundaries.
 
 RelWithDebInfo retains the developer scene inspector and headless captures:
 

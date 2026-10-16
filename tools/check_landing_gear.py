@@ -17,7 +17,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--record',type=Path)
-a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');sounds=[]
+a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');im.call(0xde851);sounds=[]
 im.intercept(0xa4dfc,'Observe original gear warning/failure sample requests; audio delivery does not change gear state',lambda image:(sounds.append(image.cpu.reg_read(r.UC_X86_REG_EAX)),image.return_from()))
 rng=random.Random(0x8d7ec);bits=lambda v:struct.unpack('<I',struct.pack('<f',v))[0];cases=[]
 for index in range(8192):

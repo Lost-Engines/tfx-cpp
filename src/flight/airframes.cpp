@@ -1,3 +1,4 @@
+#include "math/floating_environment.h"
 #include "airframes.h"
 #include <cmath>
 #include <optional>
@@ -46,6 +47,7 @@ long double root_argument(resources::binary_view const &source, unsigned int con
 } // anonymous namespace
 
 std::array<airframe,3> load_airframes(std::span<uint8_t const> const executable) {
+  math::floating_environment const environment;
   resources::binary_view const source{executable};
   std::array<airframe,3> result;
   std::array<unsigned int,3> constexpr starts{0x98234,0x97598,0x96918}, ends{0x98eba,0x98231,0x97598};
