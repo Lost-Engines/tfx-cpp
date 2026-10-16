@@ -141,6 +141,7 @@ add_library(tfx_core
   src/render/framebuffer.h
   src/render/camera.cpp
   src/render/camera.h
+  src/render/clipping.h
   src/render/sprites.cpp
   src/render/sprites.h
   src/render/software_renderer.cpp

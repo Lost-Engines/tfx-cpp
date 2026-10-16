@@ -10,11 +10,11 @@ auxiliary_lamps::auxiliary_lamps(instrument_assets const &source, resources::arc
 }
 auxiliary_animation const &auxiliary_lamps::state() const { return animation; }
 
-void auxiliary_lamps::draw(render::framebuffer &target, auxiliary_state const &state, render::framebuffer *const coverage) {
+void auxiliary_lamps::draw(render::framebuffer &target, auxiliary_state const &state, render::framebuffer *const coverage, render::raster_clip const &clip) {
   // Native 0x8046c..0x806b3, with the ammunition painter at 0x7e288.
   if(state.ammunition_pips > assets.ammunition_pips.size()) throw std::runtime_error{"too many native ammunition indicator pips"};
   auto const sprite{[&](unsigned int const bank, unsigned int const frame, vec2<int> const &position) {
-    render::draw_sprite(target,banks.at(bank).at(frame),{static_cast<uint16_t>(position.x + state.offset.x),static_cast<uint16_t>(position.y + state.offset.y)},coverage);
+    render::draw_sprite(target,banks.at(bank).at(frame),{static_cast<uint16_t>(position.x + state.offset.x),static_cast<uint16_t>(position.y + state.offset.y)},coverage,clip);
   }};
   unsigned int constexpr refresh_frames{3};
   if(std::to_underlying(state.engines[0]) != assets.engine_lamp_cache[0] || std::to_underlying(state.engines[1]) != assets.engine_lamp_cache[1] || state.redraw_phase == 2) animation.engine_refresh = refresh_frames;
