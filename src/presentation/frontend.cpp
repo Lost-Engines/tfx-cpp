@@ -37,6 +37,16 @@ statement const *frontend::advance(scene_counters const counters, scene_input &i
     }
     return nullptr;
   }
+  if(scores) {
+    bool const done{scores->advance(input.mouse_buttons)};
+    display = scores->image();
+    palette = scores->colours();
+    if(done) {
+      scores.reset();
+      parser.complete();
+    }
+    return nullptr;
+  }
   if(menu) {
     bool const done{menu->advance(counters.bios,position ? *position : vec2<int16_t>{0,0},input.mouse_buttons & 1,position.has_value())};
     display = menu->image();
@@ -68,6 +78,16 @@ statement const *frontend::advance(scene_counters const counters, scene_input &i
         pilot = std::make_unique<pilot_panel>(game,tables.presentation_fonts(),tables.pilots(),schema,state,store);
         return nullptr;
       }
+      if(command == "sscore" || command == "vscore") {
+        auto entries{store.load_scores(tables.scores().defaults)};
+        std::optional<unsigned int> selected;
+        if(command == "vscore") {
+          selected = insert_score(entries,pilot_score(state));
+          store.save_scores(entries);
+        }
+        scores = std::make_unique<score_player>(tables.presentation_fonts(),tables.scores(),std::move(entries),selected,game.read("iff/raw/hiscore.lbm"));
+        return nullptr;
+      }
       if(command == "slog" || command == "rlog" || command == "spos") {
         if(!selected_slot) throw std::runtime_error{"pilot storage action has no selected slot"};
         if(command == "rlog") parser.restore(store.read(*selected_slot,true,schema));
@@ -83,6 +103,7 @@ statement const *frontend::advance(scene_counters const counters, scene_input &i
 }
 void frontend::press(uint8_t const scan, bool const control) {
   if(pilot) pilot->press(scan,control);
+  if(scores) scores->press(scan);
 }
 void frontend::complete() {
   parser.complete();

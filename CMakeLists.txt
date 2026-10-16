@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/presentation/score_player.cpp
+  src/presentation/score_player.h
+  src/presentation/scores.cpp
+  src/presentation/scores.h
   src/presentation/frontend.cpp
   src/presentation/frontend.h
   src/presentation/pilot_panel.cpp
@@ -141,6 +145,15 @@ target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(score_probe tests/score_probe.cpp)
+  target_link_libraries(score_probe PRIVATE tfx_core)
+  configure_first_party(score_probe)
+
+  add_executable(score_tests tests/score_test.cpp)
+  target_link_libraries(score_tests PRIVATE tfx_core)
+  configure_first_party(score_tests)
+  add_test(NAME presentation.native_high_score_storage COMMAND score_tests)
+
   add_executable(pilot_probe tests/pilot_probe.cpp)
   target_link_libraries(pilot_probe PRIVATE tfx_core)
   configure_first_party(pilot_probe)

@@ -4,6 +4,7 @@
 #include <memory>
 #include "presentation/fonts.h"
 #include "presentation/pilots.h"
+#include "presentation/scores.h"
 #include "presentation/cursor.h"
 #include "presentation/timing.h"
 #include <array>
@@ -27,6 +28,7 @@ private:
   std::vector<bytes> circles;
   std::unique_ptr<presentation::fonts const> font_data;
   std::unique_ptr<presentation::pilot_assets const> pilot_assets;
+  std::unique_ptr<presentation::score_assets const> score_data;
   std::array<uint8_t,64> character_map;
   std::array<hud_glyph,51> glyphs;
 
@@ -44,6 +46,7 @@ public:
   executable_tables(std::filesystem::path const &path);
   presentation::fonts const &presentation_fonts() const;
   presentation::pilot_assets const &pilots() const;
+  presentation::score_assets const &scores() const;
   std::span<uint8_t const> circle(unsigned int radius) const;
   hud_glyph const *glyph(unsigned char character) const;
 };

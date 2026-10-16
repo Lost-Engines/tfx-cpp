@@ -101,6 +101,18 @@ saved_state pilot_store::read(unsigned int const slot, bool const log, program c
   try { return decode_save(schema,resources::read_file(filename)); }
   catch(std::exception const &error) { throw std::runtime_error{"cannot load pilot " + filename.string() + ": " + error.what()}; }
 }
+score_table pilot_store::load_scores(score_table const &defaults) const {
+  auto const file{existing(directory,"tfx.hs")};
+  if(!std::filesystem::exists(file)) return defaults;
+  if(auto const decoded{decode_scores(resources::read_file(file))}) return *decoded;
+  // Native 0xa6aec repairs a failed checksum with its embedded table.
+  save_scores(defaults);
+  return defaults;
+}
+void pilot_store::save_scores(score_table const &scores) const {
+  std::filesystem::create_directories(directory);
+  write_bytes(existing(directory,"tfx.hs"),encode_scores(scores));
+}
 bool pilot_store::trained() const {
   auto const marker{existing(existing(directory,"WAYTXT"),"A")};
   if(!std::filesystem::exists(marker)) return false;
