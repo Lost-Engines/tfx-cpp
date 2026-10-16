@@ -16,6 +16,10 @@ endfunction()
 add_library(tfx_core
   src/flight/aerodynamic_pose.cpp
   src/flight/aerodynamic_pose.h
+  src/flight/aerodynamic_airdata.cpp
+  src/flight/aerodynamic_airdata.h
+  src/flight/aerodynamic_response.cpp
+  src/flight/aerodynamic_response.h
   src/flight/aerodynamic_forces.cpp
   src/flight/aerodynamic_forces.h
   src/flight/aerodynamic_motion.cpp
@@ -432,6 +436,16 @@ if(BUILD_TESTING)
   target_link_libraries(attachment_tests PRIVATE tfx_core)
   configure_first_party(attachment_tests)
   add_test(NAME models.carried_store_context_and_bounds COMMAND attachment_tests)
+
+  add_executable(aerodynamic_airdata_probe tests/aerodynamic_airdata_probe.cpp)
+  target_link_libraries(aerodynamic_airdata_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_airdata_probe)
+  add_test(NAME flight.native_aerodynamic_airdata COMMAND aerodynamic_airdata_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_airdata.txt")
+
+  add_executable(aerodynamic_response_probe tests/aerodynamic_response_probe.cpp)
+  target_link_libraries(aerodynamic_response_probe PRIVATE tfx_core)
+  configure_first_party(aerodynamic_response_probe)
+  add_test(NAME flight.native_aerodynamic_response COMMAND aerodynamic_response_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_response.txt")
 
   add_executable(aerodynamic_forces_probe tests/aerodynamic_forces_probe.cpp)
   target_link_libraries(aerodynamic_forces_probe PRIVATE tfx_core)
