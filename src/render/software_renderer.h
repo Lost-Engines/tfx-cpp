@@ -30,6 +30,7 @@ public:
   software_renderer(resources::executable_tables const &tables, uint16_t procedural_seed = 0x4321);
   uint16_t procedural_state() const;
   void background(camera const &view, uint8_t sky, uint8_t ground);
+  unsigned int text_width(std::string_view message) const;
   void text(int x, int y, std::string_view message, uint8_t colour, framebuffer *coverage = nullptr);
   void polygon(std::span<screen_vertex const> vertices, uint8_t colour, int mode = -1, std::span<uint8_t const> texture = {});
   void circle(int x, int y, unsigned int radius, uint8_t colour, int mode = -1);

@@ -302,6 +302,15 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   } else polygon(projected,ink_index,source.mode,texture);
 }
 
+unsigned int software_renderer::text_width(std::string_view const message) const {
+  unsigned int result{0};
+  for(unsigned char const character : message) {
+    if(!character) break;
+    result += tables.glyph_measure(character);
+  }
+  return result;
+}
+
 void software_renderer::text(int x, int const y, std::string_view const message, uint8_t const colour, framebuffer *const coverage) {
   /// Native 0x87154 character mapping and advances, with clipped monochrome glyph writes
   for(unsigned char const character : message) {

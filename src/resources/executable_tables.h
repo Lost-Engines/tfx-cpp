@@ -1,25 +1,25 @@
 #pragma once
 
-#include <filesystem>
-#include "cockpit/instrument_assets.h"
-#include <memory>
-#include "presentation/fonts.h"
-#include "presentation/widget_font.h"
-#include "resources/compiled_panel.h"
-#include "presentation/pilots.h"
-#include "presentation/scores.h"
-#include "presentation/cursor.h"
-#include "presentation/timing.h"
 #include <array>
+#include <filesystem>
+#include <memory>
 #include <span>
 #include <vector>
-#include "resources/binary.h"
-#include "actors/program.h"
 #include "actors/air_motion.h"
-#include "weapons/definition.h"
-#include "weapons/loadout.h"
+#include "actors/program.h"
+#include "cockpit/instrument_assets.h"
 #include "flight/airframes.h"
 #include "presentation/arming_assets.h"
+#include "presentation/cursor.h"
+#include "presentation/fonts.h"
+#include "presentation/pilots.h"
+#include "presentation/scores.h"
+#include "presentation/timing.h"
+#include "presentation/widget_font.h"
+#include "resources/binary.h"
+#include "resources/compiled_panel.h"
+#include "weapons/definition.h"
+#include "weapons/loadout.h"
 
 namespace tfx::resources {
 
@@ -40,6 +40,7 @@ private:
   std::unique_ptr<cockpit::instrument_assets const> instrument_data;
   std::array<uint8_t,64> character_map;
   std::array<hud_glyph,51> glyphs;
+  std::array<unsigned int,256> measured_advances;
 
 public:
   std::vector<weapons::definition> weapons;
@@ -63,6 +64,7 @@ public:
   cockpit::instrument_assets const &instruments() const;
   std::span<uint8_t const> circle(unsigned int radius) const;
   hud_glyph const *glyph(unsigned char character) const;
+  unsigned int glyph_measure(unsigned char character) const;
 };
 
 } // namespace tfx::resources

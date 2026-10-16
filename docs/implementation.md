@@ -666,3 +666,17 @@ python3 tools/check_readouts.py
 Typed telemetry now feeds the original clock, fuel, throttle, ECM/stealth and chaff/flare readouts. Their labels, formats, warning thresholds and coloured-font mapping come from the external executable. The clock uses a wrapping 32-bit tick sum and 54 ticks per second. Throttle percentages truncate the extended product towards zero; low fuel switches from coloured sprite digits to the small HUD font. ECM takes precedence over stealth, and the F-117 omits the separate stealth label.
 
 **504 complete native pixel/coverage/status frames agree**, including each warning threshold, fractional values, countermeasure counts, clock overflow, horizontal plane phases and the distinct bottom-edge clipping rules. Original Watcom formatting executes in the comparison, including floating fuel values. The existing 576 HUD-font frames still agree after adding optional coverage recording. These comparisons and all 43 CTests pass in development, Release and ASan/UBSan. The readouts are ready for the assembled cockpit; flight still uses its diagnostic overlay while that composition is implemented.
+
+### Multifunction-display instruments
+
+```sh
+python3 tools/check_mfd.py
+```
+
+Seven original page painters now consume typed flight, fuel, damage and inventory telemetry: stores, gauges, flight data, four fuel cells, system warnings, aircraft schematic and engine load. Their backgrounds, monochrome masks, labels, positions, display mount ordering, formats and conversion factors come from the external assets. Selected stores retain the original readiness colours and aircraft-specific mount arrangement; failed systems retain their outlined cells. The fuel display preserves the signed-word comparisons inside its dword subtraction loop.
+
+**588 complete native pixel/coverage frames agree**, covering both outer display positions, all three aircraft, damage states, fractional values, viewport clipping and fuel-cell boundaries. All **eighteen original outer-page selections** agree independently. The two dispatch tables differ: the right display adds the moving map and engine load, while the left supplies the aircraft schematic and ground database; gauges occupy different indices. Scene-dependent camera, ground database, moving-map and control/autopilot pages remain separate integration work.
+
+The HUD width helper also agrees for all **576 font cases**. Native `0x87114` measures the full character byte instead of the painter's masked index, and its partial-register operation retains the upper word for negative mapping entries. Centred MFD labels retain the original signed low-word conversion. The comparison executes those original instructions rather than deriving expected widths from the C++ mapping.
+
+The MFD, readout and font comparisons and all 43 CTests pass in development, Release and ASan/UBSan. These remain verified pieces of the forthcoming cockpit composition, rather than a claim of a complete flight frame.
