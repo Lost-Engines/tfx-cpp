@@ -287,6 +287,97 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     if(context.landing) views.ready();
     break;
   }
+  case view_mode::missile: {
+    views.ready();
+    if(context.missile) {
+      state.last_missile = *context.missile;
+      control.distance = 80;
+    } else {
+      if(context.impact_target_q8) views.enqueue(view_mode::impact_orbit,context.speed);
+      control.distance = word(control.distance + context.elapsed * 16);
+      if(control.distance > 1000) {
+        views.enqueue(view_mode::tactical,context.speed);
+        control.recenter = 1;
+        control.distance = 40;
+      }
+    }
+    math::attitude missile;
+    missile.rotate(math::rotation_axis::heading,state.last_missile.angles.y);
+    missile.rotate(math::rotation_axis::pitch,state.last_missile.angles.x);
+    missile.rotate(math::rotation_axis::roll,state.last_missile.angles.z);
+    auto orbit{control.orbit.transposed()};
+    if(context.pan & 1) orbit.rotate(math::rotation_axis::heading,0x200);
+    if(context.pan & 2) orbit.rotate(math::rotation_axis::heading,0xfe00);
+    control.orbit = orbit.transposed();
+    if(context.pan & 4) control.orbit.rotate(math::rotation_axis::pitch,0x200);
+    if(context.pan & 8) control.orbit.rotate(math::rotation_axis::pitch,0xfe00);
+    auto combined{product(missile,control.orbit)};
+    if(context.pan & 0x40) state.orbit_roll = word(state.orbit_roll + 0x200);
+    if(context.pan & 0x80) state.orbit_roll = word(state.orbit_roll - 0x200);
+    combined.rotate(math::rotation_axis::roll,static_cast<math::angle>(state.orbit_roll));
+    if(context.pan & 0x10) control.distance = word(control.distance - 5);
+    if(context.pan & 0x20) control.distance = word(control.distance + 5);
+    for(unsigned int axis{0}; axis != 3; ++axis) {
+      if(control.recenter) state.offset_q16[axis] = 0;
+      else {
+        int32_t const delta{subtract(combined.forward[axis] * -control.distance,state.offset_q16[axis])};
+        state.offset_q16[axis] = add(state.offset_q16[axis],delta / 5);
+      }
+    }
+    control.recenter = 0;
+    state.smoothed_angles = combined.angles();
+    for(unsigned int axis{0}; axis != 3; ++axis) {
+      pose.anchor[axis] = state.last_missile.position_q8[axis] >> 8;
+      pose.position_q16[axis] = add(wrap(static_cast<uint32_t>(state.last_missile.position_q8[axis]) << 8),state.offset_q16[axis]);
+    }
+    set_angles({negative(state.smoothed_angles.x),negative(state.smoothed_angles.y),negative(state.smoothed_angles.z)});
+    pose.player_model_entry = 21;
+    break;
+  }
+  case view_mode::missile_infrared:
+    views.ready();
+    if(context.missile) {
+      for(unsigned int axis{0}; axis != 3; ++axis) {
+        pose.anchor[axis] = context.missile->position_q8[axis] >> 8;
+        pose.position_q16[axis] = wrap(static_cast<uint32_t>(context.missile->position_q8[axis]) << 8);
+      }
+      set_angles({negative(context.missile->angles.x),negative(context.missile->angles.y),negative(context.missile->angles.z)});
+    } else {
+      // Native enqueues view 6 then continues through a null missile pointer.
+      // Retain the last valid pose for this transition rather than reading DOS's
+      // low-memory page as a projectile record in the native host.
+      views.enqueue(view_mode::missile,context.speed);
+    }
+    break;
+  case view_mode::impact_orbit: {
+    views.ready();
+    if(!context.impact_target_q8) {
+      views.clear_queue();
+      control.fixed_position = vec3<int32_t>{context.position};
+      math::advance_position(control.fixed_position,{context.angles.x,static_cast<math::angle>(context.angles.y - 700),context.angles.z},math::signed_word(static_cast<uint16_t>(context.speed >> 1)),context.height_bounds.x,context.height_bounds.y);
+      views.enqueue(view_mode::fly_past,context.speed);
+      break;
+    }
+    auto const &target{*context.impact_target_q8};
+    control.distance = target.y > -200 ? word(math::signed_word(static_cast<uint16_t>(target.y)) + 500) : 200;
+    auto orbit{control.orbit.transposed()};
+    orbit.rotate(math::rotation_axis::heading,0x200);
+    control.orbit = orbit.transposed();
+    // The impact basis is the original identity passed through the same Q15 product.
+    auto const combined{product(math::attitude{},control.orbit)};
+    for(unsigned int axis{0}; axis != 3; ++axis) {
+      int32_t const delta{subtract(combined.forward[axis] * -control.distance,state.offset_q16[axis])};
+      state.offset_q16[axis] = add(state.offset_q16[axis],delta / 2);
+      pose.anchor[axis] = target[axis] >> 8;
+      pose.position_q16[axis] = add(wrap(static_cast<uint32_t>(target[axis]) << 8),state.offset_q16[axis]);
+    }
+    auto const angles{combined.angles()};
+    state.smoothed_angles.x = angles.x;
+    state.smoothed_angles.y = angles.y;
+    set_angles({negative(angles.x),negative(angles.y),0});
+    pose.player_model_entry = 21;
+    break;
+  }
   case view_mode::target_tracking: {
     auto const target{tracking_angles()};
     int const roll{math::signed_word(context.angles.z)};
@@ -328,7 +419,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     views.ready();
     break;
   }
-  case view_mode::overhead: {
+  case view_mode::unbanked_chase: {
     control.distance = 500;
     player_origin(context);
     auto const offset{math::orbit_offset_q16({negative(context.angles.x),negative(context.angles.y)},60)};

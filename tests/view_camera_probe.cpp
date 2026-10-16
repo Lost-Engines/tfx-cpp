@@ -19,6 +19,12 @@ int main() {
     if(tracked) context.tracking_target_q8.emplace(vec3<int32_t>{target});
     if(observed) context.observed_target_q8.emplace(vec3<int32_t>{observer});
     else if(tracked) context.observed_target_q8.emplace(vec3<int32_t>{target});
+    bool missile_available, impact_available;
+    missile_camera_pose missile;
+    vec3<int32_t> impact;
+    std::cin >> missile_available >> missile.position_q8.x >> missile.position_q8.y >> missile.position_q8.z >> missile.angles.x >> missile.angles.y >> missile.angles.z >> impact_available >> impact.x >> impact.y >> impact.z;
+    if(missile_available) context.missile.emplace(std::move(missile));
+    if(impact_available) context.impact_target_q8.emplace(vec3<int32_t>{impact});
     if(reset) {
       view_control_state initial;
       initial.current = static_cast<view_mode>(mode);
@@ -46,6 +52,9 @@ int main() {
     put(control.current);put(control.target_distance);put(control.written);put(control.read);
     for(auto const mode : control.queue) put(mode);
     put(control.tracking_complete);put(control.tracking_roll);put(state.pan);
+    put(state.last_missile.position_q8.x);put(state.last_missile.position_q8.y);put(state.last_missile.position_q8.z);
+    put(state.last_missile.angles.x);put(state.last_missile.angles.y);put(state.last_missile.angles.z);
+    put(control.fixed_position.x);put(control.fixed_position.y);put(control.fixed_position.z);
     std::cout << '\n';
   }
 }

@@ -62,7 +62,8 @@ auto main(int const argc, char const *const argv[])->int try {
                    "1/2/3 cycle the MFDs; R changes radar range; N selects the ground-target preview.\n"
                    "Page Up/Down raise and lower the cockpit; Shift+arrows turn the view.\n"
                    "F1 cockpit; Shift+F1 full forward; F2/F3 look left/right; F4 rear; F5 chase.\n"
-                   "F6 fly-past; F7 tactical; F9 target observer; F10 virtual cockpit/target tracking.\n"
+                   "F6 fly-past; F7 tactical; F8 fired-store camera (twice: nose view).\n"
+                   "F9 target observer; F10 virtual cockpit/target tracking.\n"
                    "This is a flight integration build; combat, campaign flow and audio are still in progress.\n";
 #ifndef NDEBUG
       std::cout << "\nDeveloper options:\n"

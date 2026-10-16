@@ -391,6 +391,11 @@ if(BUILD_TESTING)
   target_link_libraries(scaled_projection_probe PRIVATE tfx_core)
   configure_first_party(scaled_projection_probe)
 
+  add_executable(view_camera_tests tests/view_camera_test.cpp)
+  target_link_libraries(view_camera_tests PRIVATE tfx_core)
+  configure_first_party(view_camera_tests)
+  add_test(NAME render.missing_missile_camera COMMAND view_camera_tests)
+
   add_executable(view_camera_probe tests/view_camera_probe.cpp)
   target_link_libraries(view_camera_probe PRIVATE tfx_core)
   configure_first_party(view_camera_probe)

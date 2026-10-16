@@ -32,9 +32,9 @@ enum class view_mode : int16_t {
   turning_recovery,
   look_far_right,
   look_far_left,
-  ejection,
+  impact_orbit,
   rear,
-  overhead,
+  unbanked_chase,
   target,
 };
 unsigned int constexpr view_queue_capacity{10};
