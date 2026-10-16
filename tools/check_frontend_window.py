@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise enrolment, saved-pilot loading and training entry on a private X11 display.
+"""Exercise enrolment, pilot loading, training and Tour review on a private X11 display.
 
 Only DID.DAT and TFX.DAT are linked into the private install. No user pilot save,
 training marker, desktop display or input device is read or changed.
@@ -54,6 +54,29 @@ with tempfile.TemporaryDirectory(prefix='tfx-frontend-window-') as temporary:
                 run('import','-window',window,'/tmp/tfx-frontend-failure.png')
                 title=run('xdotool','getwindowname',window).stdout
                 log.seek(0);raise RuntimeError('authored training path did not reach flight: '+title+'\n'+log.read()[-4000:])
+            def enter_tour(window):
+                log.seek(0);log.truncate()
+                run('xdotool','mousemove','--window',window,'300','250');run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(1)
+                deadline=time.monotonic()+15
+                while time.monotonic()<deadline and game.poll() is None:
+                    tap('Escape')
+                    if 'todselct' in run('xdotool','getwindowname',window).stdout:break
+                else:raise RuntimeError('Tour did not reach squadron selection')
+                # The same function first plays several briefing scenes before its menu.
+                for _ in range(8):tap('Escape')
+                time.sleep(1)
+                run('xdotool','mousemove','--window',window,'300','360');run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(1)
+                run('xdotool','mousedown','3')
+                try:
+                    deadline=time.monotonic()+20
+                    while time.monotonic()<deadline and game.poll() is None:
+                        # --clearmodifiers would release the held mouse button too.
+                        run('xdotool','key','Escape');time.sleep(.1);log.seek(0)
+                        if 'TFX miss801 /' in log.read():
+                            time.sleep(.3);tap('Escape');return
+                    run('import','-window',window,'/tmp/tfx-tour-window-failure.png')
+                    log.seek(0);raise RuntimeError('Tour review did not launch flight: '+run('xdotool','getwindowname',window).stdout+'\n'+log.read()[-4000:])
+                finally:run('xdotool','mouseup','3')
             window=start();tap('Return')
             run('xdotool','type','--clearmodifiers','--delay','40','Ada');tap('Return')
             run('xdotool','type','--clearmodifiers','--delay','40','Lovelace');tap('Return')
@@ -70,7 +93,10 @@ with tempfile.TemporaryDirectory(prefix='tfx-frontend-window-') as temporary:
             if save.read_bytes()!=data:raise RuntimeError('loading a main-menu pilot changed its saved logical state')
             enter_fws(window);game.wait(timeout=10)
             if game.returncode:raise RuntimeError('reloaded pilot did not enter/exit flight cleanly')
-            print('Private X11 front end: edited names, Control qualification, DOS save, main menu, FWS briefing/flight and saved-pilot reload passed')
+            window=start();tap('Down');tap('Return');tap('Return');time.sleep(1.5)
+            enter_tour(window);game.wait(timeout=10)
+            if game.returncode:raise RuntimeError('Tour pilot did not enter/exit flight cleanly')
+            print('Private X11 front end: edited names, Control qualification, DOS save, main menu, FWS briefing/flight saved-pilot reload and Tour squadron/route-review/flight passed')
     finally:
         if game and game.poll() is None:game.kill();game.wait()
         display.terminate();display.wait(timeout=5)

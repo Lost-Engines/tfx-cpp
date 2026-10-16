@@ -58,6 +58,13 @@ void map_view::route(render::framebuffer &target, unsigned int const count) cons
   }
   if(end) label(points[end - 1]);
 }
+unsigned int map_view::extend(render::framebuffer &target, unsigned int const count, unsigned int const extent) const {
+  if(plan.routes.empty() || !count || count >= plan.routes.front().points.size()) return 0;
+  auto const &points{plan.routes.front().points};
+  vec2<int> const from{points[count - 1].cell.x,199 - points[count - 1].cell.y};
+  vec2<int> const to{points[count].cell.x,199 - points[count].cell.y};
+  return presentation::draw_partial_line(target,vec2<int>{from},vec2<int>{to},{4,4},{195,195},243,extent);
+}
 render::framebuffer const &map_view::image() const {
   return display;
 }

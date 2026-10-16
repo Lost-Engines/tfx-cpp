@@ -122,7 +122,31 @@ int main(int const argc, char const *const argv[]) try {
   { std::ofstream file{scratch.path / "tfx.hs",std::ios::binary};file.write(reinterpret_cast<char const*>(corrupt.data()),corrupt.size()); }
   require(store.load_scores(tables.scores().defaults) == tables.scores().defaults,"invalid score checksum did not restore the original roster");
   require(tfx::presentation::decode_scores(tfx::resources::read_file(scratch.path / "tfx.hs")) == tables.scores().defaults,"invalid score file was not repaired");
-  std::cout << "Pilot creation/load/replacement, training flow, native resume/log restore, original Arcade score display/storage and qualification marker passed in a private directory\n";
+  // Follow the authored Tour path through squadron selection and its automatic planner review.
+  input.key = tfx::presentation::scene_key::escape;
+  click(150,104);
+  for(unsigned int frame{0}; frame != 20000 && !(first.function_name() == "todselct" && first.pointer_visible()); ++frame) {
+    input.key = tfx::presentation::scene_key::escape;
+    require(!first.advance({ticks++,ticks * 3},input),"Tour intro reached an unexpected host action");
+  }
+  require(first.function_name() == "todselct" && first.pointer_visible(),"Tour did not reach squadron selection");
+  step(first,50); // Let the original squadron menu finish its entry fade.
+  click(100,150); // Blue Angels / Eurofighter.
+  launch = nullptr;
+  for(unsigned int frame{0}; frame != 20000 && !launch; ++frame) {
+    input.mouse_buttons = 2;
+    input.key = tfx::presentation::scene_key::escape;
+    launch = first.advance({ticks++,ticks * 3},input);
+  }
+  require(launch && launch->kind == tfx::presentation::node_kind::launch && std::get<uint32_t>(first.values().at("mission")) == 801,"Tour briefing/review did not return to the authored mission 801 launch");
+  first.values()["miss_val"] = uint32_t{1};first.values()["outcome"] = uint32_t{0};
+  first.complete();launch = nullptr;
+  for(unsigned int frame{0}; frame != 20000 && !launch; ++frame) {
+    input.key = tfx::presentation::scene_key::escape;
+    launch = first.advance({ticks++,ticks * 3},input);
+  }
+  require(launch && launch->kind == tfx::presentation::node_kind::launch && std::get<uint32_t>(first.values().at("mission")) == 802,"Tour result did not resume its next briefing/review and mission");
+  std::cout << "Pilot creation/load/replacement, training flow, native resume/log restore, original Arcade score display/storage, Tour review/progression and qualification marker passed in a private directory\n";
   return EXIT_SUCCESS;
 } catch(std::exception const &error) {
   std::cerr << "ERROR: " << error.what() << '\n';

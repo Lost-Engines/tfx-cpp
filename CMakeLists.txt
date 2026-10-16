@@ -16,6 +16,8 @@ endfunction()
 add_library(tfx_core
   src/presentation/drawing.cpp
   src/presentation/drawing.h
+  src/planning/review.cpp
+  src/planning/review.h
   src/planning/notes.cpp
   src/planning/notes.h
   src/planning/map_view.cpp

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "presentation/menu_player.h"
+#include "planning/review.h"
 #include "presentation/pilot_panel.h"
 #include "presentation/session.h"
 #include "presentation/score_player.h"
@@ -9,11 +10,12 @@
 namespace tfx::presentation {
 
 // Owns the original front-end's shared pilot state and suspended parser/menu actions.
-// Flight, planning and score presentation remain explicit host boundaries.
+// Flight and non-retail authoring modes remain explicit host boundaries.
 class frontend {
 private:
   resources::archive const &game;
   resources::executable_tables const &tables;
+  std::string language;
   program schema;
   variables state;
   pilot_store store;
@@ -21,6 +23,7 @@ private:
   std::unique_ptr<menu_player> menu;
   std::unique_ptr<pilot_panel> pilot;
   std::unique_ptr<score_player> scores;
+  std::unique_ptr<planning::review> planner;
   std::optional<unsigned int> selected_slot;
   render::framebuffer display;
   render::palette palette{};

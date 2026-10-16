@@ -92,7 +92,7 @@ class NativePlanner:
         im.intercept(0xa6134, 'Supply a fixed clock without installing the DOS timer interrupt.', lambda im: (im.write(0x16f2c,'<I',0),im.return_from()))
         im.intercept(0xc733e, 'Supply the selected held mouse buttons.', lambda im: (cpu.reg_write(r.UC_X86_REG_EAX,self.buttons),im.return_from()))
         im.intercept(0xc7370, 'Clear the supplied drawing page.', lambda im: (self.video.reset(),im.return_from()))
-        for address in (0xaae74,0xb0e4c):
+        for address in (0xb0e4c,):
             im.intercept(address, 'Optional satellite/world 3D setup is outside this 2D planner comparison.', lambda im: im.return_from())
         im.intercept(0xa818c, 'Supply an available mission context for the 2D planner capture.', lambda im: (cpu.reg_write(r.UC_X86_REG_EAX,1),im.return_from()))
         im.intercept(0xd3532, 'Read actual supplied VGA planes for native saved cursor/widget rectangles.', self.capture)
@@ -130,7 +130,9 @@ class NativePlanner:
         im.return_from()
 
     def length(self, im):
-        self.cpu.reg_write(r.UC_X86_REG_EAX,len(self.read(self.text(self.cpu.reg_read(r.UC_X86_REG_EAX)))))
+        name=self.text(self.cpu.reg_read(r.UC_X86_REG_EAX)).replace('\\','/').lstrip('/')
+        size=len(self.read(name)) if self.archive.hash_name(name) in self.entries else 0
+        self.cpu.reg_write(r.UC_X86_REG_EAX,size)
         im.return_from()
 
     def file(self, im):

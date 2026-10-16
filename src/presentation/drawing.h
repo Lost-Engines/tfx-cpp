@@ -9,4 +9,7 @@ void draw_line(render::framebuffer &image, vec2<int> from, vec2<int> const &to, 
 void draw_clipped_line(render::framebuffer &image, vec2<int> from, vec2<int> to,
   vec2<int> const &minimum, vec2<int> const &maximum, uint8_t colour);
 
+unsigned int draw_partial_line(render::framebuffer &image, vec2<int> from, vec2<int> to,
+  vec2<int> const &minimum, vec2<int> const &maximum, uint8_t colour, unsigned int extent);
+
 } // namespace tfx::presentation
