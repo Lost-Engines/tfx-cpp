@@ -27,7 +27,7 @@ class NativeArming(NativePlanner):
         for address in (0xb4ff0,0xb6ea4,0xc488d,0xc48e1):im.intercept(address,'3D preview placement/rendering is outside this widget-only capture.',lambda im:im.return_from())
         def mouse(im):
          for offset,value in ((4,self.position[0]),(8,self.position[1]),(12,self.buttons)):
-          pointer,=struct.unpack('<I',cpu.mem_read(cpu.reg_read(r.UC_X86_REG_ESP)+offset,4));cpu.mem_write(pointer,struct.pack('<I',value))
+          pointer,=struct.unpack('<I',cpu.mem_read(cpu.reg_read(r.UC_X86_REG_ESP)+offset,4));cpu.mem_write(pointer,struct.pack('<H',value))
          im.return_from()
         im.intercept(0xc72ff,'Supply selected absolute mouse coordinates and buttons.',mouse)
         im.intercept(0xb47b9,'Report original fatal diagnostics without entering DOS exit.',lambda im:(_ for _ in ()).throw(RuntimeError(p.text(cpu.reg_read(r.UC_X86_REG_EAX)))))
