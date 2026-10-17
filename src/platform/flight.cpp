@@ -20,6 +20,7 @@
 #include "actors/surface_combat.h"
 #include "actors/scenery.h"
 #include "actors/contact_region.h"
+#include "actors/visibility.h"
 #include "flight/arcade.h"
 #include "flight/aerodynamic_launch.h"
 #include "flight/aerodynamic_step.h"
@@ -675,6 +676,20 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       scene.place_actor(actor.visual,vec3d{actor.state.pose.position} / tfx::actors::position_unit,actor.state.pose.angles);
       scene.show_actor(actor.visual,(actor.state.pose.flags & std::to_underlying(tfx::actors::surface_flag::retired)) == 0);
     }
+  }};
+  auto const select_actor_draw_region{[&](vec3<int32_t> const &anchor) {
+    vec3<int32_t> const reference{vec3<uint32_t>{anchor} * static_cast<uint32_t>(tfx::actors::position_unit)};
+    for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) {
+      auto const &actor{air_simulation.aircraft()[index]};
+      if(!actor) continue;
+      scene.show_actor(*air_visuals[index],
+        !(actor->flight.pose.flags & std::to_underlying(tfx::actors::air_flag::retired))
+        && actor->actions != std::to_underlying(tfx::actors::air_action::retire_crashed)
+        && tfx::actors::aircraft_in_draw_region(actor->flight.pose.position,reference));
+    }
+    for(auto const &actor : surface_actors) scene.show_actor(actor.visual,
+      !(actor.state.pose.flags & std::to_underlying(tfx::actors::surface_flag::retired))
+      && tfx::actors::surface_in_draw_region(actor.state.pose.position,reference));
   }};
   tfx::cockpit::hud instruments{tables.instruments(),game,tables.weapons,environment.lighting.schematic_name};
   tfx::cockpit::scene_displays scene_displays{tables.instruments()};
@@ -1422,6 +1437,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           .origin_y{static_cast<int16_t>(camera.projection_origin.y)},
         });
         queue_projectiles();
+        select_actor_draw_region(request.position);
         auto const rendered{scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); },request.position.y,ground.height,tfx::world::scene_pass::instrument)};
         if(rendered.eject_player) ejection.request();
         // The current world painter renders a whole software target; copy its viewport
@@ -1662,6 +1678,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     queue_projectiles();
     scene.set_query_reference(inspect ? nullptr : &player.integer_position);
+    if(!inspect) select_actor_draw_region(designator_view ? designator.camera : view_motion.last_pose().anchor);
     auto const rendered{scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},ground.height)};
     if(rendered.eject_player) ejection.request();
     if(!inspect && !result_evaluated) {

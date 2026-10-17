@@ -3938,3 +3938,21 @@ The pre-existing 768 flight-readout/message frames still agree. Complete
 mission-501 comparisons now match every pixel and retained observed state
 through 32 frames in both advanced flight models. All 179 regressions pass
 in development, Release and ASan/UBSan.
+
+
+### Moving-actor draw admission
+
+Original `0x78180` admits aircraft within 16,384 world units of the current
+camera anchor on X and Z; `0x7c354` also tests Y for surface units. These
+inclusive Q8 tests precede sphere projection and model LOD. Applying only the
+renderer test incorrectly showed distant aircraft, including a single MIG-21
+pixel in the training comparison. The main camera and instrument scene passes
+now select actor visibility from their own anchor before drawing.
+
+`check_actor_visibility.py` runs both complete original pool walkers for
+**4,096 position/reference pairs**, recording admitted SSD handles at the
+orientation/drawing boundary. Threshold neighbours, altitude eligibility,
+subtraction wrap and the original negative INT_MIN absolute-value result agree.
+Compact synthetic inputs/decisions run without game data. All **180 development
+CTests** pass; the complete Simple-flight comparison agrees on every indexed
+pixel and observed state for **64 frames**.
