@@ -36,6 +36,10 @@ void consume_range(projectile &state, definition const &weapon, uint16_t const e
 
 } // anonymous namespace
 
+bool has_swept_contacts(flight_stage const motion) {
+  return motion != flight_stage::attached && motion != flight_stage::falling && motion != flight_stage::accelerating;
+}
+
 void next_stage(projectile &state, definition const &weapon) {
   if(state.next_stage >= weapon.stages.size()) throw std::runtime_error{"projectile leaves its authored stage program"};
   auto const &stage{weapon.stages[state.next_stage++]};

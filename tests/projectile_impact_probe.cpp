@@ -3,11 +3,28 @@
 #include <stdexcept>
 #include <string_view>
 #include "weapons/definition.h"
+#include "weapons/projectile.h"
 #include <utility>
 #include <vector>
 #include "world/impact.h"
 
 int main(int const argc, char const *const argv[]) try {
+  if(argc >= 2 && std::string_view{argv[1]} == "--player-contacts") {
+    std::ifstream fixture;
+    if(argc == 3) fixture.open(argv[2]);
+    if(argc > 3 || (argc == 3 && !fixture)) throw std::runtime_error{"expected --player-contacts [FILE]"};
+    auto &input{argc == 3 ? fixture : std::cin};
+    unsigned int cases{0},weapon,motion,owned,invulnerable,ejected,pilot,source_destroyed;
+    while(input >> weapon >> motion >> owned >> invulnerable >> ejected >> pilot >> source_destroyed) {
+      bool const query{tfx::weapons::has_swept_contacts(static_cast<tfx::weapons::flight_stage>(motion)) && !owned && !invulnerable};
+      if(argc == 3) {
+        bool expected;
+        if(!(input >> expected) || query != expected) throw std::runtime_error{"player contact gate mismatch at case " + std::to_string(cases)};
+      } else std::cout << query << '\n';
+      ++cases;
+    }
+    return cases ? 0 : 1;
+  }
   if(argc == 3 && std::string_view{argv[1]} == "--definitions") {
     auto const definitions{tfx::weapons::load_definitions(tfx::resources::read_file(argv[2]))};
     for(unsigned int index{0}; index != definitions.size(); ++index) std::cout << index << ' ' << static_cast<unsigned int>(definitions[index].category) << ' ' << definitions[index].impact_effects << '\n';

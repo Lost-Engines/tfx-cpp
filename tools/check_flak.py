@@ -35,7 +35,7 @@ def radio(im):
  assert im.cpu.reg_read(r.UC_X86_REG_EAX)==im.data+0x1388
  events.append(1);im.return_from()
 im.intercept(0x81198,'Observe the original climb-to-avoid-flak radio request.',radio)
-im.intercept(0x7d7e0,'Observe the independent fog/range pulse setup; that live consumer remains unbound.',lambda im:(events.append(2),im.return_from()))
+im.intercept(0x7d7e0,'Observe the independent cockpit-shake setup; that live consumer remains unbound.',lambda im:(events.append(2),im.return_from()))
 def draw(im):
  slot,model=handles[im.cpu.reg_read(r.UC_X86_REG_EAX)];xyz=[struct.unpack('<h',struct.pack('<H',im.cpu.reg_read(reg)&65535))[0]for reg in (r.UC_X86_REG_EDX,r.UC_X86_REG_EBX,r.UC_X86_REG_ECX)]
  draws.extend([slot,model,*xyz]);im.return_from()
