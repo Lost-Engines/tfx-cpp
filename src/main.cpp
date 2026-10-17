@@ -33,6 +33,8 @@ unsigned int number(std::string_view const text) {
 
 auto main(int const argc, char const *const argv[])->int try {
   std::filesystem::path data_directory{"."};
+  std::optional<std::filesystem::path> rom_directory;
+  std::optional<uint8_t> music_override;
   std::string mission_name{"miss501"}, override_environment, override_grid;
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0};
   tfx::simulation::flight_model model{tfx::simulation::flight_model::arcade};
@@ -61,6 +63,8 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --flight-model NAME   arcade, simple, military-spec or realistic; overrides TFX.CFG\n"
                    "  --control NAME        keyboard, mouse or joystick; overrides TFX.CFG\n"
                    "  --joystick N          Select joystick 0..15 (default: first available); enables joystick input\n"
+                   "  --music NAME          none or roland-lapc; overrides the original MUSIC setting\n"
+                   "  --rom-dir DIRECTORY   Roland control/PCM ROMs (default: game directory)\n"
                    "  --scale N             Window scale; 0 selects the largest fitting scale (default)\n"
                    "\nFlight: hold left/right mouse or =/- for thrust.\n"
                    "Arcade uses mouse/arrow steering; other models use the original arrow-key controls.\n"
@@ -95,6 +99,13 @@ auto main(int const argc, char const *const argv[])->int try {
       return EXIT_SUCCESS;
     }
     if(key == "--data-dir") data_directory = value();
+    else if(key == "--rom-dir") rom_directory = value();
+    else if(key == "--music") {
+      auto const selected{value()};
+      if(selected == "none") music_override = 0;
+      else if(selected == "roland-lapc") music_override = 2;
+      else throw std::runtime_error{"music must be none or roland-lapc"};
+    }
     else if(key == "--language") {
       language = value();
       language_selected = true;
@@ -158,6 +169,7 @@ auto main(int const argc, char const *const argv[])->int try {
   auto const archive_path{tfx::resources::find_game_archive(data_directory)};
   auto preferences{tfx::configuration::load(archive_path.parent_path())};
   if(model_selected) preferences.model = model;
+  if(music_override) preferences.music = *music_override;
   if(control_override) preferences.preferred_control = preferences.control = *control_override;
   if(control_override == tfx::flight::control_source::joystick && preferences.model == tfx::simulation::flight_model::arcade) throw std::runtime_error{"joystick steering requires Simple, Military-spec or Realistic flight; Arcade uses relative mouse/arrow input"};
   if(control_override == tfx::flight::control_source::mouse && preferences.model == tfx::simulation::flight_model::simple) throw std::runtime_error{"the original Simple model has no mouse steering; choose keyboard or joystick"};
@@ -167,19 +179,30 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::resources::executable_tables const tables{archive_path.parent_path() / "TFX.DAT"};
   std::unique_ptr<tfx::audio::runtime> sound;
   std::unique_ptr<tfx::platform::audio_output> output;
-  if(!screenshot && !inspect && preferences.sound_effects) {
-    try {
-      sound = std::make_unique<tfx::audio::runtime>(tables.samples,game,tfx::platform::audio_output::sample_rate,true);
-      output = std::make_unique<tfx::platform::audio_output>([](void *const user, std::span<float> const pcm) noexcept {
-        static_cast<tfx::audio::runtime*>(user)->render(pcm);
-      },sound.get());
-    } catch(std::exception const &error) {
-      std::cerr << "Sound output unavailable: " << error.what() << '\n';
-      sound.reset();
+  if(!screenshot && !inspect) {
+    std::unique_ptr<tfx::audio::music_player> music;
+    if(preferences.music == 2) {
+      try {
+        music = std::make_unique<tfx::audio::music_player>(game,tfx::resources::read_file(archive_path.parent_path() / "START.EXE"),
+          rom_directory.value_or(archive_path.parent_path()),tfx::platform::audio_output::sample_rate);
+      } catch(std::exception const &error) {
+        std::cerr << "Roland music unavailable: " << error.what() << "; use --rom-dir to select your Roland ROM directory.\n";
+      }
+    }
+    if(preferences.sound_effects || music) {
+      try {
+        sound = std::make_unique<tfx::audio::runtime>(tables.samples,game,tfx::platform::audio_output::sample_rate,preferences.sound_effects != 0,std::move(music));
+        output = std::make_unique<tfx::platform::audio_output>([](void *const user, std::span<float> const pcm) noexcept {
+          static_cast<tfx::audio::runtime*>(user)->render(pcm);
+        },sound.get());
+      } catch(std::exception const &error) {
+        std::cerr << "Sound output unavailable: " << error.what() << '\n';
+        sound.reset();
+      }
     }
   }
   if(!presentation.empty()) {
-    tfx::platform::play_presentation(game,tables,presentation,presentation_function,language,scale,frame_limit,screenshot);
+    tfx::platform::play_presentation(game,tables,presentation,presentation_function,language,scale,frame_limit,screenshot,sound.get());
     return EXIT_SUCCESS;
   }
   tfx::platform::flight_options const flight{

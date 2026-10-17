@@ -2,6 +2,7 @@
 
 #include <initializer_list>
 #include "audio/sample_voice.h"
+#include "audio/music_player.h"
 
 namespace tfx::audio {
 
@@ -22,11 +23,19 @@ class runtime {
 private:
   sample_bank bank;
   sample_voice effects;
+  bool const available;
   bool enabled;
+  std::unique_ptr<music_player> music;
 
 public:
-  runtime(std::span<sample_definition const> definitions, resources::archive const &game, unsigned int output_rate, bool sound_enabled);
+  runtime(std::span<sample_definition const> definitions, resources::archive const &game, unsigned int output_rate, bool sound_enabled, std::unique_ptr<music_player> music = {});
+  bool sound_available() const;
   bool sound_enabled() const;
+  bool music_available() const;
+  bool music_enabled() const;
+  void enable_music(bool enabled);
+  void select_music(int16_t index);
+  void stop_music();
   void enable_sound(bool enabled);
   void advance(simulation::timer_ticks elapsed);
   void sample(sample_priority priority, unsigned int id);

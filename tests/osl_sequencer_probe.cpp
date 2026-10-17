@@ -25,10 +25,15 @@ std::vector<uint8_t> channel_bytes(std::span<tfx::audio::osl_channel const> cons
 } // anonymous namespace
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc < 3 || argc > 6) throw std::runtime_error{"expected START.EXE OSL_FILE [VOLUME [TICKS [DUMP]]]"};
+  if(argc < 3 || argc > 7) throw std::runtime_error{"expected START.EXE OSL_FILE [VOLUME [TICKS [DUMP]]]"};
   uint8_t const volume{static_cast<uint8_t>(argc >= 4 ? std::stoul(argv[3]) : 75)};
   unsigned int const limit{argc >= 5 ? static_cast<unsigned int>(std::stoul(argv[4])) : 60000};
-  bool const dump{argc == 6};
+  bool dump{false}, continue_zero{false};
+  for(int option{5}; option < argc; ++option) {
+    if(std::string_view{argv[option]} == "dump") dump = true;
+    else if(std::string_view{argv[option]} == "continue-zero") continue_zero = true;
+    else throw std::runtime_error{"unknown sequencer probe option"};
+  }
   std::vector<uint8_t> events;
   tfx::audio::osl_la_driver driver{tfx::resources::read_file(argv[1]),[&](uint8_t const byte) { events.push_back(byte); }};
   tfx::audio::osl_sequencer sequencer;
@@ -46,7 +51,7 @@ int main(int const argc, char const *const argv[]) try {
   for(unsigned int tick{0}; tick != limit; ++tick) {
     sequencer.tick();report();
     auto const &state{sequencer.state(playing)};
-    bool const finished{!sequencer.clock_rate() || state.order < previous_order || (state.order == previous_order && state.row < previous_row) || (tick > 10 && !(state.flags & 1))};
+    bool const finished{(!continue_zero && !sequencer.clock_rate()) || state.order < previous_order || (state.order == previous_order && state.row < previous_row) || (tick > 10 && !(state.flags & 1))};
     previous_order = state.order;previous_row = state.row;
     if(finished || tick + 1 == limit) {
       if(dump) {

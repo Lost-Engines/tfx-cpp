@@ -22,6 +22,7 @@ p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--name',help='limit to one resource name/identifier')
 p.add_argument('--volume',type=int,default=75)
+p.add_argument('--host-irq',action='store_true',help='execute the actual shared game IRQ, including through zero clock requests')
 a=p.parse_args();launcher=a.research/'installs/cd_1994_09/TFX/START.EXE'
 entries=[entry for entry in json.loads((a.research/'analysis/audio/music-renders.json').read_text()) if entry['mode']=='rld' and (not a.name or a.name in (entry['name'],entry['id']))]
 assert entries,'no matching OSL resources'
@@ -29,16 +30,26 @@ ticks=byte_count=0
 for entry in entries:
     path=a.research/'extracted/cd_1994_09/resources'/entry['source']
     probe=[str((a.build/'osl_sequencer_probe').resolve()),str(launcher),str(path),str(a.volume)]
-    output=subprocess.check_output(probe).decode().splitlines()
+    output=subprocess.check_output(probe+(['60000','continue-zero'] if a.host_irq else [])).decode().splitlines()
     native=NativeOSL(launcher.read_bytes())
-    native.initialise();assert native.load(path.read_bytes())==(0,False)
+    native.initialise()
+    if a.host_irq:
+        native.shared_timer();assert native.pit==[0x55,0x55]
+    assert native.load(path.read_bytes())==(0,False)
     assert native.play(a.volume)==(0,False)
     for index,line in enumerate(output):
-        if index:native.events.clear();native.tick();ticks+=1
+        if index:
+            native.events.clear()
+            if a.host_irq:native.host_tick()
+            else:native.tick()
+            ticks+=1
+        if a.host_irq:
+            assert native.pit==[0x55,0x55],('in-game music requested a PIT change',entry['name'],index)
+            assert int.from_bytes(native.cpu.mem_read(0x11de0,4),'little')==index
         expected=native.state()+[checksum(native.channels()),len(native.events),checksum(native.events)]
         actual=list(map(int,line.split()))
         if actual!=expected:
-            detail=subprocess.run(probe+[str(max(1,index)),'dump'],capture_output=True,text=True)
+            detail=subprocess.run(probe+[str(max(1,index)),'dump']+(['continue-zero'] if a.host_irq else []),capture_output=True,text=True)
             dumped=detail.stderr.splitlines()
             if dumped and len(dumped[0].split())==672:
                 cpp=list(map(int,dumped[0].split()));original=list(native.channels())
@@ -49,4 +60,4 @@ for entry in entries:
             raise AssertionError((entry['name'],index-1,actual,expected,dumped[1][:600] if len(dumped)>1 else detail.stderr[-600:]))
         byte_count+=len(native.events)
     print(entry['name'],len(output)-1,'ticks agree',flush=True)
-print(f'{len(entries)} OSL LA resources, {ticks} complete original ticks and {byte_count} MIDI bytes agree at native volume {a.volume}, including all 32 shared channel records')
+print(f'{len(entries)} OSL LA resources, {ticks} complete original ticks and {byte_count} MIDI bytes agree at native volume {a.volume}, including all 32 shared channel records'+(' through the original shared game IRQ (PIT divisor 21845)' if a.host_irq else ''))

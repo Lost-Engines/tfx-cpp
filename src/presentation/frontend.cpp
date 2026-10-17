@@ -5,8 +5,8 @@
 namespace tfx::presentation {
 
 frontend::frontend(resources::archive const &game, resources::executable_tables const &tables,
-  std::filesystem::path const &save_directory, std::string const &language, bool const skip_intro) :
-  game{game}, tables{tables}, language{language}, schema{game.read("tfx.par")}, store{save_directory},
+  std::filesystem::path const &save_directory, std::string const &language, bool const skip_intro, std::function<void(audio_request const&)> play_audio) :
+  game{game}, tables{tables}, language{language}, play_audio{std::move(play_audio)}, schema{game.read("tfx.par")}, store{save_directory},
   parser{game,tables.presentation_fonts(),tables.text_palette,state,"tfx",{},language} {
   if(skip_intro) seek_enrolment();
 }
@@ -86,7 +86,7 @@ statement const *frontend::advance(scene_counters const counters, scene_input &i
     palette = parser.colours();
     if(!action) return nullptr;
     if(action->kind == node_kind::audio) {
-      // Synthesised audio is a separate consumer; CD playback remains deliberately deferred.
+      if(play_audio) play_audio(std::get<audio_request>(action->data));
       parser.complete();
     } else if(action->kind == node_kind::options) {
       auto const bytes{game.read("lev/" + std::get<host_action>(action->data).resource + ".opt")};
