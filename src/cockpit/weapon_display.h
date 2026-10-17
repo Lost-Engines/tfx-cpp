@@ -10,13 +10,17 @@
 
 namespace tfx::cockpit {
 
-enum class aiming_mode { navigation, air, ground };
+enum class aiming_mode { navigation, air, ground, stores };
 struct air_target_cue {
   air_target_reading reading;
   math::attitude orientation;
   vec2<int16_t> projected{0,0};
   vec2<int32_t> tracking_q8{0,0};
   bool acquiring{false};
+};
+struct ground_target_cue {
+  vec3<int32_t> position;
+  target_display_state display;
 };
 struct target_animation {
   uint8_t blink{0};
@@ -36,6 +40,7 @@ struct weapon_display_state {
   std::optional<vec2<int16_t>> ground_marker{};
   std::optional<air_target_cue> air_target{};
   std::optional<air_target_cue> navigation_target{};
+  std::optional<ground_target_cue> ground_target{};
   std::optional<flight::landing_cue> landing{};
   bool cannon{true};
   int16_t ammunition{0};

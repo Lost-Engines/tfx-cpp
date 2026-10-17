@@ -42,9 +42,9 @@ if args.full:
     for field,fmt in ((0x13428,'<f'),(0x13444,'<i'),(0x14778,'<d'),(0x133f4,'<f'),(0x133f8,'<f'),(0x13424,'<i'),(0x13430,'<i'),(0x1343c,'<i'),(0x145a8,'<d'),(0x14964,'<H'),(0x8d14,'<H')):im.write(field,fmt,0)
 im.write(0x8f82,'<B',0);im.write(0x12c1c,'<H',0);im.write(0x11108,'<I',0);im.write(0x11b22,'<H',0);im.write(0x6c41,'<B',0)
 rng=random.Random(0x7e5b4);cases=[]
-for mode in range(3):
+for mode in range(4 if args.full else 3):
     for index in range(256):
-        weapon=([0,1,3,4] if args.full and mode==1 else [0,8,18,22] if args.full and mode==2 else [0,1,3,4,8,18,22])[index%(4 if args.full and mode else 7)];dx,dy=[(0,0),(1,0),(2,0),(3,0),(-4,0),(4,0),(0,28),(0,50)][index%8]
+        weapon=([7,7,7,7] if args.full and mode==3 else [0,1,3,4] if args.full and mode==1 else [0,8,18,22] if args.full and mode==2 else [0,1,3,4,8,18,22])[index%(4 if args.full and mode else 7)];dx,dy=[(0,0),(1,0),(2,0),(3,0),(-4,0),(4,0),(0,28),(0,50)][index%8]
         pitch=rng.randrange(65536);heading=rng.randrange(65536);roll=rng.randrange(65536)
         path=[value for _ in range(5) for value in (rng.randrange(60,260),rng.randrange(-20,160))]
         cases.append([mode,index%3,weapon,rng.randrange(-32768,32768),index%2,0 if args.full else (index//2)%2,0 if args.full else (index//4)%2,(index//8)%2,pitch,heading,roll,(-pitch)&65535,(-roll)&65535,56+int(dy/2),dx,dy,*path])

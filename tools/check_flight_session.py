@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare complete original and actual C++ neutral-flight sessions.
+"""Compare complete original and actual C++ flight sessions.
 
 Checks player/actor/random state and camera/horizon handoffs through the real
 launch and frame loops. Reports whole indexed-image differences separately;
@@ -14,6 +14,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from flight_inputs import FlightInputs
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
@@ -23,8 +24,10 @@ p.add_argument('--flight-model',choices=('arcade','simple','military-spec','real
 p.add_argument('--output',type=Path,help='retain native/C++ frames and the read-only observer log in a new directory')
 p.add_argument('--frames',type=int,default=4)
 p.add_argument('--strict-pixels',action='store_true')
+p.add_argument('--inputs',type=Path,help='compare explicit keyboard events/held keys using a private window and virtual external GLFW devices')
 p.add_argument('--native-capture',type=Path,help='reuse a prior matching native capture without executing the original again')
 a=p.parse_args()
+inputs=FlightInputs.read(a.inputs)if a.inputs else FlightInputs([])
 tools=Path(__file__).resolve().parent
 with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     root=a.output.resolve() if a.output else Path(temporary);root.mkdir(parents=True,exist_ok=True)
@@ -35,10 +38,11 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[a.flight_model]
     (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX=0\r\nMUSIC=0\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode())
     if not a.native_capture:
-        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--flight-model',a.flight_model],check=True,timeout=180)
+        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else [])],check=True,timeout=300)
     expected=json.loads((native/'session.json').read_text())
     assert expected['mission']==a.mission and expected['flight_model']==a.flight_model and expected['ticks_per_frame']==4,'native capture configuration differs'
     assert expected['presentation_numbers']=={'mission':a.mission,'arcade':1},'native capture inherited campaign state differs'
+    assert [row for row in expected.get('inputs',[])if row['frame']<=a.frames]==inputs.rows(a.frames),'native capture keyboard inputs differ'
     assert len(expected['snapshots'])>a.frames,'native capture is shorter than the requested session'
     if 'reference' in expected:
         for name,key in (('TFX.DAT','executable_sha256'),('DID.DAT','archive_sha256')):
@@ -46,8 +50,31 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     env=dict(os.environ)
     # LSan cannot inspect a process under ptrace; ordinary sanitizer tests keep it enabled.
     env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
-    result=subprocess.run(['gdb','--quiet','--batch','--return-child-result','-x',str(tools/'observe_flight_session.gdb'),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',str(a.mission),'--control','keyboard','--flight-model',a.flight_model,'--flight-frames',str(a.frames),'--screenshot',str(root/'cpp.ppm')],cwd=root,env=env,capture_output=True,text=True,timeout=180)
+    command=['gdb','--quiet','--batch','--return-child-result','-x',str(tools/'observe_flight_session.gdb'),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',str(a.mission),'--control','keyboard','--flight-model',a.flight_model]
+    display=None
+    try:
+        if a.inputs:
+            import select
+            read,write=os.pipe()
+            display=subprocess.Popen(['Xvfb','-displayfd',str(write),'-screen','0','1024x768x24','-nolisten','tcp'],pass_fds=(write,),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            os.close(write)
+            try:
+                if not select.select([read],[],[],5)[0]:raise RuntimeError('private X11 display did not start')
+                number=os.read(read,64).decode().strip()
+            finally:os.close(read)
+            env.update(DISPLAY=':'+number,LIBGL_ALWAYS_SOFTWARE='1',XDG_RUNTIME_DIR=str(root),XMODIFIERS='@im=none',TFX_FLIGHT_INPUTS=json.dumps(inputs.rows(a.frames)),TFX_TOOLS_DIRECTORY=str(tools))
+            for name in ('WAYLAND_DISPLAY','XDG_SESSION_TYPE','DBUS_SESSION_BUS_ADDRESS'):env.pop(name,None)
+            command+=['--frames',str(a.frames),'--scale','2']
+        else:command+=['--flight-frames',str(a.frames),'--screenshot',str(root/'cpp.ppm')]
+        result=subprocess.run(command,cwd=root,env=env,capture_output=True,text=True,timeout=max(180,a.frames*2))
+    finally:
+        if display is not None:
+            display.terminate()
+            try:display.wait(timeout=3)
+            except subprocess.TimeoutExpired:display.kill();display.wait()
     (root/'observer.log').write_text(result.stdout+result.stderr)
+    if a.inputs and result.returncode==0:
+        (root/'cpp.indices').write_bytes((root/f'cpp-frame-{a.frames}.indices').read_bytes())
     assert result.returncode==0,(result.stdout+result.stderr)[-6000:]
     assert 'exited normally' in result.stdout and 'ERROR:' not in result.stderr,(result.stdout+result.stderr)[-6000:]
     lines=result.stdout.splitlines()
@@ -62,10 +89,15 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
             assert cpp==want,('player',index,cpp,want)
         want={field:native_post[field] for field in ('actors','random')}
         assert cpp_world==want,('world',index,cpp_world,want)
+    assert not records('CPP_WARNINGS '),('unhandled scene diagnostics',records('CPP_WARNINGS '))
+    if 'trail_events' in expected:
+        trails=records('CPP_TRAIL ')
+        wanted=[event for event in expected['trail_events']if event[0]<=a.frames]
+        assert trails==wanted,('trail samples',len(trails),len(wanted),[(i,got,want)for i,(got,want)in enumerate(zip(trails,wanted))if got!=want][:4])
     radio=records('CPP_RADIO ')
     wanted_radio=[event for event in expected['radio_events'] if event['frame']<=a.frames]
     assert radio==wanted_radio,('radio requests',radio,wanted_radio)
-    for field,prefix in (('body_basis','CPP_BODY '),('sensors','CPP_SENSORS ')):
+    for field,prefix in (('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES ')):
         if field in expected['snapshots'][1]:
             actual_records=records(prefix)
             wanted_records=[snapshot[field] for snapshot in expected['snapshots'][1:a.frames+1]]
@@ -88,6 +120,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     assert len(actual)==len(image)==64000
     differences=sum(x!=y for x,y in zip(actual,image))
     verified=['player','actors','shared RNG','radio','camera','horizon']
-    verified += [field for field in ('body_basis','sensors','animation') if field in expected['snapshots'][1]]
+    if 'trail_events' in expected:verified.append('smoke samples')
+    verified += [field for field in ('body_basis','sensors','animation','armament','projectiles') if field in expected['snapshots'][1]]
     print(f'Mission {a.mission}, {a.flight_model}, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
     if a.strict_pixels:assert not different_frames,('whole-frame pixels',different_frames[:20],differences)

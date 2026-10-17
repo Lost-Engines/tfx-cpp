@@ -73,6 +73,23 @@ void target_display::direction(render::software_renderer &renderer, air_target_r
   auto const low{shifted({116,18},state.offset)}, high{shifted({193,94},state.offset)};
   if(state.projected.x >= low.x && state.projected.x <= high.x && state.projected.y >= low.y && state.projected.y <= high.y) return;
   vec3<int32_t> const delta{difference(target.position_q8.x >> 8,state.player.x),difference(target.position_q8.y >> 8,state.player.y),difference(target.position_q8.z >> 8,state.player.z)};
+  direction_marker(renderer,delta,state,minimum,maximum,coverage);
+}
+void target_display::ground(render::software_renderer &renderer, vec3<int32_t> const &target, target_display_state const &state, vec2<int> const &minimum, vec2<int> const &maximum, render::framebuffer *const coverage) const {
+  // Native 0x7f2a4 draws the projected cross when in range and always repeats
+  // the six-line direction cue, even when the target lies inside the sight.
+  auto const line{[&](vec2<int> const &a, vec2<int> const &b) {
+    presentation::draw_clipped_line(renderer.output,vec2<int>{a},vec2<int>{b},minimum,maximum,6);
+    if(coverage) presentation::draw_clipped_line(*coverage,vec2<int>{a},vec2<int>{b},minimum,maximum,255);
+  }};
+  if(std::max(magnitude(difference(state.player.x,target.x)),magnitude(difference(state.player.z,target.z))) < 32767 && state.projected.x >= 0 && state.projected.x < 320 && state.projected.y >= 0 && state.projected.y < 200) {
+    auto const centre{vec2<int>{state.projected}};
+    line(centre + vec2<int>{-5,-5},centre + vec2<int>{5,5});
+    line(centre + vec2<int>{5,-5},centre + vec2<int>{-5,5});
+  }
+  direction_marker(renderer,{difference(target.x,state.player.x),difference(target.y,state.player.y),difference(target.z,state.player.z)},state,minimum,maximum,coverage);
+}
+void target_display::direction_marker(render::software_renderer &renderer, vec3<int32_t> const &delta, target_display_state const &state, vec2<int> const &minimum, vec2<int> const &maximum, render::framebuffer *const coverage) const {
   auto const dot{[&](vec3<int32_t> const &axis) {
     uint32_t result{0};
     for(unsigned int index{0}; index != 3; ++index) result += static_cast<uint32_t>(delta[index]) * static_cast<uint32_t>(axis[index]);
