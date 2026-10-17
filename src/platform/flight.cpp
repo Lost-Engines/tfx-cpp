@@ -1568,6 +1568,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .position_q16{vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{view.position * 65536}}}},
         .origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
         .maximum{tfx::render::screen_width - 1,static_cast<int16_t>(layout.bottom + (layout.panel.empty() ? 0 : cockpit_position.value().y))},
+        .opening{view.opening},
       };
       // Recover the exact Q15 rows for native cameras; the designator's current camera supplies its own rows.
       for(unsigned int row{0}; row != 3; ++row) {
@@ -1636,7 +1637,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .ground_phase{horizon_phase},
         .maximum{tfx::render::screen_width - 1,static_cast<int16_t>(layout.bottom + (layout.panel.empty() ? 0 : cockpit_position.value().y))},
         .origin_y{static_cast<int16_t>(view.projection_origin.y)},
-        .projection_shift{views.value().current == tfx::cockpit::view_mode::missile_infrared ? vec2<unsigned int>{9u,9u} : vec2<unsigned int>{8u,8u}},
+        .projection_shift{tfx::render::projection_shift(view.opening),tfx::render::projection_shift(view.opening)},
       });
     }
     queue_projectiles();

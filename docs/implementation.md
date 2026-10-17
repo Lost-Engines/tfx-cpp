@@ -2799,3 +2799,34 @@ the two existing unavailable-vertex notes. Real rain/cockpit composition and
 private camera/pause checks pass in development and sanitizers. Reproduce the
 live composition check with `tools/check_precipitation_scene.py`; its temporary
 silent configurations never alter an original install.
+
+
+### Original missile-nose projection aperture
+
+The camera now carries its original normal or missile-nose aperture to model
+projection, sphere visibility and the horizon. Native `0xca780` resets the
+mode on each update; view 7 applies `0xca6fc(-1,-1)`, changing the model focal
+length from 256 to 128 pixels and the corresponding sphere-culling scale.
+The state is explicit rather than inferred again from a potentially queued
+next view. The separately encoded HUD/world-point projector and rain projector
+retain their own unchanged arithmetic.
+
+**8,192 complete original model projections** agree in both modes, including
+**57,344 camera-unit scale cases**. The original mode setters patch and execute
+the real projection loop; Q16 camera vertices and actor/camera translation are
+supplied inputs. A further **16,384 complete widened sphere tests** agree;
+the existing 16,384 normal tests still pass. The complete camera comparison
+now executes the original driver setters too, checking **12,288 aperture
+handoffs** alongside pose, matrix and horizon submission state.
+
+All **131 regressions** and the widened model/sphere/controller comparisons
+pass in development, Release and ASan/UBSan. Normal model vertex, orbit and
+scaled projection comparisons continue to agree. All **128 mission scenes**
+run 64 steps. Private control checks in development and sanitizers exercise
+actual store firing, F8 follow/nose views and F1 restoration, MFDs, ground
+weapon/designator controls, pause and a combat-to-FINISH result. Complete
+world texture, lighting and polygon coverage remain separate renderer work.
+
+Reproduce with `tools/check_aperture.py`, `tools/check_visibility.py --wide`,
+`tools/check_view_cameras.py --projection --horizon` and
+`tools/check_window_controls.py`.

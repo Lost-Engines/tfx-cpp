@@ -9,14 +9,16 @@ vec3d camera::transform(vec3d const &world) const {
 }
 vec2d camera::project(vec3d const &point, double const projection_scale) const {
   if(projection == projection_mode::original_model) {
-    // Native 0xb9434: signed Q16 X/Y shifted by eight, divided by the signed
+    // Native 0xb9434: signed Q16 X/Y shifted by eight (nine in missile-nose
+    // view), divided by the signed
     // integer depth, then added to the viewport origin. IDIV truncates toward zero.
     // Camera-space coordinates enter the native loop as signed Q16. Restore
     // that grid after model-unit conversion; e.g. a 1/400 scale can otherwise
     // turn an exact depth of 29 into 28.999999999999996 before the integer divide.
     auto const q16{[projection_scale](double const value) { return std::nearbyint(value / projection_scale * 65536); }};
     double const depth{std::floor(q16(point.z) / 65536)};
-    return projection_origin + vec2d{std::trunc(std::floor(q16(point.x) / 256) / depth),std::trunc(std::floor(q16(point.y) / 256) / depth)};
+    double const divisor{static_cast<double>(1u << projection_shift(opening))};
+    return projection_origin + vec2d{std::trunc(std::floor(q16(point.x) / divisor) / depth),std::trunc(std::floor(q16(point.y) / divisor) / depth)};
   }
   return {projection_origin.x + point.x * focal_distance / point.z,projection_origin.y + point.y * focal_distance / point.z};
 }
@@ -36,15 +38,16 @@ camera orbit_camera(vec3<math::angle> const &angles, int32_t const distance, vec
   return original_camera(position,math::view_rotation_words(angles),projection_origin);
 }
 
-camera original_camera(vec3<int32_t> const &position_q16, mat3<int32_t> const &matrix, vec2d const &projection_origin) {
+camera original_camera(vec3<int32_t> const &position_q16, mat3<int32_t> const &matrix, vec2d const &projection_origin, aperture const opening) {
   return {
     .position{vec3d{position_q16} / 65536},
     .right{vec3d{vec3<int32_t>{matrix.data[0],matrix.data[1],matrix.data[2]}} / math::matrix_unit},
     .down{vec3d{vec3<int32_t>{matrix.data[3],matrix.data[4],matrix.data[5]}} / math::matrix_unit},
     .forward{vec3d{vec3<int32_t>{matrix.data[6],matrix.data[7],matrix.data[8]}} / math::matrix_unit},
     .projection_origin{vec2d{projection_origin}},
-    .focal_distance{256},
+    .focal_distance{static_cast<double>(projection_focal_length(opening))},
     .projection{projection_mode::original_model},
+    .opening{opening},
   };
 }
 

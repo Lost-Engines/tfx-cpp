@@ -327,6 +327,7 @@ add_library(tfx_core
   src/resources/executable_tables.h
   src/render/framebuffer.cpp
   src/render/framebuffer.h
+  src/render/aperture.h
   src/render/camera.cpp
   src/render/camera.h
   src/render/markers.cpp
@@ -548,6 +549,10 @@ if(BUILD_TESTING)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
 
+  add_executable(aperture_probe tests/aperture_probe.cpp)
+  target_link_libraries(aperture_probe PRIVATE tfx_core)
+  configure_first_party(aperture_probe)
+  add_test(NAME render.native_model_aperture COMMAND aperture_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_aperture.txt)
   add_executable(horizon_pixels_probe tests/horizon_pixels_probe.cpp)
   target_link_libraries(horizon_pixels_probe PRIVATE tfx_core)
   configure_first_party(horizon_pixels_probe)
@@ -561,6 +566,7 @@ if(BUILD_TESTING)
   target_link_libraries(precipitation_probe PRIVATE tfx_core)
   configure_first_party(precipitation_probe)
   add_test(NAME render.native_precipitation COMMAND precipitation_probe ${PROJECT_SOURCE_DIR}/tests/reference/precipitation.txt)
+  add_test(NAME render.native_wide_spheres COMMAND visibility_probe --wide ${PROJECT_SOURCE_DIR}/tests/reference/sphere_visibility_wide.txt)
   add_test(NAME render.native_precipitation_gate COMMAND precipitation_probe --gate ${PROJECT_SOURCE_DIR}/tests/reference/precipitation_gate.txt)
   add_executable(horizon_probe tests/horizon_probe.cpp)
   target_link_libraries(horizon_probe PRIVATE tfx_core)

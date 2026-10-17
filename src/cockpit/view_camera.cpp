@@ -24,7 +24,7 @@ math::attitude product(math::attitude const &a, math::attitude const &b) {
 }
 
 render::camera view_pose::camera(vec2d const &projection_origin) const {
-  auto result{render::original_camera(position_q16,matrix,projection_origin)};
+  auto result{render::original_camera(position_q16,matrix,projection_origin,opening)};
   // The native renderer wraps each world coordinate to a word. Keep its Q16
   // translation but unwrap it around the full terrain anchor for the scene host.
   for(unsigned int axis{0}; axis != 3; ++axis) result.position[axis] = anchor[axis] + subtract(position_q16[axis],wrap(static_cast<uint32_t>(anchor[axis]) << 16)) / 65536.0;
@@ -143,6 +143,7 @@ void view_camera::advance_ground_reference(view_camera_context const &context, b
 
 bool view_camera::advance(view_control &views, view_camera_context const &context) {
   auto &control{views.state};
+  pose.opening = render::aperture::normal;
   int16_t const previous_projection_y{math::signed_word(static_cast<uint16_t>(pose.position_q16.y >> 16))};
   pose.horizon_angles.reset();
   pose.player_model_entry.reset();
@@ -354,6 +355,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     break;
   }
   case view_mode::missile_infrared:
+    pose.opening = render::aperture::missile_nose;
     views.ready();
     if(context.missile) {
       for(unsigned int axis{0}; axis != 3; ++axis) {

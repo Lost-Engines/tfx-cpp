@@ -4,10 +4,11 @@
 #include "cockpit/view_camera.h"
 
 int main(int const argc, char const *const argv[]) {
-  bool refuelling{false}, split_basis{false}, horizon{false};
+  bool refuelling{false}, split_basis{false}, horizon{false}, projection{false};
   for(int index{1}; index != argc; ++index) {
     auto const argument{std::string_view{argv[index]}};
     if(argument == "--refuelling") refuelling = true;
+    else if(argument == "--projection") projection = true;
     else if(argument == "--horizon") horizon = true;
     else if(argument == "--split-basis") split_basis = true;
     else return 2;
@@ -73,6 +74,7 @@ int main(int const argc, char const *const argv[]) {
     put(state.last_missile.angles.x);put(state.last_missile.angles.y);put(state.last_missile.angles.z);
     put(control.fixed_position.x);put(control.fixed_position.y);put(control.fixed_position.z);
     if(horizon) { put(pose.horizon_angles.has_value());put(pose.horizon_angles ? pose.horizon_angles->x : 0);put(pose.horizon_angles ? pose.horizon_angles->y : 0);put(pose.horizon_angles ? pose.horizon_camera_y : 0);put(pose.ground_motion.has_value());put(pose.ground_motion.value_or(0));put(state.ground_reference.x);put(state.ground_reference.y);put(state.ground_reference.z); }
+    if(projection) put(tfx::render::projection_shift(pose.opening));
     std::cout << '\n';
   }
 }
