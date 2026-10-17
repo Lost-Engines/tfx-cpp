@@ -2617,3 +2617,49 @@ remain. The private controlled cannon-impact window check also still passes.
 These are scene robustness and declared query-context checks; complete original
 visibility/update eligibility, collision caller context, world pixels and
 whole-session equivalence remain separate gates.
+
+
+### Missile smoke and native bounding-volume visibility
+
+The original post-motion missile path now feeds a separate **200-slot smoke
+pool**, with independent `smokecld` SSD state for every slot. Eligible stores
+emit within 4,000 player-relative units; attached and falling callbacks are
+excluded, while acceleration can already produce smoke. World, weapon and
+user detail gates retain their separate owners. The trail segment is tested
+against the actual camera before sampling at the native ten-unit spacing.
+
+The shared camera bounding-volume test translates `0xcbef0` / `0xb9c00`,
+including the viewport apertures patched by `0xb94da`, word-coordinate
+transforms, behind-camera extent test, far limit and signed ABS quirks. Its
+**16,384 complete original cases** pass; the existing integer/Q16 point
+projector's 16,384 cases still pass after sharing its transform.
+
+**8,192 original segment cases** agree in their midpoint/radius handoff and
+all **1,354,082 emitted Q8 positions**. This includes signed-word length
+wrapping and its unusual signed-IDIV/loop behaviour on extreme segments.
+**4,096 complete original pool operations** agree in all 200 resource bindings,
+oldest-slot reuse, model reset order, records, Q16 drawing poses, fractional
+position/seam handling and draw-before-cleanup. Only a consecutive expired or
+more-than-8,000-unit prefix is retired, as in the original; there is no invented
+particle lifetime. Original resource delivery/model destruction and the
+independently checked visibility consumer are declared capture boundaries.
+The stateful fixture retains its entire operation sequence.
+
+**8,192 original post-motion dispatch cases** additionally agree across the
+world/weapon flags, all thirteen motion callbacks, strict 4,000-unit boundary
+and exact Q8-to-world-word callback arguments. The supplied player-distance
+query is a declared boundary; warning and ground-impact phases have their own
+comparisons. A private silent window test injects a nearby missile and reaches
+the real dispatch/visibility gates, pool, fractional placement and scene draw,
+without overriding visibility. This establishes the live handoff, rather than
+claiming a naturally played encounter or whole-frame pixel equivalence.
+
+Reproduce with `tools/check_trails.py`, `tools/check_visibility.py` and
+`tools/check_window_effects.py --trails --data-dir /path/to/TFX`. Compact
+captures run as four additional asset-free CTests. Full renderer eligibility,
+weather, ground shadows and complete mission/session equivalence remain open.
+
+All **122 regressions**, complete trail/visibility comparisons and the private
+smoke handoff pass in development, Release and ASan/UBSan (the private window
+uses development and sanitizer builds). The existing **5,796 original
+projectile-population frames** also still agree.

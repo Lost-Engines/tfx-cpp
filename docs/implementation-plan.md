@@ -148,3 +148,10 @@ reference, independently of camera selection. The shared placed-anchor query
 has 11,320 complete original comparisons; all 128 mission scenes also survive
 64 integrated steps after the binding change. Full renderer eligibility and
 whole-session comparisons remain open.
+
+
+Shared missile smoke now uses the original 200-slot pool and ten-unit sampling,
+with complete original segment, pool and post-motion dispatch comparisons.
+Camera bounding-volume visibility is independently checked, and a controlled
+private-window test verifies the live smoke path without replacing visibility.
+Sky/weather and complete world-renderer eligibility remain open.

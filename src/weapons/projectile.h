@@ -52,6 +52,8 @@ struct motion_hooks {
 
 // Native 0xa373c excludes these three callbacks by identity, including after ejection.
 bool has_swept_contacts(flight_stage motion);
+// Post-motion trail gate; world/weapon/detail flags have separate owners.
+bool has_smoke_trail(flight_stage motion, int32_t player_distance);
 void next_stage(projectile &state, definition const &weapon);
 projectile launch(definition const &weapon, uint8_t index, vec3<int32_t> const &position, vec3<math::angle> const &angles, int32_t speed);
 motion_result advance_motion(projectile &state, definition const &weapon, motion_context const &context, math::random_state &random, motion_hooks const &hooks = {});

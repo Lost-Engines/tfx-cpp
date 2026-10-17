@@ -56,6 +56,7 @@ struct runtime_callbacks {
   std::function<void(unsigned int,bool)> reset_visual{};
   std::function<void(active_projectile const&)> launched{};
   std::function<void(active_projectile const&)> target_cleared{};
+  std::function<void(active_projectile const&)> trail{};
   std::function<void(active_projectile const&,int16_t&)> ground_impact{};
   std::function<void(active_projectile&,uint16_t)> contacts{};
 };
@@ -92,7 +93,7 @@ public:
   // Borrowed stable pool record: retirement leaves its address valid until this runtime is destroyed.
   active_projectile const *first_targeting_player() const;
   warning_state const &player_warnings() const;
-  void advance(simulation::timer_ticks elapsed, math::random_state &random, bool ground_effects = true);
+  void advance(simulation::timer_ticks elapsed, math::random_state &random, bool tfx_effects = true);
 };
 
 } // namespace tfx::weapons

@@ -37,6 +37,7 @@
 #include "missions/engagement.h"
 #include "world/impact.h"
 #include "world/effects.h"
+#include "world/trails.h"
 #include "flight/ejection_sequence.h"
 #include "flight/simple.h"
 #include "flight/fuel_gauge.h"
@@ -273,6 +274,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       slot.push_back(visual);
     }
   }
+  tfx::world::trail_pool trails;
+  std::array<tfx::world::scene_handle,tfx::world::trail_capacity> trail_visuals;
+  for(auto &visual : trail_visuals) {
+    visual = scene.create_actor(std::string{tfx::world::trail_definition},{0,0,0},{0,0,0});
+    scene.show_actor(visual,false);
+  }
   auto const spawn_effect{[&](vec3<int32_t> const &position, tfx::world::effect_kind const kind) {
     if(kind == tfx::world::effect_kind::cannon_hit) sample(audio::sample_priority::normal,audio::sample_id::cannon_hit);
     auto const slot{effects.spawn(position,kind)};
@@ -295,6 +302,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       auto const &effect{flak.record(slot)};
       scene.queue_actor(flak_visuals[slot].at(effect.model),vec3d{tfx::world::effect_position(effect.position,reference)},{0,0,0});
     }
+    for(auto const slot : trails.active_slots()) scene.queue_actor(trail_visuals[slot],tfx::world::trail_position(trails.record(slot).position_q8,reference),{0,0,0});
+    auto const destroyed{[&](tfx::world::trail_slot const slot) { return scene.actor_destroyed(trail_visuals[slot]); }};
+    trails.clean(player.integer_position,destroyed);
   }};
   std::optional<tfx::render::point_projection> impact_projection;
   auto const impact_surface{[&](vec3<int32_t> const &position) {
@@ -446,6 +456,15 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         auto &current{incoming[shot.target.actor->index]};
         if(current == shot.id) { current.reset(); threats[shot.target.actor->index].reset(); }
       }
+    }},
+    .trail{[&](tfx::weapons::active_projectile const &shot) {
+      auto const segment{tfx::world::prepare_trail(projectile_world_position(shot.state.previous),projectile_world_position(shot.state.position),preferences.detail != 0)};
+      if(!segment || !impact_projection || !impact_projection->sphere_visible(segment->midpoint(),segment->length)) return;
+      auto const sample{[&](vec3<int32_t> const &position_q8) {
+        auto const slot{trails.spawn(position_q8)};
+        scene.actor_event(trail_visuals[slot],0);
+      }};
+      tfx::world::emit_trail(*segment,sample);
     }},
     .ground_impact{[&](tfx::weapons::active_projectile const &shot, int16_t &appearance) {
       auto const position{projectile_world_position(shot.state.position)};
@@ -804,6 +823,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     mission_progress.reset();
     effects.reset();
     flak.reset();
+    trails.reset();
     flak_state.centre = {0,0};
     flak_flash = false;
     engagement = {};
@@ -1504,10 +1524,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       view = tfx::render::inspection_camera(vec3d{designator.camera},designator.heading * radians_per_angle,-tfx::math::signed_word(designator.pitch) * radians_per_angle);
     }
     if(!inspect) {
+      auto const &layout{tables.instruments().viewports[view_index()]};
       tfx::render::point_projection projected_view{
         .matrix{},
         .position_q16{vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{view.position * 65536}}}},
         .origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
+        .maximum{tfx::render::screen_width - 1,static_cast<int16_t>(layout.bottom + (layout.panel.empty() ? 0 : cockpit_position.value().y))},
       };
       // Recover the exact Q15 rows for native cameras; the designator's current camera supplies its own rows.
       for(unsigned int row{0}; row != 3; ++row) {
@@ -1516,10 +1538,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
       impact_projection.emplace(projected_view);
       if(!night_flak) {
-        auto const &layout{tables.instruments().viewports[view_index()]};
         palette_lighting.flash(tfx::render::glare_level(*impact_projection,{
           .camera_anchor{designator_view ? vec3<int32_t>{designator.camera} : vec3<int32_t>{view_motion.last_pose().anchor}},
-          .maximum{tfx::render::screen_width - 1,static_cast<int16_t>(layout.bottom + (layout.panel.empty() ? 0 : cockpit_position.value().y))},
+          .maximum{vec2<int16_t>{projected_view.maximum}},
           .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
           .cloud_layer{environment.lighting.cloud_layer},
           .layer_y{environment.lighting.layer_y},
