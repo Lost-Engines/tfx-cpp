@@ -2,30 +2,57 @@
 #include "render/integer_model_polygon.h"
 #include "render/integer_polygon.h"
 #include "render/pattern_raster.h"
-#include "render/software_renderer.h"
+#include "render/rounded_curve.h"
+#include "render/model_projection.h"
+#include "render/near_clip.h"
 #include <bit>
-#include <cmath>
-#include <limits>
 
 namespace tfx::render {
+namespace {
+
+bool rounded_facing(std::span<vec2<int16_t> const> const screen) {
+  // BC660/BCA58 use dword differences except for the final Y difference,
+  // which is subtracted as a word before sign extension.
+  auto const &a{screen[0]},&b{screen[1]},&c{screen[2]};
+  int32_t const y1{b.y - a.y},x2{c.x - a.x},x1{b.x - a.x};
+  int32_t const y2{math::signed_word(static_cast<uint16_t>(c.y - a.y))};
+  return std::bit_cast<int32_t>(static_cast<uint32_t>(x1) * static_cast<uint32_t>(y2) - static_cast<uint32_t>(y1) * static_cast<uint32_t>(x2)) >= 0;
+}
+
+} // anonymous namespace
 
 bool rounded_model_polygon(framebuffer &output, std::span<models::model_vertex const> const vertices, camera const &view, uint8_t const colour, int const mode, uint16_t &seed) {
-  if(view.projection != projection_mode::original_model || vertices.size() != 4) return false;
+  if(view.projection != projection_mode::original_model || (vertices.size() != 3 && vertices.size() != 4)) return false;
+  if(vertices.size() == 3) {
+    std::array<vec2<int16_t>,3> screen;
+    for(unsigned int i{0}; i != screen.size(); ++i) {
+      auto const point{model_camera_point(vertices[i])};
+      if(!point) return false;
+      if(point->z >> 16 <= model_near_depth) return true;
+      auto const projected{project_model_point(*point,view)};
+      if(!projected) return false;
+      screen[i] = *projected;
+    }
+    if(!rounded_facing(screen)) return true;
+    auto const &a{screen[0]},&b{screen[1]},&c{screen[2]};
+    auto const curve{rounded_arc<3>(vec2<int32_t>{a},vec2<int32_t>{b},vec2<int32_t>{c})};
+    std::array<vec2<int16_t>,curve.size()> points;
+    for(unsigned int i{0}; i != points.size(); ++i) points[i] = vec2<int16_t>{curve[i]};
+    pattern_polygon(output,seed,integer_polygon_spans(points,view.viewport_minimum,view.viewport_maximum,polygon_facing::unchecked),colour,mode);
+    return true;
+  }
   std::array<vec3<int32_t>,4> camera;
   for(unsigned int i{0}; i != camera.size(); ++i) {
-    if(vertices[i].projection_scale <= 0) return false;
-    for(unsigned int axis{0}; axis != 3; ++axis) {
-      double const value{std::nearbyint(vertices[i].position[axis] / vertices[i].projection_scale * 65536)};
-      if(!std::isfinite(value) || value < std::numeric_limits<int32_t>::min() || value > std::numeric_limits<int32_t>::max()) return false;
-      camera[i][axis] = static_cast<int32_t>(value);
-    }
+    auto const point{model_camera_point(vertices[i])};
+    if(!point) return false;
+    camera[i] = *point;
     // This original consumer omits a whole rounded face when a corner is near;
     // it does not send it through the ordinary polygon near-plane clipper.
-    if(camera[i].z >> 16 <= 16) return true;
+    if(camera[i].z >> 16 <= model_near_depth) return true;
   }
   auto const corners{project_model_face(vertices,view)};
   if(!corners || corners->size() != 4) return false;
-  if(auto const facing{model_facing(vertices,view,models::facing_test::polygon)}; facing && !*facing) return true;
+  if(!rounded_facing(*corners)) return true;
   std::array<vec2<int16_t>,4> midpoints;
   for(unsigned int i{0}; i != 4; ++i) {
     vec3<int32_t> sum;
@@ -42,7 +69,7 @@ bool rounded_model_polygon(framebuffer &output, std::span<models::model_vertex c
   }
   pattern_polygon(output,seed,integer_polygon_spans(midpoints,view.viewport_minimum,view.viewport_maximum),colour,mode);
   for(unsigned int i{0}; i != 4; ++i) {
-    auto const curve{rounded_corner(vec2<int32_t>{midpoints[(i + 3) % 4]},vec2<int32_t>{(*corners)[i]},vec2<int32_t>{midpoints[i]})};
+    auto const curve{rounded_arc<2>(vec2<int32_t>{midpoints[(i + 3) % 4]},vec2<int32_t>{(*corners)[i]},vec2<int32_t>{midpoints[i]})};
     std::array<vec2<int16_t>,8> points;
     for(unsigned int j{0}; j != points.size(); ++j) points[j] = vec2<int16_t>{curve[j]};
     // BC78E temporarily bypasses BD68C's winding test for each corner fan.

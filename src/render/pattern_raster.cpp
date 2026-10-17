@@ -61,8 +61,10 @@ void pattern_polygon(framebuffer &output, uint16_t &seed, std::span<polygon_span
   if(mode == 7) {
     bool narrow{false};
     for(auto const &span : spans | std::views::reverse) {
-      if(span.left > span.right) return;
-      if(span.row & 1) continue;
+      if(span.row & 1) {
+        if(span.left > span.right) return;
+        continue;
+      }
       // Original E4CCF shifts the next left endpoint by one after a single-
       // byte span, rather than its usual two. Retain this authored-era quirk:
       // it can terminate the rest of a tapered line-stippled face.
@@ -84,15 +86,25 @@ void pattern_polygon(framebuffer &output, uint16_t &seed, std::span<polygon_span
     int const stride{mode == 2 ? 2 : 3};
     int index{static_cast<int>(spans.size()) - 1};
     bool offset{mode == 2 ? (spans.back().row & 1) != 0 : (spans.back().row & 1) == 0};
-    if(mode == 2 && (spans.back().row & 1)) --index;
-    auto const valid{[&] { return index >= 0 && spans[static_cast<unsigned int>(index)].left <= spans[static_cast<unsigned int>(index)].right; }};
+    if(mode == 2) {
+      // Its initial row and the first selected row have explicit pixel-width
+      // tests; later selected rows only compare VGA-byte widths.
+      if(spans.back().left > spans.back().right) return;
+      if(spans.back().row & 1) --index;
+      if(index < 0 || spans[static_cast<unsigned int>(index)].left > spans[static_cast<unsigned int>(index)].right) return;
+    }
+    auto const valid{[&] {
+      if(index < 0) return false;
+      auto const &span{spans[static_cast<unsigned int>(index)]};
+      return span.left / 4 <= span.right / 4;
+    }};
     auto const width{[&] { auto const &span{spans[static_cast<unsigned int>(index)]};return span.right / 4 - span.left / 4; }};
     auto const advance{[&] {
-      // Native sparse painters inspect every skipped physical row. An empty
-      // intervening span terminates the face before the next selected row.
-      for(int row{0}; row != stride && index >= 0; ++row) {
-        --index;
-        if(!valid()) { index = -1;return; }
+      // Skipped physical rows test pixel width; selected rows test byte width.
+      for(int row{1}; row <= stride; ++row) {
+        if(--index < 0) return;
+        auto const &span{spans[static_cast<unsigned int>(index)]};
+        if(row < stride && span.left > span.right) { index = -1;return; }
       }
     }};
     while(valid()) {
@@ -119,7 +131,14 @@ void pattern_polygon(framebuffer &output, uint16_t &seed, std::span<polygon_span
   for(auto const &span : spans | std::views::reverse) {
     // The procedural callback tests VGA-byte width. An inverted pixel span
     // inside one byte still consumes a random mask, even though it paints none.
-    if(span.left > span.right && (mode != 4 || span.left / 4 > span.right / 4)) return;
+    if(mode == -1) {
+      // The flat unrolled table skips its first negative byte-width entry.
+      if((span.right | 3) + 4 < span.left) return;
+    } else if(mode == 0 || mode == 1 || mode == 10 || mode == 11 || mode == 12) {
+      // Dense stipple and logical painters compare byte width directly. Empty
+      // pixel spans in one byte continue; an inverted byte boundary ends it.
+      if((span.right | 3) < span.left) return;
+    } else if(span.left > span.right && (mode != 4 || span.left / 4 > span.right / 4)) return;
     pattern_span(output,seed,span.row,span.left,span.right,colour,mode,spans.back().row,true);
   }
 }

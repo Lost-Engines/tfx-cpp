@@ -344,7 +344,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
         uint8_t colour_row{item.metrics.colour_row};
         if(primitive.palette == models::palette_source::fixed) colour_row = 0;
         else if(primitive.palette == models::palette_source::face_depth) colour_row = render::distance_colour_row(static_cast<int32_t>(primitive.palette_depth) * 65536);
-        renderer.primitive(primitive,vertices,view,texture,native ? &resources.model_colours(colour_row) : nullptr);
+        renderer.primitive(primitive,vertices,view,texture,native && primitive.palette != models::palette_source::direct ? &resources.model_colours(colour_row) : nullptr);
         ++primitives_drawn;
       }
     } catch(std::exception const &error) {

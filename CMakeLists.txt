@@ -346,6 +346,7 @@ add_library(tfx_core
   src/render/rounded_model_polygon.cpp src/render/rounded_model_polygon.h
   src/render/integer_texture_polygon.h
   src/render/integer_model_texture.cpp src/render/integer_model_texture.h
+  src/render/model_polygon.cpp src/render/model_polygon.h src/render/rounded_curve.h
   src/render/model_projection.cpp src/render/model_projection.h
   src/render/model_transform.cpp src/render/model_transform.h
   src/world/model_orientation.h
@@ -588,6 +589,17 @@ if(BUILD_TESTING)
   add_test(NAME render.native_texture_polygons COMMAND texture_polygon_probe ${PROJECT_SOURCE_DIR}/tests/reference/texture_polygons.txt)
   add_test(NAME render.native_crossed_texture_polygons COMMAND texture_polygon_probe ${PROJECT_SOURCE_DIR}/tests/reference/texture_polygons_crossed.txt)
 
+  add_executable(pattern_span_probe tests/pattern_span_probe.cpp)
+  target_link_libraries(pattern_span_probe PRIVATE tfx_core)
+  configure_first_party(pattern_span_probe)
+  add_test(NAME render.native_pattern_span_consumers COMMAND pattern_span_probe ${PROJECT_SOURCE_DIR}/tests/reference/pattern_spans.txt)
+
+  add_executable(model_frame_probe tests/model_frame_probe.cpp)
+  target_link_libraries(model_frame_probe PRIVATE tfx_core)
+  configure_first_party(model_frame_probe)
+  add_test(NAME render.native_model_materials COMMAND model_frame_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_materials.txt)
+  add_test(NAME render.native_rounded_model_programs COMMAND model_frame_probe ${PROJECT_SOURCE_DIR}/tests/reference/rounded_model_programs.txt)
+
   add_executable(model_depth_palette_probe tests/model_depth_palette_probe.cpp)
   target_link_libraries(model_depth_palette_probe PRIVATE tfx_core)
   configure_first_party(model_depth_palette_probe)
@@ -694,6 +706,7 @@ if(BUILD_TESTING)
   add_test(NAME render.native_warped_flat_model_polygons COMMAND world_polygon_probe ${PROJECT_SOURCE_DIR}/tests/reference/world_polygons_warped.txt)
   add_test(NAME render.native_warped_gouraud_model_polygons COMMAND world_polygon_probe --shaded ${PROJECT_SOURCE_DIR}/tests/reference/world_gouraud_warped.txt)
   add_test(NAME render.native_patterned_model_polygons COMMAND world_polygon_probe --pattern ${PROJECT_SOURCE_DIR}/tests/reference/world_patterns.txt)
+  add_test(NAME render.native_warped_patterned_model_polygons COMMAND world_polygon_probe --pattern ${PROJECT_SOURCE_DIR}/tests/reference/world_patterns_warped.txt)
   add_test(NAME render.native_near_patterned_model_polygons COMMAND world_polygon_probe --pattern ${PROJECT_SOURCE_DIR}/tests/reference/world_patterns_near.txt)
   add_executable(aperture_probe tests/aperture_probe.cpp)
   target_link_libraries(aperture_probe PRIVATE tfx_core)
