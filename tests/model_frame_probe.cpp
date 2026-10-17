@@ -5,7 +5,7 @@
 #include <string_view>
 #include "models/shape.h"
 #include "render/integer_model_polygon.h"
-#include "render/model_polygon.h"
+#include "render/model_raster.h"
 
 namespace {
 tfx::resources::bytes decode_hex(std::string_view const hex) {
@@ -21,8 +21,8 @@ tfx::resources::bytes decode_hex(std::string_view const hex) {
 }
 }
 int main(int const argc, char const *const argv[]) try {
-  bool pixels{false};std::ifstream fixture;
-  for(int i{1}; i != argc; ++i) if(std::string_view{argv[i]} == "--pixels") pixels = true;else { fixture.open(argv[i]);if(!fixture) throw std::runtime_error{"cannot open model-frame fixture"}; }
+  bool pixels{false},viewport{false};std::ifstream fixture;
+  for(int i{1}; i != argc; ++i) if(std::string_view{argv[i]} == "--pixels") pixels = true;else if(std::string_view{argv[i]} == "--viewport") viewport = true;else { fixture.open(argv[i]);if(!fixture) throw std::runtime_error{"cannot open model-frame fixture"}; }
   auto &input{fixture.is_open() ? fixture : std::cin};bool wide;unsigned int seed,object_offset,fixed_offset,cases{0};int16_t distance;uint16_t status;
   std::array<uint8_t,65536> texture;
   for(unsigned int v{0}; v != 256; ++v) for(unsigned int u{0}; u != 256; ++u) texture[v * 256 + u] = static_cast<uint8_t>(u * 3 + v * 5 + (u ^ v));
@@ -32,6 +32,8 @@ int main(int const argc, char const *const argv[]) try {
     for(auto &value : basis.data) input >> value;
     input >> origin.x >> origin.y >> origin.z;
     for(unsigned int i{0}; i != 8; ++i) { unsigned int value;input >> value;context.parameters[i] = static_cast<uint8_t>(value); }
+    auto view{tfx::render::original_camera({0,0,0},mat3<int32_t>{},{160,100},wide ? tfx::render::aperture::missile_nose : tfx::render::aperture::normal)};view.far_distance = 1e10;
+    if(viewport) input >> view.projection_origin.x >> view.projection_origin.y >> view.viewport_minimum.x >> view.viewport_minimum.y >> view.viewport_maximum.x >> view.viewport_maximum.y;
     std::string hex;input >> hex;
     tfx::models::shape const shape{decode_hex(hex)};
     context.camera.emplace(tfx::models::shape_camera{
@@ -39,7 +41,6 @@ int main(int const argc, char const *const argv[]) try {
       .origin{vec3<int32_t>{origin}},
     });
     context.distance = distance;context.status = status;
-    auto view{tfx::render::original_camera({0,0,0},mat3<int32_t>{},{160,100},wide ? tfx::render::aperture::missile_nose : tfx::render::aperture::normal)};view.far_distance = 1e10;
     context.face_visibility = [&](std::span<tfx::models::model_vertex const> const vertices,tfx::models::facing_test const purpose) { return tfx::render::model_facing(vertices,view,purpose); };
     auto const geometry{tfx::models::interpret(shape,context)};
     if(!geometry.warnings.empty()) throw std::runtime_error{"model frame emitted a runtime warning"};
@@ -52,7 +53,7 @@ int main(int const argc, char const *const argv[]) try {
     for(auto const &face : geometry.primitives) {
       unsigned int const row{face.palette == tfx::models::palette_source::face_depth ? tfx::render::distance_colour_row(static_cast<int32_t>(face.palette_depth) * 65536) : 0u};
       auto const *const remap{face.palette == tfx::models::palette_source::direct ? nullptr : face.palette == tfx::models::palette_source::distance ? &object : &rows[row]};
-      if(!tfx::render::paint_model_polygon(output,face,face.vertices,view,face.texture ? std::span<uint8_t const>{texture} : std::span<uint8_t const>{},remap,random)) defined = false;
+      if(!tfx::render::paint_model_primitive(output,face,face.vertices,view,face.texture ? std::span<uint8_t const>{texture} : std::span<uint8_t const>{},remap,random)) defined = false;
     }
     uint64_t hash{14695981039346656037ull};for(auto const value : output.pixels) hash = (hash ^ value) * 1099511628211;
     if(pixels) std::cout.write(reinterpret_cast<char const*>(output.pixels.data()),output.pixels.size());

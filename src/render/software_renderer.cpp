@@ -1,5 +1,5 @@
 #include "software_renderer.h"
-#include "model_polygon.h"
+#include "model_raster.h"
 #include "rounded_curve.h"
 #include "integer_polygon.h"
 #include "pattern_raster.h"
@@ -151,7 +151,7 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   if(camera_vertices.empty()) return;
   uint8_t const source_index{static_cast<uint8_t>(source.colour)};
   uint8_t const ink_index{remap ? (*remap)[source_index] : source_index};
-  if(paint_model_polygon(output,source,camera_vertices,view,texture,remap,procedural_seed)) return;
+  if(paint_model_primitive(output,source,camera_vertices,view,texture,remap,procedural_seed)) return;
   if(source.kind == models::primitive_kind::point) {
     auto const &v{camera_vertices[0].position};
     if(v.z <= view.near_distance * camera_vertices.front().projection_scale || v.z > view.far_distance) return;

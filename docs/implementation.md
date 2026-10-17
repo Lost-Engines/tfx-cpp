@@ -3672,3 +3672,53 @@ The controlled land/water/contact crash checks also pass under ASan/UBSan,
 and a live F-117 check still observes actual retail-atlas texels in the integer
 painter after dispatch extraction. Standalone verification scripts retain
 executable permissions consistently; imported helpers remain separate.
+
+### Authored points and particle discs
+
+`render::paint_model_primitive` now shares native dispatch between live worlds
+and complete supplied-model frame checks. The polygon consumer is unchanged;
+authored one/two-pixel points and sized discs no longer fall through the
+continuous inspection renderer. The separate distant-model point path retains
+its independently verified rules.
+
+Opcodes 51/52 use stored signed-word projected coordinates, high-word near
+eligibility and the current normal/wide projection. One-pixel anchors include
+viewport edges; two-pixel anchors exclude all four edges. They retain their own
+palette lookup even when constant polygon ink or a global drawing mode is
+selected. Neither introduces a per-vertex far cutoff beyond parent admission.
+
+Opcodes 92/93/95/96 retain signed radius-word multiplication and high-depth
+integer division. Radius scaling remains unchanged in the wider missile-nose
+view, although the centre projection changes. Plain discs inherit the active
+global mode; explicit disc modes override it temporarily. Constant ink, fixed
+palette selection, procedural masks and final random state reach the shared
+native span consumers. Zero/negative/100-or-larger projected radii draw nothing.
+All 4,950 original circle extents agree with midpoint-circle construction, so
+the native world painter generates them without embedding executable bytes.
+
+The original partial-circle path has a visible corner case: it omits empty
+horizontal spans, decrements its lower endpoint for omissions at/after the
+centre, and only then clamps that endpoint to the viewport. Crossing two edges
+can consequently shift the painted rows. Complete program case 189 exposed
+this; the retained synthetic fixture preserves it.
+
+`tools/check_model_dots.py` executes the original converter, model program,
+projection, palette/material state, circle builder and VGA callbacks without
+substituting drawing helpers. It compares **1,024 authored-dot frames** and
+**3,858 completed disc frames** from 4,096 cases; 238 native word-division faults
+have no completed frame and are explicitly excluded. Inputs include signed
+projection-origin wrapping, fractional near depths, every native circle
+radius, partial cockpit/MFD rectangles, both apertures and all ten represented
+flat/pattern/logical consumers. The compact regressions contain synthetic
+programs and frame/seed hashes, with no original resource bytes.
+
+All **174 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizers additionally compare 192 original dot frames and 256 disc
+frames. Every retail mission composes 64 development frames without warnings;
+private-window checks pass live missile smoke, all MFD controls, weapon and
+missile views, ground designation and an actual combat/result handoff.
+These supplied-input comparisons do not establish complete original session
+scheduling or the older sprite-backed model path. Native lines remain next.
+
+The complete retail scene corpus also passes 16 sanitizer frames per mission
+without warnings after the particle dispatch change.
