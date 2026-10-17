@@ -5,6 +5,7 @@ if(APPLE)
 endif()
 include(CTest)
 include(cmake/dependencies.cmake)
+include(cmake/dbopl.cmake)
 
 function(configure_first_party target)
   target_compile_features(${target} PUBLIC cxx_std_26)
@@ -24,6 +25,8 @@ add_library(tfx_audio
   src/audio/osl_resource.cpp src/audio/osl_resource.h
   src/audio/osl_channel.h src/audio/osl_device.h
   src/audio/osl_la_driver.cpp src/audio/osl_la_driver.h
+  src/audio/osl_fm_driver.cpp src/audio/osl_fm_driver.h
+  src/audio/fm_synth.cpp src/audio/fm_synth.h
   src/audio/osl_sequencer.cpp src/audio/osl_sequencer.h
   src/audio/midi_receiver.h src/audio/midi_stream.cpp src/audio/midi_stream.h
   src/audio/la_synth.cpp src/audio/la_synth.h
@@ -350,7 +353,7 @@ add_library(tfx_core
 target_compile_definitions(tfx_core PUBLIC VECTORSTORM_NO_BOOST)
 configure_first_party(tfx_core)
 
-target_link_libraries(tfx_audio PUBLIC tfx_core PRIVATE MT32Emu::mt32emu)
+target_link_libraries(tfx_audio PUBLIC tfx_core PRIVATE MT32Emu::mt32emu PRIVATE dosbox_opl_core)
 
 if(APPLE)
   set_source_files_properties(src/platform/miniaudio_implementation.c PROPERTIES LANGUAGE OBJC)
@@ -592,6 +595,13 @@ if(BUILD_TESTING)
   target_link_libraries(midi_stream_test PRIVATE tfx_audio)
   configure_first_party(midi_stream_test)
   add_test(NAME audio.midi_uart_message_assembly COMMAND midi_stream_test)
+  add_executable(osl_parameters_test tests/osl_parameters_test.cpp)
+  target_link_libraries(osl_parameters_test PRIVATE tfx_audio)
+  configure_first_party(osl_parameters_test)
+  add_test(NAME audio.native_osl_parameter_alias COMMAND osl_parameters_test)
+  add_executable(osl_fm_probe tests/osl_fm_probe.cpp)
+  target_link_libraries(osl_fm_probe PRIVATE tfx_audio)
+  configure_first_party(osl_fm_probe)
   add_executable(osl_la_probe tests/osl_la_probe.cpp)
   target_link_libraries(osl_la_probe PRIVATE tfx_audio)
   configure_first_party(osl_la_probe)

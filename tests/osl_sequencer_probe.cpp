@@ -2,6 +2,8 @@
 #include <iostream>
 #include <utility>
 #include "audio/osl_la_driver.h"
+#include "audio/osl_fm_driver.h"
+#include <memory>
 #include "audio/osl_sequencer.h"
 
 namespace {
@@ -35,11 +37,15 @@ int main(int const argc, char const *const argv[]) try {
     else throw std::runtime_error{"unknown sequencer probe option"};
   }
   std::vector<uint8_t> events;
-  tfx::audio::osl_la_driver driver{tfx::resources::read_file(argv[1]),[&](uint8_t const byte) { events.push_back(byte); }};
+  auto const launcher{tfx::resources::read_file(argv[1])};
+  auto source{tfx::resources::read_file(argv[2])};
+  std::unique_ptr<tfx::audio::osl_device_driver> driver;
+  if(source.at(7) == std::to_underlying(tfx::audio::osl_device::fm)) driver = std::make_unique<tfx::audio::osl_fm_driver>(launcher,[&](tfx::audio::opl_write const command) { events.push_back(command.address);events.push_back(command.value); });
+  else driver = std::make_unique<tfx::audio::osl_la_driver>(launcher,[&](uint8_t const byte) { events.push_back(byte); });
   tfx::audio::osl_sequencer sequencer;
-  sequencer.register_device(driver);
-  driver.initialise();
-  auto const resource{sequencer.load(tfx::resources::read_file(argv[2]))};
+  sequencer.register_device(*driver);
+  driver->initialise();
+  auto const resource{sequencer.load(std::move(source))};
   auto const playing{sequencer.play(resource,0,0,0,volume)};
   auto const report{[&] {
     auto const &state{sequencer.state(playing)};

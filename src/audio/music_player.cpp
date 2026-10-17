@@ -30,6 +30,9 @@ void music_player::select(int16_t const requested) {
   stop_locked();
   auto const files{catalogue.files(device->driver().device_type())};
   if(index >= files.size()) throw std::runtime_error{"native music index exceeds its filename list"};
+  // The original loader returns an unavailable resource when a named file is
+  // absent (including the retail FM antiarm entry); gameplay continues.
+  if(!game.contains(files[index])) return;
   resource = sequencer.load(game.read(files[index]));
   if(enabled) playing = sequencer.play(*resource);
 }

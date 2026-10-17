@@ -30,3 +30,10 @@ FetchContent_Declare(munt
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(munt)
+
+FetchContent_Declare(dosbox_opl
+  URL https://codeload.github.com/dosbox-staging/dosbox-staging/tar.gz/e164e788f9819d5ab898d705f863e2046baf8b03
+  URL_HASH SHA256=efed2dc8c2807503352e817f3160dcad6236824ba4f16347a260bb9293965c50
+  SOURCE_SUBDIR unused_upstream_build
+)
+FetchContent_MakeAvailable(dosbox_opl)

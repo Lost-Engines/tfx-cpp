@@ -96,10 +96,8 @@ void osl_sequencer::volume(osl_playing_id const id, uint8_t const value) {
 uint8_t osl_sequencer::transpose(playing const &voice, osl_channel const &channel) const {
   auto const &resource{*resources[voice.state.resource]};
   uint8_t value{song(voice).transpose()};
-  if(channel.sent_instrument < resource.instrument_count()) {
-    auto const instrument{resource.instrument_parameters(channel.sent_instrument)};
-    if(!instrument.empty()) value = static_cast<uint8_t>(value + resources::binary_view{instrument}.byte(0x18));
-  }
+  auto const instrument{resource.instrument_parameters(channel.sent_instrument)};
+  if(!instrument.empty()) value = static_cast<uint8_t>(value + resources::binary_view{instrument}.byte(0x18));
   return value;
 }
 void osl_sequencer::read_row(playing &voice) {
@@ -127,10 +125,8 @@ void osl_sequencer::send_volume(playing &voice, osl_channel &channel, unsigned i
   if(physical >= 16 || !(voice.state.mask & (1u << physical))) value = 0;
   uint8_t cap{0};
   auto const &resource{*resources[voice.state.resource]};
-  if(channel.sent_instrument < resource.instrument_count()) {
-    auto const instrument{resource.instrument_parameters(channel.sent_instrument)};
-    if(!instrument.empty()) cap = resources::binary_view{instrument}.byte(0x19);
-  }
+  auto const instrument{resource.instrument_parameters(channel.sent_instrument)};
+  if(!instrument.empty()) cap = resources::binary_view{instrument}.byte(0x19);
   value = std::min(value,cap);
   auto const data{song(voice)};
   auto const channel_volume{resources::binary_view{data.resource}.byte(data.offset + 0x16 + physical)};

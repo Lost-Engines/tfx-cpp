@@ -1836,3 +1836,37 @@ comparison pass in development, Release and ASan/UBSan. The private-window
 music and sampled-audio checks also pass under sanitizers. Other OSL devices,
 auxiliary banks, in-flight selection, serial byte-level latency and complete-session
 audio comparison remain open.
+
+
+### Sound Blaster FM music
+
+The original OSL FM driver now feeds the pinned DOSBox OPL chip core, using the
+same standalone hardware adapter approach as Darker. Native MUSIC modes 1/3 and
+`--music=soundblaster-fm` use this path; no ROMs are required. Only device timing
+and output are supplied. Patches, nine-voice allocation, pitch tables/bends,
+register ordering and volume behavior are translated from TFX's driver.
+Nonzero channel volume is quantised to 127 by the original FM callback; its
+carrier attenuation helper then replaces the patch attenuation. These quirks
+are preserved rather than applying the LA driver's volume behavior to FM.
+
+`tools/check_osl_fm.py` compares **4,409 complete callbacks, 14,218 register
+writes and all 313 actual FM instrument uploads**. The complete shared-IRQ
+comparison (`tools/check_osl_sequencer.py --mode adl --host-irq`) covers all
+**27 FM resources, 160,813 ticks and 2,510,060 OPL writes**, retaining every
+sequencer slot/channel field as well as the output stream.
+
+An unnamed ten-channel resource exposed a further original lookup quirk: the
+initial instrument index 255 aliases a relocated pattern pointer beyond the
+instrument table. Its parameters therefore use the pattern's two-byte prefix,
+rather than the ordinary instrument's four-byte prefix. That established alias
+is represented explicitly and has an asset-free synthetic regression, without
+bundling any original bytes. All 31 LA resources were rechecked after this change.
+The retail filename `tunes/antiarm.adl` is genuinely absent; a failed selection
+leaves music unavailable for that request, without aborting gameplay.
+
+The whole/fragmented callback comparison agrees in **1,872,000 exact FM PCM
+samples** across mute/resume, retained selection, replacement and restart.
+Output is dual mono, with continuous resampling phase at 48 kHz. The private
+X11/Pulse test verifies the ordinary introduction reaches the live device and
+shuts down cleanly, including under ASan/UBSan. There are now 101 asset-free
+regressions. In-flight selection and remaining audio consumers are still open.

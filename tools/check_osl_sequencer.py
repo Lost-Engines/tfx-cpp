@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare complete native OSL/LA playback ticks, shared state and every MIDI byte.
+"""Compare complete native OSL playback ticks, shared state and every MIDI byte.
 
 Both original sequencer and device driver run. Only MPU/OPL ready reads,
 physical port writes, interrupt routing and post-SysEx settling are external.
@@ -22,16 +22,18 @@ p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--name',help='limit to one resource name/identifier')
 p.add_argument('--volume',type=int,default=75)
+p.add_argument('--mode',choices=('rld','adl'),default='rld')
+p.add_argument('--probe',type=Path,help='override the sequencer probe executable')
 p.add_argument('--host-irq',action='store_true',help='execute the actual shared game IRQ, including through zero clock requests')
 a=p.parse_args();launcher=a.research/'installs/cd_1994_09/TFX/START.EXE'
-entries=[entry for entry in json.loads((a.research/'analysis/audio/music-renders.json').read_text()) if entry['mode']=='rld' and (not a.name or a.name in (entry['name'],entry['id']))]
+entries=[entry for entry in json.loads((a.research/'analysis/audio/music-renders.json').read_text()) if entry['mode']==a.mode and (not a.name or a.name in (entry['name'],entry['id']))]
 assert entries,'no matching OSL resources'
 ticks=byte_count=0
 for entry in entries:
     path=a.research/'extracted/cd_1994_09/resources'/entry['source']
-    probe=[str((a.build/'osl_sequencer_probe').resolve()),str(launcher),str(path),str(a.volume)]
+    probe=[str((a.probe or a.build/'osl_sequencer_probe').resolve()),str(launcher),str(path),str(a.volume)]
     output=subprocess.check_output(probe+(['60000','continue-zero'] if a.host_irq else [])).decode().splitlines()
-    native=NativeOSL(launcher.read_bytes())
+    native=NativeOSL(launcher.read_bytes(),a.mode)
     native.initialise()
     if a.host_irq:
         native.shared_timer();assert native.pit==[0x55,0x55]
@@ -60,4 +62,4 @@ for entry in entries:
             raise AssertionError((entry['name'],index-1,actual,expected,dumped[1][:600] if len(dumped)>1 else detail.stderr[-600:]))
         byte_count+=len(native.events)
     print(entry['name'],len(output)-1,'ticks agree',flush=True)
-print(f'{len(entries)} OSL LA resources, {ticks} complete original ticks and {byte_count} MIDI bytes agree at native volume {a.volume}, including all 32 shared channel records'+(' through the original shared game IRQ (PIT divisor 21845)' if a.host_irq else ''))
+print(f'{len(entries)} OSL {a.mode} resources, {ticks} complete original ticks and {byte_count} device bytes agree at native volume {a.volume}, including all 32 shared channel records'+(' through the original shared game IRQ (PIT divisor 21845)' if a.host_irq else ''))

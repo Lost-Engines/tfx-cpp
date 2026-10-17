@@ -34,8 +34,24 @@ std::span<uint8_t const> osl_resource::instrument(unsigned int const index) cons
   return data.slice(start + 4,bytes.size() - start - 4);
 }
 std::span<uint8_t const> osl_resource::instrument_parameters(unsigned int const index) const {
-  if(index >= instrument_count()) return {};
-  auto const data{instrument(index)};
+  std::span<uint8_t const> data;
+  if(index < instrument_count()) data = instrument(index);
+  else if(index <= 255) {
+    // The original lookup is unchecked. An unused channel's initial index 255
+    // can address a relocated pattern pointer beyond the instrument table.
+    // Preserve that alias and its two-byte pattern prefix, rather than treating
+    // the pattern as an ordinary instrument with a four-byte prefix.
+    auto const position{0x4au + song_count() * 4u + index * 4u};
+    resources::binary_view const source{bytes};
+    for(unsigned int song_index{0}; song_index != song_count(); ++song_index) {
+      auto const entry{song(song_index)};
+      auto const table{entry.offset + 0x150};
+      if(position < table || position >= table + entry.pattern_count() * 4u || (position - table) % 4) continue;
+      auto const pointer{source.le32(position)};
+      if(pointer) data = source.slice(pointer + 2,bytes.size() - pointer - 2);
+      break;
+    }
+  }
   if(data.empty()) return {};
   // Native 0x16a5 skips the six-byte parameter-record header when its count
   // is nonzero. The zero-count form still returns the original record base.
