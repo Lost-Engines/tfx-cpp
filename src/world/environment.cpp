@@ -88,6 +88,7 @@ lighting_configuration::lighting_configuration(resources::archive const &game, s
       layer_y = math::signed_word(static_cast<uint16_t>(0u - static_cast<uint32_t>(height)));
       layer_offset_y = math::signed_word(static_cast<uint16_t>(0u - static_cast<uint32_t>(offset)));
     }
+    if(token == "twilight") sun_suppressed = true;
     if(token == "storm" || token == "seastorm") storm = true;
     if(token == "sea" || token == "seastorm") water_world = true;
     if(token == "night") status |= night_status;

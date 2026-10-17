@@ -50,6 +50,7 @@ struct lighting_configuration {
   bool cloud_layer{false}; // Native altitude-prefix flag at 0xe762.
   int16_t layer_y{0}, layer_offset_y{0};
   std::string upper_grid{};
+  bool sun_suppressed{false}; // Native environment bit 0x200.
   bool storm{false}; // Native environment bit 0x80, separate from night status.
   lighting_configuration(resources::archive const &game, std::string const &name);
 };

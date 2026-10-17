@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "world/sky.h"
 #include <algorithm>
 #include <cmath>
 #include <iterator>
@@ -6,7 +7,7 @@
 
 namespace tfx::world {
 
-scene::scene(environment const &environment, assets &bank) : terrain{environment}, resources{bank} {
+scene::scene(environment const &environment, assets &bank, world::environment const *const upper) : terrain{environment}, upper_terrain{upper}, resources{bank} {
 }
 
 scene_handle scene::create_actor(std::string const &name, vec3d const &position, vec3<math::angle> const &angles) {
@@ -187,6 +188,16 @@ void scene::queue_actor(scene_handle const handle, vec3d const &position, vec3<m
   });
 }
 
+void scene::queue_model(std::string const &name, vec3d const &position) {
+  model_submissions.push_back({
+    .part{
+      .name{name},
+      .rotation{0,0,0},
+    },
+    .position{vec3d{position}},
+  });
+}
+
 instance_result scene::actor_event(scene_handle const handle, unsigned int const entry) {
   auto &actor{actors.at(handle.value)};
   auto const output{[&](scene_request const &request) { emit_effect(request,actor.position); }};
@@ -215,15 +226,21 @@ scene_events scene::advance(timer_ticks const elapsed) {
   else working_jitter = saved_jitter;
   scene_events result;
   if(!animate) return result;
+  result.animated = true;
   for(auto &[index, instance] : instances) {
     auto const x{index % map_width}, z{index / map_width};
     result.eject_player |= advance_instance(instance,{(x + .5) * cell_units,0,(z + .5) * cell_units},terrain.tile(x,z).rotation);
+  }
+  if(upper_terrain) for(auto &[index, instance] : upper_instances) {
+    auto const x{index % map_width}, z{index / map_width};
+    int const height{select_terrain_layer(true,terrain.lighting.layer_y,terrain.lighting.layer_offset_y,terrain.lighting.layer_y).height};
+    result.eject_player |= advance_instance(instance,{(x + .5) * cell_units,static_cast<double>(height),(z + .5) * cell_units},upper_terrain->tile(x,z).rotation);
   }
   for(auto &[_, actor] : actors) result.eject_player |= advance_instance(actor.state,actor.position);
   return result;
 }
 
-void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions) {
+void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y) {
   /// Queue complete model parts by camera depth plus their native signed sort bias; keep primitive order inside each part
   struct queued_part {
     models::shape const *shape;
@@ -241,17 +258,20 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
   int const centre_x{static_cast<int>(std::floor(view.position.x / cell_units))}, centre_z{static_cast<int>(std::floor(view.position.z / cell_units))};
   int const first_x{std::max(0, centre_x - static_cast<int>(radius))}, last_x{std::min(static_cast<int>(map_width) - 1, centre_x + static_cast<int>(radius))};
   int const first_z{std::max(0, centre_z - static_cast<int>(radius))}, last_z{std::min(static_cast<int>(map_height) - 1, centre_z + static_cast<int>(radius))};
+  auto const layer{select_terrain_layer(upper_terrain && terrain.lighting.cloud_layer,terrain.lighting.layer_y,terrain.lighting.layer_offset_y,camera_anchor_y.value_or(static_cast<int32_t>(std::floor(view.position.y))))};
+  auto const &grid{layer.upper ? *upper_terrain : terrain};
+  auto &states{layer.upper ? upper_instances : instances};
   parts_drawn = 0;
   primitives_drawn = 0;
   for(int x{first_x}; x <= last_x; ++x) {
     for(int z{first_z}; z <= last_z; ++z) {
       auto const col{static_cast<unsigned int>(x)}, row{static_cast<unsigned int>(z)};
-      auto const &tile{terrain.tile(col,row)};
-      vec3d const centre{(x + .5) * cell_units,0,(z + .5) * cell_units};
+      auto const &tile{grid.tile(col,row)};
+      vec3d const centre{(x + .5) * cell_units,static_cast<double>(layer.height),(z + .5) * cell_units};
       auto const camera_centre{view.transform(centre)};
       if(camera_centre.z < -cell_units || camera_centre.z > view.far_distance + cell_units) continue;
       try {
-        auto &instance{terrain_instance(col,row)};
+        auto &instance{states.try_emplace(row * map_width + col,resources.object(grid.variant(col,row))).first->second};
         auto const requests{[&](scene_request const &request) { emit_effect(request,centre,tile.rotation); }};
         auto const origin{word_position(centre)};
         instance_context const context{
@@ -279,7 +299,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
           });
         }
       } catch(std::exception const &error) {
-        warnings.insert(terrain.variant(col,row) + ": " + error.what());
+        warnings.insert(grid.variant(col,row) + ": " + error.what());
       }
     }
   }
@@ -324,6 +344,19 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
   if(final_submissions) final_submissions();
   for(auto const &submission : submissions) submit(actors.at(submission.handle.value),submission.position,submission.rotation);
   submissions.clear();
+  for(auto const &submission : model_submissions) {
+    auto const &shape{resources.shape(submission.part.name)};
+    double const depth{view.transform(submission.position).z};
+    queue.push_back({
+      .shape{&shape},
+      .part{&submission.part},
+      .origin{vec3d{submission.position}},
+      .rotation{1.,0.,0.,0.,1.,0.,0.,0.,1.},
+      .heading{0},
+      .depth{depth},
+      .sort_key{depth + shape.sort_depth_bias},
+    });
+  }
   std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
   for(auto const &item : queue) {
     try {
@@ -361,6 +394,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       warnings.insert(item.part->name + ": " + error.what());
     }
   }
+  model_submissions.clear();
 }
 
 } // namespace tfx::world

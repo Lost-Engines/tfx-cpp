@@ -117,7 +117,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   bool night_vision{false};
   int16_t hud_green{tfx::math::signed_word(preferences.hud_green)};
   tfx::world::assets assets{game};
-  tfx::world::scene scene{environment,assets};
+  std::unique_ptr<tfx::world::environment> upper_environment;
+  if(environment.lighting.cloud_layer) upper_environment = std::make_unique<tfx::world::environment>(game,environment.lighting.upper_grid,environment.lighting_name);
+  tfx::world::scene scene{environment,assets,upper_environment.get()};
+  auto &sky_state{options.sky};
+  bool sky_animation{false};
   tfx::render::software_renderer renderer{tables}, camera_renderer{tables};
   tfx::missions::timeline mission_time{mission_setup};
   tfx::missions::progress mission_progress{mission_setup};
@@ -1185,7 +1189,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
     }
     projectiles.advance(elapsed,air_simulation.random_stream());
-    if(scene.advance(elapsed).eject_player) ejection.request();
+    auto const scene_update{scene.advance(elapsed)};
+    sky_animation = scene_update.animated;
+    if(scene_update.eject_player) ejection.request();
     flak_flash = false;
     if(auto const event{tfx::world::advance_flak(flak_state,{
       .player{vec3<int32_t>{player.integer_position}},
@@ -1379,7 +1385,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         camera.far_distance = scene_radius * tfx::world::cell_units;
         camera_renderer.background(camera,0,32);
         queue_projectiles();
-        scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); });
+        scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); },request.position.y);
         // The current world painter renders a whole software target; copy its viewport
         // into the instrument target. The original world raster's clipping is separate work.
         int const top{request.minimum.y + (request.maximum.y < tfx::render::screen_height ? 1 : 0)};
@@ -1548,6 +1554,21 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         }));
       }
       flak_flash = false;
+      auto const request{tfx::world::advance_sky(sky_state,{
+        .suppressed{environment.lighting.sun_suppressed},
+        .cloud_layer{environment.lighting.cloud_layer},
+        .storm{environment.lighting.storm},
+        .animate{sky_animation},
+        .layer_y{environment.lighting.layer_y},
+        .player{vec3<int32_t>{player.integer_position}},
+        .camera_anchor{designator_view ? vec3<int32_t>{designator.camera} : vec3<int32_t>{view_motion.last_pose().anchor}},
+      })};
+      sky_animation = false;
+      if(request && projected_view.sphere_visible(vec3<int32_t>{request->position},tfx::world::sky_visibility_radius)) {
+        vec3<int32_t> const reference{static_cast<int32_t>(std::floor(view.position.x)),static_cast<int32_t>(std::floor(view.position.y)),static_cast<int32_t>(std::floor(view.position.z))};
+        scene.queue_model(std::string{tfx::world::sky_model_name(request->model)},tfx::world::effect_position(request->position,reference));
+      }
+      if(tfx::world::consume_lightning_flash(sky_state,projected_view)) palette_lighting.flash(12);
       auto const lighting{palette_lighting.advance({
         .camera_y{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},
         .pitch{player.angles.x},
@@ -1575,7 +1596,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     renderer.background(view,0,32);
     queue_projectiles();
     scene.set_query_reference(inspect ? nullptr : &player.integer_position);
-    scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); });
+    scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y});
     if(!inspect && result_evaluated) {
       // Diagnostic result display until the original presentation/menu graph supplies its result page.
       renderer.output.pixels.fill(0);

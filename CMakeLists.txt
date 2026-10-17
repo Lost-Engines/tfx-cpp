@@ -346,6 +346,7 @@ add_library(tfx_core
   src/world/effects.cpp
   src/world/effects.h
   src/world/trails.cpp src/world/trails.h
+  src/world/sky.cpp src/world/sky.h
   src/world/flak.cpp src/world/flak.h
   src/world/collision.cpp
   src/world/collision.h
@@ -543,6 +544,13 @@ if(BUILD_TESTING)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
 
+  add_executable(sky_scene_probe tests/sky_scene_probe.cpp)
+  target_link_libraries(sky_scene_probe PRIVATE tfx_core)
+  configure_first_party(sky_scene_probe)
+  add_executable(sky_probe tests/sky_probe.cpp)
+  target_link_libraries(sky_probe PRIVATE tfx_core)
+  configure_first_party(sky_probe)
+  add_test(NAME world.native_sky_and_layers COMMAND sky_probe ${PROJECT_SOURCE_DIR}/tests/reference/sky.txt)
   add_executable(trails_probe tests/trails_probe.cpp)
   target_link_libraries(trails_probe PRIVATE tfx_core)
   configure_first_party(trails_probe)
