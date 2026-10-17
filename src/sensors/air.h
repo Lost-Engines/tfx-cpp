@@ -33,11 +33,12 @@ public:
 struct air_lock {
   std::optional<unsigned int> tracking{};
   std::optional<unsigned int> guidance{};
-  vec2<int32_t> reticle{160 * 256,100 * 256};
+  vec2<int32_t> reticle{0,0};
   vec2<int16_t> projected{0,0};
   int16_t lock_ticks{0};
   int16_t acquisition_ticks{0};
   bool too_close{false};
+  void begin_mission(vec2<int16_t> const &projection_origin);
   void clear(vec2<int16_t> const &centre = {160,100});
 };
 struct lock_context {

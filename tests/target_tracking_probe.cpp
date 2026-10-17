@@ -23,7 +23,7 @@ int main(int const argc, char const *const argv[]) try {
   tfx::cockpit::weapon_display_state state;tfx::cockpit::air_target_cue cue;
   vec2<int16_t> ground_point{0,0};
   while(std::cin >> reset >> mode >> aircraft >> weapon >> state.limited >> state.suppressed >> state.air_lock >> state.ground_lock >> present >> cue.acquiring >> leader >> cue.projected.x >> cue.projected.y >> cue.tracking_q8.x >> cue.tracking_q8.y >> state.flight.position.x >> state.flight.position.y >> state.flight.position.z >> cue.reading.position_q8.x >> cue.reading.position_q8.y >> cue.reading.position_q8.z >> cue.reading.heading >> cue.reading.speed_q16) {
-    for(auto *axis : {&cue.orientation.right,&cue.orientation.down,&cue.orientation.forward}) for(auto &coordinate : *axis) std::cin >> coordinate;
+    for(unsigned int row{0}; row != 3; ++row) for(auto *axis : {&cue.orientation.right,&cue.orientation.down,&cue.orientation.forward}) std::cin >> (*axis)[row];
     std::cin >> ground >> ground_point.x >> ground_point.y >> state.attitude.offset.x >> state.attitude.offset.y;
     if(reset) display.reset_tracking();
     int request{-1};double fuel{10000};

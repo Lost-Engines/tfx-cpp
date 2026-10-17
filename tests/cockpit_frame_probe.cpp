@@ -34,6 +34,7 @@ int main(int const argc, char const *const argv[]) try {
         if(!(std::cin >> requested.x >> requested.y)) throw std::runtime_error{"incomplete cockpit-shake input"};
         if(action == 3) position.shake();
         if(action == 4) position.move_to(requested);
+        if(action == 5) position.bump();
       }
       position.advance(assets.viewports.at(view).bottom,view == 0);
       std::cout << position.value().x << ' ' << position.value().y << ' ' << position.step_index() << ' ' << std::to_underlying(position.movement()) << '\n';

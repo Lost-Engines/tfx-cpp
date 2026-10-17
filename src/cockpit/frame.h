@@ -23,7 +23,7 @@ public:
   void paint(render::framebuffer &target, unsigned int view, vec2<int16_t> const &offset, render::framebuffer *coverage = nullptr) const;
 };
 
-enum class cockpit_motion { idle, up, down, flak_shake };
+enum class cockpit_motion { idle, up, down, flak_shake, ground_bump };
 class cockpit_position {
 private:
   instrument_assets const &assets;
@@ -42,6 +42,7 @@ public:
   void raise();
   void lower();
   void shake();
+  void bump();
   void advance(int16_t viewport_bottom, bool forward_cockpit = true);
 };
 

@@ -78,9 +78,10 @@ void target_display::direction(render::software_renderer &renderer, air_target_r
     for(unsigned int index{0}; index != 3; ++index) result += static_cast<uint32_t>(delta[index]) * static_cast<uint32_t>(axis[index]);
     return std::bit_cast<int32_t>(result);
   }};
-  auto const view_axes{state.orientation.transposed()};
-  int32_t const horizontal{dot(view_axes.right)};
-  int32_t x{magnitude(horizontal)}, y{dot(view_axes.down)};
+  // Attitude stores the aircraft axes as world-space columns. Native
+  // DATA 0x1345e stores the same matrix by rows; no extra transpose belongs here.
+  int32_t const horizontal{dot(state.orientation.right)};
+  int32_t x{magnitude(horizontal)}, y{dot(state.orientation.down)};
   while(x < -32768 || x > 32767 || y < -32768 || y > 32767) { x >>= 1;y >>= 1; }
   // Native 0x7ef94 returns phase zero if either input lies between -1 and 1.
   math::angle angle{0};

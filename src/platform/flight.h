@@ -9,6 +9,7 @@
 #include "simulation/timing.h"
 #include "world/flak.h"
 #include "world/animation.h"
+#include "sensors/air.h"
 #include "world/sky.h"
 #include "render/horizon.h"
 #include "render/precipitation.h"
@@ -27,6 +28,8 @@ struct flight_options {
   world::flak_state &flak;
   world::sky_state &sky;
   world::animation_clock &scenery_clock;
+  sensors::air_lock &seeker;
+  vec2<int16_t> &projection_origin;
   render::horizon_phase &ground_phase;
   vec3<int32_t> &ground_reference;
   int16_t &nearby_hostile_count;

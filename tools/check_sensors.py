@@ -79,18 +79,31 @@ def main():
         values=[int(bool(image.read(a,'<I')[0])) for a in (0x11108,0x135c8,0x135d0)]
         values.extend([*image.read(0x135c0,'<2i'),*image.read(0x135cc,'<2h'),*image.read(0x135d4,'<2h'),image.read(0x8860,'<B')[0]])
         rows.append(row);expected.append(values)
+    # Native mission setup uses the inherited renderer aperture, not a new
+    # HUD centre. It deliberately retains projected/too-close observations.
+    for case in range(1024):
+        centre=((159,99),(261,157),(159,56),(-32768,32767),(32767,-32768),(0,0))[case%6] if case<24 else (rng.randrange(-32768,32768),rng.randrange(-32768,32768))
+        point=(rng.randrange(-32768,32768),rng.randrange(-32768,32768));lock=rng.randrange(-32768,32768);acquisition=rng.randrange(-32768,32768);close=case%2
+        image.cpu.mem_write(image.native(0x70aa4+0x47736),struct.pack('<2h',*centre))
+        image.write(0x11108,'<I',0x300200);image.write(0x135c8,'<I',0x300200);image.write(0x135d0,'<I',0x300200)
+        image.write(0x135c0,'<2i',-12345,67890);image.write(0x135cc,'<2h',*point);image.write(0x135d4,'<2h',lock,acquisition);image.write(0x8860,'<B',close)
+        image.call(0x930d4)
+        assert image.read(0x11108,'<I')[0]==0
+        rows.append(['B',*centre,*point,lock,acquisition,close])
+        expected.append([int(bool(image.read(a,'<I')[0])) for a in (0x135d0,0x135c8)]+[*image.read(0x135c0,'<2i'),*image.read(0x135cc,'<2h'),*image.read(0x135d4,'<2h'),int(image.read(0x8860,'<B')[0]!=0)])
     result=subprocess.run([str(args.build/'sensors_probe')]+(['--announcements'] if args.announcements else []),input=''.join(' '.join(map(str,row))+'\n' for row in rows),capture_output=True,text=True,check=True)
     actual=[[int(v) for v in line.split()] for line in result.stdout.splitlines()];assert len(actual)==len(expected)
     for i,(a,b) in enumerate(zip(actual,expected)):assert a==b,(i,rows[i],a,b)
     if args.save_fixture:
         fixtures=[]
-        for row,values in zip(rows,expected):
+        for index,(row,values) in enumerate(zip(rows,expected)):
+            if row[0]=='B' and index%17 and index>=5120+24:continue
             digest=14695981039346656037
             for value in values:
                 for byte in struct.pack('<I',value&0xffffffff):digest=((digest^byte)*1099511628211)&0xffffffffffffffff
             fixtures.append(' '.join(map(str,row+[digest]))+'\n')
         args.save_fixture.write_text(''.join(fixtures));subprocess.run([str(args.build/'sensors_probe')]+(['--announcements'] if args.announcements else [])+[str(args.save_fixture)],check=True)
-    print('1024 persistent radar frames and 4096 seeker acquisition/lock states agree with native execution')
+    print('1024 persistent radar frames, 4096 seeker acquisition/lock states and 1024 complete mission-start resets agree with native execution')
 
 
 if __name__=='__main__':main()

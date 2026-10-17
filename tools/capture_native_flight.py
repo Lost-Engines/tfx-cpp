@@ -9,7 +9,7 @@ research parser. No game instruction or original installation is modified.
 Requires Unicorn and the independent did-unpack module in the research tree.
 """
 from pathlib import Path
-import argparse,struct,sys,json
+import argparse,struct,sys,json,hashlib
 from native_reference import NativeReference,r
 from native_vga import VgaCapture
 from unicorn import UC_HOOK_CODE,UC_HOOK_INSN,UC_HOOK_MEM_WRITE,UC_HOOK_MEM_READ
@@ -186,6 +186,16 @@ def actors_snapshot(current):
    result.append([pool*50+index,*struct.unpack_from('<3i3Hi3hihhI',raw),struct.unpack_from('<H',raw,66)[0],*raw[40:42],*raw[64:66]])
  return result
 
+def sensor_snapshot(current):
+ identities={0:-1}
+ for pool,base in enumerate((0x11034,0x10f6c)):
+  for index in range(50):
+   pointer=current.read(base+index*4,'<I')[0]
+   if pointer:identities[pointer]=pool*50+index
+ identity=lambda pointer:identities[pointer]
+ slots=current.read(current.read(0x76c8,'<I')[0]-current.data,'<20I')
+ return [current.read(0x76d0,'<h')[0],identity(current.read(0x11108,'<I')[0]),*[identity(p) for p in slots],int(current.read(0x763e,'<H')[0]!=0),current.read(0x7774,'<h')[0],identity(current.read(0x135c8,'<I')[0]),identity(current.read(0x135d0,'<I')[0]),*current.read(0x135c0,'<2i'),*current.read(0x135cc,'<2h'),*current.read(0x135d4,'<2h'),int(current.read(0x8860,'<B')[0]!=0)]
+
 def frame_boundary(current):
  snapshots.append({
   'frame':frames[0],
@@ -202,6 +212,8 @@ def frame_boundary(current):
   'selected':current.read(0x93b0,'<h')[0],
   'stores':[current.read(0x13374+i*2,'<2B') for i in range(11)],
   'ground_phase':current.read(0xad7c,'<i')[0],
+  'body_basis':current.read(0x1345e,'<9h'),
+  'sensors':sensor_snapshot(current),
   'animation':[current.read(0xac90,'<B')[0],current.read(0xe74c,'<h')[0]],
   'pattern_seed':struct.unpack('<H',current.cpu.mem_read(current.native(0xe3a3f),2))[0],
   'timer':clock[0],
@@ -212,6 +224,10 @@ def frame_boundary(current):
   current.cpu.emu_stop();return
  frames[0]+=1;clock[0]+=4
 im.intercept(0x72045,'Supply one four-tick external interval at each original frame boundary and stop after the requested complete frames.',frame_boundary)
+preflight_projection=[]
+def observe_seeker_reset(cpu,address,size,unused):
+ preflight_projection[:]=struct.unpack('<2h',cpu.mem_read(im.native(0x70aa4+0x47736),4))
+im.cpu.hook_add(UC_HOOK_CODE,observe_seeker_reset,begin=im.native(0x930d4),end=im.native(0x930d4))
 radio_events=[]
 def observe_radio(cpu,address,size,unused):
  radio_events.append({'frame':frames[0],'message':string(cpu.reg_read(r.UC_X86_REG_EAX)),'persistent':address==im.native(0x81254)})
@@ -267,6 +283,8 @@ except RuntimeError:
 else:raise RuntimeError('Original mission returned before completing the requested capture')
 assert parser_base<=im.read(0x1acfc,'<I')[0]<parser_base+0x100000,'presentation arena exhausted'
 record={
+ 'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
+ 'preflight_projection':preflight_projection,
  'mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
  'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
  'dependencies':{hex(address):reason for address,reason in im.dependencies.items()},

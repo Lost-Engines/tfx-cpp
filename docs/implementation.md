@@ -2510,8 +2510,9 @@ cockpit cancels the shake and restores the saved offset. Raising/lowering the
 panel can replace that callback and updates the same saved position, as in the
 original. The saved-Y `-1` sentinel and conditional X restoration are retained.
 
-The frame loop now advances the existing cockpit callback before physics and
-the flak controller, matching native `0x720b8`. A newly requested shake
+The frame loop advances the cockpit callback after player physics/cannon and
+before timed messages and the flak controller, matching native `0x720b8`.
+A newly requested flak shake
 therefore starts moving on the next frame. Panel, projection and HUD consumers
 already share this position. This restores positional feedback; it does not
 change fog, range lighting or aircraft forces. The separate aerodynamic ground
@@ -4056,3 +4057,74 @@ every indexed pixel**, as well as player/AI, shared RNG, radio, camera and
 horizon state. The landed F-117's 16-frame exact comparison also remains
 unchanged. These are complete launch/frame-loop comparisons, not separately
 constructed renderer scenes.
+
+
+### Target-cue axes, seeker startup and authored shadow pixels
+
+A broader complete-session matrix exposed an off-sight cue reflected across the
+HUD. Numerical flight was already correct: the painter transposed its logical
+world-space aircraft axes again. The old isolated probe also read native
+row-major words as axis vectors, masking that integration error. Both probe
+adapters now decode the native storage explicitly; production uses the actual
+body axes, including Simple's separate body/display attitudes. The unchanged
+native input corpus still agrees on **1,600 complete target-display frames**
+and **1,024 composed forward-HUD frames** with warnings, refuelling and ILS.
+
+Original mission setup calls `0x930d4` after arming. It sets the lock countdown
+to 500, clears acquisition/actor pointers and seeds the reticle from the current
+renderer aperture, retaining the projected target and too-close observation.
+The final weapon thumbnail supplies that aperture after arming; missions using
+DEFAULT_WEAP retain the prior aperture instead. Live startup now follows this
+handoff, deriving the thumbnail centre from the decoded original rectangles.
+The retained seeker observations and projection origin have application lifetime.
+An additional **1,024 complete native startup resets** verify signed aperture
+coordinates, countdown, cleared pointers and intentionally retained fields.
+Compact cases extend the existing sensor fixture rather than duplicating it.
+
+Complete-session captures now additionally compare the real body matrix, radar
+slots, selected/acquiring/locked actor identities, reticle/projected coordinates,
+lock timers and too-close state. They record the preflight aperture and original
+executable/archive SHA-256 values; capture reuse checks those hashes when present.
+Fresh Colombian and F-22 sessions agree on all these fields and every pixel.
+All nine selected 16-frame regional sessions also agree in every indexed pixel:
+missions 503, 504, 506, 605, 703, 745, 801, 922 and 965, spanning carrier/runway,
+airborne, day/night and storm contexts.
+
+The Libyan trace exposed a distinct shadow rule: authored opcode 51/52 pixels
+retain their mapped colour, whereas polygons, lines and discs use shadow ink.
+The live scene preserves that distinction. `check_model_transforms.py --shadow
+--effects` executes the original converter, queued shadow constructor, matrix
+composition, bytecode and VGA painters for **1,023 completed frames**, including
+711 nonempty images. Every pixel and all nine matrix words agree; one original
+IDIV-overflow input has no completed frame and is excluded explicitly. Its
+compact synthetic regression adds no original model bytes.
+
+
+### Suspension bump and player/cockpit ordering
+
+The aerodynamic ground solver already emitted the original suspension-bump
+request, but the host discarded it. Its distinct `0x7d9d4` cockpit callback now
+runs after player physics/cannon and before timed messages (`0x720b8`), on the
+requesting frame. Later flak requests still begin on the following frame.
+The callback shares the flak cursor but tests a different sentinel table;
+its ordinary two-step movement is +4 then -4 pixels. Neither a view change nor
+its completion restores the separate saved flak offset.
+
+`check_cockpit_shake.py` now includes **8,192 mixed original callbacks** with
+suspension requests, flak, panel movement, interruptions and wrap boundaries.
+The injected suspension cases stay within the declared table prefix; walking
+past the original tables into unrelated bitmap globals is not presented as
+verified behaviour. All compared offsets, cursors and callbacks agree.
+
+The complete flight-model matrix covers **32 frames in each of the four
+models**, both airborne mission 501 and runway mission 506. Every indexed
+pixel, player/body pose, actor, shared random state, camera, radio, seeker and
+scenery clock agrees in all eight sessions. This includes the naturally reached
+Military-spec suspension bump and its same-frame projection/HUD movement.
+
+All **182 asset-free regressions** pass in development, Release and ASan/UBSan.
+After the ordering correction, both the eight-session flight-model matrix and
+nine-session regional matrix were rerun and remain pixel/state exact. All
+**128 retail missions** also complete 64 fully composed C++ frames with no
+reported preview limitations. These short corpus runs establish startup/frame
+coverage, not successful completion of every mission.

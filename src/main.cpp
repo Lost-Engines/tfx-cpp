@@ -224,6 +224,8 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::world::flak_state flak_state;
   tfx::world::sky_state sky_state;
   tfx::world::animation_clock scenery_clock;
+  tfx::sensors::air_lock seeker;
+  vec2<int16_t> projection_origin{tfx::render::centre_x - 1,tfx::render::centre_y - 1};
   tfx::render::horizon_phase ground_phase;
   vec3<int32_t> ground_reference{0,0,0};
   tfx::render::precipitation rain;
@@ -246,6 +248,8 @@ auto main(int const argc, char const *const argv[])->int try {
     .flak{flak_state},
     .sky{sky_state},
     .scenery_clock{scenery_clock},
+    .seeker{seeker},
+    .projection_origin{projection_origin},
     .ground_phase{ground_phase},
     .ground_reference{ground_reference},
     .nearby_hostile_count{nearby_hostile_count},

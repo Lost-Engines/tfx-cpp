@@ -284,7 +284,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       auto const *detail{native ? item.shape->detail_for_distance(item.metrics.distance) : nullptr};
       if(native && !detail) return;
       bool const shadow{path == render::model_render_path::ground_shadow};
-      // Native shadows retain coloured distant-point LOD; only polygon
+      // Native shadows retain coloured distant-point LOD. Ordinary
       // silhouettes take the forced-black drawing path below.
       if(detail && detail->kind >= models::detail_kind::pixel_block) {
         unsigned int const size{detail->kind == models::detail_kind::pixel_block ? 2u : 1u};
@@ -336,7 +336,9 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
           .shade{shadow ? -1 : vertex.shade},
           .projection_scale{vertex.projection_scale},
         });
-        if(shadow) {
+        // Opcode 51/52 pixels bypass the shadow ink loader, like distant LOD.
+        bool const authored_pixel{primitive.kind == models::primitive_kind::point && primitive.pixel_size};
+        if(shadow && !authored_pixel) {
           auto silhouette{primitive};silhouette.colour = 0;silhouette.texture.reset();
           renderer.primitive(silhouette,vertices,view,{});
           ++primitives_drawn;continue;
