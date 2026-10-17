@@ -46,6 +46,7 @@ int main(int const argc, char const *const argv[]) try {
     context.camera.emplace(tfx::models::shape_camera{
       .basis{32767,0,0,0,32767,0,0,0,32767},
       .origin{0,0,0},
+      .projection_shift{tfx::render::projection_shift(view.opening)},
     });
     auto const geometry{tfx::models::interpret(shape,context)};
     if(!geometry.warnings.empty() || geometry.primitives.size() != 6) throw std::runtime_error{"palette model emitted incomplete geometry"};

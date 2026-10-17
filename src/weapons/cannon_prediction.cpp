@@ -4,7 +4,10 @@ namespace tfx::weapons {
 
 std::array<vec3<int32_t>,5> predict_cannon(definition const &cannon, vec3<int32_t> const &anchor_q8,
   vec3<math::angle> const &angles, int32_t const speed, vec2<int32_t> const &height_bounds) {
-  auto shot{launch(cannon,0,anchor_q8,angles,speed)};
+  return predict_cannon(cannon,launch(cannon,0,anchor_q8,angles,speed),height_bounds);
+}
+
+std::array<vec3<int32_t>,5> predict_cannon(definition const &cannon, projectile shot, vec2<int32_t> const &height_bounds) {
   math::random_state random;
   uint16_t constexpr prediction_step_ticks{20};
   motion_context const context{

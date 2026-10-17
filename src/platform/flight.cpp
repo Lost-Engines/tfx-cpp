@@ -1487,7 +1487,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     std::vector<tfx::cockpit::radar_projectile> radar_projectiles;
     // Native 82FBE walks the intrusive list newest first. Overlapping player
     // and enemy missile markers retain that order, independently of identity.
-    for(auto const &[_,shot] : projectiles.projectiles() | std::views::reverse) if(!shot->spent) radar_projectiles.push_back({
+    // Impacted records still appear until the normal frame-tail retirement.
+    for(auto const &[_,shot] : projectiles.projectiles() | std::views::reverse) radar_projectiles.push_back({
       .position_q8{vec3<int32_t>{shot->state.position}},
       .weapon{static_cast<tfx::weapons::weapon_id>(shot->state.weapon)},
       .player_owned{shot->owner.pool == tfx::weapons::actor_pool::player},
@@ -1757,10 +1758,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         return vec2<int16_t>{-1,-1};
       }};
       if(state.mode == tfx::cockpit::aiming_mode::navigation || state.cannon) {
-        auto const samples{tfx::weapons::predict_cannon(tables.weapons[0],anchor,player.angles,player.fixed_speed,movement_height_bounds)};
+        auto const samples{projectiles.predict_cannon(anchor,player.angles,player.fixed_speed,movement_height_bounds)};
         for(unsigned int index{0}; index != samples.size(); ++index) state.cannon_path[index] = project_prediction(samples[index]);
       }
-      if(state.mode != tfx::cockpit::aiming_mode::navigation && weapon.category == tfx::weapons::bomb_impact_category) state.bomb_impact.emplace(project_prediction(tfx::weapons::predict_bomb_impact(weapon,static_cast<uint8_t>(weapon_index),anchor,player.angles,player.fixed_speed,movement_height_bounds)));
+      if(state.mode != tfx::cockpit::aiming_mode::navigation && weapon.category == tfx::weapons::bomb_impact_category) state.bomb_impact.emplace(project_prediction(projectiles.predict_bomb_impact(weapon_index,anchor,player.angles,player.fixed_speed,movement_height_bounds)));
     }
     aiming.draw_forward(renderer,state);
   }};

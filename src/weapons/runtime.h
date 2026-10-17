@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <functional>
 #include <map>
 #include "simulation/timing.h"
@@ -79,6 +80,7 @@ private:
   void retire(pool_slot &slot);
   projectile_id next_id{1};
   vec3<int32_t> untargeted_point{0,0,0};
+  void prepare_untargeted_target(projectile const &shot);
   std::optional<simulation::timer_ticks> substep{};
   warning_state warnings{};
 
@@ -89,6 +91,10 @@ public:
   runtime(runtime&&) = delete;
   runtime &operator=(runtime&&) = delete;
   projectile_id launch(release const &request);
+  // HUD prediction uses the same constructor scratch target as live releases,
+  // while leaving the live pool, projectile identities and ammunition alone.
+  std::array<vec3<int32_t>,5> predict_cannon(vec3<int32_t> const &anchor_q8, vec3<math::angle> const &angles, int32_t speed, vec2<int32_t> const &height_bounds);
+  vec3<int32_t> predict_bomb_impact(unsigned int weapon, vec3<int32_t> const &anchor_q8, vec3<math::angle> const &angles, int32_t speed, vec2<int32_t> const &height_bounds);
   projectile_id countermeasure(actor_identity owner, vec3<int32_t> const &position, bool radar, int16_t strength, math::random_state &random);
   std::map<projectile_id,active_projectile const*> const &projectiles() const;
   // Borrowed stable pool record: retirement leaves its address valid until this runtime is destroyed.

@@ -22,11 +22,12 @@ std::vector<uint8_t> program(std::array<vec3<int16_t>,3> const &vertices, uint16
 }
 
 int main(int const argc, char const *const argv[]) try {
-  bool pixels{false},shaded{false};std::ifstream fixture;
+  bool pixels{false},shaded{false},native_camera{false};std::ifstream fixture;
   for(int i{1}; i != argc; ++i) {
     std::string_view const option{argv[i]};
     if(option == "--pixels") pixels = true;
     else if(option == "--shaded") shaded = true;
+    else if(option == "--native-camera") native_camera = true;
     else { if(fixture.is_open()) throw std::runtime_error{"expected [FILE] [--pixels] [--shaded]"};fixture.open(argv[i]);if(!fixture) throw std::runtime_error{"cannot open model fixture"}; }
   }
   auto &input{fixture.is_open() ? fixture : std::cin};
@@ -41,7 +42,7 @@ int main(int const argc, char const *const argv[]) try {
     auto const transform{[&](std::span<tfx::models::model_vertex const> const source) {
       std::vector<tfx::models::model_vertex> result;
       for(auto const &point : source) result.push_back({
-        .position{view.transform(point.position + vec3d{offset})},
+        .position{native_camera ? vec3d{point.position} : view.transform(point.position + vec3d{offset})},
         .uv{0,0},
         .shade{point.shade},
         .projection_scale{point.projection_scale},
@@ -49,6 +50,11 @@ int main(int const argc, char const *const argv[]) try {
       return result;
     }};
     tfx::models::shape_context context;
+    if(native_camera) context.camera.emplace(tfx::models::shape_camera{
+      .basis{mat3<int32_t>{identity}},
+      .origin{vec3<int32_t>{offset} * 32767},
+      .projection_shift{tfx::render::projection_shift(view.opening)},
+    });
     context.face_visibility = [&](std::span<tfx::models::model_vertex const> const points,tfx::models::facing_test const purpose) { return tfx::render::model_facing(transform(points),view,purpose); };
     auto const geometry{tfx::models::interpret(shape,context)};
     if(!geometry.warnings.empty()) throw std::runtime_error{"synthetic model emitted a warning"};
@@ -56,8 +62,8 @@ int main(int const argc, char const *const argv[]) try {
     for(auto const &face : geometry.primitives) if(!tfx::render::integer_model_polygon(output,transform(face.vertices),view,static_cast<uint8_t>(face.colour))) throw std::runtime_error{"unhandled synthetic model face"};
     uint64_t hash{14695981039346656037ull};for(auto const value : output.pixels) hash = (hash ^ value) * 1099511628211;
     if(pixels) std::cout.write(reinterpret_cast<char const*>(output.pixels.data()),output.pixels.size());
-    else if(fixture.is_open()) { uint64_t draws,expected;if(!(input >> draws >> expected) || draws != (geometry.steps - 7) / (shaded ? 2 : 1) || expected != hash) throw std::runtime_error{"native model program mismatch at case " + std::to_string(cases)}; }
-    else std::cout << (geometry.steps - 7) / (shaded ? 2 : 1) << ' ' << hash << '\n';
+    else if(fixture.is_open()) { uint64_t draws,expected;if(!(input >> draws >> expected) || draws != (geometry.projection_aborted ? 0u : (geometry.steps - 7) / (shaded ? 2 : 1)) || expected != hash) throw std::runtime_error{"native model program mismatch at case " + std::to_string(cases)}; }
+    else std::cout << (geometry.projection_aborted ? 0u : (geometry.steps - 7) / (shaded ? 2 : 1)) << ' ' << hash << '\n';
     ++cases;
   }
   return cases ? 0 : 1;

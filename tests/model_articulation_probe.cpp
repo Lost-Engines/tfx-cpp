@@ -58,6 +58,7 @@ int main(int const argc, char const *const argv[]) try {
     context.camera.emplace(tfx::models::shape_camera{
       .basis{mat3<int32_t>{transform.matrix()}},
       .origin{vec3<int32_t>{origin}},
+      .projection_shift{tfx::render::projection_shift(view.opening)},
     });
     context.attachments = attachments;
     auto const geometry{tfx::models::interpret(source,context)};

@@ -57,6 +57,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     # LSan cannot inspect a process under ptrace; ordinary sanitizer tests keep it enabled.
     env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
     if (native/'radar.json').exists():env['TFX_OBSERVE_RADAR_CONTEXT']='1'
+    if 'projectile_guidance' in expected:env['TFX_OBSERVE_PROJECTILE_GUIDANCE']='1'
     # GDB reads sourced files incrementally. Retain the exact observer beside
     # the capture so ongoing development cannot change a running comparison.
     observer=root/'observe.gdb';observer.write_bytes((tools/'observe_flight_session.gdb').read_bytes())
@@ -177,9 +178,14 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
                     if observed[field]!=original_frame[field]:
                         mismatches=[(i,x,y)for i,(x,y)in enumerate(zip(observed[field],original_frame[field]))if x!=y]
                         raise AssertionError(('recording frame',index,field,len(observed[field]),len(original_frame[field]),mismatches[:2]))
+    if 'projectile_guidance' in expected:
+        wanted=[event for event in expected['projectile_guidance']if event['frame']<=a.frames]
+        actual=records('CPP_PROJECTILE_GUIDANCE ')
+        assert actual==wanted,('projectile guidance inputs',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:3],len(actual),len(wanted))
     verified=['player','actors','shared RNG','radio','camera','horizon']
     if a.until_result:verified.append('natural result/FINISH campaign values')
     if (native/'radar.json').exists():verified.append('ordered radar inputs')
+    if 'projectile_guidance' in expected:verified.append('projectile guidance inputs')
     if 'trail_events' in expected:verified.append('smoke samples')
     if expected.get('recordings'):verified.append('recorded model queues')
     verified += [field for field in ('mission_progress','cannon','radar_pulse','speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]

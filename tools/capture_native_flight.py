@@ -10,20 +10,11 @@ Requires Unicorn and the independent did-unpack module in the research tree.
 """
 from pathlib import Path
 import argparse,struct,sys,json,hashlib
-from native_reference import NativeReference,r
+from native_reference import r
+from native_dpmi import DpmiReference
 from flight_inputs import FlightInputs,KEYS
 from native_vga import VgaCapture
 from unicorn import UC_HOOK_CODE,UC_HOOK_INSN,UC_HOOK_MEM_WRITE,UC_HOOK_MEM_READ
-
-class SessionReference(NativeReference):
- def _interrupt(self,cpu,interrupt,unused):
-  operation=cpu.reg_read(r.UC_X86_REG_EAX)&65535
-  if interrupt==0x31 and operation in (0x202,0x203):
-   if operation==0x202:
-    cpu.reg_write(r.UC_X86_REG_ECX,0);cpu.reg_write(r.UC_X86_REG_EDX,0)
-   cpu.reg_write(r.UC_X86_REG_EFLAGS,cpu.reg_read(r.UC_X86_REG_EFLAGS)&~1)
-   return
-  super()._interrupt(cpu,interrupt,unused)
 
 class SessionVideo(VgaCapture):
  def __init__(self,image,aperture=0xa0000):
@@ -78,7 +69,7 @@ root=args.research.resolve();directory=root/'installs/cd_1994_09/TFX'
 args.output.mkdir(parents=True,exist_ok=True)
 sys.path.insert(0,str(root/'did-unpack'))
 from did_unpack import Archive
-im=SessionReference(directory/'TFX.DAT',data_base=0x100000);video=SessionVideo(im,aperture=0xa0000)
+im=DpmiReference(directory/'TFX.DAT',data_base=0x100000);video=SessionVideo(im,aperture=0xa0000)
 from native_recording import MemoryFiles
 memory_files=MemoryFiles(im)
 # Native 0x75940 clears its shot pointer with zero, then reads flat address
@@ -201,7 +192,10 @@ def actors_snapshot(current):
  return result
 
 def sensor_snapshot(current):
- identities={0:-1}
+ # The original reuses the air-guidance scratch pointer for a designated
+ # ground point during weapon release. This array enumerates aircraft only;
+ # actual projectile guidance coordinates are observed separately below.
+ identities={0:-1,current.data+0x135a0:-1}
  for pool,base in enumerate((0x11034,0x10f6c)):
   for index in range(50):
    pointer=current.read(base+index*4,'<I')[0]
@@ -224,6 +218,18 @@ def identify_projectile(cpu,address,size,unused):
 # Assign identities only when the live pool allocator has linked a record.
 # The shared constructor also builds temporary HUD prediction projectiles.
 im.cpu.hook_add(UC_HOOK_CODE,identify_projectile,begin=im.native(0xa2d79),end=im.native(0xa2d79))
+projectile_guidance=[]
+def observe_projectile_guidance(cpu,address,size,unused):
+ pointer=cpu.reg_read(r.UC_X86_REG_EAX)
+ if not entered[0] or pointer not in projectile_ids:return
+ # Only the real motion dispatch belongs to this boundary. HUD predictions
+ # reuse projectile records and can call the same functions with copied state.
+ caller=struct.unpack('<I',cpu.mem_read(cpu.reg_read(r.UC_X86_REG_ESP),4))[0]
+ if caller!=im.native(0xa32a6):return
+ body=bytes(cpu.mem_read(pointer,80));target=struct.unpack_from('<I',body,48)[0]
+ projectile_guidance.append({'frame':frames[0],'weapon':body[6],'position':list(struct.unpack_from('<3i',body,8)),'target':list(struct.unpack('<3i',cpu.mem_read(target,12)))})
+from check_projectiles import CALLBACKS
+for address in CALLBACKS[1:]:im.cpu.hook_add(UC_HOOK_CODE,observe_projectile_guidance,begin=im.native(address),end=im.native(address))
 def projectile_snapshot(current):
  from check_projectiles import KINDS
  head=current.read(0x16e80,'<I')[0];tail=current.read(0x16e7c,'<I')[0]
@@ -407,6 +413,8 @@ record={
  'inputs':inputs.rows(frames[0]),
  'terminal':terminal,
  'recordings':recordings,
+ 'projectile_guidance':projectile_guidance,
+ 'processor_exceptions':im.processor_exceptions,
  'preflight_projection':preflight_projection,
  'trail_events':trail_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'world_cameras':world_cameras,'terrain_passes':terrain_passes,
  'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),

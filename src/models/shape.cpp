@@ -190,6 +190,16 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         vec3<int32_t> point;
         for(unsigned int axis{0}; axis != 3; ++axis) point[axis] = wrap((*local[i])[axis] + camera_origin[axis]);
         camera_vertices[i].emplace(point);
+        int32_t constexpr near_projection_depth{16};
+        int32_t const depth{point.z >> 16};
+        if(depth > near_projection_depth &&
+           (!std::in_range<int16_t>((point.x >> context.camera->projection_shift) / depth) ||
+            !std::in_range<int16_t>((point.y >> context.camera->projection_shift) / depth))) {
+          // Original B9434's signed-word IDIV faults unwind the entire model
+          // through B91AC -> B9383, rather than using a continuous fallback.
+          result.projection_aborted = true;
+          return;
+        }
         near |= point.z >> 16 <= 16;
         world[i] = vec3d{point} * (2 * std::abs(scale) / 65536);
       } else world[i] = *local[i] * scale + origin;
@@ -250,7 +260,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
   }};
   auto const run{[&](auto const &self, shape const &active, unsigned int at, unsigned int const depth)->void {
     if(depth > maximum_depth) throw std::runtime_error{"shape helper nesting exceeds limit"};
-    for(;;) {
+    for(; !result.projection_aborted;) {
       if(++result.steps > maximum_steps) throw std::runtime_error{"shape instruction limit exceeded"};
       auto const found{active.instructions.find(at)};
       if(found == active.instructions.end()) throw std::runtime_error{"shape branch misses instruction at " + std::to_string(at)};

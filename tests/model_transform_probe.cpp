@@ -57,6 +57,7 @@ int main(int const argc, char const *const argv[]) try {
     context.camera.emplace(tfx::models::shape_camera{
       .basis{mat3<int32_t>{transform.matrix()}},
       .origin{tfx::render::scale_model_cache(origin,static_cast<uint8_t>(draw_scale))},
+      .projection_shift{tfx::render::projection_shift(view.opening)},
     });
     context.face_visibility = [&](std::span<tfx::models::model_vertex const> const source,tfx::models::facing_test const purpose) { return tfx::render::model_facing(camera_vertices(source),view,purpose); };
     auto const geometry{tfx::models::interpret(shape,context)};
