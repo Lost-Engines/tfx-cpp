@@ -11,7 +11,6 @@ namespace tfx::world {
 
 unsigned int constexpr flak_capacity{20}, flak_night_models{5};
 int16_t constexpr initial_flak_delay{5};
-uint8_t constexpr flak_flash_level{40};
 std::array<std::string_view,flak_night_models> constexpr night_flak_definitions{"snake_1","snake_2","snake_3","snake_4","snake_5"};
 std::string_view constexpr day_flak_definition{"burst"};
 struct flak_random_state {

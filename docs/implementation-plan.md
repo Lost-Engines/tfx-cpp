@@ -115,7 +115,7 @@ Maintain separate labels for decoded data, isolated native comparisons, complete
 Current evidence is indexed in [implementation.md](implementation.md). The sibling research tree's `analysis/game-logic.md`, `compiled-programs.md`, `weapons-and-dynamics.md`, `campaign-flow.md`, `configuration.md`, `cockpits.md`, `lighting.md` and `audio/README.md` identify the native entry points and existing captures on which this plan builds.
 
 
-The view/night palette selector now also has 5,952 native state comparisons and live infrared/night-vision bindings. All 33 authored environment palette configurations are independently checked, including their five altitude banks/boundaries. Altitude/fixed-colour palette generation is now separately checked in 4,224 complete native updates, and VGA DAC upload/expansion in 304 updates. Live altitude colours and Y/U HUD intensity are connected. Flash/blackout painters are verified with supplied state; their producers, full scene lighting and weather remain separate renderer increments.
+The view/night palette selector now also has 5,952 native state comparisons and live infrared/night-vision bindings. All 33 authored environment palette configurations are independently checked, including their five altitude banks/boundaries. Altitude/fixed-colour palette generation is now separately checked in 4,224 complete native updates, and VGA DAC upload/expansion in 304 updates. Live altitude colours and Y/U HUD intensity are connected. G-force, flak-flash and sunlight-glare producers now have native comparisons and live bindings. Full scene lighting, sky and weather remain separate renderer increments.
 
 
 Temporary BINGO/PULL UP HUD messages now have 512 complete native painter/state comparisons and 1,024 composed forward-HUD comparisons. Live low-fuel requests retain the original fault gate and paint cadence. PULL UP terrain-risk detection and the remaining approach/navigation consumers are still separate increments.
@@ -133,5 +133,5 @@ Authored area flak now has 8,192 complete original frame comparisons across 16
 persistent day/night scenarios, including its dedicated random generator,
 height/cloud/region gates, 20-slot pool and drawing range. Live daytime bursts,
 nighttime models, audio/radio, white palette flash and cockpit shake are
-connected. Sun glare and full renderer equivalence remain separate tasks. All 33
+connected. Sun glare is also connected; full renderer equivalence remains open. All 33
 environments retain their original cloud-layer height, offset and grid name.

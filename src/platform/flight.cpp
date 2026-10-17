@@ -60,6 +60,7 @@
 #include "render/point_projection.h"
 #include "render/palette_selection.h"
 #include "render/palette_lighting.h"
+#include "render/glare.h"
 #include "render/g_effects.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
@@ -1500,9 +1501,28 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       view = tfx::render::inspection_camera(vec3d{designator.camera},designator.heading * radians_per_angle,-tfx::math::signed_word(designator.pitch) * radians_per_angle);
     }
     if(!inspect) {
-      // Native 0x73838 supplies 40 for a new flak flash and otherwise 50.
-      // Sun glare retains its separate producer; flak also drives cockpit shake.
-      if(!night_flak) palette_lighting.flash(flak_flash ? tfx::world::flak_flash_level : tfx::render::lighting_stages);
+      tfx::render::point_projection projected_view{
+        .matrix{},
+        .position_q16{vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{view.position * 65536}}}},
+        .origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
+      };
+      // Recover the exact Q15 rows for native cameras; the designator's current camera supplies its own rows.
+      for(unsigned int row{0}; row != 3; ++row) {
+        auto const &axis{row == 0 ? view.right : row == 1 ? view.down : view.forward};
+        for(unsigned int column{0}; column != 3; ++column) projected_view.matrix.data[row * 3 + column] = static_cast<int32_t>(axis[column] * tfx::math::matrix_unit);
+      }
+      impact_projection.emplace(projected_view);
+      if(!night_flak) {
+        auto const &layout{tables.instruments().viewports[view_index()]};
+        palette_lighting.flash(tfx::render::glare_level(*impact_projection,{
+          .camera_anchor{designator_view ? vec3<int32_t>{designator.camera} : vec3<int32_t>{view_motion.last_pose().anchor}},
+          .maximum{tfx::render::screen_width - 1,static_cast<int16_t>(layout.bottom + (layout.panel.empty() ? 0 : cockpit_position.value().y))},
+          .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
+          .cloud_layer{environment.lighting.cloud_layer},
+          .layer_y{environment.lighting.layer_y},
+          .flak_flash{flak_flash},
+        }));
+      }
       flak_flash = false;
       auto const lighting{palette_lighting.advance({
         .camera_y{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},
@@ -1526,19 +1546,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         if(*upload == tfx::render::palette_bank::normal) colours = tfx::render::expand_dac_palette(palette_lighting.colours());
         frame_colours = *upload == tfx::render::palette_bank::infrared ? &infrared_colours : &colours;
       }
-    }
-    if(!inspect) {
-      tfx::render::point_projection projected_view{
-        .matrix{},
-        .position_q16{vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{view.position * 65536}}}},
-        .origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
-      };
-      // Recover the exact Q15 rows for native cameras; the designator's current camera supplies its own rows.
-      for(unsigned int row{0}; row != 3; ++row) {
-        auto const &axis{row == 0 ? view.right : row == 1 ? view.down : view.forward};
-        for(unsigned int column{0}; column != 3; ++column) projected_view.matrix.data[row * 3 + column] = static_cast<int32_t>(axis[column] * tfx::math::matrix_unit);
-      }
-      impact_projection.emplace(projected_view);
     }
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
