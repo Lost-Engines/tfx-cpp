@@ -13,6 +13,7 @@ model_slot_state model_slot_metadata::queued(model_slot const slot, model_render
 model_slot_state model_slot_metadata::immediate(model_slot const slot, uint8_t const scale, vec3<math::angle> const &angles) {
   auto &state{slots.at(slot)};state.scale = scale;state.angles = vec3<math::angle>{angles};return state;
 }
+void model_slot_metadata::restore(model_slot const slot, model_slot_state const &state) { slots.at(slot) = state; }
 
 void model_queue::clear() { count = 0;current = 0;sorted = false; }
 unsigned int model_queue::size() const { return count; }

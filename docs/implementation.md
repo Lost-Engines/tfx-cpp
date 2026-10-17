@@ -4709,3 +4709,23 @@ The 12-frame live recording comparison also passes under ASan/UBSan with
 exact queues and pixels. Its read-only observer now captures the renderer
 argument during the first direct-mission scene draw, avoiding reliance on an
 optimised caller-local variable at the frame-return breakpoint.
+
+### Post-flight WNN and recorded-flight playback
+
+The original `wwn`/`prtv2` animations now precede automatic replay after a
+recorded mission, before the campaign resumes. The bounded streaming reader
+shares the checked original file codec; replay resolves the model dictionary
+and paints the saved unsorted queues through the production renderer. It
+retains the flight's drawing context and original infrared playback palette,
+full-screen viewport, four-tick pace and blinking PLAY caption. Replaying a
+flight does not advance gameplay. A new key press exits playback.
+
+Eight ordinary-camera and eleven designator-camera original replay frames
+match every pixel and the uploaded palette. The native reader also accepts
+independently written files through the optional interoperability comparison.
+A private-window campaign test recorded 508 frames using Alt+V, completed the
+first training engagement through ordinary targeting/firing, observed both
+WNN introductions and replay, and resumed the original debrief/next-hop path
+with the expected inherited position, Mach, loadout and campaign values.
+All 194 development regressions pass. Full recording layout, commands and
+verification boundaries are in [recording.md](recording.md).

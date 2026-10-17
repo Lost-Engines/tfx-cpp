@@ -24,6 +24,7 @@ private:
 public:
   model_slot_state queued(model_slot slot, model_render_path path, uint8_t scale, vec3<math::angle> const &angles = {0,0,0});
   model_slot_state immediate(model_slot slot, uint8_t scale, vec3<math::angle> const &angles = {0,0,0});
+  void restore(model_slot slot, model_slot_state const &state);
 };
 
 struct model_queue_entry {

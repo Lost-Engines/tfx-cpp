@@ -254,7 +254,11 @@ void scene::set_player_rendering(scene_handle const handle, vec3d const &positio
 
 std::optional<render::camera> const &scene::last_camera() const { return installed_camera; }
 
-scene_events scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y, int16_t const shadow_ground_height, scene_pass const pass, recording::scene_frame *const capture) {
+void scene::replay(render::software_renderer &renderer, render::camera const &view, recording::scene_frame const &source) {
+  draw(renderer,view,0,{},std::nullopt,0,scene_pass::instrument,nullptr,&source);
+}
+
+scene_events scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y, int16_t const shadow_ground_height, scene_pass const pass, recording::scene_frame *const capture, recording::scene_frame const *const playback) {
   installed_camera = view;
   /// Native cached model metrics own detail, distance predicates, remap and signed sort priority
   if(pass == scene_pass::primary) instrument_animation = std::exchange(animation_pending,false);
@@ -265,6 +269,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
     models::shape const *shape;
     std::string name;
     std::array<uint8_t,part_parameters> parameters;
+    uint8_t initial_state;
     vec3d origin;
     mat3d rotation;
     math::angle heading;
@@ -308,7 +313,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       auto const &parameters{native ? model_parameters : item.parameters};
       std::copy(parameters.begin(),parameters.end(),context.parameters.begin());
       // Native 0xcc001 queues parameter 0; 0xbac16 seeds the shape condition from it.
-      context.initial_state = item.parameters.front();
+      context.initial_state = item.initial_state;
       context.attachments = carried_models;
       context.status = terrain.lighting.status;
       context.jitter = &jitter.state();
@@ -367,6 +372,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       .shape{&shape},
       .name{part.name},
       .parameters{part.parameters},
+      .initial_state{part.parameters.front()},
       .origin{vec3d{origin}},
       .rotation{mat3d{rotation}},
       .heading{heading},
@@ -396,6 +402,52 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       else queue.push_back(std::move(item));
     } else queue.push_back(std::move(item));
   }};
+  auto const flush_queue{[&] {
+    if(!native) std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
+    auto const order{native ? native_queue.draw_order() : std::vector<render::model_slot>{}};
+    unsigned int const count{native ? native_queue.size() : static_cast<unsigned int>(queue.size())};
+    for(unsigned int draw_index{0}; draw_index != count; ++draw_index) {
+      auto &item{queue[native ? static_cast<unsigned int>(order[draw_index]) : draw_index]};
+      paint_part(item,item.path);
+    }
+  }};
+  parts_drawn = primitives_drawn = 0;
+  if(playback) {
+    if(capture || !native || playback->data.models.size() != playback->model_names.size() || playback->data.models.size() != playback->data.order.size()) throw std::runtime_error{"invalid recorded scene binding"};
+    native_queue.restore(playback->data.order);
+    for(unsigned int slot{0}; slot != playback->data.models.size(); ++slot) {
+      auto const &source{playback->data.models[slot]};
+      auto const &name{playback->model_names[slot]};
+      auto const path{source.kind == recording::model_kind::unrotated ? render::model_render_path::unrotated : source.kind == recording::model_kind::ground_shadow ? render::model_render_path::ground_shadow : render::model_render_path::scaled};
+      model_slots.restore(static_cast<render::model_slot>(slot),{
+        .path{path},
+        .scale{source.scale},
+        .angles{vec3<math::angle>{source.angles}},
+      });
+      queue.push_back({
+        .shape{&resources.shape(name)},
+        .name{name},
+        .parameters{source.parameters},
+        .initial_state{source.initial_state},
+        .origin{0,0,0},
+        .rotation{math::rotation({0,0,0})},
+        .heading{0},
+        .angles{vec3<math::angle>{source.angles}},
+        .depth{0},
+        .sort_key{0},
+        .camera_origin{vec3<int32_t>{source.camera_origin}},
+        .metrics{
+          .distance{0},
+          .order{0},
+          .colour_row{source.colour_row},
+        },
+        .path{path},
+        .rotation_scale{source.scale},
+      });
+    }
+    flush_queue();
+    return events;
+  }
   // Native 0x7589a binds SSD range queries to the player, independently of the
   // camera. Standalone inspection scenes use their camera as the reference.
   auto const reference{reference_words(view.position)};
@@ -405,8 +457,6 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
   auto const layer{select_terrain_layer(upper_terrain && terrain.lighting.cloud_layer,terrain.lighting.layer_y,terrain.lighting.layer_offset_y,camera_anchor_y.value_or(static_cast<int32_t>(std::floor(view.position.y))))};
   auto const &grid{layer.upper ? *upper_terrain : terrain};
   auto &states{layer.upper ? upper_instances : instances};
-  parts_drawn = 0;
-  primitives_drawn = 0;
   auto const submit{[&](moving_instance &actor, vec3d const &position, vec3<math::angle> const &angles, animation_policy const policy = animation_policy::when_visible) {
     auto const rotation{math::rotation(angles)};
     // Native moving SSD effect placement retains quarter-turn zero; its full
@@ -538,7 +588,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       auto const kind{item.path == render::model_render_path::unrotated ? recording::model_kind::unrotated : item.path == render::model_render_path::ground_shadow ? recording::model_kind::ground_shadow : recording::model_kind::rotated};
       capture->data.models.push_back({
         .kind{kind},
-        .initial_state{item.parameters.front()},
+        .initial_state{item.initial_state},
         .colour_row{item.metrics.colour_row},
         .scale{item.rotation_scale},
         .resource{0},
@@ -549,13 +599,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       capture->model_names.push_back(item.name);
     }
   }
-  if(!native) std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
-  auto const order{native ? native_queue.draw_order() : std::vector<render::model_slot>{}};
-  unsigned int const count{native ? native_queue.size() : static_cast<unsigned int>(queue.size())};
-  for(unsigned int draw_index{0}; draw_index != count; ++draw_index) {
-    auto &item{queue[native ? static_cast<unsigned int>(order[draw_index]) : draw_index]};
-    paint_part(item,item.path);
-  }
+  flush_queue();
   return events;
 }
 

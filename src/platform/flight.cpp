@@ -85,6 +85,7 @@
 #include "weapons/cannon_prediction.h"
 #include "weapons/impact_prediction.h"
 #include "recording/recorder.h"
+#include "platform/recording.h"
 
 namespace tfx::platform {
 namespace {
@@ -1926,12 +1927,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       if(designator_view) designator_display.draw(renderer,impact_projection->integer(designator.point).value_or(vec2<int16_t>{-1,-1}),designator_tracking_frame);
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
       if(flight_recorder.active()) {
-        auto const marker{[&](unsigned int const x, unsigned int const y, uint8_t const colour) {
-          auto const &rows{tables.configuration_widgets().recording_marker};
-          for(unsigned int row{0}; row != rows.size(); ++row) for(unsigned int column{0}; column != 8; ++column)
-            if(rows[row] & (1u << column)) renderer.output.pixels[(y + row) * tfx::render::screen_width + x + column] = colour;
-        }};
-        marker(311,1,0);marker(310,0,6);
+        auto const &marker{tables.configuration_widgets().recording_marker};
+        tables.presentation_fonts().draw_driver(renderer.output,{311,1},marker,0);
+        tables.presentation_fonts().draw_driver(renderer.output,{310,0},marker,6);
       }
       engagement.finish_frame();
       launch_warning = projectiles.first_targeting_player();
@@ -2573,6 +2571,15 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       interval_frames = 0;
     }
     if(frame_limit && frames >= frame_limit) break;
+  }
+  if(result_evaluated && !inspect && !frame_limit && flight_recorder.frame_count() && !glfwWindowShouldClose(host)) {
+    try {
+      flight_recorder.finish();
+      if(sound) sound->end_flight();
+      auto const camera_y{scene.last_camera() ? tfx::math::signed_word(static_cast<uint16_t>(scene.last_camera()->world_anchor.y)) : int16_t{0}};
+      options.projection_origin = {159,99};
+      replay_recording(window,game,tables,scene,renderer,options.data_directory / tables.configuration_widgets().recording_name,camera_y,ground_phase.sample(),infrared_dac);
+    } catch(std::exception const &error) { std::cerr << "Cannot replay flight recording: " << error.what() << '\n'; }
   }
   glfwSetInputMode(host,GLFW_CURSOR,GLFW_CURSOR_NORMAL);
   return result_evaluated ? flight_result::finished : flight_result::quit;

@@ -35,10 +35,8 @@ configuration_menu_assets::configuration_menu_assets(std::span<uint8_t const> co
   resume = string(0x255c);
   recording = string(0x2658);
   recording_name = string(0x8868);
-  // C1378 uses a separate fixed eight-column/six-row driver font. It is
-  // neither the proportional HUD font nor presentation font 2.
-  auto const marker{source.byte(data + source.le32(data + 0x594c)) & 63};
-  for(unsigned int row{0}; row != recording_marker.size(); ++row) recording_marker[row] = source.byte(0x70aa4 + 0x509e5 + row * 64 + marker);
+  recording_marker = string(source.le32(data + 0x594c));
+  recording_play = string(0x1344);
   no = string(0x24ac);
   yes = string(0x24b0);
   enrol = string(0x249c);
