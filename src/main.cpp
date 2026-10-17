@@ -38,7 +38,7 @@ auto main(int const argc, char const *const argv[])->int try {
   std::optional<uint8_t> music_override;
   tfx::audio::sound_canvas_model canvas_model{tfx::audio::sound_canvas_model::scc1a};
   std::string mission_name{"miss501"}, override_environment, override_grid;
-  unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0};
+  unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0}, flight_frames{0};
   tfx::simulation::flight_model model{tfx::simulation::flight_model::arcade};
   bool inspect{false}, direct_mission{false}, skip_intro{false}, model_selected{false}, language_selected{false};
   std::optional<tfx::flight::control_source> control_override;
@@ -91,12 +91,13 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --menu NAME            Run an original options menu\n"
                    "  --presentation NAME[:FUNCTION]  Play an original presentation graph\n"
                    "  --inspect             Free scene camera: WASD, R/F, arrows/right-drag, Shift\n"
-                   "  --flight-steps N      Advance N four-tick flight steps before initial capture\n"
+                   "  --flight-steps N      Advance N four-tick physics steps without intermediate drawing\n"
+                   "  --flight-frames N     Advance N complete four-tick flight frames before capture\n"
                    "  --environment NAME    Override mission lighting/weather\n"
                    "  --grid NAME           Inspect an alternate stored terrain grid\n"
                    "  --cell X,Z            Inspect a particular terrain cell\n"
                    "  --scene-radius N      Inspection neighbourhood in tiles (default 6)\n"
-                   "  --screenshot FILE     Save the initial scene as a PPM image without opening a window\n"
+                   "  --screenshot FILE     Save the current scene as a PPM image without opening a window\n"
                    "  --frames N            Exit the window after N frames (0 is unlimited)\n";
 #endif // NDEBUG
       return EXIT_SUCCESS;
@@ -155,6 +156,7 @@ auto main(int const argc, char const *const argv[])->int try {
     }
     else if(key == "--inspect") inspect = true;
     else if(key == "--flight-steps") flight_steps = number(value());
+    else if(key == "--flight-frames") flight_frames = number(value());
     else if(key == "--environment") override_environment = value();
     else if(key == "--grid") override_grid = value();
     else if(key == "--cell") {
@@ -236,6 +238,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .scene_radius{scene_radius},
     .frame_limit{frame_limit},
     .flight_steps{flight_steps},
+    .flight_frames{flight_frames},
     .preferences{preferences},
     .flak{flak_state},
     .sky{sky_state},
@@ -245,7 +248,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .sound{sound.get()},
     .inspect{inspect},
   };
-  if(direct_mission || inspect || flight_steps || !override_environment.empty() || !override_grid.empty()) {
+  if(direct_mission || inspect || flight_steps || flight_frames || !override_environment.empty() || !override_grid.empty()) {
     tfx::missions::variables campaign;
     tfx::platform::fly_mission(game,tables,flight,campaign);
   } else tfx::platform::play_game(game,tables,archive_path.parent_path(),language,skip_intro,flight);

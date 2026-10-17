@@ -96,7 +96,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto const &override_grid{options.grid};
   auto const &override_cell{options.cell};
   auto const &screenshot{options.screenshot};
-  auto const scale{options.scale}, scene_radius{options.scene_radius}, frame_limit{options.frame_limit}, flight_steps{options.flight_steps};
+  auto const scale{options.scale}, scene_radius{options.scene_radius}, frame_limit{options.frame_limit}, flight_steps{options.flight_steps}, flight_frames{options.flight_frames};
   bool inspect{options.inspect};
   tfx::world::mission const selected{game,mission_name};
   auto const mission_setup{tfx::missions::initialise(selected.script)};
@@ -147,7 +147,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   } const random_return{
     .session{options.session_random},
     .live{air_simulation.random_stream()},
-    .active{!inspect || flight_steps != 0},
+    .active{!inspect || flight_steps != 0 || flight_frames != 0},
   };
   std::array<std::optional<tfx::world::scene_handle>,tfx::actors::aircraft_per_side * 2> air_visuals;
   struct surface_actor {
@@ -1258,7 +1258,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       std::cout << "Mission result: " << campaign["miss_val"] << "; score " << campaign["score"] << "; outcome " << campaign["outcome"] << std::endl;
     }
   }};
-  if(!inspect || flight_steps) restart();
+  if(!inspect || flight_steps || flight_frames) restart();
   if(sound && !inspect && !override_cell && !screenshot) sound->begin_flight(flight_audio());
   for(unsigned int step{0}; step != flight_steps; ++step) {
     advance_world({},4,static_cast<double>(4 * .02f));
@@ -1695,6 +1695,16 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
   }};
   draw();
+  unsigned int complete_frames{0};
+  for(; complete_frames != flight_frames && !result_evaluated; ++complete_frames) {
+    // Match the real flight loop: drawing consumes/produces retained camera,
+    // HUD and SSD state before mission/frame-tail decisions observe it.
+    advance_world({},4,static_cast<double>(4 * .02f));
+    draw();
+    finish_world(4);
+  }
+  if(flight_frames) std::cout << "Complete flight frames: " << complete_frames << std::endl;
+  if(campaign_flight && result_evaluated) return flight_result::finished;
   std::cout << "TFX " << mission_name << " / " << environment.name << " / " << environment.lighting_name << ": " << scene.parts_drawn << " model parts, " << scene.primitives_drawn << " drawing primitives" << std::endl;
   if(!scene.warnings.empty()) {
     unsigned int printed{0};
@@ -1703,7 +1713,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   }
   if(screenshot) {
     renderer.output.screenshot(*screenshot,*frame_colours);
-    std::cout << "Initial scene screenshot: " << *screenshot << std::endl;
+    std::cout << "Scene screenshot: " << *screenshot << std::endl;
     return flight_result::finished;
   }
   std::unique_ptr<tfx::platform::window> owned_window;

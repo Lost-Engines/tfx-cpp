@@ -226,3 +226,11 @@ complete original allocation/order comparisons and live scene bindings.
 Queued parameters are owned snapshots. Immediate submissions, ground shadows,
 animation eligibility, renderer-phase scheduling and full actor transforms
 remain separate gates, along with patterned/textured/rounded coverage.
+
+
+Complete-frame headless coverage now includes update, composition and
+frame-tail decisions in the interactive order. All retail missions pass
+64 frames in every flight model; sanitizers repeat the full mission corpus.
+Longer neutral flights exercise real loss/FINISH and retained render state.
+These supplied-input C++ runs complement the isolated original comparisons;
+original complete-session traces and successful campaign coverage remain.
