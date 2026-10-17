@@ -219,6 +219,7 @@ auto main(int const argc, char const *const argv[])->int try {
     tfx::platform::play_presentation(game,tables,presentation,presentation_function,language,scale,frame_limit,screenshot,sound.get());
     return EXIT_SUCCESS;
   }
+  tfx::world::flak_state flak_state;
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -232,6 +233,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .frame_limit{frame_limit},
     .flight_steps{flight_steps},
     .preferences{preferences},
+    .flak{flak_state},
     .sound{sound.get()},
     .inspect{inspect},
   };

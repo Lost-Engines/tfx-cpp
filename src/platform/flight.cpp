@@ -255,6 +255,22 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     slot[kind] = scene.create_actor(std::string{tfx::world::effect_definitions[kind]},{0,0,0},{0,0,0});
     scene.show_actor(slot[kind],false);
   }
+  auto &flak_state{options.flak};
+  flak_state.centre = {0,0};
+  tfx::world::flak_pool flak;
+  bool flak_flash{false};
+  bool const night_flak{(environment.lighting.status & tfx::world::night_status) != 0};
+  std::array<std::vector<tfx::world::scene_handle>,tfx::world::flak_capacity> flak_visuals;
+  for(auto &slot : flak_visuals) {
+    unsigned int const count{night_flak ? tfx::world::flak_night_models : 1};
+    slot.reserve(count);
+    for(unsigned int model{0}; model != count; ++model) {
+      auto const definition{night_flak ? tfx::world::night_flak_definitions[model] : tfx::world::day_flak_definition};
+      auto const visual{scene.create_actor(std::string{definition},{0,0,0},{0,0,0})};
+      scene.show_actor(visual,false);
+      slot.push_back(visual);
+    }
+  }
   auto const spawn_effect{[&](vec3<int32_t> const &position, tfx::world::effect_kind const kind) {
     if(kind == tfx::world::effect_kind::cannon_hit) sample(audio::sample_priority::normal,audio::sample_id::cannon_hit);
     auto const slot{effects.spawn(position,kind)};
@@ -268,7 +284,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     };
     for(auto const slot : effects.active_slots()) {
       auto const &effect{effects.record(slot)};
-      scene.queue_actor(effect_visuals[slot][std::to_underlying(effect.kind)],vec3d{tfx::world::effect_position(effect,reference)},{0,0,0});
+      scene.queue_actor(effect_visuals[slot][std::to_underlying(effect.kind)],vec3d{tfx::world::effect_position(effect.position,reference)},{0,0,0});
+    }
+    if(tfx::world::flak_visible(flak_state,player.integer_position)) for(auto const slot : flak.active_slots()) {
+      auto const &effect{flak.record(slot)};
+      scene.queue_actor(flak_visuals[slot].at(effect.model),vec3d{tfx::world::effect_position(effect.position,reference)},{0,0,0});
     }
   }};
   std::optional<tfx::render::point_projection> impact_projection;
@@ -778,6 +798,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     mission_time.reset();
     mission_progress.reset();
     effects.reset();
+    flak.reset();
+    flak_state.centre = {0,0};
+    flak_flash = false;
     engagement = {};
     launch_warning = nullptr;
     result_evaluated = false;
@@ -1068,7 +1091,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       for(auto const slot : effects.active_slots()) {
         auto const &effect{effects.record(slot)};
         auto const visual{effect_visuals[slot][std::to_underlying(effect.kind)]};
-        scene.place_actor(visual,vec3d{tfx::world::effect_position(effect,player.integer_position)},{0,0,0});
+        scene.place_actor(visual,vec3d{tfx::world::effect_position(effect.position,player.integer_position)},{0,0,0});
         collect(scene.collide_actor(visual,previous,player.integer_position,contact_damage,response,damage_player,true));
       }
       auto const contact{tfx::world::resolve_player_contact({
@@ -1136,6 +1159,21 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     projectiles.advance(elapsed,air_simulation.random_stream());
     if(scene.advance(elapsed).eject_player) ejection.request();
+    flak_flash = false;
+    if(auto const event{tfx::world::advance_flak(flak_state,{
+      .player{vec3<int32_t>{player.integer_position}},
+      .regions{mission_setup.flak},
+      .night{night_flak},
+      .cloud_layer{environment.lighting.cloud_layer},
+      .layer_y{environment.lighting.layer_y},
+      .radio_idle{radio.status().complete}, // Native 0x7612 is the ticker's idle gate.
+    })}) {
+      if(event->sample) sample(audio::sample_priority::normal,audio::sample_id::nearby_flak);
+      if(event->radio) radio.show(tables.flak_warning);
+      flak_flash = event->flash;
+      auto const slot{flak.spawn(*event)};
+      scene.actor_event(flak_visuals[slot].at(event->model),0);
+    }
     cockpit_position.advance(tables.instruments().viewports[view_index()].bottom);
     refresh_sensors(elapsed);
   }};
@@ -1460,6 +1498,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       view = tfx::render::inspection_camera(vec3d{designator.camera},designator.heading * radians_per_angle,-tfx::math::signed_word(designator.pitch) * radians_per_angle);
     }
     if(!inspect) {
+      // Native 0x73838 supplies 40 for a new flak flash and otherwise 50.
+      // Sun-glare and the separate fog-lighting pulse retain their own callers.
+      if(!night_flak) palette_lighting.flash(flak_flash ? tfx::world::flak_flash_level : tfx::render::lighting_stages);
+      flak_flash = false;
       auto const lighting{palette_lighting.advance({
         .camera_y{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},
         .pitch{player.angles.x},
