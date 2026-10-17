@@ -291,3 +291,12 @@ Authored fixed-palette model effects now retain row-zero lookup, ink reuse and
 helper persistence, with 1,024 complete original model frames and live crash
 painter observation. Parameter-selected drawing state, specialised retained
 helpers and general texture edge/near-plane fidelity remain separate work.
+
+Original affine model textures now retain integer projection, unsigned Q7 UV
+near clipping, signed-word viewport clipping, biased edges, Q24 pixel stepping
+and mapped transparency. Complete original comparisons cover 1,024 screen-space
+frames, 1,024 ordinary/near-clipped model frames and 8,192 UV intersections;
+shared Gouraud clipping remains unchanged. All 164 regressions and every retail
+mission pass development/sanitizer coverage, and a private-window observer
+confirms real retail-atlas texels reach the production painter. Parameter-selected
+materials, specialised lighting helpers and full session/phase equivalence remain.

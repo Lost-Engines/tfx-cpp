@@ -3499,3 +3499,53 @@ sweep finished all 128 retail missions × 16 frames without warnings.
 The separate parameter-selected ink/mode controls and specialised retained
 helper opcodes remain distinct material work. General texture edge/near-plane
 fidelity and complete renderer/session scheduling are still open.
+
+### Original affine model textures
+
+Unrounded textured faces now use the original integer camera projection,
+near-plane clipping and affine texture raster. UV coordinates retain their
+unsigned Q7 words through camera clipping and signed-word viewport clipping.
+Edges use the original half-step bias; spans paint bottom first with wrapped
+Q24 coordinates and palette-index transparency. The VGA loop's overwrite of
+the low V-accumulator byte by the remapped texel is preserved too.
+
+Flat, Gouraud and textured model consumers share camera-point recovery and
+ordinary projection. Their near-plane attributes share the original bisection
+and replay mechanism while retaining the distinct attribute widths. The
+continuous inspection renderer keeps its separate fallback.
+
+Original-executable comparisons establish:
+
+- **1,024 complete screen-space textured frames**, including viewport edges,
+  reversed/degenerate polygons, fractional UVs and transparent mapped texels.
+- **512 complete ordinary and 512 near-clipped textured-model frames**,
+  executing the actual resource converter, vertex generation/projection,
+  global-atlas binding, texture dispatch, palette lookup and VGA raster.
+- **8,192 near-plane UV intersections**, including full signed camera dwords,
+  unsigned UV carries, both edge directions, wrapped midpoint replay and
+  saturated ordinary/wide projection.
+- **1,024 complete Gouraud near-clipped frames** unchanged after extracting the
+  shared arithmetic.
+
+The texture comparisons supply a diagnostic 256×256 atlas, model bytes,
+lookup row and camera state. Only the requested atlas handle is resolved by
+the harness; drawing and clipping execute unchanged. These are complete
+supplied-model frames, not complete original world/session captures. Actual
+retail atlases are 256×192; reads outside a supplied atlas are safely zero
+extended rather than reading unrelated memory. No original division faults
+occur in either 512-frame model corpus. Compact original fixtures run without
+game data.
+
+All **164 regressions** pass in development, Release and ASan/UBSan. Every one
+of the 128 retail missions composes 64 development frames and 16 sanitizer
+frames without warnings. `tools/check_window_textures.py` observes an actual
+retail-atlas texel fetch in the live integer painter, selects the F10 canopy
+view and exits normally, using private silent installs/X11 without changing
+world state. That observer passes Eurofighter, F-22 and F-117 missions.
+Release and sanitizers each repeat 128 ordinary and 128 near-clipped original
+model frames, and sanitizers repeat all 8,192 UV intersections. Private-window
+checks also pass all camera controls, MFD cycling, stores/cannon, designation,
+pause and actual combat FINISH.
+
+Parameter-selected ink/drawing controls, specialised lighting helpers and
+complete world-phase/session equivalence remain separate work.
