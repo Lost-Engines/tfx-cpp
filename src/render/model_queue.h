@@ -8,6 +8,20 @@ namespace tfx::render {
 
 unsigned int constexpr model_queue_capacity{348};
 using model_slot = uint16_t;
+enum class model_render_path { unrotated, scaled, ground_shadow };
+struct model_slot_state {
+  model_render_path path{model_render_path::unrotated};
+  uint8_t scale{255};
+};
+// Native constructors partially overwrite persistent slot metadata. CC0BF
+// retains size; CBFEC retains the queued type. Queue resets clear neither.
+class model_slot_metadata {
+private:
+  std::array<model_slot_state,model_queue_capacity> slots{};
+public:
+  model_slot_state queued(model_slot slot, model_render_path path, uint8_t scale);
+  model_slot_state immediate(model_slot slot, uint8_t scale);
+};
 
 // Native C488D/C4930/C48E1: payloads belong to the caller; this owner retains
 // the original slot reuse, signed priorities, tie ordering and queue bound.
@@ -26,6 +40,7 @@ private:
 
 public:
   void clear();
+  model_slot scratch_slot() const;
   model_slot insert(int16_t priority);
   std::vector<model_slot> draw_order();
   unsigned int size() const;

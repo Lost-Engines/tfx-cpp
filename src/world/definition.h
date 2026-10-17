@@ -20,6 +20,7 @@ struct model_part {
 };
 enum class part_position { assembly_origin, integer_anchor, fixed_anchor };
 enum class part_orientation { world_axes, terrain_axes };
+enum class part_delivery { queued, immediate };
 enum class part_draw_kind { model, ground_shadow };
 struct part_draw {
   unsigned int slot;
@@ -27,6 +28,8 @@ struct part_draw {
   part_draw_kind kind{part_draw_kind::model};
   part_position placement{part_position::assembly_origin};
   part_orientation orientation{part_orientation::terrain_axes};
+  part_delivery delivery{part_delivery::queued};
+  model_part part;
 };
 struct parameter_stream {
   unsigned int part;

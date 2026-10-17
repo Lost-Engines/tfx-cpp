@@ -3,8 +3,18 @@
 
 namespace tfx::render {
 
+model_slot_state model_slot_metadata::queued(model_slot const slot, model_render_path const path, uint8_t const scale) {
+  auto &state{slots.at(slot)};state.path = path;
+  if(path != model_render_path::unrotated) state.scale = scale;
+  return state;
+}
+model_slot_state model_slot_metadata::immediate(model_slot const slot, uint8_t const scale) {
+  auto &state{slots.at(slot)};state.scale = scale;return state;
+}
+
 void model_queue::clear() { count = 0;current = 0;sorted = false; }
 unsigned int model_queue::size() const { return count; }
+model_slot model_queue::scratch_slot() const { return current; }
 
 void model_queue::insertion_sort() {
   for(unsigned int i{1}; i < count; ++i) {

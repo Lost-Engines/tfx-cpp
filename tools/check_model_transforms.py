@@ -15,10 +15,11 @@ import subprocess
 from native_reference import NativeReference,r
 from native_vga import VgaCapture
 p=argparse.ArgumentParser(description=__doc__)
+p.add_argument('--immediate',action='store_true',help='execute original CBFEC directly rather than a deferred constructor/flush')
 p.add_argument('--gouraud',action='store_true',help='verify forced-flat shadows of authored Gouraud model faces')
 p.add_argument('--shadow',action='store_true',help='exercise the original flattened black ground-shadow constructor')
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=1024);p.add_argument('--record',type=Path)
-a=p.parse_args();assert not a.gouraud or a.shadow;im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);code=lambda off:im.native(0x70aa4+off)
+a=p.parse_args();assert not a.gouraud or a.shadow;assert not a.immediate or not a.shadow;im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);code=lambda off:im.native(0x70aa4+off)
 im.cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=10000)
 im.cpu.mem_write(im.data+0x24c9c,bytes(range(256))*16);im.cpu.mem_write(code(0x47cea),bytes(im.cpu.mem_read(code(0x68106),4)));im.call(0xc54f6,stack=(9,))
 def resolve(image):
@@ -54,8 +55,10 @@ for case,(row,line) in enumerate(zip(rows,actual)):
  im.call(0xb9238,stack=(0,319,0,199));im.call(0xb94da,stack=(160,100,319,199))
  im.cpu.mem_write(code(0x47c4a),struct.pack('<9h',*matrix));im.cpu.reg_write(r.UC_X86_REG_ESI,code(0x47c4a));im.call(0xb959f)
  im.cpu.mem_write(0x300600,struct.pack('<3i',*origin));im.cpu.mem_write(0x300620,bytes(16));im.cpu.mem_write(0x300640,struct.pack('<3H',*angles))
- im.call(0xc488d);im.call(0xcc238 if a.shadow else 0xcc164,stack=(draw_scale,0x300640,0x300600,0x300620,77));vga.reset(99)
- try:im.call(0xc49d9,limit=3000000)
+ im.call(0xc488d);vga.reset(99)
+ try:
+  im.call(0xcbfec if a.immediate else 0xcc238 if a.shadow else 0xcc164,stack=(draw_scale,0x300640,0x300600,0x300620,77),limit=3000000)
+  if not a.immediate:im.call(0xc49d9,limit=3000000)
  except RuntimeError as error:
   if str(error)!='undeclared native interrupt 0x0':raise
   undefined+=1;continue # Original word-IDIV overflow has no completed native frame.
@@ -70,4 +73,4 @@ for case,(row,line) in enumerate(zip(rows,actual)):
 print(f'Nonempty native frames: {painted}')
 if undefined:print(f'Excluded {undefined} original IDIV-overflow inputs: native frame does not return')
 if a.record:a.record.write_text('\n'.join(' '.join(map(str,row)) for row in fixtures)+'\n')
-print(f'{len(rows)-undefined} complete native queued '+('shadow' if a.shadow else 'rotated-model')+f' frames and all nine Q15 basis words agree: conversion, component generation, wrapped view composition, cached translation/scale, bytecode, near clipping and every VGA pixel')
+print(f'{len(rows)-undefined} complete native '+('immediate ' if a.immediate else 'queued ')+('shadow' if a.shadow else 'rotated-model')+f' frames and all nine Q15 basis words agree: conversion, component generation, wrapped view composition, cached translation/scale, bytecode, near clipping and every VGA pixel')

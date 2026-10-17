@@ -3270,3 +3270,57 @@ production silhouette drawing after F5 chase view, without injecting world
 state. Earlier outer-transform sanitizer coverage also completed all 128
 missions × 64 frames. Complete scene scheduling, immediate delivery and
 model-local articulated transforms remain separate gates.
+
+
+### Immediate submissions, persistent slots and draw-time state
+
+SSD opcodes 4/6 now retain immediate delivery instead of entering the deferred
+sort. Each draw request owns the model identity, orientation metadata and
+eight parameter bytes **at its instruction**, before subsequent SSD state
+changes. Both the world painter and arming preview use those snapshots.
+
+Original `0xcbfec` uses the queue's current scratch slot without allocating
+an entry. At capacity this can overwrite a deferred payload while retaining
+its queued type and priority. The scene preserves that reuse, including a
+later flush through the retained unrotated/scaled/shadow consumer. Size
+wrappers mutate the cached coordinates on each actual draw, so immediate
+painting followed by a flush can scale the same cache twice.
+
+Slot metadata survives queue resets. Original `0xcc0bf` does not write its
+size flag, so an unrotated model can inherit the previous flag in that slot;
+the executable's initial 348 flags are all 255. Immediate constructors also
+retain the prior global parameter bank, while deferred wrappers load their
+copied eight bytes. The model's initial condition still uses its separately
+submitted parameter 0. The renderer now owns these distinct slot and global
+states explicitly rather than reconstructing them from the final SSD state.
+
+`tools/check_instances.py` now compares delivery/orientation plus every draw's
+model, size/orientation metadata and parameter snapshot across all **703 SSD
+definitions / 19,589 persistent states**. `tools/check_model_delivery.py`
+executes **256 original mixed sequences / 123,948 submissions / 111,174
+delivered payloads**. Actual immediate/deferred/shadow constructors, slot
+allocation/replacement, size wrappers, multiple frame resets and final sorts
+execute. Submitted IDs, a common zero-bias header and initial slot/parameter
+state are supplied boundaries; geometry header entries and final notification
+are observed/no-op consumers. Records compare allocation/count, delivery
+order, mutated cache, submitted and consumed parameter banks and Euler words.
+Compact independent sequence hashes run without original files.
+
+`tools/check_model_transforms.py --immediate` also executes the actual direct
+constructor through **1,024 complete converted-model VGA frames**, agreeing
+in all basis words and pixels. All **155 regressions** pass in development,
+Release and ASan/UBSan; Release and sanitizers repeat 64 mixed sequences each,
+and sanitizers repeat 256 complete immediate frames. All 128 retail scenes
+compose 64 frames without warnings, and sanitizers repeat the corpus for
+16 frames. Live weapon, MFD/camera, designation, pause and real combat FINISH
+checks still pass. Front-end test cleanup now uses Shift+Q rather than treating
+the faithfully restored Escape/ejection path as an immediate application exit.
+
+These checks close the represented submission/ownership paths, not complete
+renderer-phase scheduling or complete original sessions. Visibility-dependent
+animation, model-local articulated transforms and rounded/textured boundaries
+remain separate work.
+
+The private front-end check also passes edited enrolment names, Control
+qualification, DOS pilot save/reload, FWS briefing/custom arming/flight and
+Tour squadron selection/route review/flight after these ownership changes.

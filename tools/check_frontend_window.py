@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-frontend-window-') as temporary:
                     log.seek(0)
                     if 'TFX miss501 /' in log.read():
                         if not armed:raise RuntimeError('training skipped its authored arming screen')
-                        time.sleep(.3);tap('Escape');return
+                        time.sleep(.3);tap('shift+q');return
                 run('import','-window',window,'/tmp/tfx-frontend-failure.png')
                 title=run('xdotool','getwindowname',window).stdout
                 log.seek(0);raise RuntimeError('authored training path did not reach flight: '+title+'\n'+log.read()[-4000:])
@@ -95,7 +95,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-frontend-window-') as temporary:
                         # --clearmodifiers would release the held mouse button too.
                         run('xdotool','key','Escape');time.sleep(.1);log.seek(0)
                         if 'TFX miss801 /' in log.read():
-                            time.sleep(.3);tap('Escape');return
+                            time.sleep(.3);tap('shift+q');return
                     run('import','-window',window,'/tmp/tfx-tour-window-failure.png')
                     log.seek(0);raise RuntimeError('Tour review did not launch flight: '+run('xdotool','getwindowname',window).stdout+'\n'+log.read()[-4000:])
                 finally:run('xdotool','mouseup','3')

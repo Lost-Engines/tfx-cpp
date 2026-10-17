@@ -52,7 +52,9 @@ int main(int const argc, char const *const argv[]) try {
       }
       word(result.collisions); word(result.volume_hit); word(result.ejection_requested); word(result.surface_present); word(result.surface_height); word(result.zone); word(result.player_zone); word(result.message);
       word(result.draws.size());
-      for(auto const &draw : result.draws) { word(draw.slot); word(draw.anchor.x); word(draw.anchor.y); word(draw.anchor.z); word(std::to_underlying(draw.kind)); word(std::to_underlying(draw.placement)); }
+      for(auto const &draw : result.draws) { word(draw.slot); word(draw.anchor.x); word(draw.anchor.y); word(draw.anchor.z); word(std::to_underlying(draw.kind)); word(std::to_underlying(draw.placement));word(std::to_underlying(draw.orientation));word(std::to_underlying(draw.delivery));
+        auto const &part{draw.part};word(part.model_index);word(part.rotation_mode);word(part.rotation.x);word(part.rotation.y);word(part.rotation.z);for(auto const value : part.parameters) word(value);
+      }
       word(result.requests.size());
       for(auto const &request : result.requests) { word(request.opcode); word(request.arguments.size()); for(auto const value : request.arguments) word(value); }
       word(result.damage_reports.size());
