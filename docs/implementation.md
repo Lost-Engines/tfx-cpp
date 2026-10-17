@@ -3082,3 +3082,35 @@ point comparisons. All **128 retail scenes** advance 64 steps without preview
 warnings. All 1,012 models / 2,042 detail-state interpretations remain equal
 to the independent research VM. Private development/sanitized controls,
 real factory effects and storm/cockpit composition still pass.
+
+
+### Native bounded model queue and submission ownership
+
+Flight now uses the original **348-slot** queue instead of sorting an
+unbounded vector. Signed priorities, the fifteen-entry quick-sort threshold,
+small partition runs, final insertion pass and equal-key movement follow
+`0xc4750` / `0xc4824`. The first fill and subsequent replacement paths remain
+distinct: original `0xc4930` changes its own branch after filling, and later
+submissions reuse the previous last entry's payload slot. Rendering traverses
+the resulting slot list backwards, as `0xc49d9` does.
+
+The queue owns ordering/slot state, while the scene owns each submitted model
+reference, name, transform and **eight copied parameter bytes**. This retains
+the original constructor's parameter snapshot rather than reading a mutable
+instance during the later draw. Inspection retains its independent full list.
+
+`tools/check_model_queue.py` runs original reset, every insertion/replacement,
+partition/insertion sorts and complete flush. **512 complete sequences /
+180,751 slot allocations / 149,241 draws** agree, including empty and tiny
+queues, 14/15/16-entry boundaries, repeated/signed priorities, exact capacity
+and prolonged replacement. Payload IDs are supplied; the geometry consumer
+and post-draw notification are observation/no-op boundaries. Compact native
+slot-allocation and draw-order hashes run without game data. The original
+minimum-word insertion sentinel is excluded from the native comparison; C++
+uses an explicit lower bound for that input. Immediate submissions, shadows
+and complete renderer-phase scheduling remain separate gates.
+
+All **147 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizers repeat 128 complete native queue sequences each. All **128
+retail scenes** advance and render without preview warnings. Sanitized
+private-window controls retain weapons, cameras, MFDs, pause and FINISH flow.

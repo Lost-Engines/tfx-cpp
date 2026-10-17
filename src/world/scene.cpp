@@ -2,6 +2,7 @@
 #include "world/sky.h"
 #include "world/model_placement.h"
 #include "render/model_metrics.h"
+#include "render/model_queue.h"
 #include "render/model_point.h"
 #include "render/integer_model_polygon.h"
 #include <algorithm>
@@ -248,7 +249,8 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
   /// Native cached model metrics own detail, distance predicates, remap and signed sort priority
   struct queued_part {
     models::shape const *shape;
-    model_part const *part;
+    std::string name;
+    std::array<uint8_t,part_parameters> parameters;
     vec3d origin;
     mat3d rotation;
     math::angle heading;
@@ -258,15 +260,17 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     render::model_metrics metrics;
   };
   std::vector<queued_part> queue;
+  render::model_queue native_queue;
   auto const projection{view.projector()};
   bool const native{view.projection == render::projection_mode::original_model};
   auto const fixed_position{[](vec3d const &position) { return vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{position * 65536}}}; }};
   auto const queue_part{[&](models::shape const &shape, model_part const &part, vec3d const &origin, mat3d const &rotation, math::angle const heading, vec3<int32_t> const &camera_origin) {
     auto const metrics{render::measure_model(camera_origin,shape.sort_depth_bias)};
     double const depth{view.transform(origin).z};
-    queue.push_back({
+    queued_part item{
       .shape{&shape},
-      .part{&part},
+      .name{part.name},
+      .parameters{part.parameters},
       .origin{vec3d{origin}},
       .rotation{mat3d{rotation}},
       .heading{heading},
@@ -274,7 +278,12 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       .sort_key{native ? metrics.order : depth + shape.sort_depth_bias},
       .camera_origin{vec3<int32_t>{camera_origin}},
       .metrics{metrics},
-    });
+    };
+    if(native) {
+      auto const slot{native_queue.insert(metrics.order)};
+      if(slot < queue.size()) queue[slot] = std::move(item);
+      else queue.push_back(std::move(item));
+    } else queue.push_back(std::move(item));
   }};
   // Native 0x7589a binds SSD range queries to the player, independently of the
   // camera. Standalone inspection scenes use their camera as the reference.
@@ -364,8 +373,10 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     mat3d const identity{1.,0.,0.,0.,1.,0.,0.,0.,1.};
     queue_part(shape,submission.part,submission.position,identity,0,projection.camera_integer(vec3<int32_t>{submission.position}));
   }
-  std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
-  for(auto const &item : queue) {
+  if(!native) std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
+  auto const order{native ? native_queue.draw_order() : std::vector<render::model_slot>{}};
+  for(unsigned int draw_index{0}; draw_index != queue.size(); ++draw_index) {
+    auto const &item{queue[native ? static_cast<unsigned int>(order[draw_index]) : draw_index]};
     try {
       auto const *detail{native ? item.shape->detail_for_distance(item.metrics.distance) : nullptr};
       if(native && !detail) continue;
@@ -377,9 +388,9 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       }
       auto const placed{[&item](vec3d const &vertex){ return item.origin + math::rotate_tile(item.rotation * vertex,item.heading); }};
       models::shape_context context;
-      std::copy(item.part->parameters.begin(),item.part->parameters.end(),context.parameters.begin());
+      std::copy(item.parameters.begin(),item.parameters.end(),context.parameters.begin());
       // Native 0xcc001 queues parameter 0; 0xbac16 seeds the shape condition from it.
-      context.initial_state = item.part->parameters.front();
+      context.initial_state = item.parameters.front();
       context.status = terrain.lighting.status;
       context.jitter = &working_jitter;
       context.distance = native ? item.metrics.distance : static_cast<int16_t>(std::clamp(item.depth,-32768.0,32767.0));
@@ -412,12 +423,12 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
           .projection_scale{vertex.projection_scale},
         });
         auto const texture{primitive.texture ? resources.texture(*primitive.texture) : std::span<uint8_t const>{}};
-        if(primitive.texture && texture.empty()) warnings.insert("unresolved runtime texture: " + item.part->name);
+        if(primitive.texture && texture.empty()) warnings.insert("unresolved runtime texture: " + item.name);
         renderer.primitive(primitive,vertices,view,texture,view.projection == render::projection_mode::original_model ? &resources.model_colours(item.metrics.colour_row) : nullptr);
         ++primitives_drawn;
       }
     } catch(std::exception const &error) {
-      warnings.insert(item.part->name + ": " + error.what());
+      warnings.insert(item.name + ": " + error.what());
     }
   }
   model_submissions.clear();

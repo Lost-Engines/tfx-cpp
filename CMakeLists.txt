@@ -338,6 +338,8 @@ add_library(tfx_core
   src/render/precipitation.cpp
   src/render/precipitation.h
   src/render/horizon.cpp src/render/horizon.h
+  src/render/model_queue.cpp
+  src/render/model_queue.h
   src/render/model_point.cpp
   src/render/model_point.h
   src/render/model_metrics.cpp
@@ -560,6 +562,11 @@ if(BUILD_TESTING)
   target_link_libraries(defence_probe PRIVATE tfx_core)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
+
+  add_executable(model_queue_probe tests/model_queue_probe.cpp)
+  target_link_libraries(model_queue_probe PRIVATE tfx_core)
+  configure_first_party(model_queue_probe)
+  add_test(NAME render.native_model_queue COMMAND model_queue_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_queue.txt)
 
   add_executable(model_lod_probe tests/model_lod_probe.cpp)
   target_link_libraries(model_lod_probe PRIVATE tfx_core)

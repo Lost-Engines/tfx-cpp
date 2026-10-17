@@ -219,3 +219,10 @@ and fixed-anchor caches and their bounding-sphere admission. Complete
 queued multi-level model frames agree with original VGA output. Full actor
 transforms, immediate/queued ordering, queue overflow and animation visibility
 eligibility remain separate work alongside patterned/textured/rounded edges.
+
+
+The original bounded queue, tie ordering and full-queue replacement now have
+complete original allocation/order comparisons and live scene bindings.
+Queued parameters are owned snapshots. Immediate submissions, ground shadows,
+animation eligibility, renderer-phase scheduling and full actor transforms
+remain separate gates, along with patterned/textured/rounded coverage.
