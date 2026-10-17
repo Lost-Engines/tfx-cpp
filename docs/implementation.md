@@ -1997,3 +1997,34 @@ comparisons also remain unchanged.
 Remaining audio bindings include the other combat/result/weapon triggers,
 Gravis's separate auxiliary resource path, QSound processing and broader
 whole-session coverage. These results do not close those gates.
+
+
+### Mission-result and confirmed-hit audio
+
+Mission completion now emits an ordered typed event between prior target notices
+and the completion notice. Its caller sends the original music cue 3, then
+urgent sample 41. Protection completion still plays that pair even when it has
+no completion text. The existing fixture now retains both state and ordered
+output: **4,439 complete original frames across 512 sequences agree**, including
+all completion kinds, target bookkeeping, timers and termination.
+
+Confirmed player kills now play music cue 10 and the native normal-priority
+concatenation of explosion sample 12 followed by the original random choice of
+sample 34 or 70. The former `loss_effects::radio` was a sample descriptor index,
+not a text message; its name now reflects that meaning. All **4,096 original
+credit cases** additionally verify the exact music request and callback arguments,
+while retaining counter, permission and random-order checks. First player loss
+also forwards cue 1; its association with the existing first-loss event is
+verified across **4,096 complete original loss/impact cases**.
+
+Named music/sample request enums keep these IDs with their intended meanings.
+The joined 32/16-bit audio lifecycle comparison now also includes confirmed-hit,
+failure and completion arrangements: **4,473 FM register writes, 1,446 LA
+messages and 2,023 SCC messages**, with exact sample timestamps over the same
+546 shared IRQ ticks. File-load counts are 12, 3 and 8 respectively. This extends
+the earlier lifecycle comparison; it still supplies aircraft state and file/I/O
+boundaries rather than claiming a complete simulated mission.
+
+The extended progress/credit/loss and all three joined audio comparisons pass in
+development, Release and ASan/UBSan, as do all 103 asset-free regressions. FM's
+2,832,000-sample callback comparison remains exact after adding these cues.

@@ -2,22 +2,10 @@
 
 #include <initializer_list>
 #include "audio/sample_voice.h"
+#include "audio/requests.h"
 #include "audio/music_player.h"
 
 namespace tfx::audio {
-
-enum class sample_id : unsigned int {
-  gear = 1,
-  afterburner_stop = 8,
-  ejection = 20,
-  threat = 43,
-  refuel_acquiring = 46,
-  refuel_response = 48,
-  landing_stopped = 49,
-  recovery = 62,
-  fill_up = 69,
-  afterburner = 75,
-};
 
 class runtime {
 private:
@@ -40,6 +28,7 @@ public:
   void end_flight();
   void update_flight(flight_audio_state const &state);
   void music_cue(uint8_t cue);
+  void music_cue(music_cue_id cue);
   void enable_sound(bool enabled);
   void advance(simulation::timer_ticks elapsed);
   void sample(sample_priority priority, unsigned int id);

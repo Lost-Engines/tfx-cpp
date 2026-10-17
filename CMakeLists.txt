@@ -24,7 +24,7 @@ add_library(tfx_audio
   src/audio/sample_scheduler.cpp src/audio/sample_scheduler.h
   src/audio/sample_bank.cpp src/audio/sample_bank.h
   src/audio/sample_voice.cpp src/audio/sample_voice.h
-  src/audio/runtime.cpp src/audio/runtime.h
+  src/audio/runtime.cpp src/audio/runtime.h src/audio/requests.h
   src/audio/osl_resource.cpp src/audio/osl_resource.h
   src/audio/osl_channel.h src/audio/osl_device.h
   src/audio/osl_la_driver.cpp src/audio/osl_la_driver.h

@@ -60,7 +60,10 @@ int main(int const argc, char const *const argv[]) try {
     if(frame == 450) state.engines_running = false;
     if(frame == 550) { state.engines_running = true;state.throttle = .6f; }
     if(frame == 600) player.enable(true);
+    if(frame == 650) player.cue(10);
     if(frame == 700) player.cue(6);
+    if(frame == 730) player.cue(1);
+    if(frame == 750) player.cue(3);
     if(frame == 800) player.end_flight();
     if(frame == 810) player.select(1);
     if(frame == 900) player.begin_flight(state);

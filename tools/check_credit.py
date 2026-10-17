@@ -23,8 +23,15 @@ def main():
     image.intercept(0xb7a3c,'Supply the victim definition type used by the authored mission filter.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,actor_type[0]&0xffffffff),im.return_from()))
     image.intercept(0x78274,'Record the later fatal-aircraft boundary; its random/ejection/retirement logic is independently checked.',lambda im:im.return_from())
     image.intercept(0xb1334,'Supply ordinary permission/Arcade/training eligibility for aircraft credit.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,0x300600),im.return_from()))
-    for address in (0xa5a9c,0x81254):image.intercept(address,'Radio/music and orders-warning output do not change the counters under comparison.',lambda im:im.return_from())
-    image.write(0xac74,'<I',image.native(0x75954)) # Absent sound output; caller cleans its stack.
+    music_requests=[];sample_requests=[]
+    image.intercept(0xa5a9c,'Observe the confirmed-aircraft-kill music cue.',lambda im:(music_requests.append(im.cpu.reg_read(r.UC_X86_REG_EAX)),im.return_from()))
+    image.intercept(0x81254,'Orders-warning presentation is an external output.',lambda im:im.return_from())
+    def sample(im):
+        priority,first,second,end=struct.unpack('<4I',im.cpu.mem_read(im.cpu.reg_read(r.UC_X86_REG_ESP)+4,16))
+        assert end==0
+        sample_requests.append([priority,(first-im.data-0x9860)//26,(second-im.data-0x9860)//26]);im.return_from()
+    image.intercept(0x75954,'Observe the complete sample concatenation at the output callback boundary.',sample)
+    image.write(0xac74,'<I',image.native(0x75954))
     offsets=(0x5c14,0x5c34,0x5c38,0x5c24,0x5c28,0x5c2c)
     rows=[];expected=[]
     for case in range(4096):
@@ -39,9 +46,12 @@ def main():
         image.write(0x11b28,'<h',filter);image.write(0x11b2c,'<h',filter);image.write(0x10f20,'<I',0x300100);image.write(0x10f24,'<I',image.data+0x10f28 if player else 0)
         image.cpu.mem_write(0x300126,struct.pack('<i',256));image.write(0x13476,'<H',4);image.write(0xe75c,'<h',violations);image.write(0xe781,'<B',0);image.write(0x11104,'<I',0);image.write(0x11108,'<I',0)
         image.cpu.mem_write(0x300600,struct.pack('<I',authorised));image.cpu.mem_write(image.native(0xc9894),struct.pack('<2H',low,high))
+        music_requests.clear();sample_requests.clear()
         image.call(0x7c418 if surface else 0x782f8 if hostile else 0x784d0)
         new_random=struct.unpack('<2H',image.cpu.mem_read(image.native(0xc9894),4))
         cue=(0x46 if new_random[1]&1 else 0x22) if not surface and hostile and player else 0
+        assert music_requests==([10] if cue else []),(case,music_requests,cue)
+        assert sample_requests==([[1,12,cue]] if cue else []),(case,sample_requests,cue)
         expected.append([*[image.read(offset,'<i')[0] for offset in offsets],image.read(0xe75c,'<h')[0],*new_random,cue,int(not hostile)])
     output=subprocess.run([str(args.build/'credit_probe')],input=''.join(' '.join(map(str,row))+'\n' for row in rows),text=True,capture_output=True,check=True)
     actual=[[int(v) for v in line.split()] for line in output.stdout.splitlines()];assert len(actual)==len(expected)
@@ -54,7 +64,7 @@ def main():
                 for byte in struct.pack('<I',value&0xffffffff):digest=((digest^byte)*1099511628211)&0xffffffffffffffff
             lines.append(' '.join(map(str,row+[digest]))+'\n')
         args.save_fixture.write_text(''.join(lines));subprocess.run([str(args.build/'credit_probe'),str(args.save_fixture)],check=True)
-    print('4096 native aircraft/mobile credit cases agree: type filters, permission, ownership, random order, signed counters and violations')
+    print('4096 native aircraft/mobile credit cases agree: type filters, permission, ownership, random order, signed counters, violations and exact kill music/sample requests')
 
 
 if __name__=='__main__':main()
