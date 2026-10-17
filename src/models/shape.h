@@ -40,7 +40,7 @@ struct shape {
 
 enum class primitive_kind : uint32_t { polygon, line, point };
 enum class texture_source { global, model };
-enum class palette_source { distance, fixed };
+enum class palette_source { distance, fixed, face_depth };
 struct texture_binding {
   texture_source source;
   unsigned int slot;
@@ -59,6 +59,8 @@ struct primitive {
   unsigned int colour;
   int mode{-1};
   palette_source palette{palette_source::distance};
+  // Signed camera high-word average captured by opcode 118, before clipping.
+  int16_t palette_depth{0};
   std::optional<texture_binding> texture{std::nullopt};
   double radius{0};
   unsigned int pixel_size{0};

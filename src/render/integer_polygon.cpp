@@ -160,14 +160,14 @@ public:
   }
 };
 
-void shaded_span(framebuffer &output, int const y, edge_walker const &left, edge_walker const &right, colour_map const &remap) {
-  int const extent{right.x() - left.x()};
+void shaded_span(framebuffer &output, int const y, int const left, int const right, uint16_t const left_shade, uint16_t const right_shade, colour_map const &remap) {
+  int const extent{right - left};
   if(extent < 0) return;
-  int const delta{word(right.shade() - left.shade())}, sign{delta < 0 ? -1 : 1}, magnitude{word(std::abs(delta))};
+  int const delta{word(right_shade - left_shade)}, sign{delta < 0 ? -1 : 1}, magnitude{word(std::abs(delta))};
   int32_t const product{word(magnitude * 2) * reciprocal(extent + 1)};
   uint32_t const bias{magnitude >= extent ? static_cast<uint32_t>(sign * (product >> 1)) : 0u};
-  palette_accumulator colour{(static_cast<uint32_t>(left.shade()) << 16) + 32768u + bias,product,sign < 0};
-  for(int x{left.x()}; x <= right.x(); ++x) {
+  palette_accumulator colour{(static_cast<uint32_t>(left_shade) << 16) + 32768u + bias,product,sign < 0};
+  for(int x{left}; x <= right; ++x) {
     if(x >= 0 && x < screen_width) output.pixels[static_cast<unsigned int>(y * screen_width + x)] = remap[colour.colour()];
     colour.advance();
   }
@@ -211,15 +211,15 @@ void raster(vertex_list vertices, vec2<int16_t> const &minimum, vec2<int16_t> co
 } // anonymous namespace
 
 void integer_polygon(framebuffer &output, std::span<vec2<int16_t> const> const input, uint8_t const colour, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum) {
-  vertex_list vertices;vertices.reserve(input.size());
-  for(auto const &point : input) vertices.push_back({
-    .position{vec2<int16_t>{point}},
-    .shade_q8{0},
-  });
-  raster(std::move(vertices),minimum,maximum,[&](int const y, edge_walker const &left, edge_walker const &right) {
-    int const first{std::max(0,left.x())},last{std::min(screen_width - 1,right.x())};
-    if(first <= last) std::fill_n(output.pixels.begin() + y * screen_width + first,last - first + 1,colour);
-  });
+  auto const spans{integer_polygon_spans(input,minimum,maximum)};
+  // The original consumes bottom-first spans and terminates the whole face
+  // through its unrolled VGA jump table. The first negative byte-width entry
+  // skips a row; wider inverted spans terminate the rest of the face.
+  for(auto const &span : spans | std::views::reverse) {
+    if((span.right | 3) + 4 < span.left) return;
+    int const first{std::max(0,static_cast<int>(span.left))},last{std::min(screen_width - 1,static_cast<int>(span.right))};
+    if(first <= last) std::fill_n(output.pixels.begin() + span.row * screen_width + first,last - first + 1,colour);
+  }
 }
 std::vector<polygon_span> integer_polygon_spans(std::span<vec2<int16_t> const> const input, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum, polygon_facing const facing) {
   vertex_list vertices;vertices.reserve(input.size());
@@ -243,7 +243,27 @@ void integer_gouraud_polygon(framebuffer &output, std::span<indexed_vertex const
     .position{vec2<int16_t>{vertex.position}},
     .shade_q8{vertex.shade_q8},
   });
-  raster(std::move(source),minimum,maximum,[&](int const y, edge_walker const &left, edge_walker const &right) { shaded_span(output,y,left,right,remap); });
+  struct shaded_scanline {
+    int row;
+    int left;
+    int right;
+    uint16_t left_shade;
+    uint16_t right_shade;
+  };
+  std::vector<shaded_scanline> spans;spans.reserve(screen_height);
+  raster(std::move(source),minimum,maximum,[&](int const y, edge_walker const &left, edge_walker const &right) {
+    spans.push_back({
+      .row{y},
+      .left{left.x()},
+      .right{right.x()},
+      .left_shade{left.shade()},
+      .right_shade{right.shade()},
+    });
+  });
+  for(auto const &span : spans | std::views::reverse) {
+    if(span.left > span.right) return;
+    shaded_span(output,span.row,span.left,span.right,span.left_shade,span.right_shade,remap);
+  }
 }
 
 void integer_texture_polygon(framebuffer &output, std::span<textured_vertex const> const vertices, std::span<uint8_t const> const texture, colour_map const &remap, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum) {

@@ -3549,3 +3549,43 @@ pause and actual combat FINISH.
 
 Parameter-selected ink/drawing controls, specialised lighting helpers and
 complete world-phase/session equivalence remain separate work.
+
+### Scoped polygon-depth palettes and crossed faces
+
+Model opcode 118 now calls its relative helper with the original per-face
+colour loader and re-used-colour handlers, restoring those handlers on return.
+Each triangle or quad averages its signed camera-depth high words before
+selecting a root colour-table row. Re-used ink gets a new average for each face;
+the loaded ink/row survives helper return, while a later ordinary colour load
+again uses the object's table. Opcode 84 still changes the shared table, even
+inside that helper. Opcode 74 now selects the mutable distance used by later
+model conditions from the chosen camera vertex, rather than being ignored.
+
+The native comparison also exposed different crossed-face behaviours in the
+painters. Flat spans are consumed bottom first through an unrolled VGA jump
+table: its first negative byte-width entry skips a row, while wider inverted
+spans terminate the face. Gouraud instead terminates at an inverted pixel span.
+These distinctions matter for narrow clipped triangles and non-planar quads;
+continuing all scanlines or applying one shared termination rule is incorrect.
+
+Original comparisons now agree for **1,024 complete helper-palette frames**
+(1,021 nonempty), **1,024 varied-depth flat frames**, **1,024 varied-depth
+Gouraud frames** and **1,024 crossed/concave texture frames**. Actual resource
+conversion, projection, conditional branches, helper/return dispatch, lookups
+and VGA drawing execute. Camera/model inputs and deliberately distinct lookup
+rows are supplied, not captured complete-world sessions.
+
+Both retained models using opcode 118 use triangles, quads and triangle ink
+reuse. The original variable-size-polygon form mistakenly includes its count
+word as a vertex offset in this depth average. That unrepresented combination
+now reports an explicit unsupported boundary rather than silently substituting
+a corrected average; the current retained helper corpus does not use it.
+Parameter-selected constant ink/drawing modes remain the next material gap.
+
+All **168 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizers each additionally agree on 160 complete original helper-palette
+frames and 160 varied-depth Gouraud frames. Explicit fixtures retain the exact
+narrow-triangle, crossed-quad and Gouraud failures found during this work.
+All 128 retail scenes compose 64 development frames and 16 sanitizer frames
+without warnings. Private-window checks retain all three MFDs, weapon release,
+missile/cannon views, designation, pause and actual combat/result handoff.

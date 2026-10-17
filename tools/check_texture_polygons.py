@@ -14,7 +14,7 @@ import struct
 import subprocess
 from native_reference import NativeReference,r
 from native_vga import VgaCapture
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=1024);p.add_argument('--record',type=Path);a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=1024);p.add_argument('--record',type=Path);p.add_argument('--crossed',action='store_true',help='permute authored corners to exercise crossed and concave projections');a=p.parse_args()
 im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,0x20000);code=lambda off:im.native(0x70aa4+off)
 im.cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=10000);im.cpu.mem_write(0x300000,bytes((u*3+v*5+(u^v))&255 for v in range(256) for u in range(256)));im.cpu.mem_write(code(0x4787a),struct.pack('<I',0x300000));im.cpu.mem_write(code(0x4787e),struct.pack('<I',0x310000));rng=random.Random(0xbdc38)
 def hull(points):
@@ -33,6 +33,7 @@ for case in range(a.cases):
  if case%11==0:points.reverse()
  if case%23==0:points=[(20,50),(50,50),(80,50)]
  if case%31==0:points=[(100,20),(100,50),(100,80)]
+ if a.crossed:rng.shuffle(points)
  minimum=[30,40] if case%5==0 else [0,0];maximum=[110,120] if case%5==0 else [319,172 if case%3==0 else 199]
  uv=[[rng.randrange(2*128,250*128),rng.randrange(2*128,185*128)] for _ in points];rows.append([len(points),rng.randrange(256),*minimum,*maximum,*[v for p,t in zip(points,uv) for v in (*p,*t)]])
 request=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode();command=[str((a.build/'texture_polygon_probe').resolve())];actual=subprocess.check_output(command,input=request).decode().splitlines();output=subprocess.check_output(command+['--pixels'],input=request);assert len(actual)==len(rows) and len(output)==len(rows)*64000;fixtures=[]
