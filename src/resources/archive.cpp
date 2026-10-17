@@ -44,6 +44,7 @@ archive::archive(bytes source) : storage{std::move(source)} {
 }
 
 archive::archive(std::filesystem::path const &path) : archive{read_file(path)} {
+  directory = std::filesystem::absolute(path).parent_path();
 }
 
 std::span<archive_entry const> archive::entries() const {
@@ -69,8 +70,40 @@ resource_id archive::hash_name(std::string_view const name) const {
   return hash_short_name(short_name);
 }
 
+std::optional<std::filesystem::path> archive::loose_file(std::string_view const name) const {
+  if(!directory) return {};
+  auto const lower{[](std::string value) {
+    for(auto &byte : value) byte = static_cast<char>(std::tolower(static_cast<unsigned char>(byte)));
+    return value;
+  }};
+  std::string relative{name};
+  std::ranges::replace(relative,'\\','/');
+  std::filesystem::path const path{relative};
+  if(path.is_absolute()) return {};
+  auto selected{*directory};
+  for(auto const &part : path) {
+    auto component{part.string()};
+    if(component == ".") continue;
+    if(component == "..") return {};
+    // DOS ignores trailing spaces/dots in an 8.3 path component. In
+    // particular the launcher's literal "tunes\\intro.rld " needs this.
+    while(!component.empty() && (component.back() == ' ' || component.back() == '.')) component.pop_back();
+    if(component.empty()) return {};
+    auto candidate{selected / component};
+    if(!std::filesystem::exists(candidate)) {
+      if(!std::filesystem::is_directory(selected)) return {};
+      bool found{false};
+      for(auto const &entry : std::filesystem::directory_iterator{selected}) if(lower(entry.path().filename().string()) == lower(component)) {
+        candidate = entry.path();found = true;break;
+      }
+      if(!found) return {};
+    }
+    selected = std::move(candidate);
+  }
+  return std::filesystem::is_regular_file(selected) ? std::optional{selected} : std::nullopt;
+}
 bool archive::contains(std::string_view const name) const {
-  return lookup.contains(hash_name(name));
+  return lookup.contains(hash_name(name)) || loose_file(name).has_value();
 }
 
 bytes archive::read(resource_id const id) const {
@@ -89,7 +122,15 @@ bytes archive::read(resource_id const id) const {
 
 bytes archive::read(std::string_view const name) const {
   try {
-    return read(hash_name(name));
+    auto const id{hash_name(name)};
+    if(lookup.contains(id)) return read(id);
+    // Native 0xc8bec/0xc8cf0 prefer the indexed archive, then try a loose
+    // DOS file. Both paths accept the same RA-compressed resource format.
+    if(auto const file{loose_file(name)}) {
+      auto bytes{read_file(*file)};
+      return is_ra(bytes) ? decode_ra(bytes) : std::move(bytes);
+    }
+    return read(id);
   } catch(std::exception const &error) {
     throw std::runtime_error{std::string{name} + ": " + error.what()};
   }
