@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import time
 from PIL import Image
+from native_configuration import read_configuration
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
@@ -32,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-palettes-') as temporary:
         for lighting in ('yugos_n','yugos_d'):
             capture=next(c for c in captures if c['environment']==lighting);normal_bank=palette(capture,'0x21000');normal=set(normal_bank);infrared=set(palette(capture,'0xea88'))
             with (directory/'game.log').open('w+') as log:
-                game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','501','--environment',lighting,'--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
+                game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','501','--environment',lighting,'--control','keyboard','--flight-model','arcade','--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
                 deadline=time.monotonic()+15;window=None
                 while time.monotonic()<deadline and game.poll() is None:
                     found=subprocess.run(['xdotool','search','--onlyvisible','--name','TFX C'],env=env,capture_output=True,text=True)
@@ -56,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-palettes-') as temporary:
                     if expected_green is not None:
                         expected=(normal_bank[6][0],((expected_green&63)*255+31)//63,normal_bank[6][2])
                         assert pixels.count(expected)>10,(lighting,'HUD green',expected,pixels.count(expected))
-                check(False,125)
+                check(False,read_configuration(data)["hud_green"])
                 run('xdotool','keydown','Shift_L');tap('n');run('xdotool','keyup','Shift_L');check(lighting.endswith('_n'))
                 tap('F5',3);check(False)
                 tap('F1',3);check(lighting.endswith('_n'))

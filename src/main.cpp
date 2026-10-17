@@ -34,7 +34,9 @@ auto main(int const argc, char const *const argv[])->int try {
   std::string mission_name{"miss501"}, override_environment, override_grid;
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0};
   tfx::simulation::flight_model model{tfx::simulation::flight_model::arcade};
-  bool inspect{false}, direct_mission{false}, skip_intro{false};
+  bool inspect{false}, direct_mission{false}, skip_intro{false}, model_selected{false}, language_selected{false};
+  std::optional<tfx::flight::control_source> control_override;
+  std::optional<unsigned int> joystick;
   std::string presentation, presentation_function, language{"english"};
   std::optional<vec2<unsigned int>> override_cell;
   std::optional<std::filesystem::path> screenshot;
@@ -54,7 +56,9 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --mission N           Enter a mission directly instead of the original front end\n"
                    "  --skip-intro          Start at pilot enrolment without the opening sequence\n"
                    "  --language NAME       english, french, german, spanish or italian\n"
-                   "  --flight-model NAME   arcade (default), simple, military-spec or realistic\n"
+                   "  --flight-model NAME   arcade, simple, military-spec or realistic; overrides TFX.CFG\n"
+                   "  --control NAME        keyboard, mouse or joystick; overrides TFX.CFG\n"
+                   "  --joystick N          Select joystick 0..15 (default: first available); enables joystick input\n"
                    "  --scale N             Window scale; 0 selects the largest fitting scale (default)\n"
                    "\nFlight: hold left/right mouse or =/- for thrust.\n"
                    "Arcade uses mouse/arrow steering; other models use the original arrow-key controls.\n"
@@ -91,6 +95,7 @@ auto main(int const argc, char const *const argv[])->int try {
     if(key == "--data-dir") data_directory = value();
     else if(key == "--language") {
       language = value();
+      language_selected = true;
       std::array<std::string_view,5> constexpr languages{"english","french","german","spanish","italian"};
       if(std::ranges::find(languages,language) == languages.end()) throw std::runtime_error{"unknown TFX language: " + language};
     }
@@ -99,7 +104,18 @@ auto main(int const argc, char const *const argv[])->int try {
       direct_mission = true;
       auto const selected{value()};
       mission_name = "miss" + std::to_string(number(selected));
+    } else if(key == "--joystick") {
+      joystick = number(value());
+      if(*joystick > GLFW_JOYSTICK_LAST) throw std::runtime_error{"joystick index must be between 0 and 15"};
+      control_override = tfx::flight::control_source::joystick;
+    } else if(key == "--control") {
+      auto const selected{value()};
+      if(selected == "keyboard") control_override = tfx::flight::control_source::keyboard;
+      else if(selected == "mouse") control_override = tfx::flight::control_source::mouse;
+      else if(selected == "joystick") control_override = tfx::flight::control_source::joystick;
+      else throw std::runtime_error{"control must be keyboard, mouse or joystick"};
     } else if(key == "--flight-model") {
+      model_selected = true;
       auto const selected{value()};
       if(selected == "arcade") model = tfx::simulation::flight_model::arcade;
       else if(selected == "simple") model = tfx::simulation::flight_model::simple;
@@ -138,6 +154,13 @@ auto main(int const argc, char const *const argv[])->int try {
     else throw std::runtime_error{"unrecognised option: " + std::string{key} + "; use --help"};
   }
   auto const archive_path{tfx::resources::find_game_archive(data_directory)};
+  auto preferences{tfx::configuration::load(archive_path.parent_path())};
+  if(model_selected) preferences.model = model;
+  if(control_override) preferences.control = *control_override;
+  if(control_override == tfx::flight::control_source::joystick && preferences.model == tfx::simulation::flight_model::arcade) throw std::runtime_error{"joystick steering requires Simple, Military-spec or Realistic flight; Arcade uses relative mouse/arrow input"};
+  if(control_override == tfx::flight::control_source::mouse && preferences.model == tfx::simulation::flight_model::simple) throw std::runtime_error{"the original Simple model has no mouse steering; choose keyboard or joystick"};
+  std::array<std::string_view,5> constexpr language_names{"english","french","german","spanish","italian"};
+  if(!language_selected && preferences.language >= 1 && preferences.language <= language_names.size()) language = language_names[preferences.language - 1];
   tfx::resources::archive const game{archive_path};
   tfx::resources::executable_tables const tables{archive_path.parent_path() / "TFX.DAT"};
   if(!presentation.empty()) {
@@ -150,11 +173,12 @@ auto main(int const argc, char const *const argv[])->int try {
     .grid{override_grid},
     .cell{override_cell ? std::optional<vec2<unsigned int>>{std::in_place,*override_cell} : std::nullopt},
     .screenshot{screenshot},
+    .joystick{joystick},
     .scale{scale},
     .scene_radius{scene_radius},
     .frame_limit{frame_limit},
     .flight_steps{flight_steps},
-    .model{model},
+    .preferences{preferences},
     .inspect{inspect},
   };
   if(direct_mission || inspect || flight_steps || !override_environment.empty() || !override_grid.empty()) {

@@ -14,6 +14,10 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/flight/mouse_input.cpp
+  src/flight/mouse_input.h
+  src/flight/joystick.cpp
+  src/flight/joystick.h
   src/configuration/settings.cpp
   src/configuration/settings.h
   src/flight/player_flight.cpp
@@ -526,6 +530,16 @@ if(BUILD_TESTING)
   configure_first_party(aerodynamic_recovery_probe)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
+
+  add_executable(mouse_input_probe tests/mouse_input_probe.cpp)
+  target_link_libraries(mouse_input_probe PRIVATE tfx_core)
+  configure_first_party(mouse_input_probe)
+  add_test(NAME flight.native_mouse_input COMMAND mouse_input_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/mouse_input.txt")
+
+  add_executable(joystick_probe tests/joystick_probe.cpp)
+  target_link_libraries(joystick_probe PRIVATE tfx_core)
+  configure_first_party(joystick_probe)
+  add_test(NAME flight.native_joystick_input COMMAND joystick_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/joystick.txt")
 
   add_executable(configuration_probe tests/configuration_probe.cpp)
   target_link_libraries(configuration_probe PRIVATE tfx_core)

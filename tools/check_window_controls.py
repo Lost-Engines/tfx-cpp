@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('xdotool','keydown',key,check=True);time.sleep(.15)
             run('xdotool','keyup',key,check=True);time.sleep(.15)
         with (directory/'game.log').open('w+') as log:
-            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','501','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
+            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','501','--control','keyboard','--flight-model','arcade','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+10;window=None
             while time.monotonic()<deadline and game.poll() is None:
                 found=run('xdotool','search','--onlyvisible','--name','TFX C',capture_output=True,text=True)
@@ -88,7 +88,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
             print('Private X11 controls passed: a store fires; F8 follow/nose and F1 return work; cannon fires; Shift+Q exits cleanly')
-            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','601','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
+            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','601','--control','keyboard','--flight-model','arcade','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+10;window=None
             while time.monotonic()<deadline and game.poll() is None:
                 found=run('xdotool','search','--onlyvisible','--name','TFX C',capture_output=True,text=True)
@@ -112,7 +112,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             tap('x');tap('F1');tap('Shift_L+q');game.wait(timeout=10)
             if game.returncode:raise RuntimeError('ground-targeting input failed')
             print('Private X11 ground controls passed: select ground weapon, enter/zoom/aim/designate, release store, unlock and return to flight')
-            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','605','--flight-steps','1024','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
+            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','605','--flight-steps','1024','--control','keyboard','--flight-model','arcade','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+10;window=None
             while time.monotonic()<deadline and game.poll() is None:
                 found=run('xdotool','search','--onlyvisible','--name','TFX C',capture_output=True,text=True)
