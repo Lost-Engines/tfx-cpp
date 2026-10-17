@@ -5,6 +5,7 @@
 #include <string>
 #include "render/software_renderer.h"
 #include "render/model_queue.h"
+#include "render/model_jitter.h"
 #include "world/animation.h"
 #include "world/assets.h"
 #include "world/environment.h"
@@ -18,6 +19,7 @@ struct scene_handle {
   unsigned int value;
   bool operator==(scene_handle const&) const = default;
 };
+enum class scene_pass { primary, instrument };
 struct scene_events {
   bool animated{false};
   bool eject_player{false};
@@ -57,8 +59,16 @@ private:
   render::model_slot_metadata model_slots;
   std::array<uint8_t,part_parameters> model_parameters{};
   animation_clock clock;
-  math::jitter_state working_jitter;
-  math::jitter_state saved_jitter;
+  bool animation_pending{false};
+  bool instrument_animation{false};
+  render::model_jitter jitter;
+  struct player_rendering {
+    scene_handle handle;
+    vec3d position;
+    vec3<math::angle> angles;
+    animation_policy animation;
+  };
+  std::optional<player_rendering> player_model;
 
 public:
   std::set<std::string> warnings;
@@ -88,7 +98,9 @@ public:
   void prepare_terrain_cell(unsigned int x, unsigned int z);
   instance_result terrain_event(unsigned int x, unsigned int z, unsigned int entry);
   scene_events advance(timer_ticks elapsed);
-  void draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius, std::function<void()> const &final_submissions = {}, std::optional<int32_t> camera_anchor_y = {}, int16_t shadow_ground_height = 0);
+  bool animate_player_model(scene_handle handle);
+  void set_player_rendering(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles, animation_policy policy);
+  scene_events draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius, std::function<void()> const &final_submissions = {}, std::optional<int32_t> camera_anchor_y = {}, int16_t shadow_ground_height = 0, scene_pass pass = scene_pass::primary);
 };
 
 } // namespace tfx::world

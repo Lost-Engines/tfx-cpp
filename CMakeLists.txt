@@ -342,6 +342,7 @@ add_library(tfx_core
   src/render/model_queue.h
   src/render/model_point.cpp
   src/render/model_point.h
+  src/render/model_jitter.cpp src/render/model_jitter.h
   src/render/model_transform.cpp src/render/model_transform.h
   src/world/model_orientation.h
   src/render/model_metrics.cpp
@@ -566,6 +567,14 @@ if(BUILD_TESTING)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
 
+  add_executable(model_jitter_probe tests/model_jitter_probe.cpp)
+  target_link_libraries(model_jitter_probe PRIVATE tfx_core)
+  configure_first_party(model_jitter_probe)
+  add_test(NAME render.native_model_jitter_frames COMMAND model_jitter_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_jitter_frames.txt)
+  add_executable(animation_policy_probe tests/animation_policy_probe.cpp)
+  target_link_libraries(animation_policy_probe PRIVATE tfx_core)
+  configure_first_party(animation_policy_probe)
+  add_test(NAME world.native_animation_eligibility COMMAND animation_policy_probe ${PROJECT_SOURCE_DIR}/tests/reference/animation_policy.txt)
   add_executable(model_delivery_probe tests/model_delivery_probe.cpp)
   target_link_libraries(model_delivery_probe PRIVATE tfx_core)
   configure_first_party(model_delivery_probe)

@@ -17,12 +17,14 @@ from unicorn import x86_const as r
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
+parser.add_argument('--model-submission',action='store_true',help='observe integer/animated versus fixed/frozen player-model forwarding')
 parser.add_argument('--refuelling',action='store_true',help='exercise all four refuelling model phases')
 parser.add_argument('--projection',action='store_true',help='observe native model/visibility aperture handoff')
 parser.add_argument('--horizon',action='store_true',help='observe the native background pitch/roll handoff')
 parser.add_argument('--split-basis',action='store_true',help='supply distinct physics and renderer bases as used by Simple flight')
 a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');base=im.layout['objects'][0]['preferred_base']
-for address,reason in [(0x94efc,'Supply the player pose without the separate navigation-contact controller.'),(0xb6ea4,'Exclude forwarding player angles into the model renderer.'),(0xb4fd0,'Exclude forwarding the player model into the scene queue.'),(0x90320,'Exclude forwarding the player pose into the model renderer.')]:im.intercept(address,reason,lambda im:im.return_from())
+model_forwarding=[]
+for address,reason in [(0x94efc,'Supply the player pose without the separate navigation-contact controller.'),(0xb6ea4,'Exclude forwarding player angles into the model renderer.'),(0xb4fd0,'Exclude forwarding the player model into the scene queue.'),(0x90320,'Exclude forwarding the player pose into the model renderer.')]:im.intercept(address,reason,lambda im,address=address:(model_forwarding.append(address) if address in (0xb4fd0,0x90320) else None,im.return_from()))
 horizon_angles=[];ground_motion=[]
 if a.horizon:
     im.intercept(0x8fcd4,'Observe native horizon pitch/roll from the complete camera controller; its complete geometry/VGA consumer is checked separately.',lambda im:(horizon_angles.append([im.cpu.reg_read(r.UC_X86_REG_EAX)&65535,im.cpu.reg_read(r.UC_X86_REG_EDX)&65535,struct.unpack('<h',im.cpu.mem_read(base+0x47c08,2))[0]]),im.return_from()))
@@ -65,6 +67,7 @@ for mode in modes:
 if a.refuelling:
     for index,row in enumerate(cases):row.append(index%4)
 command=[str((a.build/'view_camera_probe').resolve())]
+if a.model_submission:command.append('--model-submission')
 if a.refuelling:command.append('--refuelling')
 if a.horizon:command.append('--horizon')
 if a.projection:command.append('--projection')
@@ -92,7 +95,7 @@ for index,(row,line) in enumerate(zip(cases,output)):
     im.write(0x10f28,'<3i',*q8);im.write(0x86c8,'<3H',*angles);im.write(0x13476,'<H',elapsed);im.write(0x1358a,'<H',pan);im.write(0xabf2,'<h',ground);im.write(0xa4ea,'<B',low)
     im.cpu.mem_write(base+0x47c38,struct.pack('<9h',*basis));im.write(0x1345e,'<9h',*body)
     for field,value in zip((0x1341c,0x13428,0x13434),q8):im.write(field,'<f',value/256)
-    model_entries.clear();horizon_angles.clear();ground_motion.clear()
+    model_entries.clear();horizon_angles.clear();ground_motion.clear();model_forwarding.clear()
     im.call(0x92144,limit=2000000)
     want=[]
     for field,fmt in [(0x87b8,'<h'),(0x1357c,'<h'),(0x1357e,'<h'),(0x87dc,'<B'),(0x87f0,'<9h'),(0x87ba,'<3h'),(0x87c0,'<3i'),(0x13590,'<2H'),(0x13588,'<H'),(0x87b0,'<h'),(0x87b2,'<h'),(0x87ae,'<h'),(0x134dc,'<i'),(0x134f0,'<i'),(0x134f8,'<i'),(0x13500,'<i')]:want.extend(im.read(field,fmt))
@@ -104,6 +107,9 @@ for index,(row,line) in enumerate(zip(cases,output)):
     if a.horizon:
         want += [1,*horizon_angles[-1]] if horizon_angles else [0,0,0,0]
         want += [int(bool(ground_motion)),struct.unpack('<h',struct.pack('<H',ground_motion[-1]))[0] if ground_motion else 0,*[im.read(at,'<i')[0] for at in (0x1359c,0x13598,0x13594)]]
+    if a.model_submission:
+        assert len(model_forwarding)<=1,(index,model_forwarding)
+        want.append(int(model_forwarding[0]==0xb4fd0) if model_forwarding else -1)
     if a.projection:want.append(im.cpu.mem_read(im.native(0xb9472),1)[0])
     got=list(map(int,line.split()));assert got==want,(index,row,[(n,x,y) for n,(x,y) in enumerate(zip(got,want)) if x!=y][:25],len(got),len(want))
 print(f'{len(modes)} cockpit, head/chase, missile/infrared and impact camera modes agree in {len(cases)} native pose/matrix updates with declared world/weather boundaries')

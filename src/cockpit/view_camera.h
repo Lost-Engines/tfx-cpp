@@ -30,6 +30,7 @@ struct view_camera_context {
   std::optional<vec3<int32_t>> impact_target_q8{};
   vec2<int32_t> height_bounds{-8192,-32};
 };
+enum class player_model_source { fixed, integer };
 struct view_pose {
   render::aperture opening{render::aperture::normal};
   std::optional<int16_t> ground_motion{};
@@ -40,6 +41,7 @@ struct view_pose {
   vec3<math::angle> angles{0,0,0};
   mat3<int32_t> matrix{};
   std::optional<unsigned int> player_model_entry{};
+  player_model_source model_source{player_model_source::fixed};
   render::camera camera(vec2d const &projection_origin) const;
 };
 struct view_motion_state {

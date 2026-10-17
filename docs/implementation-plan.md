@@ -266,3 +266,10 @@ comparisons, including capacity and frame resets. Direct converted-model
 frames agree too. Remaining renderer work includes visibility-conditioned
 animation, complete phase scheduling, model-local articulated matrices and
 rounded/textured boundaries.
+
+Visibility-dependent model animation now follows the original unconditional,
+visible and frozen constructors, including per-viewport jitter and the main
+camera's integer versus fixed player submission. Original comparisons cover
+8,192 animation calls, 16,384 viewport resets and 12,288 camera updates.
+Model-local articulated transforms, rounded/textured boundaries and complete
+world phase order remain the next renderer gaps.
