@@ -13,6 +13,22 @@ dictionary. Starting again replaces the previous recording, as in the original.
 After a completed mission, the original WNN/press-room introduction precedes
 automatic playback. Any new key press leaves the recorded flight.
 
+The configuration menu's original filename field is editable. Its application
+state survives menu and mission returns but is not added to `TFX.CFG`, whose
+original writer has no such setting. The native key maps, shifted-case branch,
+18-character limit, underscore cursor, backspace, horizontal scrolling and
+Enter completion are retained. Nonprinting host function/navigation keys do
+not insert embedded NULs into path strings. A separate original widget capture
+compares 115 supported editing steps and all 64,000 dialog pixels; DOS mouse
+and keyboard delivery, PC-speaker tone/delay and cursor hardware are declared
+boundaries. A private-window check changes the name using real keyboard input
+and verifies that Alt+V writes the resulting, case-sensitive host filename.
+
+```sh
+python3 tools/check_recording_name.py
+python3 tools/check_window_configuration.py --data-dir /path/to/TFX
+```
+
 All numeric fields use little-endian byte order. The ten-byte file header is:
 
 | Field | Type | Meaning |

@@ -42,6 +42,7 @@ struct flight_options {
   cockpit::tactical_map_animation &map_animation;
   flight::cheat_code &cheat;
   missions::inherited_setup &mission_state;
+  std::string &recording_name;
   render::precipitation &rain;
   math::random_state &session_random;
   audio::runtime *sound{nullptr};

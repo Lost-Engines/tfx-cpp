@@ -4,8 +4,8 @@ from native_reference import NativeReference, r
 from native_vga import VgaCapture
 
 
-def menu_image(path, values, page=0, audio=None):
-    image = NativeReference(path, data_base=0x100000)
+def menu_image(path, values, page=0, audio=None, *, image_type=NativeReference, interactive=False):
+    image = image_type(path, data_base=0x100000)
     image.call(0xde851)
     image.call(0xde547)
     vga = VgaCapture(image)
@@ -22,7 +22,8 @@ def menu_image(path, values, page=0, audio=None):
         image.write(0x8865,'<b',sound if available_sound else -1)
         image.write(0x8866,'<b',music if available_music else -1)
     image.write(0x13aed,'<B',values[1])
-    image.intercept(0xd07b4,'Supply no new keyboard/mouse event between declared option selections',lambda im:im.return_from())
+    if not interactive:
+        image.intercept(0xd07b4,'Supply no new keyboard/mouse event between declared option selections',lambda im:im.return_from())
     image.intercept(0xce4b0,'Hide hardware cursor outside captured dialog pixels',lambda im:im.return_from())
     image.intercept(0xce4c0,'Restore hardware cursor outside captured dialog pixels',lambda im:im.return_from())
     image.intercept(0xca566,'Keep the supplied VGA capture page selected instead of switching physical video pages',lambda im:im.return_from())

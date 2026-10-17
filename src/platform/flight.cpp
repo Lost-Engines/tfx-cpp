@@ -2106,7 +2106,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         reset_weapon_targets();
         // Native 0x85d1d still performs D/Shift+D after the arming call.
         finish_information_key(information_shift);
-      } else action = configure_flight(window,tables,preferences,options.data_directory,renderer.output,*frame_colours,sound,quit_prompt);
+      } else action = configure_flight(window,tables,preferences,options.recording_name,options.data_directory,renderer.output,*frame_colours,sound,quit_prompt);
       if(action == tfx::presentation::configuration_action::enrol) return flight_result::enrol;
       if(action == tfx::presentation::configuration_action::quit) break;
       if(!map_prompt && !rearm_prompt) {
@@ -2170,7 +2170,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       if(pressed(GLFW_KEY_V) && (down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT))) {
         try {
           if(flight_recorder.active()) flight_recorder.finish();
-          else flight_recorder.begin(options.data_directory / tables.configuration_widgets().recording_name);
+          else flight_recorder.begin(options.data_directory / options.recording_name);
         } catch(std::exception const &error) { std::cerr << "Cannot change flight recording: " << error.what() << '\n'; }
       }
       if(pressed(GLFW_KEY_T)) {
@@ -2578,7 +2578,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       if(sound) sound->end_flight();
       auto const camera_y{scene.last_camera() ? tfx::math::signed_word(static_cast<uint16_t>(scene.last_camera()->world_anchor.y)) : int16_t{0}};
       options.projection_origin = {159,99};
-      replay_recording(window,game,tables,scene,renderer,options.data_directory / tables.configuration_widgets().recording_name,camera_y,ground_phase.sample(),infrared_dac);
+      replay_recording(window,game,tables,scene,renderer,options.data_directory / options.recording_name,camera_y,ground_phase.sample(),infrared_dac);
     } catch(std::exception const &error) { std::cerr << "Cannot replay flight recording: " << error.what() << '\n'; }
   }
   glfwSetInputMode(host,GLFW_CURSOR,GLFW_CURSOR_NORMAL);

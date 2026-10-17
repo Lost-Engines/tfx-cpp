@@ -86,6 +86,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "Right Shift+arrows turn the view; +Home/End change distance; +Page Up/Down roll supported views.\n"
                    "Ctrl+arrows/Page Up/Down move the chase camera. Keypad navigation keys also work.\n"
                    "4 saves a numbered GRAB_00.LBM screenshot in the game directory.\n"
+                   "Alt+V starts/stops recording; choose its filename in configuration. WNN replay follows mission completion.\n"
                    "F1 cockpit; Shift+F1 full forward; F2/F3 look left/right; F4 rear; F5 chase.\n"
                    "F6 fly-past; F7 tactical; F8 fired-store camera (twice: nose view).\n"
                    "F9 target observer; F10 virtual cockpit/target tracking.\n"
@@ -241,6 +242,7 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::cockpit::tactical_map_animation map_animation;
   tfx::flight::cheat_code cheat;
   tfx::missions::inherited_setup mission_state;
+  auto recording_name{tables.configuration_widgets().recording_name};
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -269,6 +271,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .map_animation{map_animation},
     .cheat{cheat},
     .mission_state{mission_state},
+    .recording_name{recording_name},
     .rain{rain},
     .session_random{session_random},
     .sound{sound.get()},

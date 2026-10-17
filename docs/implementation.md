@@ -4729,3 +4729,27 @@ WNN introductions and replay, and resumed the original debrief/next-hop path
 with the expected inherited position, Mach, loadout and campaign values.
 All 194 development regressions pass. Full recording layout, commands and
 verification boundaries are in [recording.md](recording.md).
+
+### Original recording filename editor
+
+The configuration menu's filename field now takes focus, shows the native
+underscore cursor and supports typing, backspace, scrolling and Enter. Its
+18-character limit and both keyboard maps follow the original widget. The
+unshifted branch lowercases letters; the shifted branch bypasses that call.
+The filename belongs to the application, so menu and mission returns preserve
+it without inventing a `TFX.CFG` key. Capture and playback use that shared name.
+Presentation and dialog hosts now share their unchanged DOS make-code mapping.
+
+The original widget comparison executes actual mouse/keyboard processing,
+focus and text drawing: 115 supported edits and every complete dialog image
+agree in development, Release and ASan/UBSan. All 200 original sound-enabled
+configuration states/pixels remain unchanged. A private-window check edits
+`QUICK.REC`, including Shift+Q while typing, records real flight frames to the
+chosen filename and completes the existing preference-save, live model-change
+and quit/resume checks. Nonprinting host keys do not embed NULs in path names;
+the native comparison explicitly excludes PC-speaker tone/delay and cursor
+hardware. All 194 regressions pass in development, Release and ASan/UBSan;
+the private-window configuration check also passes under ASan/UBSan. Its GDB
+host disables LeakSanitizer only for ptrace compatibility; ordinary sanitizer
+regressions retain leak detection. See [recording.md](recording.md) for commands
+and boundaries.

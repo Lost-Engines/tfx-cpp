@@ -440,6 +440,8 @@ add_executable(tfx
   src/platform/screenshot.h
   src/platform/configuration.cpp
   src/platform/configuration.h
+  src/platform/keyboard.cpp
+  src/platform/keyboard.h
   src/platform/arming.cpp
   src/platform/arming.h
   src/platform/flight.cpp
@@ -991,6 +993,9 @@ if(BUILD_TESTING)
   add_test(NAME world.native_detail_status COMMAND detail_status_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/detail_status.txt")
 
   add_executable(configuration_menu_probe tests/configuration_menu_probe.cpp)
+  add_executable(recording_name_probe tests/recording_name_probe.cpp)
+  target_link_libraries(recording_name_probe PRIVATE tfx_core)
+  configure_first_party(recording_name_probe)
   target_link_libraries(configuration_menu_probe PRIVATE tfx_core)
   configure_first_party(configuration_menu_probe)
 
