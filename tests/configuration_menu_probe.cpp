@@ -29,7 +29,8 @@ int main(int const argc, char const *const argv[]) try {
       .temperature{static_cast<uint8_t>(temperature)},
       .recovery{static_cast<uint8_t>(recovery)},
     };
-    tfx::presentation::configuration_menu menu{state,assets,font,audio_case ? &audio : nullptr};
+    auto recording_name{assets.recording_name};
+    tfx::presentation::configuration_menu menu{state,assets,font,recording_name,audio_case ? &audio : nullptr};
     if(page == 1) menu.select(static_cast<unsigned int>(menu.widgets().size() - 1));
     else if(page == 2) menu.select(static_cast<unsigned int>(menu.widgets().size() - 3));
     auto const result{menu.select(action)};

@@ -8,7 +8,7 @@
 namespace tfx::platform {
 
 presentation::configuration_action configure_flight(window &window, resources::executable_tables const &tables,
-  configuration::settings &preferences, std::filesystem::path const &directory,
+  configuration::settings &preferences, std::string &recording_name, std::filesystem::path const &directory,
   render::framebuffer const &background, render::palette const &colours, audio::runtime *sound = nullptr, bool quit_prompt = false);
 
 } // namespace tfx::platform

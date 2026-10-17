@@ -8,6 +8,7 @@ import argparse
 import os
 from pathlib import Path
 import select
+import struct
 import subprocess
 import tempfile
 import time
@@ -27,6 +28,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-configuration-') as temporary:
   if not select.select([read],[],[],5)[0]:raise RuntimeError('private display did not start')
   number=os.read(read,64).decode().strip();os.close(read)
   env=dict(os.environ,DISPLAY=':'+number,LIBGL_ALWAYS_SOFTWARE='1',XDG_RUNTIME_DIR=temporary,XMODIFIERS='@im=none')
+  # LeakSanitizer cannot inspect a process under GDB/ptrace. Ordinary
+  # sanitizer regressions still run with leak detection enabled.
+  env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
   for key in ('WAYLAND_DISPLAY','XDG_SESSION_TYPE','DBUS_SESSION_BUS_ADDRESS'):env.pop(key,None)
   def run(*args):return subprocess.run(args,env=env,check=True,capture_output=True,text=True,timeout=5)
   def tap(key):run('xdotool','keydown',key);time.sleep(.2);run('xdotool','keyup',key);time.sleep(.2)
@@ -56,6 +60,10 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-configuration-') as temporary:
     run('xdotool','mousedown','1');time.sleep(.12);run('xdotool','mouseup','1');time.sleep(.15)
    tap('grave');await_title('Configuration')
    before=output().count('TFX_WINDOW_TICK');time.sleep(.4);assert output().count('TFX_WINDOW_TICK')==before,'simulation advanced while configuration was open'
+   click(180,140)
+   run('xdotool','key','--repeat','9','--delay','50','BackSpace')
+   run('xdotool','type','--clearmodifiers','--delay','40','QUICK.REC')
+   tap('Return')
    click(252,108) # Military-spec; restores startup keyboard control.
    click(140,76) # Increase joystick scale by ten.
    click(136,92) # Medium detail.
@@ -67,6 +75,11 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-configuration-') as temporary:
    wanted=[b'REALISM=2,1,1,1,1,0,1',b'DETAIL=1',b'JOYSCALE=522',b'HUDCOL=111',b'CONTROL=0',b'MODEL=0',b'EXTRA=keep this']
    for line in wanted:assert line in config.read_bytes().splitlines(),(line,config.read_bytes())
    assert output().count('TFX_WINDOW_TICK')>before,'simulation did not resume'
+   tap('alt+v');time.sleep(.3);tap('alt+v')
+   recording=(install/'QUICK.REC').read_bytes()
+   frames,size,trailer=struct.unpack_from('<HII',recording)
+   assert frames>1 and size==len(recording) and 10<=trailer<size,(frames,size,trailer)
+   assert not (install/'video.rec').exists(),'edited recording name was ignored'
    tap('grave');await_title('Configuration');click(80,172);click(188,108);await_title('Configuration');click(152,172)
    tap('Shift_L+q');await_title('Quit')
    stopped=output().count('TFX_WINDOW_TICK');time.sleep(.3)
@@ -77,7 +90,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-configuration-') as temporary:
    assert output().count('TFX_WINDOW_TICK')>stopped,'quit cancellation did not return directly to flight'
    tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
    assert game.returncode==0 and 'exited normally' in output() and 'Program received signal' not in output(),output()[-5000:]
-   print('Private X11 configuration passed: paused simulation, real mouse selections, live Military-spec callback, all realism controls, native preference save, quit cancellation, resume and clean exit')
+   print('Private X11 configuration passed: paused simulation, real mouse selections, live Military-spec callback, all realism controls, native preference save, edited REC filename/case, live capture, quit cancellation, resume and clean exit')
  finally:
   for process in (game,display):
    if process is not None and process.poll() is None:

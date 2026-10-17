@@ -37,6 +37,8 @@ configuration_menu_assets::configuration_menu_assets(std::span<uint8_t const> co
   recording_name = string(0x8868);
   recording_marker = string(source.le32(data + 0x594c));
   recording_play = string(0x1344);
+  for(unsigned int shifted{0}; shifted != recording_keys.size(); ++shifted)
+    std::ranges::copy(source.slice(data + (shifted ? 0xad85 : 0xab50),recording_keys[shifted].size()),recording_keys[shifted].begin());
   no = string(0x24ac);
   yes = string(0x24b0);
   enrol = string(0x249c);
@@ -46,8 +48,8 @@ configuration_menu_assets::configuration_menu_assets(std::span<uint8_t const> co
   unavailable_on = string(0x2654);
 }
 
-configuration_menu::configuration_menu(configuration::settings &preferences, configuration_menu_assets const &assets, widget_font const &font, configuration_audio *const audio) :
-  preferences{preferences}, assets{assets}, font{font}, video_name{assets.recording_name}, audio{audio} {
+configuration_menu::configuration_menu(configuration::settings &preferences, configuration_menu_assets const &assets, widget_font const &font, std::string &recording_name, configuration_audio *const audio) :
+  preferences{preferences}, assets{assets}, font{font}, video_name{recording_name}, audio{audio} {
   rebuild();
 }
 configuration_page configuration_menu::page() const { return current; }
@@ -169,8 +171,27 @@ configuration_action configuration_menu::select(unsigned int const index) {
   return configuration_action::none;
 }
 configuration_action configuration_menu::click(vec2<int16_t> const &position) {
+  dialogue_widget const recording_field{
+    .position{18,13},
+    .size{10,1},
+  };
+  editing_video_name = current == configuration_page::main && dialogue_contains(form,recording_field,position);
+  if(editing_video_name) return configuration_action::none;
   for(unsigned int index{0}; index != buttons.size(); ++index) if(dialogue_contains(form,buttons[index].drawing,position)) return select(index);
   return configuration_action::none;
+}
+bool configuration_menu::entering_recording_name() const { return editing_video_name; }
+void configuration_menu::press(uint8_t const scan, bool const shift) {
+  if(!editing_video_name) return;
+  if(scan == 0x1c) { editing_video_name = false;return; }
+  if(scan == 0x0e) { if(!video_name.empty()) video_name.pop_back();return; }
+  if(scan >= assets.recording_keys[0].size() || video_name.size() >= recording_filename_limit) return;
+  uint8_t character{assets.recording_keys[shift][scan]};
+  // D09AF bypasses the lowercase call used by the unshifted branch.
+  // Host function/navigation keys do not insert NULs into a C++ path string.
+  if(character < ' ' || character == 127) return;
+  if(!shift && character >= 'A' && character <= 'Z') character = static_cast<uint8_t>(character + ('a' - 'A'));
+  video_name.push_back(static_cast<char>(character));
 }
 void configuration_menu::draw(render::framebuffer &target) const {
   draw_dialogue_form(target,form);
@@ -187,10 +208,13 @@ void configuration_menu::draw(render::framebuffer &target) const {
     .border{dialogue_border::outline},
   });
   if(current == configuration_page::main) {
+    auto const text{video_name + (editing_video_name ? "_" : "")};
+    std::string_view shown{text};
+    while(!shown.empty() && font.measure(shown) > 10 * dialogue_cell_pixels) shown.remove_prefix(1);
     draw_dialogue_widget(target,font,form,{
       .position{18,13},
       .size{10,1},
-      .text{video_name},
+      .text{shown},
       .background{8},
       .border{dialogue_border::sunken},
       .left_aligned{true},

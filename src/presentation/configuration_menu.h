@@ -6,6 +6,7 @@
 
 namespace tfx::presentation {
 
+unsigned int constexpr recording_filename_limit{18}; // Native filename widget at DATA 13768.
 struct configuration_menu_assets {
   std::array<std::string,7> main_labels;
   std::array<std::string,6> realism_labels;
@@ -15,6 +16,7 @@ struct configuration_menu_assets {
   std::string title, main_title, realism_title, quit, resume, recording, recording_name;
   std::string no, yes, enrol, missing_joystick, missing_keyboard, unavailable_off, unavailable_on;
   std::string recording_marker, recording_play;
+  std::array<std::array<uint8_t,128>,2> recording_keys;
   explicit configuration_menu_assets(std::span<uint8_t const> executable);
 };
 struct configuration_audio {
@@ -40,18 +42,21 @@ private:
   widget_font const &font;
   configuration_page current{configuration_page::main};
   std::vector<configuration_button> buttons;
-  std::string video_name;
+  std::string &video_name;
+  bool editing_video_name{false};
   configuration_audio *audio;
   dialogue_form form;
   void rebuild();
 
 public:
-  configuration_menu(configuration::settings &preferences, configuration_menu_assets const &assets, widget_font const &font, configuration_audio *audio = nullptr);
+  configuration_menu(configuration::settings &preferences, configuration_menu_assets const &assets, widget_font const &font, std::string &recording_name, configuration_audio *audio = nullptr);
   configuration_page page() const;
   void request_quit();
   std::span<configuration_button const> widgets() const;
   configuration_action select(unsigned int index);
   configuration_action click(vec2<int16_t> const &position);
+  void press(uint8_t scan, bool shift = false);
+  bool entering_recording_name() const;
   void draw(render::framebuffer &target) const;
 };
 
