@@ -2,7 +2,26 @@
 
 Reference: TFX 2.05, September 1994 CD. Native offsets refer to `TFX.DAT`, SHA-256 `2cc41a39fa95a2c9fd883c4220d7bdd9cca00c543c89b019eb270763f59d1d9a`.
 
-## Working boundaries
+## Current integrated reference check
+
+The actual C++ game and the original `launch_game`/flight loop now agree over
+256 neutral four-tick frames of mission 501 (20.48 seconds): player position,
+angles and speed; every retained aircraft controller field observed by the
+session probe; shared RNG; and the complete camera/horizon handoff. The final
+indexed frames differ at **34 of 64,000 pixels**, so this is not a claim of
+whole-image or complete-game equivalence. The original presentation variables,
+DOS devices, external timer, silent audio and host memory remain explicit
+capture inputs. The original mission/environment/renderer/arming/AI code runs.
+
+All **178 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+missions also compose 64 development frames and 16 sanitizer frames without
+preview warnings. Real private-window controls still exercise firing, MFDs,
+missile cameras, designator use, ejection and an automatic FINISH handoff.
+
+The sections below record successive implementation stages. Their early
+limitations describe those stages; later native checks supersede them.
+
+## Initial reconstruction boundaries (historical)
 
 * `DID.DAT` index, native filename substitution/hash, raw and RA v2 resources load directly from the selected installation.
 * All 3,488 reference archive entries compare byte for byte against did-unpack (2,416 RA-compressed and 1,072 raw); malformed input is tested without game data.
@@ -3811,3 +3830,53 @@ cockpit return and ejection after the offset change. The arming capture's
 mouse transport now writes the original WORD outputs rather than DWORDs;
 3,072 controller sequences, 7,241 hit tests, 274 complete widget/panel frames
 and 81 fade-palette frames continue to agree.
+
+### Complete flight capture, retained ground reference and terrain selection
+
+```sh
+python3 tools/check_flight_session.py --build build --frames 256
+python3 tools/capture_native_flight.py --output /tmp/tfx-original --frames 4
+python3 tools/check_terrain_cells.py --build build
+python3 tools/check_terrain_variants.py --build build
+python3 tools/check_world.py --build build --research ../tfx-reverse --terrain-only
+```
+
+The session comparison launches the genuine C++ executable under read-only GDB
+observation in a private installation. Its counterpart runs the original
+`0x72588` with real configuration, EMM/renderer startup, environment/resources,
+DEFAULT/DONE arming actions, AI and complete frame bodies. Planar VGA preserves
+the original three drawing pages and fourth backing page. Original allocators
+run inside bounded host storage; only the external Watcom allocation boundary
+is replaced. Inherited presentation declarations and DOS I/O are documented
+inputs in the capture's JSON dependency record. Capture images remain outside
+the repository. `--strict-pixels` additionally requires zero image differences;
+it currently exposes the remaining drawing discrepancy rather than hiding it.
+
+The full launch exposed sequencing that isolated component tests did not:
+
+* The native ground-reference position survives camera/mission resets. It now
+  shares the application lifetime of the retained horizon counter. Ordinary
+  flight first advances simulation and then draws; an extra unadvanced startup
+  frame no longer consumes camera, HUD and scenery state.
+* Ordinary TFX environments visit a 16×16 terrain neighbourhood. The inspector's
+  radius is separate. **512 complete original traversals / 120,564 submissions**
+  verify Z-major ordering, exclusive upper bounds, narrow world centres and
+  map-edge wrapping. The original negative-X seam adjustment happens only at
+  the start of each row; subsequent columns increment and wrap normally.
+* File layout is column-major, but `0xb0708` assigns random scenery variants
+  by **stored row, then column**. The old inspection sequence used file order;
+  it reached the same RNG state but chose different scenery. The complete
+  native initializer now verifies **1,440,000 choices/rotations across all 36
+  retained grid/environment combinations**, as well as each final RNG state.
+  The research viewer and collision comparison use the corrected order too.
+* Native model admission limits object distance, but its admitted faces have
+  no additional per-vertex far cutoff. **256 complete original material-model
+  frames** verify vertices beyond the inspection far plane, with every pixel
+  and procedural seed checked; Release and sanitizers each add 128 cases.
+
+The older static SSD-declaration summary in `check_world.py` differs from the
+newer runtime interpreter on conditional draw lists. `--terrain-only` isolates
+its terrain metadata comparison; runtime SSD behaviour remains checked against
+original execution by `check_instances.py`. After the variant correction,
+**4,800 complete original terrain collision queries** still agree, including
+seams and all quarter turns. Private-window control and designator checks pass.

@@ -8,12 +8,13 @@ import subprocess
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--build', type=Path, default=Path('build'))
 parser.add_argument('--research', type=Path, required=True)
+parser.add_argument('--terrain-only', action='store_true', help='compare terrain selection without the older static SSD declaration summary')
 args = parser.parse_args()
 source = (args.research / 'analysis/maps/data.js').read_text()
 world = json.loads(source[source.index('=') + 1:].strip().removesuffix(';'))
 probe = str((args.build / 'tfx_probe').resolve())
 data_dir = str((args.research / 'installs/cd_1994_09/TFX').resolve())
-objects = list(world['objects'].items())
+objects = [] if args.terrain_only else list(world['objects'].items())
 requests = ''.join(str(int(identifier,16))+'\n' for identifier,_ in objects)
 actual = subprocess.check_output([probe, 'definitions', data_dir], input=requests.encode()).splitlines()
 assert len(actual) == len(objects)
@@ -50,4 +51,4 @@ for environment, selection, line, cells in zip(environments, selections, actual,
     status, palette, actual_cells = json.loads(line)
     assert status == (128 if 'night' in lighting['config'].split() else 0),environment['name']
     assert actual_cells == json.loads(cells),environment['name']
-print(f'World comparison passed: {len(objects)} definitions, {len(names)*40000} terrain cells and variant choices across {len(names)} grid/lighting combinations')
+print(f'Terrain metadata comparison passed: {len(names)*40000} cells and variant choices across {len(names)} grid/lighting combinations' if args.terrain_only else f'World comparison passed: {len(objects)} definitions, {len(names)*40000} terrain cells and variant choices across {len(names)} grid/lighting combinations')

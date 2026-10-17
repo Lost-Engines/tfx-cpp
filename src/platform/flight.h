@@ -26,6 +26,7 @@ struct flight_options {
   world::flak_state &flak;
   world::sky_state &sky;
   render::horizon_phase &ground_phase;
+  vec3<int32_t> &ground_reference;
   render::precipitation &rain;
   math::random_state &session_random;
   audio::runtime *sound{nullptr};

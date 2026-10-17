@@ -73,6 +73,7 @@
 #include "world/assets.h"
 #include "world/environment.h"
 #include "world/scene.h"
+#include "world/terrain_cells.h"
 #include "weapons/runtime.h"
 #include "weapons/cannon.h"
 #include "weapons/cannon_prediction.h"
@@ -96,7 +97,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto const &override_grid{options.grid};
   auto const &override_cell{options.cell};
   auto const &screenshot{options.screenshot};
-  auto const scale{options.scale}, scene_radius{options.scene_radius}, frame_limit{options.frame_limit}, flight_steps{options.flight_steps}, flight_frames{options.flight_frames};
+  unsigned int const scene_radius{options.inspect ? options.scene_radius : tfx::world::terrain_neighbourhood_width / 2u};
+  auto const scale{options.scale}, frame_limit{options.frame_limit}, flight_steps{options.flight_steps}, flight_frames{options.flight_frames};
   bool inspect{options.inspect};
   tfx::world::mission const selected{game,mission_name};
   auto const mission_setup{tfx::missions::initialise(selected.script)};
@@ -926,7 +928,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     },mission_setup.speed_factor,wind_parameters,player_damage,options.session_random);
     options.rain.initialise(options.session_random);
     player.crashing = preferences.effects.crashing != 0;
-    view_motion.initialise_ground_reference(player.integer_position);
+    // Native DATA 0x13594..0x1359c survives camera and mission resets.
+    view_motion.initialise_ground_reference(options.ground_reference);
   }};
   auto const flight_audio{[&] {
     return audio::flight_audio_state{
@@ -1579,6 +1582,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         if(auto const movement{view_motion.last_pose().ground_motion}) ground_phase.advance(*movement);
       }
     }
+    if(!inspect) options.ground_reference = vec3<int32_t>{view_motion.value().ground_reference};
     if(ejection.value().stage == tfx::flight::ejection_stage::pilot) scene.show_actor(aircraft_visual,true);
     auto const projection_origin{cockpit_frame.projection_origin(view_index(),cockpit_position.value())};
     auto view{inspect ? tfx::render::inspection_camera(position,heading,pitch) : designator_view ? tfx::cockpit::designator_pose(designator).camera(projection_origin) : view_motion.last_pose().camera(projection_origin)};
@@ -1710,7 +1714,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
     }
   }};
-  draw();
+  // A diagnostic still/inspector can draw an unadvanced scene. Ordinary
+  // flight first advances the simulation, then consumes camera/HUD/SSD state.
+  if(inspect || (screenshot && !flight_frames)) draw();
   unsigned int complete_frames{0};
   for(; complete_frames != flight_frames && !result_evaluated; ++complete_frames) {
     // Match the real flight loop: drawing consumes/produces retained camera,

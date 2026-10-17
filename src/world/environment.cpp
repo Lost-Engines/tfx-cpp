@@ -134,8 +134,10 @@ environment::environment(resources::archive const &game, std::string source_name
     tiles.push_back(std::move(tile));
   }
   if(cursor != table.size()) throw std::runtime_error{"terrain variant table has unexplained trailing bytes"};
-  for(unsigned int x{0}; x != map_width; ++x) {
-    for(unsigned int row{0}; row != map_height; ++row) {
+  // Native 0xb0708 visits stored rows first, despite the column-major files.
+  // Random draws belong to that traversal order, not the storage layout.
+  for(unsigned int row{0}; row != map_height; ++row) {
+    for(unsigned int x{0}; x != map_width; ++x) {
       auto const source{x * map_height + row}, target{(map_height - 1 - row) * map_width + x};
       cells[target] = static_cast<uint16_t>(low[source] | (high[source] << 8));
       if(cells[target] >= tiles.size()) throw std::runtime_error{"terrain grid references an undefined tile in " + name};
