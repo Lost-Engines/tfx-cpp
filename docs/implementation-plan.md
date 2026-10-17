@@ -273,3 +273,10 @@ camera's integer versus fixed player submission. Original comparisons cover
 8,192 animation calls, 16,384 viewport resets and 12,288 camera updates.
 Model-local articulated transforms, rounded/textured boundaries and complete
 world phase order remain the next renderer gaps.
+
+Live model-local articulation now uses native Q15 camera matrices, wrapped
+vertex products and scoped anchors, with complete original frames covering
+nested rotated helpers and carried stores. The shared player loadout table is
+also connected to live model drawing. Rounded/textured boundaries and full
+world phase/session comparisons remain open; the independent inspection view
+continues to use its continuous transforms.

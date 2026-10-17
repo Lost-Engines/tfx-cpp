@@ -132,6 +132,9 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
   /// Execute original branch/call order; projection is supplied by the caller, independently of resource decoding
   unsigned int constexpr vertex_slots{256}, maximum_steps{50000}, maximum_depth{64};
   std::array<std::optional<vec3d>, vertex_slots> local, world;
+  std::array<std::optional<vec3<int32_t>>, vertex_slots> camera_vertices;
+  auto camera_basis{context.camera ? mat3<int32_t>{context.camera->basis} : mat3<int32_t>{}};
+  auto camera_origin{context.camera ? vec3<int32_t>{context.camera->origin} : vec3<int32_t>{}};
   std::array<double, vertex_slots> vertex_scales{0};
   std::array<unsigned int, 3> jitter_shifts{14,14,14};
   unsigned int cursor{0}, colour{112}, address{0};
@@ -153,6 +156,17 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
     if(context.face_visibility) if(auto const native{context.face_visibility(vertices,purpose)}) return *native;
     return determinant(vertices) >= 0;
   }};
+  auto const wrap{[](double const value) { return std::bit_cast<int32_t>(static_cast<uint32_t>(static_cast<int64_t>(value))); }};
+  auto const transform_vertex{[&](vec3d const &value) {
+    if(!context.camera) return matrix * value;
+    vec3<int32_t> result;
+    for(unsigned int row{0}; row != 3; ++row) {
+      uint32_t sum{0};
+      for(unsigned int axis{0}; axis != 3; ++axis) sum += static_cast<uint32_t>(camera_basis.data[row * 3 + axis]) * static_cast<uint32_t>(math::signed_word(static_cast<uint16_t>(static_cast<int64_t>(value[axis]))));
+      result[row] = std::bit_cast<int32_t>(sum);
+    }
+    return vec3d{result};
+  }};
   auto const emit{[&](vec3d value){
     if(cursor >= vertex_slots) throw std::runtime_error{"shape vertex slot exceeds native table"};
     local[cursor++] = std::move(value);
@@ -162,7 +176,12 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
     for(unsigned int i{start}; i != start + count; ++i) {
       if(!local[i]) continue;
       auto const scale{context.reference_scale / camera_scale};
-      world[i] = *local[i] * scale + origin;
+      if(context.camera) {
+        vec3<int32_t> point;
+        for(unsigned int axis{0}; axis != 3; ++axis) point[axis] = wrap((*local[i])[axis] + camera_origin[axis]);
+        camera_vertices[i].emplace(point);
+        world[i] = vec3d{point} * (2 * std::abs(scale) / 65536);
+      } else world[i] = *local[i] * scale + origin;
       vertex_scales[i] = scale;
     }
     cursor = start + count;
@@ -211,7 +230,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       if(opcode == 8) { self(self, active, target, depth + 1); continue; }
       if(opcode == 98) {
         cursor = a[0];
-        emit(matrix * vec3d{vec3<int16_t>{math::signed_word(a[1]), math::signed_word(a[2]), math::signed_word(a[3])}});
+        emit(transform_vertex(vec3d{vec3<int16_t>{math::signed_word(a[1]), math::signed_word(a[2]), math::signed_word(a[3])}}));
         continue;
       }
       if(opcode >= 99 && opcode <= 112) {
@@ -223,7 +242,8 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
           unsigned int index{0};
           for(unsigned int axis{0}; axis != 3; ++axis) if(mask & (1u << axis)) delta[axis] = math::signed_word(a[index++]);
         }
-        auto value{*local[cursor - 1] + matrix * delta};
+        auto value{*local[cursor - 1] + transform_vertex(delta)};
+        if(context.camera) for(auto &axis : value) axis = wrap(axis);
         if(opcode >= 106) cursor = a.back();
         emit(std::move(value));
         continue;
@@ -245,7 +265,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
             if(context.jitter) coordinate = context.jitter->perturb(coordinate,jitter_shifts[axis]);
             value[axis] = coordinate;
           }
-          emit(matrix * value);
+          emit(transform_vertex(value));
         }
         if(!context.jitter) result.warnings.insert("procedural jitter held at zero");
         continue;
@@ -273,12 +293,19 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         if(index >= vertex_slots || !world[index]) { result.warnings.insert("unavailable helper anchor"); continue; }
         auto const old_origin{vec3d{origin}};
         auto const old_matrix{mat3d{matrix}};
+        auto const old_basis{mat3<int32_t>{camera_basis}};
+        auto const old_camera_origin{vec3<int32_t>{camera_origin}};
         auto const old_scale{camera_scale};
         origin = *world[index];
-        if(opcode == 73) matrix = matrix * math::rotation(vec3<math::angle>{a[0],a[1],a[2]});
+        if(context.camera) {
+          camera_origin = *camera_vertices[index];
+          if(opcode == 73) camera_basis = math::compose_model_basis(camera_basis,math::rotation_words({a[0],a[1],a[2]}));
+        } else if(opcode == 73) matrix = matrix * math::rotation(vec3<math::angle>{a[0],a[1],a[2]});
         self(self, active, target, depth + 1);
         origin = old_origin;
         matrix = old_matrix;
+        camera_basis = old_basis;
+        camera_origin = old_camera_origin;
         camera_scale = old_scale;
         continue;
       }
@@ -289,16 +316,19 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         if(slot >= context.attachments.size() || !context.attachments[slot]) continue;
         if(a[0] >= vertex_slots || !world[a[0]]) { result.warnings.insert("unavailable carried-model anchor"); continue; }
         auto const old_origin{vec3d{origin}};
+        auto const old_camera_origin{vec3<int32_t>{camera_origin}};
         auto const old_scale{camera_scale};
         auto const old_state{state};
         auto const old_slot{attachment_slot};
         origin = *world[a[0]];
+        if(context.camera) camera_origin = *camera_vertices[a[0]];
         state = 0xf9; // Native 0xbc94c seeds carried stores independently of the parent condition byte.
         if(!attachment_slot) attachment_slot = slot;
         auto const &child{*context.attachments[slot]};
         // Vertex storage and drawing state remain shared, as in the original. Only translation and condition are restored.
         self(self, child, child.levels.at(0), depth + 1);
         origin = old_origin;
+        camera_origin = old_camera_origin;
         camera_scale = old_scale;
         state = old_state;
         attachment_slot = old_slot;
@@ -307,6 +337,11 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       if(opcode == 48 || opcode == 54 || opcode == 55) {
         auto const factor{static_cast<double>(math::signed_word(a[0]))};
         if(!factor) throw std::runtime_error{"zero shape camera scale"};
+        if(context.camera) for(unsigned int axis{0}; axis != 3; ++axis) {
+          if(opcode == 54) camera_origin[axis] = wrap(camera_origin[axis] * factor);
+          else if(opcode == 48) camera_origin[axis] = wrap(context.camera->origin[axis] * factor);
+          else camera_origin[axis] = static_cast<int32_t>(static_cast<int64_t>(context.camera->origin[axis]) / static_cast<int64_t>(factor));
+        }
         if(opcode == 54) camera_scale *= factor;
         else { camera_scale = opcode == 48 ? factor : 1 / factor; origin = vec3d{}; }
         continue;

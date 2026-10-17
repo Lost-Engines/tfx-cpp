@@ -1540,6 +1540,14 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       renderer.text(140,80,"PAUSED",15);
       return;
     }
+    // Native CODE 47C94 is one shared carried-model table. Visibility is
+    // independent of quantity (for example an emptied rocket pod can remain).
+    std::array<tfx::models::shape const*,tfx::flight::store_slots> carried{};
+    for(unsigned int slot{0}; slot != carried.size(); ++slot) {
+      auto const &pylon{armament.pylons[slot]};
+      if(pylon.visible && pylon.weapon != tfx::weapons::empty_pylon) carried[slot] = &assets.shape(tables.weapons.at(pylon.weapon).carried);
+    }
+    scene.set_carried_models(carried);
     int16_t const horizon_phase{ground_phase.sample()};
     if(!inspect && !result_evaluated) update_refuelling();
     if(!inspect && !designator_view) {

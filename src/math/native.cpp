@@ -97,6 +97,18 @@ mat3<int32_t> rotation_words(vec3<angle> const &angles) {
   return result;
 }
 
+mat3<int32_t> compose_model_basis(mat3<int32_t> const &view, mat3<int32_t> const &component) {
+  // Native B972A/B9895: row-major view times column-major component,
+  // wrapping each dword dot product before its signed Q15 word store.
+  mat3<int32_t> result;
+  for(unsigned int row{0}; row != 3; ++row) for(unsigned int column{0}; column != 3; ++column) {
+    uint32_t sum{0};
+    for(unsigned int axis{0}; axis != 3; ++axis) sum += static_cast<uint32_t>(view.data[row * 3 + axis]) * static_cast<uint32_t>(component.data[column * 3 + axis]);
+    result.data[row * 3 + column] = signed_word(static_cast<uint16_t>(std::bit_cast<int32_t>(sum) >> matrix_fraction_bits));
+  }
+  return result;
+}
+
 mat3<int32_t> view_rotation_words(vec3<angle> const &angles) {
   // Native 0xdabd8 constructs the view matrix separately from the component matrix.
   // Its ordered shifts differ by a unit in some entries; negating an Euler matrix loses that distinction.

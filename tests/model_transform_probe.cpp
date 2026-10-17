@@ -40,7 +40,7 @@ int main(int const argc, char const *const argv[]) try {
     auto const camera_vertices{[&](std::span<tfx::models::model_vertex const> const source) {
       std::vector<tfx::models::model_vertex> result;
       for(auto const &vertex : source) result.push_back({
-        .position{transform.point(vertex.position,vertex.projection_scale)},
+        .position{vec3d{vertex.position}},
         .uv{0,0},
         .projection_scale{vertex.projection_scale},
       });
@@ -48,6 +48,10 @@ int main(int const argc, char const *const argv[]) try {
     }};
     tfx::models::shape const shape{model(vertices,scale,shaded)};
     tfx::models::shape_context context;
+    context.camera.emplace(tfx::models::shape_camera{
+      .basis{mat3<int32_t>{transform.matrix()}},
+      .origin{tfx::render::scale_model_cache(origin,static_cast<uint8_t>(draw_scale))},
+    });
     context.face_visibility = [&](std::span<tfx::models::model_vertex const> const source,tfx::models::facing_test const purpose) { return tfx::render::model_facing(camera_vertices(source),view,purpose); };
     auto const geometry{tfx::models::interpret(shape,context)};
     if(!geometry.warnings.empty()) throw std::runtime_error{"transformed model emitted warnings"};

@@ -57,6 +57,7 @@ private:
   };
   std::vector<model_submission> model_submissions;
   render::model_slot_metadata model_slots;
+  std::vector<models::shape const*> carried_models;
   std::array<uint8_t,part_parameters> model_parameters{};
   animation_clock clock;
   bool animation_pending{false};
@@ -77,6 +78,7 @@ public:
   scene(environment const &terrain, assets &resources, environment const *upper = nullptr);
   void set_effect_sink(std::function<void(effect_record const&)> sink);
   void set_query_reference(vec3<int32_t> const *position);
+  void set_carried_models(std::span<models::shape const *const> models);
   scene_handle create_actor(std::string const &definition, vec3d const &position, vec3<math::angle> const &angles);
   void place_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
   void show_actor(scene_handle handle, bool visible);

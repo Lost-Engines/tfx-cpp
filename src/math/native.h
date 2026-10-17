@@ -26,6 +26,7 @@ vec3<int32_t> place_anchor(vec3<int32_t> const &origin, vec3<angle> const &angle
 vec2<int16_t> rotate_words(vec2<int16_t> const &position, angle rotation);
 mat3<int32_t> rotation_words(vec3<angle> const &angles);
 mat3<int32_t> view_rotation_words(vec3<angle> const &angles);
+mat3<int32_t> compose_model_basis(mat3<int32_t> const &view, mat3<int32_t> const &component);
 vec3<int32_t> orbit_offset_q16(vec2<angle> const &angles, int32_t distance);
 mat3d rotation(vec3<angle> const &angles);
 vec3d rotate_tile(vec3d const &position, angle heading);
