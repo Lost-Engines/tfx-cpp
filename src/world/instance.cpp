@@ -22,7 +22,7 @@ enum class instruction : uint16_t {
   emitter_begin, emitter_end, emitter_draw, if_custom_unequal, message, draw_ground_shadow, if_status,
   set_custom_one, trail_update, damage_box_once, damage_box_stages, if_distance_near, if_distance_far, call_if_distance_near, call_if_distance_far,
   measure_anchor, update_offset, set_offset, surface_height, draw_damage_overlay,
-  rotate_part = 78, light, damage_percentage, surface_box, player_box_call, decrement_custom,
+  rotate_part = 78, emit_effect, damage_percentage, surface_box, player_box_call, decrement_custom,
 };
 
 } // anonymous namespace
@@ -137,6 +137,7 @@ void instance::interpret(unsigned int at, instance_context &context, instance_re
       };
       for(unsigned int i{0}; i != count; ++i) value.arguments.push_back(a(i));
       result.requests.push_back(std::move(value));
+      if(context.request_output) (*context.request_output)(result.requests.back());
     }};
     switch(opcode) {
     case instruction::finish: return;
@@ -300,7 +301,7 @@ void instance::interpret(unsigned int at, instance_context &context, instance_re
     case instruction::call_if_distance_near: case instruction::call_if_distance_far:
       if((context.distance <= math::signed_word(a(0))) == (opcode == instruction::call_if_distance_near)) call(branch(1));
       break;
-    case instruction::set_offset: case instruction::update_offset: case instruction::light:
+    case instruction::set_offset: case instruction::update_offset: case instruction::emit_effect:
       request();
       break;
     default: throw std::runtime_error{"unimplemented SSD instruction " + std::to_string(std::to_underlying(opcode))};

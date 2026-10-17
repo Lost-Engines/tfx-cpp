@@ -546,10 +546,16 @@ if(BUILD_TESTING)
   configure_first_party(flak_probe)
   add_test(NAME world.native_area_flak_controller COMMAND flak_probe ${PROJECT_SOURCE_DIR}/tests/reference/flak.txt)
 
+  add_executable(effect_scene_probe tests/effect_scene_probe.cpp)
+  target_link_libraries(effect_scene_probe PRIVATE tfx_core)
+  configure_first_party(effect_scene_probe)
+
   add_executable(effects_probe tests/effects_probe.cpp)
   target_link_libraries(effects_probe PRIVATE tfx_core)
   configure_first_party(effects_probe)
   add_test(NAME world.native_temporary_effect_pool COMMAND effects_probe ${PROJECT_SOURCE_DIR}/tests/reference/effects.txt)
+  add_test(NAME world.native_ssd_effect_placement COMMAND effects_probe --place ${PROJECT_SOURCE_DIR}/tests/reference/effect_placement.txt)
+  add_test(NAME world.native_ssd_request_delivery_order COMMAND effects_probe --request-order)
 
   add_executable(projectile_impact_probe tests/projectile_impact_probe.cpp)
   target_link_libraries(projectile_impact_probe PRIVATE tfx_core)

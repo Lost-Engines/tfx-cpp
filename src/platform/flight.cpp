@@ -277,6 +277,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     auto const slot{effects.spawn(position,kind)};
     scene.actor_event(effect_visuals[slot][std::to_underlying(kind)],0);
   }};
+  scene.set_effect_sink([&](tfx::world::effect_record const &request) {
+    spawn_effect(vec3<int32_t>{request.position},request.kind);
+  });
   auto const queue_effects{[&](tfx::render::camera const &camera) {
     vec3<int32_t> const reference{
       static_cast<int32_t>(std::floor(camera.position.x)),
@@ -1355,8 +1358,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         camera.far_distance = scene_radius * tfx::world::cell_units;
         camera_renderer.background(camera,0,32);
         queue_projectiles();
-        queue_effects(camera);
-        scene.draw(camera_renderer,camera,scene_radius);
+        scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); });
         // The current world painter renders a whole software target; copy its viewport
         // into the instrument target. The original world raster's clipping is separate work.
         int const top{request.minimum.y + (request.maximum.y < tfx::render::screen_height ? 1 : 0)};
@@ -1550,8 +1552,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
     queue_projectiles();
-    queue_effects(view);
-    scene.draw(renderer,view,scene_radius);
+    scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); });
     if(!inspect && result_evaluated) {
       // Diagnostic result display until the original presentation/menu graph supplies its result page.
       renderer.output.pixels.fill(0);

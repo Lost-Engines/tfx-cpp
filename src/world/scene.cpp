@@ -59,6 +59,19 @@ unsigned int wrapped_cell(int const value, unsigned int const dimension) {
 
 } // anonymous namespace
 
+void scene::set_effect_sink(std::function<void(effect_record const&)> sink) { effect_sink = std::move(sink); }
+void scene::emit_effect(scene_request const &request, vec3d const &origin, math::angle const heading) {
+  unsigned int constexpr emit_effect_opcode{79};
+  if(!effect_sink || request.opcode != emit_effect_opcode) return;
+  auto const &a{request.arguments};
+  if(a.size() != 4 || a[3] >= effect_kind_count) throw std::runtime_error{"invalid authored SSD effect request"};
+  auto const world_origin{word_position({std::floor(origin.x),std::floor(origin.y),std::floor(origin.z)})};
+  effect_sink({
+    .position{effect_origin({math::signed_word(a[0]),math::signed_word(a[1]),math::signed_word(a[2])},world_origin,heading)},
+    .kind{static_cast<effect_kind>(a[3])},
+  });
+}
+
 instance &scene::terrain_instance(unsigned int const x, unsigned int const z) {
   auto const &source{resources.object(terrain.variant(x,z))};
   return instances.try_emplace(z * map_width + x,source).first->second;
@@ -83,8 +96,11 @@ void scene::prepare_terrain_cell(unsigned int const x, unsigned int const z) {
 }
 
 instance_result scene::terrain_event(unsigned int const x, unsigned int const z, unsigned int const entry) {
+  vec3d const origin{(x + .5) * cell_units,0,(z + .5) * cell_units};
+  auto const output{[&](scene_request const &request) { emit_effect(request,origin,terrain.tile(x,z).rotation); }};
   return terrain_instance(x,z).execute(entry,{
     .status{terrain.lighting.status},
+    .request_output{output},
   });
 }
 
@@ -96,6 +112,7 @@ instance_result scene::collide_terrain(vec3<int32_t> const &previous, vec3<int32
   auto &state{terrain_instance(x,z)};
   vec3d const origin{(cell_x + .5) * cell_units,0,(cell_z + .5) * cell_units};
   auto const inverse_heading{static_cast<math::angle>(-tile.rotation)};
+  auto const output{[&](scene_request const &request) { emit_effect(request,origin,tile.rotation); }};
   return state.execute(2,{
     .movement{
       .previous{word_position(math::rotate_tile(vec3d{previous} - origin,inverse_heading))},
@@ -105,6 +122,7 @@ instance_result scene::collide_terrain(vec3<int32_t> const &previous, vec3<int32
     .impact_damage{damage},
     .status{terrain.lighting.status},
     .collision_response{std::move(response)},
+    .request_output{output},
   });
 }
 
@@ -112,6 +130,7 @@ instance_result scene::collide_actor(scene_handle const handle, vec3<int32_t> co
   auto &actor{actors.at(handle.value)};
   // Native moving assemblies retain axis-aligned SSD collision volumes; their full visual Euler rotation is separate.
   vec3d const origin{std::floor(actor.position.x),std::floor(actor.position.y),std::floor(actor.position.z)};
+  auto const output{[&](scene_request const &request) { emit_effect(request,origin); }};
   return actor.state.execute(2,{
     .movement{
       .previous{word_position(vec3d{previous} - origin)},
@@ -122,6 +141,7 @@ instance_result scene::collide_actor(scene_handle const handle, vec3<int32_t> co
     .status{terrain.lighting.status},
     .collision_response{std::move(response)},
     .damage_response{std::move(damage_response)},
+    .request_output{output},
   });
 }
 
@@ -163,14 +183,19 @@ void scene::queue_actor(scene_handle const handle, vec3d const &position, vec3<m
 }
 
 instance_result scene::actor_event(scene_handle const handle, unsigned int const entry) {
-  return actors.at(handle.value).state.execute(entry,{
+  auto &actor{actors.at(handle.value)};
+  auto const output{[&](scene_request const &request) { emit_effect(request,actor.position); }};
+  return actor.state.execute(entry,{
     .status{terrain.lighting.status},
+    .request_output{output},
   });
 }
 
-bool scene::advance_instance(instance &state) {
+bool scene::advance_instance(instance &state, vec3d const &origin, math::angle const heading) {
+  auto const output{[&](scene_request const &request) { emit_effect(request,origin,heading); }};
   return state.animate({
     .status{terrain.lighting.status},
+    .request_output{output},
   }).ejection_requested;
 }
 
@@ -181,12 +206,15 @@ scene_events scene::advance(timer_ticks const elapsed) {
   else working_jitter = saved_jitter;
   scene_events result;
   if(!animate) return result;
-  for(auto &[_, instance] : instances) result.eject_player |= advance_instance(instance);
-  for(auto &[_, actor] : actors) result.eject_player |= advance_instance(actor.state);
+  for(auto &[index, instance] : instances) {
+    auto const x{index % map_width}, z{index / map_width};
+    result.eject_player |= advance_instance(instance,{(x + .5) * cell_units,0,(z + .5) * cell_units},terrain.tile(x,z).rotation);
+  }
+  for(auto &[_, actor] : actors) result.eject_player |= advance_instance(actor.state,actor.position);
   return result;
 }
 
-void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius) {
+void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions) {
   /// Queue complete model parts by camera depth plus their native signed sort bias; keep primitive order inside each part
   struct queued_part {
     models::shape const *shape;
@@ -212,11 +240,14 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       if(camera_centre.z < -cell_units || camera_centre.z > view.far_distance + cell_units) continue;
       try {
         auto &instance{terrain_instance(col,row)};
+        auto const requests{[&](scene_request const &request) { emit_effect(request,centre,tile.rotation); }};
         instance_context const context{
           .status{terrain.lighting.status},
           .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(centre + math::rotate_tile(anchor,tile.rotation) - view.position)); }},
+          .request_output{requests},
         };
-        for(auto const &draw : instance.execute(1,context).draws) {
+        auto const output{instance.execute(1,context)};
+        for(auto const &draw : output.draws) {
           if(draw.kind == part_draw_kind::ground_shadow) continue;
           auto const &part{instance.parts.at(draw.slot)};
           if(part.name.empty()) continue;
@@ -239,11 +270,16 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     }
   }
   auto const submit{[&](moving_instance &actor, vec3d const &position, mat3d const &rotation) {
+    // Native moving SSD effect placement retains quarter-turn zero; its full
+    // visual Euler transform is separate from the request callback.
+    auto const requests{[&](scene_request const &request) { emit_effect(request,position); }};
     instance_context const context{
       .status{terrain.lighting.status},
       .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(position + rotation * anchor - view.position)); }},
+      .request_output{requests},
     };
-    for(auto const &draw : actor.state.execute(1,context).draws) {
+    auto const output{actor.state.execute(1,context)};
+    for(auto const &draw : output.draws) {
       if(draw.kind == part_draw_kind::ground_shadow) continue;
       auto const &part{actor.state.parts.at(draw.slot)};
       if(part.name.empty()) continue;
@@ -267,6 +303,9 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     }
   }};
   for(auto &[_, actor] : actors) if(actor.visible) submit(actor,actor.position,actor.rotation);
+  // Gather effects after world SSD execution so newly emitted/reused slots
+  // join this frame with their current state, before the global depth sort.
+  if(final_submissions) final_submissions();
   for(auto const &submission : submissions) submit(actors.at(submission.handle.value),submission.position,submission.rotation);
   submissions.clear();
   std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });

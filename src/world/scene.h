@@ -8,6 +8,7 @@
 #include "world/assets.h"
 #include "world/environment.h"
 #include "world/instance.h"
+#include "world/effects.h"
 #include "flight/landing.h"
 
 namespace tfx::world {
@@ -34,7 +35,9 @@ private:
   std::map<unsigned int,moving_instance> actors;
   unsigned int next_actor{0};
   instance &terrain_instance(unsigned int x, unsigned int z);
-  bool advance_instance(instance &state);
+  std::function<void(effect_record const&)> effect_sink{};
+  void emit_effect(scene_request const &request, vec3d const &origin, math::angle heading = 0);
+  bool advance_instance(instance &state, vec3d const &origin, math::angle heading = 0);
   struct actor_submission {
     scene_handle handle;
     vec3d position;
@@ -50,6 +53,7 @@ public:
   unsigned int parts_drawn{0};
   unsigned int primitives_drawn{0};
   scene(environment const &terrain, assets &resources);
+  void set_effect_sink(std::function<void(effect_record const&)> sink);
   scene_handle create_actor(std::string const &definition, vec3d const &position, vec3<math::angle> const &angles);
   void place_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
   void show_actor(scene_handle handle, bool visible);
@@ -70,7 +74,7 @@ public:
   void prepare_terrain_cell(unsigned int x, unsigned int z);
   instance_result terrain_event(unsigned int x, unsigned int z, unsigned int entry);
   scene_events advance(timer_ticks elapsed);
-  void draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius);
+  void draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius, std::function<void()> const &final_submissions = {});
 };
 
 } // namespace tfx::world

@@ -33,6 +33,8 @@ public:
   }
 };
 
+// Native 0xb626c places authored SSD effect requests using the instance quarter turn.
+vec3<int16_t> effect_origin(vec3<int16_t> const &local, vec3<int16_t> const &origin, math::angle heading);
 // Place a word-positioned native effect in the nearest 65,536-unit world copy.
 vec3<int32_t> effect_position(vec3<int16_t> const &position, vec3<int32_t> const &reference);
 
