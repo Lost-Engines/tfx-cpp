@@ -46,6 +46,8 @@ configure_first_party(tfx_audio)
 add_library(tfx_core
   src/recording/file.cpp
   src/recording/file.h
+  src/recording/recorder.cpp
+  src/recording/recorder.h
   src/flight/cheat.cpp
   src/flight/cheat.h
   src/flight/keyboard.cpp

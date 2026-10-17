@@ -25,6 +25,8 @@ math::attitude product(math::attitude const &a, math::attitude const &b) {
 
 render::camera view_pose::camera(vec2d const &projection_origin) const {
   auto result{render::original_camera(position_q16,matrix,projection_origin,opening)};
+  result.view_angles = vec3<math::angle>{angles};
+  result.world_anchor = vec3<int32_t>{anchor};
   // The native renderer wraps each world coordinate to a word. Keep its Q16
   // translation but unwrap it around the full terrain anchor for the scene host.
   for(unsigned int axis{0}; axis != 3; ++axis) result.position[axis] = anchor[axis] + subtract(position_q16[axis],wrap(static_cast<uint32_t>(anchor[axis]) << 16)) / 65536.0;

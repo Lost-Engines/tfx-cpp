@@ -4683,3 +4683,29 @@ The codec retains the 348-slot queue layout, 255-byte fill/literal runs,
 Malformed/truncated file checks run in the asset-free suite. Live recording
 and the post-flight viewer are being connected separately. See
 [recording.md](recording.md) for the layout and original-execution boundaries.
+
+### Live flight recording and inherited graphics camera
+
+Alt+V now streams `video.rec` using the original queue/file representation and
+recording marker. Eight ordinary-view and eleven designator-view recorded
+queues agree on every field after resolving runtime resource handles to model
+names. Both complete live sessions agree on every captured gameplay state and
+all 28 rendered frames. The additional 22-frame Realistic targeting sequence
+also remains exact.
+
+The original designator has a primary world pass using the inherited graphics
+camera before its visible callback installs the new gimbal and paints another
+world. Restoring that order is necessary for faithful recording, shader/jitter
+state, actor animation, transient submission and seeker inputs. Both main and
+MFD cameras retain their original setter angles and world anchor alongside the
+derived basis; the scene retains the most recently installed camera. Ordinary
+views continue through one primary pass. The full recording comparison and
+the native trace boundaries are documented in [recording.md](recording.md).
+
+All 193 regressions pass in development, Release and ASan/UBSan. Post-flight
+playback remains the next integration step; the original path shows WNN and
+press-conference animations before replaying the recorded model queues.
+The 12-frame live recording comparison also passes under ASan/UBSan with
+exact queues and pixels. Its read-only observer now captures the renderer
+argument during the first direct-mission scene draw, avoiding reliance on an
+optimised caller-local variable at the frame-return breakpoint.

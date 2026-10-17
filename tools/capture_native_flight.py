@@ -78,6 +78,8 @@ args.output.mkdir(parents=True,exist_ok=True)
 sys.path.insert(0,str(root/'did-unpack'))
 from did_unpack import Archive
 im=SessionReference(directory/'TFX.DAT',data_base=0x100000);video=SessionVideo(im,aperture=0xa0000)
+from native_recording import MemoryFiles
+memory_files=MemoryFiles(im)
 # Native 0x75940 clears its shot pointer with zero, then reads flat address
 # 0x4b. DOS permits that low-memory read; the cleared owner is unused before
 # the next source selection overwrites it. Preserve the original helper.
@@ -352,14 +354,20 @@ except RuntimeError:
   raise
 else:raise RuntimeError('Original mission returned before completing the requested capture')
 assert parser_base<=im.read(0x1acfc,'<I')[0]<parser_base+0x100000,'presentation arena exhausted'
+recordings=[]
+for index,(filename,contents)in enumerate(memory_files.files.items()):
+ if not filename.endswith('.rec'):continue
+ target=f'recording-{index}.rec';(args.output/target).write_bytes(contents)
+ recordings.append({'name':filename,'file':target,'closed':not any(handle[0]==filename for handle in memory_files.handles.values())})
 record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
  'inputs':inputs.rows(args.frames),
+ 'recordings':recordings,
  'preflight_projection':preflight_projection,
  'trail_events':trail_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
  'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
  'dependencies':{hex(address):reason for address,reason in im.dependencies.items()},
- 'host_services':['DPMI exception-vector transport','VGA planar memory and ports','fixed startup calendar','zeroed DOS low page for unused cleared-shot owner','inherited presentation declarations'],
+ 'host_services':['DPMI exception-vector transport','VGA planar memory and ports','capture-owned in-memory DOS files','fixed startup calendar','zeroed DOS low page for unused cleared-shot owner','inherited presentation declarations'],
 }
 (args.output/'session.json').write_text(json.dumps(record,indent=2)+'\n')
 print(f'Captured original mission {args.mission}: {args.frames} complete frames, {len(loads)} resource requests; {args.output}')

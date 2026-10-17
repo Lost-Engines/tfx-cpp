@@ -12,6 +12,7 @@
 #include "world/instance.h"
 #include "world/effects.h"
 #include "flight/landing.h"
+#include "recording/file.h"
 
 namespace tfx::world {
 
@@ -74,6 +75,7 @@ private:
     animation_policy animation;
   };
   std::optional<player_rendering> player_model;
+  std::optional<render::camera> installed_camera;
 
 public:
   std::set<std::string> warnings;
@@ -109,7 +111,8 @@ public:
   scene_events advance(timer_ticks elapsed);
   bool animate_player_model(scene_handle handle);
   void set_player_rendering(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles, animation_policy policy);
-  scene_events draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius, std::function<void()> const &final_submissions = {}, std::optional<int32_t> camera_anchor_y = {}, int16_t shadow_ground_height = 0, scene_pass pass = scene_pass::primary);
+  std::optional<render::camera> const &last_camera() const;
+  scene_events draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius, std::function<void()> const &final_submissions = {}, std::optional<int32_t> camera_anchor_y = {}, int16_t shadow_ground_height = 0, scene_pass pass = scene_pass::primary, recording::scene_frame *capture = nullptr);
 };
 
 } // namespace tfx::world

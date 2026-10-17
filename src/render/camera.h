@@ -23,6 +23,10 @@ struct camera {
   double far_distance{20000};
   vec2<int16_t> viewport_minimum{0,0};
   vec2<int16_t> viewport_maximum{screen_width - 1,screen_height - 1};
+  // Retain the original setter inputs as well as its derived basis. Other
+  // native world callbacks can reuse the last installed camera verbatim.
+  vec3<math::angle> view_angles{0,0,0};
+  vec3<int32_t> world_anchor{0,0,0};
   point_projection projector() const;
   vec3d transform(vec3d const &world) const;
   vec2d project(vec3d const &camera_position, double projection_scale = 1) const;

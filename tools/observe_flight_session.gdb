@@ -67,6 +67,16 @@ break tfx::world::scene::draw
 commands
 silent
 set $scene = this
+python
+# This observer launches a direct mission: its first scene draw targets the
+# actual flight framebuffer, before any MFD viewport. Capture the borrowed
+# renderer argument while it is live instead of depending on an optimised
+# caller-local name at the eventual frame-return breakpoint.
+if renderer_pointer is None:
+ value=gdb.parse_and_eval('renderer')
+ if value.type.code in (gdb.TYPE_CODE_REF,gdb.TYPE_CODE_RVALUE_REF):value=value.referenced_value()
+ renderer_pointer=value.address
+end
 continue
 end
 break tfx::weapons::runtime::advance

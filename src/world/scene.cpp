@@ -252,7 +252,10 @@ void scene::set_player_rendering(scene_handle const handle, vec3d const &positio
   });
 }
 
-scene_events scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y, int16_t const shadow_ground_height, scene_pass const pass) {
+std::optional<render::camera> const &scene::last_camera() const { return installed_camera; }
+
+scene_events scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y, int16_t const shadow_ground_height, scene_pass const pass, recording::scene_frame *const capture) {
+  installed_camera = view;
   /// Native cached model metrics own detail, distance predicates, remap and signed sort priority
   if(pass == scene_pass::primary) instrument_animation = std::exchange(animation_pending,false);
   bool const animate{instrument_animation};
@@ -377,7 +380,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
     };
     if(native && delivery == part_delivery::immediate) {
       auto const slot{native_queue.scratch_slot()};
-      auto const state{model_slots.immediate(slot,item.rotation_scale)};
+      auto const state{model_slots.immediate(slot,item.rotation_scale,item.angles)};
       item.path = state.path;item.rotation_scale = state.scale;
       if(slot < queue.size()) queue[slot] = std::move(item);
       else queue.push_back(std::move(item));
@@ -386,8 +389,9 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
     }
     if(native) {
       auto const slot{native_queue.insert(metrics.order)};
-      auto const state{model_slots.queued(slot,path,item.rotation_scale)};
+      auto const state{model_slots.queued(slot,path,item.rotation_scale,item.angles)};
       item.path = state.path;item.rotation_scale = state.scale;
+      item.angles = vec3<math::angle>{state.angles};
       if(slot < queue.size()) queue[slot] = std::move(item);
       else queue.push_back(std::move(item));
     } else queue.push_back(std::move(item));
@@ -521,6 +525,30 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
   if(final_submissions) final_submissions();
   submit_queued(submission_phase::after_actors);
   submissions.clear();
+  if(capture) {
+    if(!native) throw std::runtime_error{"flight recording requires the original model renderer"};
+    // C5BEC observes the unsorted queue before C48E1 mutates its order,
+    // parameter caches and scaled origins. Immediate draws may already have
+    // overwritten/re-scaled a retained payload slot; preserve those writes.
+    auto const order{native_queue.pending()};
+    capture->data.order.assign(order.begin(),order.end());
+    capture->data.models.clear();capture->model_names.clear();
+    for(unsigned int slot{0}; slot != native_queue.size(); ++slot) {
+      auto const &item{queue[slot]};
+      auto const kind{item.path == render::model_render_path::unrotated ? recording::model_kind::unrotated : item.path == render::model_render_path::ground_shadow ? recording::model_kind::ground_shadow : recording::model_kind::rotated};
+      capture->data.models.push_back({
+        .kind{kind},
+        .initial_state{item.parameters.front()},
+        .colour_row{item.metrics.colour_row},
+        .scale{item.rotation_scale},
+        .resource{0},
+        .angles{vec3<math::angle>{item.angles}},
+        .camera_origin{vec3<int32_t>{item.camera_origin}},
+        .parameters{item.parameters},
+      });
+      capture->model_names.push_back(item.name);
+    }
+  }
   if(!native) std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
   auto const order{native ? native_queue.draw_order() : std::vector<render::model_slot>{}};
   unsigned int const count{native ? native_queue.size() : static_cast<unsigned int>(queue.size())};
