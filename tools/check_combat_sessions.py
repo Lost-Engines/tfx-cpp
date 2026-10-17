@@ -52,6 +52,11 @@ CASES = {
         {'frame': 9, 'event': 'f1'},
         {'frame': 70, 'event': 'space'},
     ]),
+    'ground-radiation': (503, 'arcade', 64, [
+        {'frame': 1, 'event': 'o'},
+        {'frame': 5, 'event': 'space'},
+        {'frame': 7, 'event': 't'},
+    ]),
     'held-cannon': (501, 'arcade', 32, [
         {'frame': 1, 'event': 'f'},
         {'frame': 3, 'event': 'space'},
@@ -119,6 +124,10 @@ def main():
                 assert any(shot[1] == 12 for s in snapshots for shot in s['projectiles']), 'ground sequence never released its GBU-12'
                 assert any(shot[1] == 12 and shot[6] > -2048 for s in snapshots for shot in s['projectiles']), 'bomb never approached ground contact'
                 assert not snapshots[-1]['projectiles'], 'ground sequence ended before bomb retirement'
+            elif name == 'ground-radiation':
+                assert any(shot[1] == 20 for s in snapshots for shot in s['projectiles']), 'anti-radiation sequence never released its AGM-88'
+                assert any(event['weapon'] == 20 and event['target'][1] == 0 for event in capture['projectile_guidance']), 'anti-radiation weapon never followed a ground point'
+                assert not snapshots[-1]['projectiles'], 'anti-radiation sequence ended before retirement'
             elif name == 'held-cannon':
                 assert snapshots[2]['cannon'][0] - snapshots[3]['cannon'][0] == 20, 'initial press did not reach both cannon dispatches'
                 assert snapshots[3]['cannon'][0] - snapshots[4]['cannon'][0] == 10, 'held poll did not continue firing'

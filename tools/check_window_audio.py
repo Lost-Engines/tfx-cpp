@@ -20,6 +20,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--data-dir',type=Path,required=True)
 p.add_argument('--cannon',action='store_true',help='also exercise firing in the airborne training mission')
+p.add_argument('--air-brake',action='store_true',help='also exercise the shared gear/airbrake switch sample')
 a=p.parse_args()
 with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
  directory=Path(temporary);install=directory/'TFX';install.mkdir()
@@ -65,6 +66,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
     return values
    time.sleep(1);start=pcm.stat().st_size;tap('g');time.sleep(2.8)
    first=samples(start);assert max(map(abs,first))>.1,'gear sound did not reach the PCM device'
+   if a.air_brake:
+    start=pcm.stat().st_size;tap('b');time.sleep(2.8)
+    brake=samples(start);assert max(map(abs,brake))>.1,'airbrake sound did not reach the PCM device'
    if a.cannon:
     tap('f');time.sleep(.5)
     start=pcm.stat().st_size;tap('space');time.sleep(1)
@@ -78,7 +82,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
    tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
    assert game.returncode==0 and 'ERROR:' not in log.read_text(),log.read_text()
    assert b'SOUNDFX=1\r\nMUSIC=1' in (install/'TFX.CFG').read_bytes()
-   print('Private Pulse/X11 audio passed: live gear'+('/cannon'if a.cannon else '')+' requests, continuous stereo output, sound off/on, original config retained and clean device shutdown')
+   print('Private Pulse/X11 audio passed: live gear'+('/airbrake'if a.air_brake else '')+('/cannon'if a.cannon else '')+' requests, continuous stereo output, sound off/on, original config retained and clean device shutdown')
  finally:
   for process in (game,capture,display):
    if process is not None and process.poll() is None:

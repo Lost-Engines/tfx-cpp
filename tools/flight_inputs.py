@@ -1,6 +1,8 @@
 """Shared declared keyboard input for original/C++ flight captures.
 
 Each row supplies a frame, optional make-code event and that frame's held keys.
+Optional mouse motion is a signed [dx,dy] pair; buttons is the DOS left/right
+bit mask. The first frame primes desktop cursor capture and must be neutral.
 Missing frames are neutral. A press is held for its frame unless held is given.
 These are external device inputs, never changes to game state or outcomes.
 """
@@ -20,7 +22,7 @@ KEYS={
  'slash':(53,47),'keypad-multiply':(55,332),'keypad-minus':(74,333),'keypad-plus':(78,334),
  'comma':(51,44),'period':(52,46),'iso-extra':(86,161),
  'page-up':(73,266),'page-down':(81,267),'keypad-9':(73,329),'keypad-3':(81,323),
- '4':(5,52),
+ **{digit:(scan,ord(digit))for scan,digit in enumerate('1234567890',2)},
  'home':(71,268),'end':(79,269),
  'keypad-8':(72,328),'keypad-4':(75,324),'keypad-2':(80,322),'keypad-6':(77,326),
  'keypad-7':(71,327),'keypad-1':(79,321),
@@ -32,7 +34,7 @@ class FlightInputs:
   self.frames={}
   if not isinstance(rows,list):raise ValueError('flight inputs must be a JSON list')
   for row in rows:
-   if not isinstance(row,dict) or set(row)-{'frame','event','held'}:raise ValueError('invalid flight input row')
+   if not isinstance(row,dict) or set(row)-{'frame','event','held','mouse','buttons'}:raise ValueError('invalid flight input row')
    frame=row.get('frame')
    if type(frame)is not int or not 1<=frame<=65535 or frame in self.frames:raise ValueError('flight input frames must be distinct integers from 1 to 65535')
    event=row.get('event')
@@ -41,6 +43,15 @@ class FlightInputs:
    if not isinstance(held,list) or any(key not in KEYS for key in held):raise ValueError('unknown held flight key')
    if event is not None and event not in held:raise ValueError('a polled press must be held during its frame')
    self.frames[frame]={'frame':frame,'event':event,'held':sorted(set(held))}
+   if 'mouse' in row:
+    motion=row['mouse']
+    if not isinstance(motion,list) or len(motion)!=2 or any(type(value)is not int or not -32768<=value<=32767 for value in motion):raise ValueError('mouse motion must contain two signed words')
+    if frame==1 and any(motion):raise ValueError('mouse motion needs one neutral frame to prime desktop capture')
+    self.frames[frame]['mouse']=list(motion)
+   if 'buttons' in row:
+    buttons=row['buttons']
+    if type(buttons)is not int or not 0<=buttons<=3:raise ValueError('mouse buttons must be a left/right bit mask from 0 to 3')
+    self.frames[frame]['buttons']=buttons
   for frame,row in self.frames.items():
    if row['event'] in self.frames.get(frame-1,{}).get('held',[]):raise ValueError('polled key events need a release before another press')
  @classmethod

@@ -5065,3 +5065,62 @@ complete 256-frame bomb sequence also agrees with the guard enabled.
 python3 tools/check_model_programs.py --overflow --cases 512
 python3 tools/check_model_programs.py --overflow --gouraud --cases 512
 ```
+
+### Flight-control handoffs and anti-radiation acquisition
+
+A 64-frame live control sequence now agrees in all captured state and every
+pixel in **all four flight models**. It selects waypoint, heading, tracking and
+speed hold, changes altitude/speed targets, disengages and re-engages autopilot,
+and changes stick-pressure/cruise settings. Target doubles are compared by
+their stored bits, and MFD selections at their actual drawing boundary.
+Realistic and Arcade sequences also pass under ASan/UBSan.
+
+This exposed two caller omissions. Native `0x860ca` selects the left controls
+MFD when autopilot engages. Native `0x7eb7c` displays AIRBRAKE from retained
+deployment (`0x145a8`), independently of its switch status. Arcade can retain
+that deployment after switching out of its temporary aerodynamic autopilot
+callback. Both distinctions are now preserved. The ordinary B key also toggles
+the actual deployment fraction, retaining fault statuses and aircraft without
+airbrake drag. Sixteen complete brake-key frames agree in development and
+ASan/UBSan. The original shared gear/airbrake switch sample is connected and
+verified through a private silent Pulse/X11 device, including sound off/on.
+
+A mission-503 anti-radiation launch agrees through **256 complete frames**,
+including guidance, contact/retirement, all captured state and every pixel.
+Native `0x932c4` automatically searches while the ground-target pointer is
+empty. The caller now retries that acquisition instead of requiring a manual
+C press before it can show LOCK. This trace does not destroy the distant SAM
+site; ground-objective completion remains a separate coverage gate. A separate
+64-frame sequence releases with no manual target-cycle press and agrees in
+all captured state, guidance inputs and pixels.
+
+```sh
+python3 tools/check_flight_control_sessions.py --flight-model realistic
+python3 tools/check_flight_control_sessions.py --flight-model military-spec
+python3 tools/check_flight_control_sessions.py --flight-model simple
+python3 tools/check_flight_control_sessions.py --flight-model arcade
+python3 tools/check_flight_control_sessions.py --case air-brake
+python3 tools/check_combat_sessions.py --case ground-radiation
+python3 tools/check_window_audio.py --data-dir /path/to/TFX --air-brake
+```
+
+### Declared mouse and timer inputs
+
+Complete-session tapes can now supply signed relative mouse deltas and the
+original left/right button mask. The first frame primes desktop capture with
+neutral motion. The reference consumes each relative sample once; the C++
+observer supplies the corresponding accumulated GLFW position. Neither host
+changes flight state or outcomes. A **32-frame mouse flight** agrees in every
+captured state and pixel in development and ASan/UBSan, including steering,
+throttle buttons, accelerated time and external/cockpit view changes.
+
+The capture limit is now 1,024 frames. `--ticks-per-frame` declares a different
+external timer interval; the original timing filters, clamps, acceleration and
+projectile substeps still execute. Four ticks remain the default. A separate
+sixteen-frame sequence with an eighteen-tick interval agrees in all captured
+state and pixels. Bounded attempts retain their trace even if the requested
+natural result has not yet occurred, rather than discarding useful evidence.
+
+```sh
+python3 tools/check_flight_control_sessions.py --case mouse
+```

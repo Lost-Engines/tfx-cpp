@@ -60,11 +60,13 @@ parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--mission',type=int,default=501)
 parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 parser.add_argument('--frames',type=int,default=4)
+parser.add_argument('--ticks-per-frame',type=int,default=4,help='declared external timer interval; native frame clamps still execute')
 parser.add_argument('--until-result',action='store_true',help='capture through a natural mission result, with --frames as the upper bound')
 parser.add_argument('--inputs',type=Path,help='declared per-frame keyboard events/held keys as JSON')
 args=parser.parse_args()
 inputs=FlightInputs.read(args.inputs)if args.inputs else FlightInputs([])
-if not 1 <= args.frames <= 256:parser.error('--frames must be between 1 and 256')
+if not 1 <= args.frames <= 1024:parser.error('--frames must be between 1 and 1024')
+if not 4 <= args.ticks_per_frame <= 65535:parser.error('--ticks-per-frame must be between 4 and 65535; each supplied interval must complete the native timer polls')
 root=args.research.resolve();directory=root/'installs/cd_1994_09/TFX'
 args.output.mkdir(parents=True,exist_ok=True)
 sys.path.insert(0,str(root/'did-unpack'))
@@ -133,20 +135,24 @@ mouse_polls=[0];mouse_buttons=[0];defaults_applied=[False]
 im.intercept(0x8978c,'Observe the original DEFAULT button action; its complete native body executes.',lambda current:defaults_applied.__setitem__(0,True))
 def mouse(current):
  if mouse_polls[0]>128 and not entered[0]:raise RuntimeError('Unconsumed mouse script after 128 polls')
- mouse_polls[0]+=1;mouse_buttons[0]=0 if entered[0] else int(mouse_polls[0]%32 in range(8,16))
+ mouse_polls[0]+=1;mouse_buttons[0]=inputs.at(frames[0]).get('buttons',0) if entered[0] else int(mouse_polls[0]%32 in range(8,16))
  for offset,value in ((4,197 if defaults_applied[0] else 101),(8,199),(12,mouse_buttons[0])):
   pointer=struct.unpack('<I',current.cpu.mem_read(current.cpu.reg_read(r.UC_X86_REG_ESP)+offset,4))[0];current.cpu.mem_write(pointer,struct.pack('<H',value))
  current.return_from()
 im.intercept(0xc72ff,'Supply explicit pointer input on the authored DEFAULT then DONE buttons.',mouse)
 def held_mouse(current):
  if mouse_polls[0]>128 and not entered[0]:raise RuntimeError('Unconsumed mouse script after 128 polls')
- mouse_polls[0]+=1;mouse_buttons[0]=0 if entered[0] else int(mouse_polls[0]%32 in range(8,16));current.cpu.reg_write(r.UC_X86_REG_EAX,mouse_buttons[0]);current.return_from()
+ mouse_polls[0]+=1;mouse_buttons[0]=inputs.at(frames[0]).get('buttons',0) if entered[0] else int(mouse_polls[0]%32 in range(8,16));current.cpu.reg_write(r.UC_X86_REG_EAX,mouse_buttons[0]);current.return_from()
 im.intercept(0xc733e,'Supply an explicit button press/release sequence while the original modal controller polls.',held_mouse)
+mouse_motion_frame=[None]
 def relative_mouse(current):
- for offset in (4,8):
-  pointer=struct.unpack('<I',current.cpu.mem_read(current.cpu.reg_read(r.UC_X86_REG_ESP)+offset,4))[0];current.cpu.mem_write(pointer,bytes(2))
+ motion=[0,0]
+ if entered[0] and mouse_motion_frame[0]!=frames[0]:
+  motion=inputs.at(frames[0]).get('mouse',motion);mouse_motion_frame[0]=frames[0]
+ for offset,value in zip((4,8),motion):
+  pointer=struct.unpack('<I',current.cpu.mem_read(current.cpu.reg_read(r.UC_X86_REG_ESP)+offset,4))[0];current.cpu.mem_write(pointer,struct.pack('<h',value))
  current.return_from()
-im.intercept(0xc7326,'Supply zero relative virtual-mouse movement.',relative_mouse)
+im.intercept(0xc7326,'Supply declared relative virtual-mouse movement, consumed once per input frame.',relative_mouse)
 retrace_reads=[0]
 def input_port(cpu,port,size,unused):
  if port==0x3da:
@@ -292,6 +298,9 @@ def snapshot(current):
   'player_models':player_parts_snapshot(current,True),
   'launch_notice':current.read(0x6c41,'<B')[0],
   'control_configuration':[current.read(0x14962,'<H')[0],*[current.read(field,'<Q')[0]for field in (0x14360,0x148b8,0x148b0,0x148a8)]],
+  'autopilot_targets':[current.read(field,fmt)[0]for field,fmt in ((0x14958,'<H'),(0x14960,'<H'),(0x1493a,'<H'),(0x14348,'<Q'),(0x8d40,'<Q'))],
+  'air_brake':[current.read(0x145a8,'<Q')[0],current.read(0x7d77,'<B')[0]],
+  'display_selection':[current.read(field,'<H')[0]for field in (0x713a,0x713c,0x713e,0x7d7c,0x7d7e)],
   'sensors':sensor_snapshot(current),
   'projectiles':projectile_snapshot(current),
   'armament':[current.read(0x93b0,'<h')[0],int(not current.read(0x7140,'<B')[0]),current.read(0x16e98,'<h')[0],current.read(0x809c+20,'<B')[0],*[v for slot in range(11)for v in current.read(0x13374+slot*2,'<2B')],current.read(0x14858,'<Q')[0]],
@@ -308,12 +317,12 @@ def frame_boundary(current):
  snapshots.append(snapshot(current))
  if frames[0]==args.frames:
   current.cpu.emu_stop();return
- frames[0]+=1;clock[0]+=4
+ frames[0]+=1;clock[0]+=args.ticks_per_frame
  input=inputs.at(frames[0]);raw=bytearray(128)
  for name in input['held']:raw[KEYS[name][0]]=1
  current.cpu.mem_write(current.read(0x1b23c,'<I')[0],bytes(raw))
  current.cpu.mem_write(current.read(0x1b238,'<I')[0],bytes([KEYS[input['event']][0]if input['event'] else 0]))
-im.intercept(0x72045,'Supply one four-tick external interval at each original frame boundary and stop after the requested complete frames.',frame_boundary)
+im.intercept(0x72045,'Supply the declared external timer interval at each original frame boundary and stop after the requested complete frames.',frame_boundary)
 terminal={}
 def terminal_boundary(cpu,address,size,unused):
  # This is after the actual frame-tail retirement and before the native
@@ -334,6 +343,10 @@ def observe_radio(cpu,address,size,unused):
  if address==im.native(0x81198) and caller==im.native(0x8125c):return
  radio_events.append({'frame':frames[0],'message':string(cpu.reg_read(r.UC_X86_REG_EAX)),'persistent':address==im.native(0x81254)})
 for file in (0x81198,0x81254):im.cpu.hook_add(UC_HOOK_CODE,observe_radio,begin=im.native(file),end=im.native(file))
+cockpit_displays=[]
+def observe_cockpit_displays(cpu,address,size,unused):
+ if entered[0]:cockpit_displays.append({'frame':frames[0],'selection':[im.read(field,'<H')[0]for field in (0x713a,0x713c,0x713e,0x7d7c,0x7d7e)]})
+im.cpu.hook_add(UC_HOOK_CODE,observe_cockpit_displays,begin=im.native(0x803e8),end=im.native(0x803e8))
 terrain_passes=[]
 world_cameras=[]
 active_terrain=[None]
@@ -392,8 +405,7 @@ except RuntimeError:
   (args.output/'failure.json').write_text(json.dumps(fault,indent=2)+'\n')
   raise
 else:raise RuntimeError('Original mission returned before completing the requested capture')
-if args.until_result:
- if not terminal:raise RuntimeError('Original mission did not reach a result within the requested frame bound')
+if args.until_result and terminal:
  # Continue the same original call and stack through recovery, FINISH and
  # teardown. This supplies no outcome or script variable, and skips no game
  # routine. Any additional external dependency must still be declared.
@@ -415,11 +427,13 @@ record={
  'recordings':recordings,
  'projectile_guidance':projectile_guidance,
  'processor_exceptions':im.processor_exceptions,
+ 'cockpit_displays':cockpit_displays,
  'preflight_projection':preflight_projection,
- 'trail_events':trail_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'world_cameras':world_cameras,'terrain_passes':terrain_passes,
+ 'trail_events':trail_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':args.ticks_per_frame,'snapshots':snapshots,'horizons':horizons,'world_cameras':world_cameras,'terrain_passes':terrain_passes,
  'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
  'dependencies':{hex(address):reason for address,reason in im.dependencies.items()},
  'host_services':['DPMI exception-vector transport','VGA planar memory and ports','capture-owned in-memory DOS files','fixed startup calendar','zeroed DOS low page for unused cleared-shot owner','inherited presentation declarations'],
 }
 (args.output/'session.json').write_text(json.dumps(record,indent=2)+'\n')
 print(f'Captured original mission {args.mission}: {frames[0]} complete frames, {len(loads)} resource requests; {args.output}')
+if args.until_result and not terminal:raise RuntimeError('Original mission did not reach a result within the requested frame bound; bounded capture retained')
