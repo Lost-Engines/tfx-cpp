@@ -15,6 +15,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   airframes = flight::load_airframes(source);
   aerodynamic_airframes = flight::load_aerodynamic_airframes(source);
   aerodynamic_wind = flight::load_aerodynamic_wind_parameters(source);
+  aerodynamic_temperatures = flight::load_aerodynamic_surface_temperatures(source);
   pointers = presentation::load_pointers(source);
   pilot_assets = std::make_unique<presentation::pilot_assets>(source);
   score_data = std::make_unique<presentation::score_assets>(source);

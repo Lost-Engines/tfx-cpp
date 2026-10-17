@@ -1665,3 +1665,28 @@ levels. Audio requests remain deferred with the sound integration. Weather flash
 production remains separate; it is not assumed to be damage feedback.
 The G-effect comparison and all **91 asset-free tests** pass in development,
 Release and ASan/UBSan builds.
+
+
+### Authored weather inputs to flight
+
+The environment reader now retains the native altitude-layer flag and storm bit
+separately from the shape interpreter's night flag. These feed wind initialization
+and every physical update; temperature realism supplies the original table value
+at launch and during air-data updates. All five wind rows and twenty temperature
+values remain executable data. The reference initializer explicitly selects wind
+profile zero, and its temperature-column field starts at zero with no referenced
+writer. Environment names are not guessed to select unused table rows. In this
+reference path, temperature enabled therefore gives 29 Celsius (302 native Kelvin)
+in every environment; disabled gives the original 288.15 Kelvin.
+
+`check_weather_bindings.py` runs the complete original environment parser and
+`0x95f3c` physical initialization in **1,056 cases across all 33 environments**.
+Cloud/storm strength, all wind fields, temperature selection and ordered random
+states agree. The profile is deliberately dirtied before initialization to check
+that the native code selects zero itself. Resource bytes, allocation and fixed
+clock input are supplied; no environment or weather arithmetic is replaced.
+The earlier complete wind-update, atmosphere and player-loop comparisons cover
+the numerical consumers. Visual cloud, precipitation and lightning rendering
+remain separate work.
+The weather comparison, existing 33-environment palette/binding checks and all
+91 asset-free tests pass in development, Release and ASan/UBSan builds.

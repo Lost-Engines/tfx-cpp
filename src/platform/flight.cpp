@@ -186,7 +186,11 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   auto &stick_pressure{player_flight.stick_pressure};
   auto &simple_body{player_flight.simple_body};
   simple_body = simple_mode;
-  auto const &wind_parameters{tables.aerodynamic_wind[0]};
+  auto const &wind_parameters{tables.aerodynamic_wind[tfx::flight::aerodynamic_initial_weather]};
+  auto const surface_celsius{[&]() -> std::optional<int16_t> {
+    if(!preferences.effects.temperature) return {};
+    return tables.aerodynamic_temperatures[tfx::flight::aerodynamic_initial_weather][tfx::flight::aerodynamic_initial_temperature_column];
+  }};
   std::vector<vec2<uint8_t>> player_route;
   for(auto const &point : actor_program.player_route) player_route.emplace_back(static_cast<uint8_t>(point.x / tfx::world::cell_units),static_cast<uint8_t>(point.z / tfx::world::cell_units));
   auto &player{simple_player.flight};
@@ -694,6 +698,11 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .player_route_points{static_cast<unsigned int>(player_route.size())},
       .ground_elevation_steps{ground.height},
       .landed{mission_setup.start.landed},
+      .wind{
+        .terrain_wind_boost{environment.lighting.cloud_layer},
+        .weather_wind_boost{environment.lighting.storm},
+      },
+      .surface_celsius{surface_celsius()},
     },mission_setup.speed_factor,wind_parameters,player_damage,air_simulation.random_stream());
     player.crashing = preferences.effects.crashing != 0;
   }};
@@ -788,6 +797,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         },
         .seconds{physics_seconds},
         .ground_elevation_steps{ground.height},
+        .surface_celsius{surface_celsius()},
         .refuelling_phase{refuelling.value().phase},
         .terrain_present{ground.present},
         .rough_surface{ground_zone == 2},
@@ -798,6 +808,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         .crashing{player.crashing},
         .stick_pressure{stick_pressure},
         .wind_enabled{preferences.effects.wind != 0},
+        .terrain_wind_boost{environment.lighting.cloud_layer},
+        .weather_wind_boost{environment.lighting.storm},
         .navigation{navigation},
         .recovery_available{preferences.effects.recovery != 0},
         .ejected{player_disabled || ejected()},

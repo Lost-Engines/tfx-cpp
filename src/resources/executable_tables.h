@@ -55,6 +55,7 @@ public:
   std::array<flight::airframe,3> airframes;
   std::array<flight::aerodynamic_airframe,3> aerodynamic_airframes;
   std::array<flight::aerodynamic_wind_parameters,flight::aerodynamic_weather_profiles> aerodynamic_wind;
+  flight::aerodynamic_surface_temperatures aerodynamic_temperatures;
   std::string timer_expired_message;
   presentation::dac_palette text_palette;
   render::dac_palette fixed_flight_palette;
