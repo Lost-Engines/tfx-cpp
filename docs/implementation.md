@@ -4128,3 +4128,44 @@ nine-session regional matrix were rerun and remain pixel/state exact. All
 **128 retail missions** also complete 64 fully composed C++ frames with no
 reported preview limitations. These short corpus runs establish startup/frame
 coverage, not successful completion of every mission.
+
+
+### Accelerated time and operating-area enforcement
+
+The live `T` key now drives original `0x851dc` and the `0x86898` request/gate
+semantics. Requested acceleration survives temporary steering and automatic-
+landing inhibition; the effective flag reaches the existing flight, fuel and
+radio consumers. The clock can refresh those settings during a pending poll
+without discarding its accumulated ticks. Airborne world time runs fivefold;
+landed world time and the physics timestep retain their separate native gates.
+Cancelling marks the ticker idle while retaining its history, cursor and repeat
+state. The native persistent-message wrapper is observed as one public request,
+without double-counting its call to the ordinary builder. Completion/protection
+notices now use that repeating delivery too, as original `0x719a4` does.
+
+`check_acceleration.py` executes **2,048 original input/controller cases** with
+all six steering inhibition words and autopilot modes, comparing requested and
+effective flags plus retained radio state. Its numerical player callback is a
+declared output boundary. The existing **4,096 clock sequences**, **4,096 radio
+updates** and **512 complete radio pixel/coverage frames** remain exact; radio
+checks now include stop followed by replay. A separate private X11 check presses
+the real keys and observes the actual player boundary, without changing game
+state: airborne/runway launch, T toggle, held steering, automatic resumption and
+the separate world/physics intervals.
+
+Original `0x71d74` operating-area enforcement is also restored. It retains signed
+WORD cell conversion, the safe area and outer warning band, idle-only warning,
+repeating departure notice, once-per-departure orders penalty and 810-tick
+return countdown. Returning to the safe area permits another departure penalty.
+Active acceleration is cancelled before the warning, which itself can make an
+idle-only warning eligible. Target notices precede this handler; completion and
+return checks follow it. **4,096 complete original boundary calls** agree,
+including negative coordinates, quotient/WORD wrap, exact limits, prior
+penalties/countdowns and radio/acceleration combinations. Compact fixtures keep
+synthetic inputs and state only.
+
+All **184 regressions** pass in development, Release and ASan/UBSan. The private
+key/timing check passes in **all four flight models** (189 observed player
+callbacks across the eight airborne/runway sessions). The unchanged 32-frame
+Military-spec runway session still matches every original indexed pixel and
+observed player/actor/sensor/random/camera/radio/scenery state.

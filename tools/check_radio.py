@@ -31,7 +31,7 @@ im.call(0x81174)
 rng=random.Random(0x81290);cases=[]
 messages=['','ABC','AWACS CONFIRMS INBOUND HOSTILES','Talk to me, Goose!','FUEL 25% - BREAK LEFT.','GO\xd6SE 123','A\0DISCARDED','LINE ONE\nLINE TWO','X'*100]
 for index in range(512 if args.frames else 4096):
-    action=1 if index==0 else rng.choice([0]*15+[1,2,3,4])
+    action=1 if index==0 else rng.choice([0]*15+[1,2,3,4,5])
     ticks=[0,1,3,4,5,19,20,21,54,55][index%10];warp=(index//11)%2;view=[0,1,28][index%3]
     dx,dy=[(0,0),(1,0),(2,0),(3,0),(-125,0),(12,0),(0,-123),(0,28),(0,72),(0,100)][index%10]
     cases.append([action,ticks,warp,view,dx,dy,messages[index%len(messages)]])
@@ -45,6 +45,7 @@ for index,(action,ticks,warp,view,dx,dy,message) in enumerate(cases):
     if action in (1,2):im.call(0x81198 if action==1 else 0x81254,eax=0x300000)
     elif action==3:im.call(0x81174)
     elif action==4:im.call(0x81268)
+    elif action==5:im.write(0x7612,'<B',1)
     im.write(0x13476,'<H',ticks);im.write(0xe780,'<B',warp);im.write(0x87b6,'<H',view);im.write(0x10be8,'<h',dx);im.write(0x10be6,'<h',dy)
     im.call(0xc0634,stack=(199,0,319,0));video.reset();shown.clear()
     for plane in video.planes:plane[:]=bytes([99])*16000

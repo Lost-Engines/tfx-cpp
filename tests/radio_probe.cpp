@@ -18,6 +18,7 @@ int main(int const argc, char const *const argv[]) try {
     if(action == 1 || action == 2) ticker.show(message,action == 2);
     else if(action == 3) ticker.clear();
     else if(action == 4) ticker.replay();
+    else if(action == 5) ticker.stop();
     auto const window{ticker.advance(static_cast<tfx::simulation::timer_ticks>(ticks),warp != 0)};
     auto const state{ticker.status()};
     if(frames) {

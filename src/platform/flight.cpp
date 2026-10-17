@@ -44,6 +44,7 @@
 #include "flight/fuel_gauge.h"
 #include "cockpit/hud.h"
 #include "cockpit/radio_ticker.h"
+#include "simulation/acceleration.h"
 #include "cockpit/weapon_display.h"
 #include "cockpit/external_display.h"
 #include "cockpit/frame.h"
@@ -248,6 +249,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   scene.set_query_reference(&player.integer_position);
   tfx::flight::simple_inputs simple_controls;
   tfx::flight::mouse_flight_input mouse_control;
+  tfx::simulation::time_acceleration acceleration;
   simple_controls.source = preferences.control;
   auto const body_basis{[&]() -> tfx::math::attitude const& { return player_flight.body(); }};
   player.aircraft = mission_setup.aircraft;
@@ -861,6 +863,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::simulation::timer_ticks previous_animation_ticks{first_animation_ticks};
   auto const restart{[&]{
     previous_animation_ticks = first_animation_ticks;
+    acceleration.cancel();
     ground = initial_ground;
     ground_zone = -1;
     simple_controls = {};
@@ -1072,6 +1075,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .wheel_brakes{player.wheel_brake},
         .gear_damage_enabled{preferences.effects.gear_damage != 0},
         .precipitation{preferences.effects.precipitation != 0},
+        .time_warp{acceleration.active},
         .crashing{player.crashing},
         .stick_pressure{stick_pressure},
         .wind_enabled{preferences.effects.wind != 0},
@@ -1146,9 +1150,17 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .landed{player.landed},
       .speed{player.fixed_speed},
       .arcade{!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0)},
+      .airspace{tfx::missions::airspace_context{
+        .position{player.integer_position.x,player.integer_position.z},
+        .acceleration_active{acceleration.active},
+        .radio_idle{radio.status().complete},
+      }},
     })) {
-      if(auto const *notice{std::get_if<missions::progress_notice>(&event)}) radio.show(notice->kind == missions::notice_kind::target_destroyed ? *mission_setup.targets[notice->target].text : *mission_setup.completion->text);
-      else {
+      if(auto const *notice{std::get_if<missions::progress_notice>(&event)}) radio.show(notice->kind == missions::notice_kind::target_destroyed ? *mission_setup.targets[notice->target].text : *mission_setup.completion->text,notice->kind != missions::notice_kind::target_destroyed);
+      else if(auto const *boundary{std::get_if<missions::airspace_event>(&event)}) {
+        if(boundary->cancel_acceleration) { acceleration.cancel();radio.stop(); }
+        if(boundary->notice != missions::airspace_notice::none) radio.show(tables.instruments().airspace_messages[std::to_underlying(boundary->notice) - 1],boundary->notice == missions::airspace_notice::departed);
+      } else {
         if(sound) sound->music_cue(audio::music_cue_id::mission_complete);
         sample(audio::sample_priority::urgent,audio::sample_id::mission_complete);
       }
@@ -1746,7 +1758,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     } else if(!inspect) {
       auto const callback{tables.instruments().viewports[view_index()].callback_file};
       if(!designator_view && (callback == 0x806dc || callback == 0x80718 || callback == 0x80758)) draw_aiming(view,callback != 0x80758);
-      auto const radio_window{callback == 0x80704 ? std::optional<std::string>{} : radio.advance(launch_elapsed)};
+      auto const radio_window{callback == 0x80704 ? std::optional<std::string>{} : radio.advance(launch_elapsed,acceleration.active)};
       if(!designator_view && view_index() == tfx::cockpit::forward_cockpit) {
         cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
         draw_instruments(radio_window);
@@ -1918,6 +1930,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       timer_fraction -= static_cast<double>(step);
       scene.advance(static_cast<tfx::world::timer_ticks>(step));
     } else if(!paused && !result_evaluated) {
+      if(pressed(GLFW_KEY_T)) {
+        if(acceleration.toggle()) radio.show(tables.instruments().time_warp_message,true);
+        else radio.stop();
+      }
       if(pressed(GLFW_KEY_ESCAPE)) {
         auto const result{ejection.escape(player.integer_position,player.angles,player.fixed_speed)};
         if(result.disable_refuelling) refuelling.disengage();
@@ -2186,7 +2202,14 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       auto const ticks{static_cast<tfx::simulation::timer_counter>(std::floor(timer_fraction))};
       timer_fraction -= ticks;
       counter += ticks;
-      auto const step{flight_clock.poll(counter)};
+      bool const view_modifier{down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT) || down(GLFW_KEY_LEFT_CONTROL) || down(GLFW_KEY_RIGHT_CONTROL)};
+      bool const steering{!view_modifier && (down(GLFW_KEY_UP) || down(GLFW_KEY_DOWN) || down(GLFW_KEY_LEFT) || down(GLFW_KEY_RIGHT))};
+      acceleration.resolve(steering,physical_player.manual.controls.autopilot.enabled && physical_player.manual.controls.autopilot.mode == 4);
+      auto const step{flight_clock.poll(counter,{
+        .model{preferences.model},
+        .time_warp{acceleration.active},
+        .time_warp_allowed{!player.landed},
+      })};
       if(step) {
         auto const stick_action{simple_controls.source == tfx::flight::control_source::joystick ? stick_buttons.advance(stick_mask,preferences.stick_type,step->world_ticks) : tfx::flight::joystick_action::none};
         switch(stick_action) {

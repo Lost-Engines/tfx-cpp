@@ -327,6 +327,7 @@ add_library(tfx_core
   src/missions/initialisation.h
   src/simulation/timing.cpp
   src/simulation/timing.h
+  src/simulation/acceleration.h
   src/resources/executable_tables.cpp
   src/resources/executable_tables.h
   src/render/framebuffer.cpp
@@ -1397,6 +1398,16 @@ if(BUILD_TESTING)
   target_link_libraries(timing_tests PRIVATE tfx_core)
   configure_first_party(timing_tests)
   add_test(NAME simulation.native_timing_boundaries COMMAND timing_tests)
+
+  add_executable(acceleration_probe tests/acceleration_probe.cpp)
+  target_link_libraries(acceleration_probe PRIVATE tfx_core)
+  configure_first_party(acceleration_probe)
+  add_test(NAME simulation.native_acceleration_controls COMMAND acceleration_probe ${PROJECT_SOURCE_DIR}/tests/reference/acceleration.txt)
+
+  add_executable(airspace_probe tests/airspace_probe.cpp)
+  target_link_libraries(airspace_probe PRIVATE tfx_core)
+  configure_first_party(airspace_probe)
+  add_test(NAME missions.native_airspace_boundaries COMMAND airspace_probe ${PROJECT_SOURCE_DIR}/tests/reference/airspace.txt)
 
   add_executable(tfx_replay tests/replay.cpp)
   target_link_libraries(tfx_replay PRIVATE tfx_core)

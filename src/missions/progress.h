@@ -15,7 +15,17 @@ struct progress_notice {
   unsigned int target{0};
 };
 struct mission_completed_event {};
-using progress_event = std::variant<progress_notice,mission_completed_event>;
+enum class airspace_notice { none, approaching, departed };
+struct airspace_event {
+  airspace_notice notice{airspace_notice::none};
+  bool cancel_acceleration{false};
+};
+struct airspace_context {
+  vec2<int32_t> position;
+  bool acceleration_active{false};
+  bool radio_idle{true};
+};
+using progress_event = std::variant<progress_notice,mission_completed_event,airspace_event>;
 
 struct loss_effects {
   std::optional<unsigned int> acknowledgement_sample{};
@@ -58,6 +68,7 @@ struct progress_context {
   bool landed{false};
   int32_t speed{0};
   bool arcade{false};
+  std::optional<airspace_context> airspace{};
 };
 class progress {
 private:
@@ -72,6 +83,7 @@ public:
   int16_t violations{0};
   int16_t exit_ticks{0};
   int32_t remaining_timer{-1};
+  bool beyond_airspace{false};
   bool resolved{false};
   bool ended{false};
   bool critical_loss{false};
@@ -87,6 +99,7 @@ public:
   loss_effects record_air_loss(bool enemy_pool, int16_t type, bool player_owned, bool authorised, math::random_state &random);
   loss_effects record_surface_loss(bool hostile, int16_t type);
   terrain_loss_effects record_terrain_loss(terrain_loss_context const &context);
+  airspace_event observe_airspace(airspace_context const &context);
   std::vector<progress_event> begin_frame(progress_context const &context);
   bool finish_frame(simulation::timer_ticks elapsed);
 };

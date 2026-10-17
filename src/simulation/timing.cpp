@@ -38,6 +38,14 @@ void flight_clock::resume(timer_counter const counter, timing_options const opti
   realistic_extra_poll = false;
 }
 
+std::optional<frame_timing> flight_clock::poll(timer_counter const counter, timing_options const options) {
+  // Native input can change acceleration while this frame waits for the timer.
+  // Replacing settings retains accumulated ticks and the Realistic extra poll.
+  if(!pending) throw std::logic_error{"begin a flight frame before changing its timer settings"};
+  pending = options;
+  return poll(counter);
+}
+
 std::optional<frame_timing> flight_clock::poll(timer_counter const counter) {
   /// 2.05 file 0x8c43c: retain counter/word wrap, polling order and x87 storage boundaries
   if(!pending) throw std::logic_error{"begin a flight frame before supplying timer readings"};
