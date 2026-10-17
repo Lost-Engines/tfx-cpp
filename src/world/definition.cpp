@@ -90,7 +90,7 @@ definition::definition(std::span<uint8_t const> const source, std::shared_ptr<st
         if(opcode == 37 && custom.contains(a(0))) {
           if(custom.at(a(0)) == a(1)) { at = static_cast<unsigned int>(static_cast<int>(args + 4) + math::signed_word(a(2)) * 2); continue; }
         } else if(opcode == 37 || (opcode >= 38 && opcode <= 45) || opcode == 58 || (opcode >= 66 && opcode <= 69)) throw std::runtime_error{"scenery initialiser needs unresolved runtime state"};
-      } else if(opcode == 6 || opcode == 7 || opcode == 8 || opcode == 46 || opcode == 54 || opcode == 60 || opcode == 74) {
+      } else if(opcode == 4 || opcode == 6 || opcode == 7 || opcode == 8 || opcode == 46 || opcode == 54 || opcode == 60 || opcode == 74) {
         unsigned int const slot{a(0)};
         if(slot < parts.size()) {
           vec3d anchor;
@@ -101,8 +101,11 @@ definition::definition(std::span<uint8_t const> const source, std::shared_ptr<st
           if(!duplicate) draws.push_back({
             .slot{slot},
             .anchor{vec3d{anchor}},
+            .kind{opcode == 60 ? part_draw_kind::ground_shadow : part_draw_kind::model},
             .placement{opcode == 8 || opcode == 74 ? part_position::fixed_anchor : opcode == 6 || opcode == 46 ? part_position::integer_anchor : part_position::assembly_origin},
             .orientation{opcode == 46 || opcode == 54 ? part_orientation::world_axes : part_orientation::terrain_axes},
+            .delivery{opcode == 4 || opcode == 6 ? part_delivery::immediate : part_delivery::queued},
+            .part{parts.at(slot)},
           });
         }
       }

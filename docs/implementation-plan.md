@@ -257,3 +257,12 @@ black model drawing. Original placement and complete flat/Gouraud silhouette
 frames agree, and a normal landed mission reaches the production draw path.
 Immediate delivery, renderer-phase scheduling and model-local articulation
 remain separate work alongside rounded/textured edge fidelity.
+
+
+Immediate SSD draws now use their native scratch slot and retain per-instruction
+part snapshots. Persistent slot size/type metadata, mutable cache scaling and
+the separate retained parameter bank have complete mixed native sequence
+comparisons, including capacity and frame resets. Direct converted-model
+frames agree too. Remaining renderer work includes visibility-conditioned
+animation, complete phase scheduling, model-local articulated matrices and
+rounded/textured boundaries.

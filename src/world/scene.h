@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 #include "render/software_renderer.h"
+#include "render/model_queue.h"
 #include "world/animation.h"
 #include "world/assets.h"
 #include "world/environment.h"
@@ -53,6 +54,8 @@ private:
     vec3d position;
   };
   std::vector<model_submission> model_submissions;
+  render::model_slot_metadata model_slots;
+  std::array<uint8_t,part_parameters> model_parameters{};
   animation_clock clock;
   math::jitter_state working_jitter;
   math::jitter_state saved_jitter;

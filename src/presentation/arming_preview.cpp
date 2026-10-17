@@ -85,7 +85,7 @@ void arming_preview::shape(render::software_renderer &renderer, models::shape co
 void arming_preview::object(render::software_renderer &renderer, world::instance &actor, render::camera const &view,
   vec3d const &position, mat3d const &rotation, std::span<models::shape const *const> const attachments) {
   for(auto const &draw : actor.execute(1).draws) {
-    auto const &part{actor.parts.at(draw.slot)};
+    auto const &part{draw.part};
     shape(renderer,resources.shape(part.name),view,position + rotation * draw.anchor,rotation * math::rotation(part.rotation),part.parameters,attachments);
   }
 }

@@ -48,11 +48,15 @@ def main():
         im.return_from()
     image.intercept(0xb6be8, 'Explicit anchor-distance input; camera placement is tested separately from VM control flow.', measure)
     for file, anchored in [(0xb635c,False),(0xb6438,True),(0xb65b0,False),(0xb668c,True),(0xb6810,False),(0xb68dc,True),(0xb6a44,False)]:
-        def draw(im, anchored=anchored, kind=int(file==0xb6a44), placement=2 if file==0xb668c else int(anchored)):
+        def draw(im, anchored=anchored, kind=int(file==0xb6a44), placement=2 if file==0xb668c else int(anchored), orientation=int(file not in (0xb6810,0xb68dc)), delivery=int(file in (0xb635c,0xb6438))):
             part = im.cpu.reg_read(r.UC_X86_REG_EAX) & 65535
             anchor = im.cpu.reg_read(r.UC_X86_REG_EDX) & 65535
             xyz = struct.unpack_from('<3h',raw,10+anchor*6) if anchored else (0,0,0)
-            calls.append((part,*xyz,kind,placement))
+            memory=bytes(im.cpu.mem_read(instance+16+29*part,29))
+            rotation_at=struct.unpack_from('<H',memory,27)[0]*2
+            rotation=struct.unpack_from('<3H',raw,rotation_at) if rotation_at else (0,0,0)
+            snapshot=(struct.unpack_from('<H',memory,9)[0],memory[8],*rotation,*memory[:8])
+            calls.append((part,*xyz,kind,placement,orientation,delivery,*snapshot))
             im.return_from()
         image.intercept(file, 'Record model-part draw placement; native polygon rendering is tested by the renderer checks.', draw)
     def light(im):
