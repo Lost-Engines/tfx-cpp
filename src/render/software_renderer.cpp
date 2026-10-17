@@ -118,7 +118,7 @@ void software_renderer::background(camera const &view, uint8_t const sky, uint8_
   }
 }
 
-void software_renderer::polygon(std::span<screen_vertex const> const vertices, uint8_t const colour, int const mode, std::span<uint8_t const> const texture) {
+void software_renderer::polygon(std::span<screen_vertex const> const vertices, uint8_t const colour, int const mode, std::span<uint8_t const> const texture, colour_map const *const remap) {
   /// Half-open software spans; interpolate palette indices and UVs in screen space, preserving authored paint order
   if(vertices.size() < 3) return;
   bool const shaded{texture.empty() && std::ranges::all_of(vertices,[](auto const &v){ return v.shade >= 0; })};
@@ -178,8 +178,10 @@ void software_renderer::polygon(std::span<screen_vertex const> const vertices, u
           auto const uv{left.uv + (right.uv - left.uv) * t};
           int const u{std::clamp(static_cast<int>(uv.x),0,255)}, v{std::clamp(static_cast<int>(uv.y),0,191)};
           index = texture[static_cast<unsigned int>(v * 256 + u)];
-          if(!index) continue;
         } else if(shaded) index = static_cast<uint8_t>(static_cast<int>(std::floor(colour_start + colour_step * (x - colour_origin))));
+        if(remap && (!texture.empty() || shaded)) index = (*remap)[index];
+        // Original texture transparency is tested after its lighting lookup.
+        if(!texture.empty() && !index) continue;
         ink(x,y,index,mode);
       }
     }
@@ -212,10 +214,11 @@ void software_renderer::line(vec2d const &a, vec2d const &b, uint8_t const colou
   }
 }
 
-void software_renderer::primitive(models::primitive const &source, std::span<models::model_vertex const> const camera_vertices, camera const &view, std::span<uint8_t const> const texture) {
+void software_renderer::primitive(models::primitive const &source, std::span<models::model_vertex const> const camera_vertices, camera const &view, std::span<uint8_t const> const texture, colour_map const *const remap) {
   /// Clip a complete authored primitive before projection, including its attributes
   if(camera_vertices.empty()) return;
-  auto const ink_index{static_cast<uint8_t>(source.colour)};
+  uint8_t const source_index{static_cast<uint8_t>(source.colour)};
+  uint8_t const ink_index{remap ? (*remap)[source_index] : source_index};
   if(source.kind == models::primitive_kind::polygon && source.mode == -1 && !source.rounded && texture.empty() && std::ranges::all_of(camera_vertices,[](auto const &vertex) { return vertex.shade < 0; })) {
     if(integer_model_polygon(output,camera_vertices,view,ink_index)) return;
   }
@@ -306,7 +309,7 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
       });
       polygon(curve,ink_index,source.mode);
     }
-  } else polygon(projected,ink_index,source.mode,texture);
+  } else polygon(projected,ink_index,source.mode,texture,remap);
 }
 
 unsigned int software_renderer::text_width(std::string_view const message) const {

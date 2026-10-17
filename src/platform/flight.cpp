@@ -1564,18 +1564,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(!inspect) {
       auto const &layout{tables.instruments().viewports[view_index()]};
       view.viewport_maximum = {tfx::render::screen_width - 1,static_cast<int16_t>(layout.bottom + (layout.panel.empty() ? 0 : cockpit_position.value().y))};
-      tfx::render::point_projection projected_view{
-        .matrix{},
-        .position_q16{vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{view.position * 65536}}}},
-        .origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
-        .maximum{vec2<int16_t>{view.viewport_maximum}},
-        .opening{view.opening},
-      };
-      // Recover the exact Q15 rows for native cameras; the designator's current camera supplies its own rows.
-      for(unsigned int row{0}; row != 3; ++row) {
-        auto const &axis{row == 0 ? view.right : row == 1 ? view.down : view.forward};
-        for(unsigned int column{0}; column != 3; ++column) projected_view.matrix.data[row * 3 + column] = static_cast<int32_t>(axis[column] * tfx::math::matrix_unit);
-      }
+      auto const projected_view{view.projector()};
       impact_projection.emplace(projected_view);
       if(!night_flak) {
         palette_lighting.flash(tfx::render::glare_level(*impact_projection,{

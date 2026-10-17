@@ -26,7 +26,7 @@ code=lambda off:im.native(0x70aa4+off)
 im.cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=10000)
 for file in (0xb9447,0xb944d,0xb9452):im.cpu.mem_write(im.native(file),bytes(4))
 im.cpu.mem_write(code(0x47cea),bytes(im.cpu.mem_read(code(0x68106),4)))
-im.cpu.mem_write(code(0x4787e),struct.pack('<I',im.native(0xc4c9c)));im.cpu.mem_write(code(0x47ca8),bytes([17]))
+im.cpu.mem_write(code(0x4787e),struct.pack('<I',im.data+0x24c9c));im.cpu.mem_write(code(0x47ca8),bytes([17]))
 def hull(points):
  def cross(a,b,c):return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
  points=sorted(set(points));lo=[];hi=[]

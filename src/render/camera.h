@@ -4,6 +4,7 @@
 #include "math/attitude.h"
 #include "render/framebuffer.h"
 #include "render/aperture.h"
+#include "render/point_projection.h"
 
 namespace tfx::render {
 
@@ -22,6 +23,7 @@ struct camera {
   double far_distance{20000};
   vec2<int16_t> viewport_minimum{0,0};
   vec2<int16_t> viewport_maximum{screen_width - 1,screen_height - 1};
+  point_projection projector() const;
   vec3d transform(vec3d const &world) const;
   vec2d project(vec3d const &camera_position, double projection_scale = 1) const;
 };
