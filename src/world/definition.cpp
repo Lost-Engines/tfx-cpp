@@ -102,6 +102,7 @@ definition::definition(std::span<uint8_t const> const source, std::shared_ptr<st
             .slot{slot},
             .anchor{vec3d{anchor}},
             .placement{opcode == 8 || opcode == 74 ? part_position::fixed_anchor : opcode == 6 || opcode == 46 ? part_position::integer_anchor : part_position::assembly_origin},
+            .orientation{opcode == 46 || opcode == 54 ? part_orientation::world_axes : part_orientation::terrain_axes},
           });
         }
       }

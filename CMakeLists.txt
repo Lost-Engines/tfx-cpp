@@ -342,6 +342,8 @@ add_library(tfx_core
   src/render/model_queue.h
   src/render/model_point.cpp
   src/render/model_point.h
+  src/render/model_transform.cpp src/render/model_transform.h
+  src/world/model_orientation.h
   src/render/model_metrics.cpp
   src/render/model_metrics.h
   src/render/colour_remap.cpp
@@ -617,6 +619,14 @@ if(BUILD_TESTING)
   add_test(NAME render.native_near_model_polygons COMMAND world_polygon_probe ${PROJECT_SOURCE_DIR}/tests/reference/world_polygons_near.txt)
   add_test(NAME render.native_near_gouraud COMMAND world_polygon_probe --shaded ${PROJECT_SOURCE_DIR}/tests/reference/world_gouraud_near.txt)
   add_test(NAME render.native_projected_gouraud COMMAND world_polygon_probe --shaded ${PROJECT_SOURCE_DIR}/tests/reference/world_gouraud.txt)
+  add_executable(model_orientation_probe tests/model_orientation_probe.cpp)
+  target_link_libraries(model_orientation_probe PRIVATE tfx_core)
+  configure_first_party(model_orientation_probe)
+  add_test(NAME render.native_ssd_model_orientations COMMAND model_orientation_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_orientations.txt)
+  add_executable(model_transform_probe tests/model_transform_probe.cpp)
+  target_link_libraries(model_transform_probe PRIVATE tfx_core)
+  configure_first_party(model_transform_probe)
+  add_test(NAME render.native_queued_model_transforms COMMAND model_transform_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_transforms.txt)
   add_executable(world_polygon_probe tests/world_polygon_probe.cpp)
   target_link_libraries(world_polygon_probe PRIVATE tfx_core)
   configure_first_party(world_polygon_probe)

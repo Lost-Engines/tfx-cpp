@@ -3183,3 +3183,47 @@ The existing 27 raster interiors, nine complete circles, three procedural
 seed transitions, 44 rounded corners and 1,280 Gouraud samples still agree.
 All 128 retail missions advance and compose 64 complete frames without
 preview warnings after this renderer change.
+
+
+### Native outer model transforms and SSD orientation
+
+Live native scenes now retain each actor's Euler words rather than only a
+floating matrix. The SSD constructors add a rotated part's Euler metadata to
+the actor words, wrapping each sum; they do not multiply independent actor
+and part matrices. Normal constructors also add the terrain quarter-turn.
+Special opcodes 46/54 intentionally retain world-axis orientation despite
+using the normal quarter-turned anchor placement. Unrotated bindings ignore
+the metadata triple. These rules now have explicit part-orientation records.
+
+A submitted model owns its cached camera translation and quantised view/body
+basis. Original `0xb972a` wraps each dot product, shifts Q15 and stores a word;
+all-zero Euler words bypass the extra component matrix. Translation uses the
+actual integer/fixed camera cache already captured at submission, preserving
+its wrapping and per-term high-product rounding. Signed size flags divide
+or multiply that cache before detail selection and drawing, while the queue
+priority and colour-remap row retain their original pre-scale cache values.
+
+`tools/check_model_orientations.py` compares **8,192 native constructions
+across all six origin/anchor paths**, observing the submitted angle words and
+size flag after actual quarter-turn callbacks and SSD constructors. Geometry
+submission and the supplied instance handle are declared boundaries.
+`tools/check_model_transforms.py` executes **1,024 complete queued, converted
+model frames**, agreeing in all nine basis words and every VGA pixel. Source
+absolute vertices, model scale, actor Euler angles, view matrices/caches,
+aperture and identity colour tables are inputs. Only supplied model-handle
+resolution is intercepted; matrix generation, queue construction/flush,
+model bytecode, near clipping and VGA drawing all execute. Random full-word
+matrices exercise wrapped arithmetic as well as ordinary view matrices.
+Compact basis/frame fixtures run without original game files.
+
+This closes the outer-pose/cache path for those programs. It does not claim
+complete fidelity of model-local articulated matrices, carried-model matrix
+stacks, rounded/textured edges, shadows or whole-scene scheduling. All 128
+retail missions also complete 64 composed frames without preview warnings
+with the new transform path.
+
+All **151 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizers each repeat 256 complete native transformed-model frames.
+All 703 SSD definitions / 19,589 persistent states still agree. Private-window
+controls retain three MFD displays, weapons, follow/nose cameras, ground
+weapon designation, pause and a real combat FINISH/return flow.

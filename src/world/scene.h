@@ -31,7 +31,7 @@ private:
   struct moving_instance {
     instance state;
     vec3d position;
-    mat3d rotation;
+    vec3<math::angle> angles;
     bool visible{true};
   };
   std::map<unsigned int,moving_instance> actors;
@@ -45,7 +45,7 @@ private:
   struct actor_submission {
     scene_handle handle;
     vec3d position;
-    mat3d rotation;
+    vec3<math::angle> angles;
   };
   std::vector<actor_submission> submissions;
   struct model_submission {

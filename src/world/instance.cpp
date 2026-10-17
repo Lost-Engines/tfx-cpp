@@ -192,6 +192,7 @@ void instance::interpret(unsigned int at, instance_context &context, instance_re
           .anchor{anchored ? vec3d{source.anchors.at(a(1))} : vec3d{}},
           .kind{opcode == instruction::draw_ground_shadow ? part_draw_kind::ground_shadow : part_draw_kind::model},
           .placement{!anchored ? part_position::assembly_origin : opcode == instruction::draw_anchor || opcode == instruction::draw_damage_overlay ? part_position::fixed_anchor : part_position::integer_anchor},
+          .orientation{opcode == instruction::draw_special_origin || opcode == instruction::draw_special_anchor ? part_orientation::world_axes : part_orientation::terrain_axes},
         });
         if(opcode == instruction::draw_damage_overlay && parts.at(a(0)).parameters[7]) result.draws.push_back({
           .slot{a(2)},
