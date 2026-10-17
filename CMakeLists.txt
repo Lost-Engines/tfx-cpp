@@ -44,6 +44,8 @@ add_library(tfx_audio
 configure_first_party(tfx_audio)
 
 add_library(tfx_core
+  src/recording/file.cpp
+  src/recording/file.h
   src/flight/cheat.cpp
   src/flight/cheat.h
   src/flight/keyboard.cpp
@@ -447,6 +449,13 @@ target_link_libraries(tfx PRIVATE tfx_audio PRIVATE pcm_device PRIVATE tfx_core 
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_executable(recording_tests tests/recording_test.cpp)
+  target_link_libraries(recording_tests PRIVATE tfx_core)
+  configure_first_party(recording_tests)
+  add_test(NAME recording.original_file_format COMMAND recording_tests)
+  add_executable(recording_probe tests/recording_probe.cpp)
+  target_link_libraries(recording_probe PRIVATE tfx_core)
+  configure_first_party(recording_probe)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i.86)$" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_library(native_x87_backend SHARED tools/native_x87_backend.cpp)
     configure_first_party(native_x87_backend)

@@ -1,0 +1,61 @@
+#pragma once
+
+#include <array>
+#include <string>
+#include <vector>
+#include "math/attitude.h"
+#include "resources/binary.h"
+#include "render/model_queue.h"
+
+namespace tfx::recording {
+
+unsigned int constexpr header_bytes{10}, native_resource_limit{1000};
+enum class model_kind : uint8_t { unrotated = 40, rotated = 44, ground_shadow = 48 };
+
+struct order_entry {
+  int16_t priority{0};
+  uint16_t slot{0};
+};
+struct model {
+  model_kind kind{model_kind::unrotated};
+  uint8_t initial_state{0};
+  uint8_t colour_row{0};
+  uint8_t scale{1};
+  uint16_t resource{0};
+  vec3<math::angle> angles{0,0,0};
+  vec3<int32_t> camera_origin{0,0,0};
+  std::array<uint8_t,8> parameters{};
+};
+struct frame {
+  // C5BEC/C5FF0 copy these eight retained bytes verbatim. No producer has
+  // been found in retail 2.05; retain the field without inventing semantics.
+  std::array<uint8_t,8> reserved{};
+  vec3<math::angle> camera_angles{0,0,0};
+  std::vector<order_entry> order;
+  std::vector<model> models;
+};
+struct resource {
+  uint16_t handle{0};
+  std::string name;
+};
+struct file {
+  std::vector<frame> frames;
+  // Indices 0 and 1 have no stored names. Native playback supplies
+  // badshape.3 for entry 1 and searches this table backwards by handle.
+  std::vector<resource> resources{
+    {
+      .handle{0},
+      .name{},
+    },
+    {
+      .handle{1},
+      .name{"badshape.3"},
+    },
+  };
+};
+
+resources::bytes encode_frame(frame const &source);
+resources::bytes encode(file const &source);
+file decode(std::span<uint8_t const> source);
+
+} // namespace tfx::recording
