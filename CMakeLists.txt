@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.30)
 project(tfx VERSION 0.1.0 LANGUAGES C CXX)
+# No target uses C++ modules, including the isolated hardware backends.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 if(APPLE)
   enable_language(OBJC)
 endif()
@@ -34,6 +36,7 @@ add_library(tfx_audio
   src/audio/midi_receiver.h src/audio/midi_byte_sink.h src/audio/midi_stream.cpp src/audio/midi_stream.h
   src/audio/la_synth.cpp src/audio/la_synth.h
   src/audio/music_catalogue.cpp src/audio/music_catalogue.h
+  src/audio/music_control.cpp src/audio/music_control.h
   src/audio/music_device.cpp src/audio/music_device.h
   src/audio/music_clock.h src/audio/music_player.cpp src/audio/music_player.h
 )
@@ -602,6 +605,14 @@ if(BUILD_TESTING)
   target_link_libraries(osl_parameters_test PRIVATE tfx_audio)
   configure_first_party(osl_parameters_test)
   add_test(NAME audio.native_osl_parameter_alias COMMAND osl_parameters_test)
+  add_executable(music_poll_probe tests/music_poll_probe.cpp)
+  target_link_libraries(music_poll_probe PRIVATE tfx_audio)
+  configure_first_party(music_poll_probe)
+  add_test(NAME audio.native_flight_music_frames COMMAND music_poll_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/music_poll.txt")
+  add_executable(music_control_probe tests/music_control_probe.cpp)
+  target_link_libraries(music_control_probe PRIVATE tfx_audio)
+  configure_first_party(music_control_probe)
+  add_test(NAME audio.native_flight_music_selection COMMAND music_control_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/music_control.txt")
   add_executable(osl_scc_probe tests/osl_scc_probe.cpp)
   target_link_libraries(osl_scc_probe PRIVATE tfx_audio)
   configure_first_party(osl_scc_probe)

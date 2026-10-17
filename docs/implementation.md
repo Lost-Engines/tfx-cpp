@@ -1913,3 +1913,36 @@ The remaining audio work is the high-level flight music/effect controller,
 its lifecycle/caller bindings, other sampled triggers and complete-session
 comparison. Original `MUSIC=1` is the hybrid SB/CD option: its synthesised
 presentation path must not be confused with CD playback during flight.
+
+
+### Flight music cue and frame controllers
+
+The high-level cue wrapper (`0xa5a9c`), both LA/FM-SCC selectors (`0xa5860`,
+`0xa556c`) and non-CD frame controller (`0xa5374`/`0xa5210`) are translated into
+named state, context and resource/order requests. They retain temporary-cue
+return state, inhibited/collision/disabled gates, the distinction between music
+enablement and background music, and Sound Blaster engine playback while music
+is off. Engine order uses the original x87 truncation of `(throttle - .6) * 10`;
+refresh uses a greater-than-.1 throttle change and the original `.59f` threshold.
+No timer estimate is used to guess when a temporary cue has finished.
+
+`tools/check_music_control.py` compares **8,192 complete original cue decisions**,
+including 3,056 accepted plays. `tools/check_music_poll.py` compares **8,192
+complete original frame updates**, including 552 selected plays, engine shutdown,
+retained float bits and sequencer-driven cue returns. Original decision branches
+and numerical helpers execute. Resource/filename replacement and the protected to
+real-mode driver bridge are declared boundaries; playback-active state is supplied
+at the actual native query. CD status/timing remains deferred. Two 256-case
+asset-free fixtures retain these original results for regression testing. Both
+full comparisons and all 103 asset-free regressions pass in development, Release
+and ASan/UBSan builds.
+
+These comparisons establish controller behavior, not yet its complete game
+lifecycle binding. Native mission entry consumes the existing theme preselection
+or defaults to bank 10; LA's profile selection and the initial cue must also be
+preserved when joining it to live playback. Auxiliary resources, trigger callers,
+menu stop/restart behavior and whole-session output remain integration work.
+
+C++ module scanning is explicitly disabled for this non-module project and its
+isolated hardware backends. Scanning generated DBOPL sources was unnecessary and
+triggered a Ninja dynamic-dependency assertion during target regeneration.
