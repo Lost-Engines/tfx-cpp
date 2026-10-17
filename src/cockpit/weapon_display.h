@@ -46,6 +46,7 @@ struct weapon_display_state {
   simulation::timer_ticks elapsed{0};
   attitude_display_state attitude;
   hud_text_state flight;
+  std::optional<aerodynamic_hud_state> aerodynamic{};
   std::array<vec2<int16_t>,5> cannon_path{};
 };
 
