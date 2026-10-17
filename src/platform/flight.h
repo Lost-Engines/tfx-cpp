@@ -35,6 +35,7 @@ struct flight_options {
   int16_t &nearby_hostile_count;
   int16_t &last_released_mount;
   bool &flight_information;
+  bool &cannon_navigation;
   render::precipitation &rain;
   math::random_state &session_random;
   audio::runtime *sound{nullptr};

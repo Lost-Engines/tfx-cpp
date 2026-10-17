@@ -60,7 +60,8 @@ void scene_displays::draw(render::software_renderer &renderer, display_side cons
     request.position = vec3<int32_t>{state.ground_target};
     animation.orbit_angles.x = 0x2000;
     int constexpr target_orbit_distance{-1700};
-    math::advance_position(request.position,animation.orbit_angles,target_orbit_distance,assets.camera_height_bounds.x,assets.camera_height_bounds.y);
+    auto const &height_bounds{state.height_bounds ? *state.height_bounds : assets.camera_height_bounds};
+    math::advance_position(request.position,animation.orbit_angles,target_orbit_distance,height_bounds.x,height_bounds.y);
     request.angles = vec3<math::angle>{static_cast<uint16_t>(-animation.orbit_angles.x),static_cast<uint16_t>(-animation.orbit_angles.y),static_cast<uint16_t>(-animation.orbit_angles.z)};
     animation.orbit_angles.y = static_cast<uint16_t>(animation.orbit_angles.y + animation.orbit_step);
     auto const magnitude{[](int32_t const a, int32_t const b) {

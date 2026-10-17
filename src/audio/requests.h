@@ -22,6 +22,7 @@ enum class music_cue_id : uint8_t {
 enum class sample_id : unsigned int {
   gear = 1,
   afterburner_stop = 8,
+  control_selection = 8,
   weapon_release = 11,
   aircraft_explosion = 12,
   cannon_hit = 14,

@@ -12,6 +12,18 @@ int16_t constexpr carrier_height_limit{-10};
 
 } // anonymous namespace
 
+auto aerodynamic_flight::configure_controls(input_configuration const configuration)->void {
+  bool const combat{configuration == input_configuration::combat};
+  bool const realistic{model == aerodynamic_model::realistic};
+  autopilot.recovery.configuration = std::to_underlying(configuration);
+  input_gains = {
+    .pitch{combat ? realistic ? .8 : 1.0 : realistic ? .12 : .15},
+    .roll{combat ? realistic ? .88 : 1.1 : realistic ? .152 : .19},
+    .rudder{realistic ? .024 : .03},
+    .joystick{combat || aircraft.stores_and_mounts.stores.aircraft == player_aircraft::nighthawk ? 1.0 : .5},
+  };
+}
+
 void aerodynamic_flight::reset_motion(int16_t const ground_elevation_steps, bool const terrain_present) {
   math::floating_environment const environment;
   auto &motion{response.motion};

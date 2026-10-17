@@ -37,6 +37,7 @@ for index in range(512):
     y=[0,1,-1,-256,-10000,-100000,-1000000,-2000000][index%8]
     pitch=[0,16384,32768,49152,65535][index%5] if index<160 else rng.randrange(65536)
     cases.append([x,y,z,pitch,rng.randrange(65536),rng.randrange(65536),rng.randrange(-500,2000),*[(-8192,-32),(-16384,0),(-4096,-100)][index%3]])
+cases.append([32243583,-1,12289568,0,0,0,0,-16384,0]) # Landed F-117 empty-pylon sight; first update reaches ground.
 output=subprocess.check_output([str((args.build/'cannon_prediction_probe').resolve()),str(directory)],input=('\n'.join(' '.join(map(str,row)) for row in cases)+'\n').encode()).splitlines()
 assert len(output)==len(cases)
 for index,row in enumerate(cases):

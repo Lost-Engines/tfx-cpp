@@ -13,6 +13,7 @@ struct scene_camera_state {
   std::optional<vec3<int32_t>> tracked_position_q8;
   math::angle tracking_roll{0}; // The native bearing helper leaves this caller-local word unwritten.
   vec3<int32_t> ground_target{0,0,0};
+  std::optional<vec2<int32_t>> height_bounds{}; // Mission-initialized limits; absent for prelaunch inspection.
 };
 struct scene_camera_request {
   vec3<int32_t> position;

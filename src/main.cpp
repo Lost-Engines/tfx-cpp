@@ -73,7 +73,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "Keypad * raises afterburner; Alt+keypad * or keypad - lowers it.\n"
                    "[ and ] toggle engines; G gear; H arrestor hook; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
                    "E/S toggle ECM/stealth on F-117/F-22; Insert releases chaff; Delete releases a flare.\n"
-                   "Enter selects air-to-air weapons; Backspace/O air-to-ground; F selects cannon/navigation.\n"
+                   "Enter selects air-to-air weapons; Backspace/O air-to-ground; F/Ctrl selects cannon/navigation.\n"
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
                    "X clears targets; F1 returns to flight view; Space fires; Alt+J jettisons ground stores/tanks; T toggles accelerated time; P pauses; backtick opens configuration; double Escape ejects; Shift+Q opens quit/enrol confirmation.\n"
                    "D toggles external flight information; Shift+D restores default stores and countermeasures.\n"
@@ -234,6 +234,7 @@ auto main(int const argc, char const *const argv[])->int try {
   int16_t nearby_hostile_count{0};
   int16_t last_released_mount{0};
   bool flight_information{true};
+  bool cannon_navigation{true};
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -258,6 +259,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .nearby_hostile_count{nearby_hostile_count},
     .last_released_mount{last_released_mount},
     .flight_information{flight_information},
+    .cannon_navigation{cannon_navigation},
     .rain{rain},
     .session_random{session_random},
     .sound{sound.get()},

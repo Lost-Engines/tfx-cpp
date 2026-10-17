@@ -932,6 +932,11 @@ if(BUILD_TESTING)
   target_link_libraries(dialogue_probe PRIVATE tfx_core)
   configure_first_party(dialogue_probe)
 
+  add_executable(flight_configuration_probe tests/flight_configuration_probe.cpp)
+  target_link_libraries(flight_configuration_probe PRIVATE tfx_core)
+  configure_first_party(flight_configuration_probe)
+  add_test(NAME flight.native_weapon_configuration COMMAND flight_configuration_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/flight_configuration.txt")
+
   add_executable(configuration_save_test tests/configuration_save_test.cpp)
   target_link_libraries(configuration_save_test PRIVATE tfx_core)
   configure_first_party(configuration_save_test)

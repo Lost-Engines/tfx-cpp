@@ -4379,3 +4379,45 @@ lock, AMRAAM release, enemy loss, objective credit and successful FINISH. The
 older screenshot controls check expected Arcade to consume missile inventory;
 that assertion is corrected to the original retained quantities, while its F8
 camera step independently requires an actual launched store.
+
+
+### Weapon-key flight responses and initialized movement limits
+
+Enter now selects the original combat control configuration and response gains;
+F/Ctrl selects cruise/navigation response. Backspace/O applies cruise response
+when it selects a carried ground weapon, and leaves the existing response alone
+when no carried weapon is available. F-117 selection retains the original second
+selector call when the first result is its unavailable cannon. The native
+selection sample is delivered for Enter and F/Ctrl. The cannon navigation flag
+is independent of the last weapon role and survives mission transitions.
+
+The response helper agrees with 24 original Enter/F executions: every aircraft,
+all four flight models, the configuration word and all four stored response
+double bit patterns. Its fixture contains inputs and expected numerical values,
+without original game resources. Complete 24-frame keyboard/steering sequences
+also agree on every captured field and pixel for the Eurofighter in Simple,
+Military-spec and Realistic, and for the F-117 in Realistic. These cover Enter,
+Backspace, F and Ctrl, the resulting trajectory changes and independent HUD flags.
+
+The controls comparison also found that the IN RNG instrument reads the selected
+pylon even during navigation mode. It must not substitute cannon range merely
+because the gun/navigation flag is enabled. The live instrument now retains
+that original selection rule.
+
+Original mission entry 0x71138 overwrites the executable image's prelaunch
+vertical movement limits with -16384..0 for TFX. Live camera contexts, sight
+prediction and MFD orbit views now receive those initialized bounds. Using the
+stored -8192..-32 image values made near-ground cannon predictions climb back
+above ground after a movement clamp; the newly exercised F-117 empty-pylon sight
+exposed seven incorrect pixels. The corrected 24-frame session matches all
+original pixels. The isolated prediction comparison now includes that exact
+one-subunit-below-ground boundary (513 trajectories, 2565 points). Another 2304
+original MFD camera/overlay cases agree using initialized mission limits; the
+original prelaunch-limit comparison remains separately available.
+
+
+All 188 regressions pass in development, Release and ASan/UBSan. All 128 retail
+missions also complete eight composed frames in Arcade and Military-spec without
+scene warnings. These corpus runs check integration and memory safety rather
+than original-session equivalence; the controlled comparisons above supply the
+original state/pixel evidence.

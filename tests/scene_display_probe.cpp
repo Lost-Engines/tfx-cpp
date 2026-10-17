@@ -3,7 +3,7 @@
 #include "cockpit/scene_display.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 3) throw std::runtime_error{"usage: scene_display_probe DATA_DIRECTORY ORBIT_STEP"};
+  if(argc != 3 && argc != 4) throw std::runtime_error{"usage: scene_display_probe DATA_DIRECTORY ORBIT_STEP"};
   auto const archive{tfx::resources::find_game_archive(argv[1])};
   tfx::resources::archive const game{archive};
   tfx::resources::executable_tables const tables{archive.parent_path() / "TFX.DAT"};
@@ -14,6 +14,7 @@ int main(int const argc, char const *const argv[]) try {
   unsigned int page{0}, side{0}, aircraft{0};
   while(std::cin >> page >> side >> aircraft) {
     tfx::cockpit::scene_camera_state state;
+    if(argc == 4) state.height_bounds.emplace(-16384,0);
     state.aircraft = static_cast<tfx::flight::player_aircraft>(aircraft + 1);
     vec2<int16_t> offset, projected;bool tracking{false};vec3<int32_t> target;
     std::cin >> state.position.x >> state.position.y >> state.position.z >> state.angles.x >> state.angles.y >> state.angles.z >> state.free_angles.x >> state.free_angles.y >> tracking >> state.tracking_roll >> target.x >> target.y >> target.z >> state.ground_target.x >> state.ground_target.y >> state.ground_target.z >> offset.x >> offset.y >> projected.x >> projected.y;
