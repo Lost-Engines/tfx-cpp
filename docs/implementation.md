@@ -1604,3 +1604,46 @@ sound-device setup are explicit boundaries. DOS port settings and analogue
 calibration remain separate from portable simulation settings. Compact captures
 add two asset-free CTests. Connecting these values to startup and flight is the
 next consumer integration.
+
+### Connected configuration and desktop input
+
+Startup now reads the original configuration and preserves command-line model,
+control and language overrides. Flight consumes its HUD intensity, collision,
+gear-damage, precipitation, wind-enable and recovery settings. One application
+owner retains preferences across mission calls; flight options borrow that owner.
+Weather-dependent wind/temperature selection and G-effect production remain
+separate caller work.
+
+Digital joystick input enters after DOS resistance calibration. The native
+signed-square JOYSCALE response, signed-word conversion and +/-512 limits agree
+in **8,192 complete original axis/button updates**. The complete button dispatcher
+executes both sixteen-entry repeat tables; all nine command outcomes, button
+combinations, repeat periods and word wrap agree. The standard first-four-button
+mapping is fire, ground weapons, air weapons and target cycling. The retained
+Flightstick profile also has its original view combinations. Extra analogue
+hat/throttle inputs are excluded from this button-only capture. Devices can be
+selected with `--joystick`; unavailable hardware falls back to keyboard input.
+Joystick firing occurs before physics; held keyboard cannon fire remains after
+physics, as in the original outer input loop.
+
+The advanced mouse adapter retains its virtual stick and relative-motion word
+arithmetic. **8,192 native range/accumulation updates agree**, including the
+original asymmetric clamp passes. Each input adapter has 256 consecutive compact
+captures in CTest. Original game callbacks remain separate from device polling;
+no joystick menu-navigation feature is introduced.
+
+Private X11/GDB tests use a temporary configuration and real keyboard/mouse
+input to observe configuration-selected Realistic/keyboard flight, overriding it
+with Military-spec/mouse, autopilot engagement/disengagement, radio replay and
+ILS followed by Alt+L entering scripted landing. No game state is modified by the
+debugger, and original installation files are never rewritten. The tests also
+caught and fixed a consumed-L edge: replay and Alt+L now share one observed key
+press instead of polling the edge twice. Existing UI checks explicitly select
+their intended control/model so connected workstation controllers cannot change
+the test, while expected HUD colours come from the original configuration reader.
+
+All **90 asset-free tests**, both 8,192-case input comparisons and their compact
+captures pass in development, Release and ASan/UBSan builds. Live window checks
+also confirm the actual configuration's HUD intensity and ILS behaviour. Joystick
+tests use the original repeat tables; UI keyboard tests explicitly override
+controller selection so unrelated connected devices cannot interfere.

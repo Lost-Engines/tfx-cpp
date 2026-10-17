@@ -79,7 +79,7 @@ run
                     if text in output():return
                     time.sleep(.1)
                 raise RuntimeError('missing '+text+':\n'+output()[-5000:])
-            game=subprocess.Popen(['gdb','--quiet','--batch','-x',str(debugger),'--args',str(executable),'--data-dir',str(data),'--mission',a.mission,'--flight-model',a.flight_model,'--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
+            game=subprocess.Popen(['gdb','--quiet','--batch','-x',str(debugger),'--args',str(executable),'--data-dir',str(data),'--mission',a.mission,'--flight-model',a.flight_model,'--control','keyboard','--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+20;window=None
             while time.monotonic()<deadline and game.poll() is None:
                 found=subprocess.run(['xdotool','search','--onlyvisible','--name','TFX C'],env=env,capture_output=True,text=True)
@@ -93,8 +93,8 @@ run
                 tap('h');await_text('TFX_TEST_SIMPLE_HOOK')
                 tap('h')
             if a.flight_model in ('military-spec','realistic'):
-                tap('Down');await_text('TFX_TEST_ADVANCED_DOWN')
-                tap('Alt_L+Left');await_text('TFX_TEST_ADVANCED_RUDDER')
+                run('xdotool','keydown','Down');await_text('TFX_TEST_ADVANCED_DOWN');run('xdotool','keyup','Down')
+                run('xdotool','keydown','Alt_L+Left');await_text('TFX_TEST_ADVANCED_RUDDER');run('xdotool','keyup','Alt_L+Left')
                 tap('h');await_text('TFX_TEST_ADVANCED_HOOK')
                 tap('h')
             tap('Escape',1)

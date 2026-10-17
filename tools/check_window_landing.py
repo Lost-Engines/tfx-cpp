@@ -14,6 +14,7 @@ import tempfile
 import time
 from PIL import Image
 from native_reference import NativeReference
+from native_configuration import read_configuration
 from native_vga import VgaCapture
 
 parser=argparse.ArgumentParser(description=__doc__)
@@ -26,7 +27,7 @@ s=(a.research/'analysis/missions/data.js').read_text();missions=json.loads(s[s.i
 mission=next(m for m in missions if m['name']=='miss'+a.mission.removeprefix('miss'))
 profiles=json.loads((a.research/'analysis/lighting/environments.json').read_text())['environments'];profile=next(p for p in profiles if p['environment']==mission['environment'])
 bank=next(b for b in profile['banks'] if b['data_offset']=='0x21000');raw=(a.research/'extracted/cd_1994_09/resources'/bank['path']).read_bytes()
-ink=tuple((value*255+31)//63 for value in (raw[18],125&63,raw[20]))
+ink=tuple((value*255+31)//63 for value in (raw[18],read_configuration(data)["hud_green"]&63,raw[20]))
 patterns={}
 for label,edge in (('NAV',225),('AA',230),('AG',230)):
     im.cpu.mem_write(0x300000,label.encode()+b'\0');width=im.call(0x87114,eax=0x300000)&65535;video.reset();im.call(0x87154,eax=6,edx=edge-width,ebx=92,ecx=0x300000)
@@ -47,7 +48,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-landing-') as temporary:
         def tap(key,settle=.4):
             run('xdotool','keydown',key);time.sleep(.1);run('xdotool','keyup',key);time.sleep(settle)
         with (directory/'game.log').open('w+') as log:
-            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission',a.mission,'--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
+            game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission',a.mission,'--control','keyboard','--flight-model','arcade','--scale','2'],env=env,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+15;window=None
             while time.monotonic()<deadline and game.poll() is None:
                 found=subprocess.run(['xdotool','search','--onlyvisible','--name','TFX C'],env=env,capture_output=True,text=True)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "missions/rules.h"
+#include "configuration/settings.h"
 #include "platform/window.h"
 #include "resources/archive.h"
 #include "resources/executable_tables.h"
@@ -13,8 +14,9 @@ struct flight_options {
   std::string environment{}, grid{};
   std::optional<vec2<unsigned int>> cell{};
   std::optional<std::filesystem::path> screenshot{};
+  std::optional<unsigned int> joystick{};
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0};
-  simulation::flight_model model{simulation::flight_model::arcade};
+  configuration::settings &preferences;
   bool inspect{false};
 };
 // True means FINISH ran and the caller may resume its authored campaign graph.
