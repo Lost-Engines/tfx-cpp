@@ -4502,3 +4502,38 @@ on gameplay or the encoded image.
 
 All 189 regressions pass in development, Release and ASan/UBSan after this
 increment. No CI or CD playback has been added.
+
+
+### Original PLOP dispatcher and damage/loss gates
+
+Holding right Shift and typing PLOP now toggles the original cheat. The matcher
+consumes successful makes before P pause, L radio replay or O weapon selection.
+No key and released right Shift retain partial progress; a mismatch while
+right Shift is held resets it without retrying that letter as a new prefix.
+Cheat state and partial progress belong to the application across missions,
+matching the retained original globals. Activation/deactivation uses the
+original radio strings.
+
+The live gate reaches the independently checked original damage routine, the
+player projectile-contact branch and the player-loss observer. Original
+0x7d42b also resets the aircraft SSD every enabled frame before loss/ejection;
+that call is retained. This is not blanket collision immunity: contact
+explosions and already-started aftermath still follow the original rules.
+
+`check_cheat.py` executes original 0x838dc in 4,096 persistent input steps,
+including 202 toggles. Consumed makes, partial progress, the enabled flag and
+all notice requests agree. The actual complete flight loop agrees on every
+captured field and pixel over a 20-frame activation/deactivation sequence;
+captures now observe cheat state explicitly. A private-window check types
+right-Shift PLOP twice, proves matching P does not pause, and observes the live
+player-loss gate turn on and off without writing game state through GDB.
+
+Extending that sequence with an ordinary up-arrow exposed a separate existing
+placeholder: the host invents relative mouse movement for Arcade arrows, while
+the original Arcade callback consumes relative mouse motion. That input adapter
+and the remaining modifier/keypad polling details are the next input audit.
+The original cheat's Ctrl+D arming shortcut is not connected yet.
+
+All 190 regressions pass in development, Release and ASan/UBSan after this
+increment. The retained original damage and loss checks continue to cover the
+enabled/disabled gates independently of the keyboard sequence.

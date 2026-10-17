@@ -260,6 +260,7 @@ def frame_boundary(current):
   'environment_flags':current.read(0xe774,'<H')[0],
   'arena_free':current.read(0xad14,'<I')[0],
   'aiming_flags':[current.read(at,'<B')[0] for at in (0x7140,0x7148)],
+  'cheat_state':[current.read(0x13250,'<H')[0],current.read(0x777e,'<H')[0]],
   'selected':current.read(0x93b0,'<h')[0],
   'stores':[current.read(0x13374+i*2,'<2B') for i in range(11)],
   'ground_phase':current.read(0xad7c,'<i')[0],

@@ -36,6 +36,8 @@ Apostrophe toggles aerial refuelling: the nearest allied tanker supplies the ori
 
 `4` saves a numbered `GRAB_00.LBM` screenshot in the game directory, preserving the active palette. Existing captures are kept. Slash switches afterburner off; keypad plus/minus also changes thrust, and keypad 9/3 raises/lowers the cockpit.
 
+The original cheat is available: hold **right Shift** and type **PLOP** to toggle it. Its original damage protection and collision behaviour are retained.
+
 The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
 
 This is still an integration build. Complete sensor displays and remaining visual effects/result artwork, remaining aircraft contact cases, the remaining HUD cues, complete campaign progression and the remaining music devices/triggers remain unfinished. The numerical flight backend currently requires x87 support; it preserves the original startup precision within flight calculations. See [implementation status](docs/implementation.md) for precise verification boundaries.

@@ -34,10 +34,12 @@ def current_renderer():
  return renderer_pointer.dereference()
 end
 set $navigation_flag = 0
+set $cheat = 0
 break tfx::platform::fly_mission
 commands
 silent
 set $navigation_flag = &options.cannon_navigation
+set $cheat = &options.cheat
 continue
 end
 set $player = 0
@@ -149,6 +151,8 @@ class FrameReturn(gdb.FinishBreakpoint):
   values += [struct.unpack('<Q',struct.pack('<d',float(player['physical']['powerplant']['fuel'])))[0]]
   print('CPP_ARMAMENT '+json.dumps(values))
   print('CPP_AIMING_FLAGS '+json.dumps([int(not bool(armament['guns'])),int(gdb.parse_and_eval('$navigation_flag').dereference())]))
+  cheat=gdb.parse_and_eval('$cheat').dereference()['state']
+  print('CPP_CHEAT_STATE '+json.dumps([int(cheat['enabled']),int(cheat['matched'])]))
   projectiles=gdb.parse_and_eval('$projectiles').dereference()
   printer=gdb.default_visualizer(projectiles['active'])
   if printer is None:raise RuntimeError('GNU std::map printer required for read-only projectile observation')

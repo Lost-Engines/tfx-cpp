@@ -237,6 +237,7 @@ auto main(int const argc, char const *const argv[])->int try {
   bool flight_information{true};
   bool cannon_navigation{true};
   tfx::cockpit::tactical_map_animation map_animation;
+  tfx::flight::cheat_code cheat;
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -263,6 +264,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .flight_information{flight_information},
     .cannon_navigation{cannon_navigation},
     .map_animation{map_animation},
+    .cheat{cheat},
     .rain{rain},
     .session_random{session_random},
     .sound{sound.get()},
