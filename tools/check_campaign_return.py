@@ -19,6 +19,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--data-dir',type=Path,required=True)
+parser.add_argument('--enrol-menu',action='store_true')
 a=parser.parse_args()
 program=next(p for p in json.loads((a.research/'analysis/presentations/programs.json').read_text()) if p['name']=='tfx')
 arcade=next(i for i,f in enumerate(program['functions']) if f['name']=='arcade')
@@ -50,6 +51,12 @@ with tempfile.TemporaryDirectory(prefix='tfx-campaign-return-') as temporary:
                 time.sleep(.05)
             if window is None:raise RuntimeError('front end did not appear')
             run('xdotool','windowfocus','--sync',window);time.sleep(1)
+            baseline=None
+            if a.enrol_menu:
+                run('xdotool','mousemove','--window',window,'20','20');time.sleep(.3)
+                run('import','-window',window,str(directory/'initial-enrol.png'))
+                from PIL import Image
+                baseline=Image.open(directory/'initial-enrol.png').convert('RGB').tobytes()
             tap('Down');tap('Return');tap('Return')
             deadline=time.monotonic()+150;armed=False;completed=False
             while time.monotonic()<deadline and game.poll() is None:
@@ -59,6 +66,17 @@ with tempfile.TemporaryDirectory(prefix='tfx-campaign-return-') as temporary:
                     run('xdotool','mousemove','--window',window,'394','475');time.sleep(.2)
                     run('xdotool','mousedown','1');time.sleep(.15);run('xdotool','mouseup','1');armed=True
                 log.seek(0);text=log.read()
+                if a.enrol_menu and 'TFX miss605 /' in text:
+                    def click(x,y):
+                        run('xdotool','mousemove','--window',window,str(round(x*2)),str(round(y*2.4)))
+                        run('xdotool','mousedown','1');time.sleep(.15);run('xdotool','mouseup','1');time.sleep(.2)
+                    tap('grave');time.sleep(.4);click(80,172);click(160,132)
+                    time.sleep(1.5)
+                    run('xdotool','mousemove','--window',window,'20','20');time.sleep(.3)
+                    run('import','-window',window,str(directory/'returned-enrol.png'))
+                    returned=Image.open(directory/'returned-enrol.png').convert('RGB').tobytes()
+                    assert returned==baseline,'Return to ENROL did not restore the initial pilot-selection image'
+                    completed=True;break
                 if 'Mission result:' in text and '— arcade' in title:
                     assert 'outcome 1' in text,text
                     completed=True;break
@@ -73,7 +91,8 @@ with tempfile.TemporaryDirectory(prefix='tfx-campaign-return-') as temporary:
             game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError('campaign return failed:\n'+log.read()[-4000:])
-            print('Private X11 campaign return passed: DOS pilot restore, original arming, simulated aircraft loss, FINISH and automatic Arcade presentation return')
+            if a.enrol_menu: print('Private X11 Return to ENROL passed: original pilot restore, arming, flight configuration, quit confirmation and pixel-identical enrolment return')
+            else: print('Private X11 campaign return passed: DOS pilot restore, original arming, simulated aircraft loss, FINISH and automatic Arcade presentation return')
     finally:
         for process in (game,display):
             if process is not None and process.poll() is None:

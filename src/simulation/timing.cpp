@@ -31,6 +31,13 @@ void flight_clock::begin(timing_options const options) {
   realistic_extra_poll = false;
 }
 
+void flight_clock::resume(timer_counter const counter, timing_options const options) {
+  previous = counter;
+  pending = options;
+  accumulated = 0;
+  realistic_extra_poll = false;
+}
+
 std::optional<frame_timing> flight_clock::poll(timer_counter const counter) {
   /// 2.05 file 0x8c43c: retain counter/word wrap, polling order and x87 storage boundaries
   if(!pending) throw std::logic_error{"begin a flight frame before supplying timer readings"};

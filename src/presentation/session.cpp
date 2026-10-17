@@ -27,6 +27,14 @@ void session::load(std::string const &name, std::string_view const function) {
   stack.push_back(std::make_unique<frame>(game.read(name + (name.ends_with(".par") ? "" : ".par")),state,function));
 }
 
+void session::restart(std::string const &program) {
+  stack.clear();
+  scene.reset();
+  sequence = {};
+  node_start = true;
+  load(program,{});
+}
+
 statement const *session::advance(scene_counters const counters, scene_input &input) {
   if(scene) {
     bool const done{scene->advance(counters,input,sequence)};

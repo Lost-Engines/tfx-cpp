@@ -51,6 +51,7 @@
 #include "platform/window.h"
 #include "platform/arming.h"
 #include "platform/flight.h"
+#include "platform/configuration.h"
 #include "render/camera.h"
 #include "render/point_projection.h"
 #include "render/palette_selection.h"
@@ -73,11 +74,11 @@
 
 namespace tfx::platform {
 
-bool fly_mission(resources::archive const &game, resources::executable_tables const &tables,
+flight_result fly_mission(resources::archive const &game, resources::executable_tables const &tables,
   flight_options const &options, missions::variables &campaign, window *const shared_window) {
   auto &preferences{options.preferences};
-  bool const simple_mode{preferences.model == simulation::flight_model::simple};
-  bool const arcade_mode{preferences.model == simulation::flight_model::arcade};
+  bool simple_mode{preferences.model == simulation::flight_model::simple};
+  bool arcade_mode{preferences.model == simulation::flight_model::arcade};
   auto const &mission_name{options.mission};
   auto const &override_environment{options.environment};
   auto const &override_grid{options.grid};
@@ -87,7 +88,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   bool inspect{options.inspect};
   tfx::world::mission const selected{game,mission_name};
   auto const mission_setup{tfx::missions::initialise(selected.script)};
-  tfx::world::environment const environment{game,override_grid.empty() ? selected.grid_name() : override_grid,override_environment.empty() ? mission_setup.environment : override_environment};
+  tfx::world::environment environment{game,override_grid.empty() ? selected.grid_name() : override_grid,override_environment.empty() ? mission_setup.environment : override_environment};
+  environment.lighting.status = tfx::world::apply_detail_status(environment.lighting.status,preferences.detail);
   std::array<tfx::render::dac_palette,tfx::render::altitude_palette_count> altitude_palettes;
   for(unsigned int bank{0}; bank != altitude_palettes.size(); ++bank) {
     auto const bytes{game.read("colours/" + (bank ? environment.lighting.upper_palette_names[bank - 1] : environment.lighting.palette_name) + ".col")};
@@ -144,7 +146,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   tfx::weapons::armament armament{mission_setup.aircraft,tables.weapons,tables.arming};
   armament.fit_default(mission_setup.weapons);
   if(campaign_flight && !inspect && !mission_setup.default_weapons) {
-    if(!arm_mission(*shared_window,game,tables,armament,mission_setup.aircraft,mission_setup.weapons)) return false;
+    if(!arm_mission(*shared_window,game,tables,armament,mission_setup.aircraft,mission_setup.weapons)) return flight_result::quit;
   }
   auto const initial_stores{armament.pylons};
   tfx::sensors::air_contacts radar;
@@ -939,7 +941,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   }
   // Native 0x72588 resumes the parser directly after FINISH and teardown.
   // A direct --mission launch keeps its standalone diagnostic result display.
-  if(campaign_flight && result_evaluated) return true;
+  if(campaign_flight && result_evaluated) return flight_result::finished;
   vec3d position{mission_setup.start.position};
   if(mission_setup.start.landed) position.y = -300;
   double heading{0}, pitch{-.12};
@@ -1294,7 +1296,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
   if(screenshot) {
     renderer.output.screenshot(*screenshot,*frame_colours);
     std::cout << "Initial scene screenshot: " << *screenshot << std::endl;
-    return true;
+    return flight_result::finished;
   }
   std::unique_ptr<tfx::platform::window> owned_window;
   if(!shared_window) owned_window = std::make_unique<tfx::platform::window>(scale);
@@ -1359,6 +1361,32 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     if((inspect || result_evaluated) && pressed(GLFW_KEY_ESCAPE)) break;
     if((down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)) && pressed(GLFW_KEY_Q)) break;
     if(result_evaluated && (pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER))) break;
+    if(!inspect && !result_evaluated && pressed(GLFW_KEY_GRAVE_ACCENT)) {
+      captured = mouse_started = false;
+      preferences.hud_green = static_cast<uint16_t>(hud_green);
+      auto const action{configure_flight(window,tables,preferences,options.data_directory,renderer.output,*frame_colours)};
+      if(action == tfx::presentation::configuration_action::enrol) return flight_result::enrol;
+      if(action == tfx::presentation::configuration_action::quit) break;
+      simple_mode = preferences.model == tfx::simulation::flight_model::simple;
+      arcade_mode = preferences.model == tfx::simulation::flight_model::arcade;
+      player_flight.select_model(preferences.model);
+      air_world.model = preferences.model;
+      simple_controls.source = preferences.control;
+      player.crashing = preferences.effects.crashing != 0;
+      environment.lighting.status = tfx::world::apply_detail_status(environment.lighting.status,preferences.detail);
+      if(preferences.effects.g_force == tfx::configuration::g_effects::none) { g_effects = {};palette_lighting.flash(tfx::render::lighting_stages); }
+      palette_selection.invalidate_normal();
+      mouse_control = {};
+      pitch_input = roll_input = 0;
+      store_trigger = false;
+      held.fill(false);
+      flight_clock.resume(counter,{
+        .model{preferences.model},
+      });
+      previous_time = title_time = glfwGetTime();
+      interval_frames = 0;
+      continue;
+    }
     if(!inspect && !result_evaluated && pressed(GLFW_KEY_P)) paused = !paused;
     uint8_t const stick_mask{!inspect && !paused && !result_evaluated ? poll_stick() : uint8_t{0}};
     bool const capture{inspect ? glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS : simple_controls.source == tfx::flight::control_source::mouse && !paused && !result_evaluated};
@@ -1693,7 +1721,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     if(frame_limit && frames >= frame_limit) break;
   }
   glfwSetInputMode(host,GLFW_CURSOR,GLFW_CURSOR_NORMAL);
-  return result_evaluated;
+  return result_evaluated ? flight_result::finished : flight_result::quit;
 }
 
 } // namespace tfx::platform

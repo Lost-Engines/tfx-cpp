@@ -22,6 +22,8 @@ Startup reads the original `TFX.CFG`; `--flight-model` overrides its model selec
 
 Joystick buttons follow the original mapping: fire, select ground weapons, select air weapons and cycle targets on buttons 1–4. Stick sensitivity uses the original `JOYSCALE` setting.
 
+Press **backtick** in flight for the original configuration and realism menus. Changes take effect when you return to the game, and preferences are saved to the installation’s `TFX.CFG`. The dialogs include flight model, controls, joystick sensitivity, world detail, recovery and realism settings. Sound controls remain unavailable until audio is connected.
+
 `A` toggles autopilot. `7` selects waypoint following, `8` heading/altitude hold, `9` aircraft tracking and `0` speed hold. Arrow keys adjust applicable autopilot targets; `=`/`-` adjust target speed. `6` restores cruise speed, `5` toggles automatic stick pressure and Tab requests recovery. Alt+L requests automatic landing at the selected runway or carrier. Cockpit control displays show the live autopilot, flaps and F-22 thrust-vectoring state.
 
 Hold either mouse button or `=`/`-` to change thrust. `[` and `]` toggle the engines, `G` operates the gear, `H` toggles the arrestor hook, `W` toggles wheel brakes and `B` operates the air brakes. Keypad `*` increases afterburner; Alt+keypad `*` or keypad `-` decreases it. Enter selects air-to-air weapons, Backspace/O selects air-to-ground weapons, and F selects the cannon/navigation mode. C cycles radar contacts or anti-radiation targets; Space fires the selected weapon.

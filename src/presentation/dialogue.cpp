@@ -29,7 +29,7 @@ void draw_dialogue_form(render::framebuffer &target, dialogue_form const &form) 
   vec2<int> const maximum{(form.position.x + form.size.x + 2) * dialogue_cell_pixels - 8,(form.position.y + form.size.y + 2) * dialogue_cell_pixels - 8};
   fill(target,minimum + vec2<int>{1,1},maximum - vec2<int>{1,1},static_cast<uint8_t>(dialogue_palette_base + form.background));
   bevel(target,minimum,maximum,dialogue_palette_base + 13,dialogue_palette_base + 5);
-  bevel(target,minimum - vec2<int>{1,1},maximum + vec2<int>{1,1},dialogue_palette_base + 13,dialogue_palette_base + 5);
+  if(form.border == dialogue_border::double_bevel) bevel(target,minimum - vec2<int>{1,1},maximum + vec2<int>{1,1},dialogue_palette_base + 13,dialogue_palette_base + 5);
 }
 void draw_dialogue_widget(render::framebuffer &target, widget_font const &font, dialogue_form const &form, dialogue_widget const &widget) {
   auto const position{interior(form,widget)};
@@ -38,7 +38,7 @@ void draw_dialogue_widget(render::framebuffer &target, widget_font const &font, 
   uint8_t const first{static_cast<uint8_t>(dialogue_palette_base + (widget.border == dialogue_border::raised ? 13 : widget.border == dialogue_border::sunken ? 5 : 10))};
   uint8_t const second{static_cast<uint8_t>(dialogue_palette_base + (widget.border == dialogue_border::raised ? 5 : widget.border == dialogue_border::sunken ? 13 : 10))};
   bevel(target,position - vec2<int>{1,1},position + extent,first,second);
-  int const x{position.x + widget.size.x * 4 - font.measure(widget.text) / 2};
+  int const x{position.x + (widget.left_aligned ? 0 : widget.size.x * 4 - font.measure(widget.text) / 2)};
   int y{position.y + 1};
   std::string_view text{widget.text};
   while(!text.empty()) {

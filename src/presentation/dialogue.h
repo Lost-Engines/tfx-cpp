@@ -8,11 +8,12 @@ namespace tfx::presentation {
 
 int constexpr dialogue_cell_pixels{8};
 uint8_t constexpr dialogue_palette_base{240};
-enum class dialogue_border : uint8_t { raised = 1, sunken = 3, outline = 110 };
+enum class dialogue_border : uint8_t { double_bevel, raised, sunken = 3, outline = 110 };
 struct dialogue_form {
   vec2<uint8_t> position{0,2};
   vec2<uint8_t> size{38,20};
   uint8_t background{9};
+  dialogue_border border{dialogue_border::double_bevel};
 };
 struct dialogue_widget {
   vec2<uint8_t> position{0,0};
@@ -21,6 +22,7 @@ struct dialogue_widget {
   uint8_t foreground{15};
   uint8_t background{11};
   dialogue_border border{dialogue_border::raised};
+  bool left_aligned{false};
 };
 
 // Native 0xcf87c window body and the 0xcfe4c text-button/outline paths.

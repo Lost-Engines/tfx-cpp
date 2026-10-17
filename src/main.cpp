@@ -66,7 +66,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "[ and ] toggle engines; G gear; H arrestor hook; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
                    "Enter selects air-to-air weapons; Backspace/O air-to-ground; F selects cannon/navigation.\n"
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
-                   "X clears targets; F1 returns to flight view; Space fires; P pauses; double Escape ejects; Shift+Q quits.\n"
+                   "X clears targets; F1 returns to flight view; Space fires; P pauses; backtick opens configuration; double Escape ejects; Shift+Q quits.\n"
                    "1/2/3 cycle the MFDs; R changes radar range; N selects the ground-target preview.\n"
                    "Shift+N toggles infrared night vision; Y/U adjust HUD brightness; apostrophe opens/closes the refuelling hookup.\n"
                    "I or backslash toggles ILS; Alt+L requests automatic landing.\n"
@@ -156,7 +156,7 @@ auto main(int const argc, char const *const argv[])->int try {
   auto const archive_path{tfx::resources::find_game_archive(data_directory)};
   auto preferences{tfx::configuration::load(archive_path.parent_path())};
   if(model_selected) preferences.model = model;
-  if(control_override) preferences.control = *control_override;
+  if(control_override) preferences.preferred_control = preferences.control = *control_override;
   if(control_override == tfx::flight::control_source::joystick && preferences.model == tfx::simulation::flight_model::arcade) throw std::runtime_error{"joystick steering requires Simple, Military-spec or Realistic flight; Arcade uses relative mouse/arrow input"};
   if(control_override == tfx::flight::control_source::mouse && preferences.model == tfx::simulation::flight_model::simple) throw std::runtime_error{"the original Simple model has no mouse steering; choose keyboard or joystick"};
   std::array<std::string_view,5> constexpr language_names{"english","french","german","spanish","italian"};
@@ -169,6 +169,7 @@ auto main(int const argc, char const *const argv[])->int try {
   }
   tfx::platform::flight_options const flight{
     .mission{mission_name},
+    .data_directory{archive_path.parent_path()},
     .environment{override_environment},
     .grid{override_grid},
     .cell{override_cell ? std::optional<vec2<unsigned int>>{std::in_place,*override_cell} : std::nullopt},

@@ -51,6 +51,7 @@ struct player_flight {
   void initialise(aerodynamic_airframe const &aircraft, loadout const &stores,
     aerodynamic_launch_context const &context, float basic_mach,
     aerodynamic_wind_parameters const &wind, damage_state &damage, math::random_state &random);
+  void select_model(aerodynamic_model model);
   math::attitude const &body() const;
   player_flight_events advance(damage_state &damage, math::random_state &random,
     aerodynamic_wind_parameters const &wind, player_flight_context const &context);

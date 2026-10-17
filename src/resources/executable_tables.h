@@ -14,6 +14,7 @@
 #include "flight/refuelling.h"
 #include "presentation/arming_assets.h"
 #include "presentation/cursor.h"
+#include "presentation/configuration_menu.h"
 #include "presentation/fonts.h"
 #include "presentation/pilots.h"
 #include "presentation/scores.h"
@@ -39,6 +40,7 @@ private:
   std::vector<bytes> circles;
   std::unique_ptr<presentation::fonts const> font_data;
   std::unique_ptr<presentation::widget_font const> widget_font_data;
+  std::unique_ptr<presentation::configuration_menu_assets const> configuration_data;
   std::unique_ptr<planner_artwork const> planner_art_data;
   std::unique_ptr<presentation::pilot_assets const> pilot_assets;
   std::unique_ptr<presentation::score_assets const> score_data;
@@ -69,6 +71,7 @@ public:
   executable_tables(std::filesystem::path const &path);
   presentation::fonts const &presentation_fonts() const;
   presentation::widget_font const &interface_font() const;
+  presentation::configuration_menu_assets const &configuration_widgets() const;
   planner_artwork const &planner_art() const;
   presentation::pilot_assets const &pilots() const;
   presentation::score_assets const &scores() const;

@@ -34,6 +34,15 @@ auto main()->int try {
   });
   step = clock.poll(120);
   require(step && step->world_ticks == 4,"military frame cap or warp inhibition differs");
+  float const retained_filter{step->filtered_ticks};
+  clock.begin({});
+  require(!clock.poll(121),"one pending tick should be retained before a menu");
+  clock.resume(100000,{
+    .model{sim::flight_model::realistic},
+  });
+  require(!clock.poll(100002),"resuming in Realistic must retain its extra poll");
+  step = clock.poll(100005);
+  require(step && step->world_ticks == 5 && step->filtered_ticks == (retained_filter * 3 + 5) / 4,"resuming must discard menu time and partial polling, retaining the timing filter");
   sim::projectile_clock chunks{25};
   require(chunks.next() == 10 && chunks.next() == 10 && chunks.next() == 5 && !chunks.next(),"projectile subdivision differs");
   sim::projectile_clock zero{0};
@@ -41,7 +50,7 @@ auto main()->int try {
   sim::projectile_clock signed_word{65535};
   require(signed_word.next() == 65535 && !signed_word.next(),"projectile comparison must use a signed native word");
   bool rejected{false};
-  try { clock.poll(121); } catch(std::logic_error const&) { rejected = true; }
+  try { clock.poll(100006); } catch(std::logic_error const&) { rejected = true; }
   require(rejected,"timer input outside a pending frame must be rejected");
   clock.begin({});
   rejected = false;

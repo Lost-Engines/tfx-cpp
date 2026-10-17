@@ -70,6 +70,11 @@ void update_basic_speed(arcade_state &state, flight_controls const &controls, si
 void consume_basic_fuel(arcade_state &state, simulation::timer_ticks elapsed, bool arcade);
 void update_basic_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground, bool arcade, bool gear_drag);
 void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {});
-void advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {}, bool time_warp = false);
+struct arcade_update {
+  vec3f movement_origin;
+};
+// Native Arcade overwrites the outer movement snapshot after ground/gear
+// adjustments, immediately before translation. The frame tail measures from it.
+arcade_update advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {}, bool time_warp = false);
 
 } // namespace tfx::flight

@@ -182,6 +182,8 @@ add_library(tfx_core
   src/planning/notes.h
   src/planning/map_view.cpp
   src/planning/map_view.h
+  src/presentation/configuration_menu.cpp
+  src/presentation/configuration_menu.h
   src/presentation/dialogue.cpp
   src/presentation/dialogue.h
   src/presentation/widget_font.cpp
@@ -329,6 +331,8 @@ configure_first_party(tfx_core)
 
 add_executable(tfx
   src/main.cpp
+  src/platform/configuration.cpp
+  src/platform/configuration.h
   src/platform/arming.cpp
   src/platform/arming.h
   src/platform/flight.cpp
@@ -536,6 +540,15 @@ if(BUILD_TESTING)
   configure_first_party(aerodynamic_recovery_probe)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
+
+  add_executable(detail_status_probe tests/detail_status_probe.cpp)
+  target_link_libraries(detail_status_probe PRIVATE tfx_core)
+  configure_first_party(detail_status_probe)
+  add_test(NAME world.native_detail_status COMMAND detail_status_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/detail_status.txt")
+
+  add_executable(configuration_menu_probe tests/configuration_menu_probe.cpp)
+  target_link_libraries(configuration_menu_probe PRIVATE tfx_core)
+  configure_first_party(configuration_menu_probe)
 
   add_executable(dialogue_probe tests/dialogue_probe.cpp)
   target_link_libraries(dialogue_probe PRIVATE tfx_core)

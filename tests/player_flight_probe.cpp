@@ -9,7 +9,8 @@
 #include "aerodynamic_autopilot_snapshot.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 2) throw std::runtime_error{"expected TFX.DAT"};
+  if(argc < 2 || argc > 3) throw std::runtime_error{"expected TFX.DAT [--model-changes]"};
+  bool const model_changes{argc == 3};
   auto const source{tfx::resources::read_file(argv[1])};
   auto const profiles{tfx::flight::load_aerodynamic_airframes(source)};
   auto const wind{tfx::flight::load_aerodynamic_wind_parameters(source)};
@@ -64,6 +65,7 @@ int main(int const argc, char const *const argv[]) try {
       unsigned int elapsed,keys,accelerate,decelerate,buttons,source,action,refuelling,disabled,gear,engines,left_condition,right_condition,landing_phase;
       int pitch,roll,joyx,joyy;
       std::cin >> elapsed >> seconds >> keys >> accelerate >> decelerate >> buttons >> source >> action >> refuelling >> disabled >> gear >> pitch >> roll >> joyx >> joyy >> engines >> left_condition >> right_condition >> landing_phase;
+      if(model_changes) { unsigned int next;std::cin >> next;player.select_model(static_cast<tfx::flight::aerodynamic_model>(next)); }
       if(gear != 255) {
         player.basic.flight.gear_down = gear != 0;
         damage.systems[std::to_underlying(tfx::flight::aircraft_system::landing_gear)] = gear ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;

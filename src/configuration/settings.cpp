@@ -40,7 +40,7 @@ settings fallback() {
 void apply(settings &state, std::string_view const key, std::string_view value) {
   if(value.empty()) return;
   auto const byte{static_cast<uint8_t>(integer(value))};
-  if(key == "CONTROL") state.control = static_cast<flight::control_source>(byte);
+  if(key == "CONTROL") state.preferred_control = state.control = static_cast<flight::control_source>(byte);
   else if(key == "DETAIL") state.detail = byte;
   else if(key == "MODEL") state.model = simulation::configured_flight_model(static_cast<uint32_t>(integer(value)));
   else if(key == "SOUNDFX") state.sound_effects = byte;
