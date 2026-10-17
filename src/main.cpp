@@ -283,7 +283,11 @@ auto main(int const argc, char const *const argv[])->int try {
     .inspect{inspect},
   };
   if(direct_mission || inspect || flight_steps || flight_frames || !override_environment.empty() || !override_grid.empty()) {
-    tfx::missions::variables campaign;
+    auto const mission_digits{std::string_view{mission_name}.substr(std::string_view{"miss"}.size())};
+    tfx::missions::variables campaign{
+      {"mission",static_cast<int32_t>(number(mission_digits))},
+      {"arcade",1},
+    };
     tfx::platform::fly_mission(game,tables,flight,campaign);
   } else tfx::platform::play_game(game,tables,archive_path.parent_path(),language,skip_intro,flight);
   return EXIT_SUCCESS;

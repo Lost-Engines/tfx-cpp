@@ -23,6 +23,7 @@ p.add_argument('--mission',type=int,default=501)
 p.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 p.add_argument('--output',type=Path,help='retain native/C++ frames and the read-only observer log in a new directory')
 p.add_argument('--frames',type=int,default=4)
+p.add_argument('--until-result',action='store_true',help='compare through a natural result and FINISH, with --frames as the upper bound')
 p.add_argument('--strict-pixels',action='store_true')
 p.add_argument('--inputs',type=Path,help='compare explicit keyboard events/held keys using a private window and virtual external GLFW devices')
 p.add_argument('--native-capture',type=Path,help='reuse a prior matching native capture without executing the original again')
@@ -38,11 +39,15 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[a.flight_model]
     (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX=0\r\nMUSIC=0\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode())
     if not a.native_capture:
-        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else [])],check=True,timeout=max(300,a.frames*4))
+        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else [])],check=True,timeout=max(300,a.frames*4))
     expected=json.loads((native/'session.json').read_text())
     assert expected.get('resource_root')=='TFX','native capture predates the corrected DOS texture root; recapture it'
     assert expected['mission']==a.mission and expected['flight_model']==a.flight_model and expected['ticks_per_frame']==4,'native capture configuration differs'
     assert expected['presentation_numbers']=={'mission':a.mission,'arcade':1},'native capture inherited campaign state differs'
+    if a.until_result:
+        terminal=expected.get('terminal',{})
+        assert terminal.get('returned') and 1<=terminal['frame']<=a.frames,'native capture did not return through a result within the requested bound'
+        a.frames=terminal['frame']
     assert [row for row in expected.get('inputs',[])if row['frame']<=a.frames]==inputs.rows(a.frames),'native capture keyboard inputs differ'
     assert len(expected['snapshots'])>a.frames,'native capture is shorter than the requested session'
     if 'reference' in expected:
@@ -85,6 +90,12 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     lines=result.stdout.splitlines()
     def integers(prefix):return [[int(value) for value in line[len(prefix):].split()] for line in lines if line.startswith(prefix)]
     def records(prefix):return [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
+    if a.until_result:
+        finished=records('CPP_FINISH ')
+        assert len(finished)==1,('FINISH execution count',finished)
+        wanted=expected['terminal']['campaign'];actual=finished[0]
+        differences={key:[actual.get(key,0),wanted.get(key,0)]for key in actual.keys()|wanted.keys()if actual.get(key,0)!=wanted.get(key,0)}
+        assert not differences,('final campaign values',differences)
     if (native/'radar.json').exists():
         events=json.loads((native/'radar.json').read_text())
         wanted=[{**event,'projectiles':[{key:value for key,value in shot.items()if key!='previous'}for shot in event['projectiles']]}for event in events if event['frame']<=a.frames]
@@ -136,7 +147,19 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         if render['sha256']!=hashlib.sha256(original_image).hexdigest():different_frames.append(index)
         assert render['pattern_seed']==expected['snapshots'][index]['pattern_seed'],('pattern seed',index,render['pattern_seed'],expected['snapshots'][index]['pattern_seed'])
     cameras=records('CPP_CAMERA_HORIZON ')
-    assert cameras==expected['horizons'][:len(cameras)],('camera/horizon',cameras,expected['horizons'][:len(cameras)])
+    if 'world_cameras' in expected:
+        # Native ejection paints the horizon before installing its world camera.
+        # Compare actual horizon inputs and world-entry cameras at their own
+        # consumer boundaries, rather than conflating a stale cache with a pose.
+        actual_horizons=[item['horizon']for item in cameras]
+        wanted_horizons=[item['horizon']for item in expected['horizons']]
+        assert actual_horizons==wanted_horizons,('horizon inputs',actual_horizons,wanted_horizons)
+        # scene::draw retains world coordinates in doubles; projector() casts
+        # their Q16 values to the original signed 32-bit camera cache.
+        actual_cameras=[[(coordinate+2**31)%2**32-2**31 for coordinate in row]for row in records('CPP_WORLD_CAMERA ')]
+        assert actual_cameras==expected['world_cameras'],('world cameras',[(i,x,y)for i,(x,y)in enumerate(zip(actual_cameras,expected['world_cameras']),1)if x!=y][:4],len(actual_cameras),len(expected['world_cameras']))
+    else:
+        assert cameras==expected['horizons'][:len(cameras)],('camera/horizon',cameras,expected['horizons'][:len(cameras)])
     actual=(root/'cpp.indices').read_bytes();image=(native/f'frame-{a.frames}.indices').read_bytes()
     assert len(actual)==len(image)==64000
     differences=sum(x!=y for x,y in zip(actual,image))
@@ -155,6 +178,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
                         mismatches=[(i,x,y)for i,(x,y)in enumerate(zip(observed[field],original_frame[field]))if x!=y]
                         raise AssertionError(('recording frame',index,field,len(observed[field]),len(original_frame[field]),mismatches[:2]))
     verified=['player','actors','shared RNG','radio','camera','horizon']
+    if a.until_result:verified.append('natural result/FINISH campaign values')
     if (native/'radar.json').exists():verified.append('ordered radar inputs')
     if 'trail_events' in expected:verified.append('smoke samples')
     if expected.get('recordings'):verified.append('recorded model queues')

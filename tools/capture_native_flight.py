@@ -69,6 +69,7 @@ parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--mission',type=int,default=501)
 parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 parser.add_argument('--frames',type=int,default=4)
+parser.add_argument('--until-result',action='store_true',help='capture through a natural mission result, with --frames as the upper bound')
 parser.add_argument('--inputs',type=Path,help='declared per-frame keyboard events/held keys as JSON')
 args=parser.parse_args()
 inputs=FlightInputs.read(args.inputs)if args.inputs else FlightInputs([])
@@ -251,8 +252,8 @@ def player_parts_snapshot(current,bindings=False):
  count=current.cpu.mem_read(source+1,1)[0]
  return [bound_models.get(instance+16+29*part+9,65535)if bindings else list(current.cpu.mem_read(instance+16+29*part,8))for part in range(count)]
 
-def frame_boundary(current):
- snapshots.append({
+def snapshot(current):
+ return {
   'frame':frames[0],
   'mission_progress':{
    'results':[current.read(at,'<i')[0]for at in (0x5c14,0x5c18,0x5c1c,0x5c24,0x5c28,0x5c30,0x5c20,0x5c2c,0x5c34,0x5c38)],
@@ -295,7 +296,10 @@ def frame_boundary(current):
   'timer':clock[0],
   'random':struct.unpack('<2H',current.cpu.mem_read(current.native(0xc9894),4)),
   'actors':actors_snapshot(current),
- })
+ }
+
+def frame_boundary(current):
+ snapshots.append(snapshot(current))
  if frames[0]==args.frames:
   current.cpu.emu_stop();return
  frames[0]+=1;clock[0]+=4
@@ -304,6 +308,14 @@ def frame_boundary(current):
  current.cpu.mem_write(current.read(0x1b23c,'<I')[0],bytes(raw))
  current.cpu.mem_write(current.read(0x1b238,'<I')[0],bytes([KEYS[input['event']][0]if input['event'] else 0]))
 im.intercept(0x72045,'Supply one four-tick external interval at each original frame boundary and stop after the requested complete frames.',frame_boundary)
+terminal={}
+def terminal_boundary(cpu,address,size,unused):
+ # This is after the actual frame-tail retirement and before the native
+ # result test leaves the flight loop. Keep the final live state intact.
+ if args.until_result and not terminal and im.read(0x593a,'<h')[0]:
+  snapshots.append(snapshot(im));terminal['frame']=frames[0]
+  cpu.emu_stop()
+im.cpu.hook_add(UC_HOOK_CODE,terminal_boundary,begin=im.native(0x723d7),end=im.native(0x723d7))
 preflight_projection=[]
 def observe_seeker_reset(cpu,address,size,unused):
  preflight_projection[:]=struct.unpack('<2h',cpu.mem_read(im.native(0x70aa4+0x47736),4))
@@ -317,9 +329,11 @@ def observe_radio(cpu,address,size,unused):
  radio_events.append({'frame':frames[0],'message':string(cpu.reg_read(r.UC_X86_REG_EAX)),'persistent':address==im.native(0x81254)})
 for file in (0x81198,0x81254):im.cpu.hook_add(UC_HOOK_CODE,observe_radio,begin=im.native(file),end=im.native(file))
 terrain_passes=[]
+world_cameras=[]
 active_terrain=[None]
 def terrain_begin(cpu,address,size,unused):
  if not entered[0]:return
+ world_cameras.append(list(struct.unpack('<3i',b''.join(cpu.mem_read(im.native(0x70aa4+at),4)for at in (0x491e1,0x491e7,0x491ed)))))
  record={'frame':frames[0],'height':struct.unpack('<i',cpu.mem_read(cpu.reg_read(r.UC_X86_REG_ESP)+4,4))[0],'cells':[]}
  terrain_passes.append(record);active_terrain[0]=record
 im.cpu.hook_add(UC_HOOK_CODE,terrain_begin,begin=im.native(0xb0ba8),end=im.native(0xb0ba8))
@@ -343,7 +357,7 @@ im.cpu.hook_add(UC_HOOK_CODE,observe_projection,begin=im.native(0xb94da),end=im.
 def observe_horizon(cpu,address,size,unused):
  position=struct.unpack('<3i',b''.join(cpu.mem_read(im.native(0x70aa4+at),4) for at in (0x491e1,0x491e7,0x491ed)))
  horizons.append({
-  'camera':position,
+  'camera':position, # Diagnostic installed-cache value; ejection paints its horizon before installing the new camera.
   'horizon':[cpu.reg_read(r.UC_X86_REG_EAX)&65535,cpu.reg_read(r.UC_X86_REG_EDX)&65535,struct.unpack('<h',cpu.mem_read(im.native(0x70aa4+0x47c08),2))[0],im.read(0xad7c,'<h')[0],projection[1],projection[3]],
  })
 im.cpu.hook_add(UC_HOOK_CODE,observe_horizon,begin=im.native(0xcaf84),end=im.native(0xcaf84))
@@ -365,11 +379,23 @@ try:
 except RuntimeError:
  # A bounded capture deliberately stops at the next real frame boundary;
  # it does not pretend that launch_game returned through a mission result.
- if len(snapshots)!=args.frames+1 or im.cpu.reg_read(r.UC_X86_REG_EIP)!=im.native(0x72045):
+ bounded=len(snapshots)==args.frames+1 and im.cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0x72045)
+ completed=terminal and len(snapshots)==frames[0]+1 and im.cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0x723d7)
+ if not (bounded or completed):
   fault={'frame':frames[0],'snapshots':snapshots,'trace':[hex(f)for f in im.trace[-30:]],'registers':{name:im.cpu.reg_read(getattr(r,'UC_X86_REG_'+name))for name in ('EIP','ESP','EAX','EDX','EBX','ECX','ESI','EDI','EBP')},'loads':loads[-15:]}
   (args.output/'failure.json').write_text(json.dumps(fault,indent=2)+'\n')
   raise
 else:raise RuntimeError('Original mission returned before completing the requested capture')
+if args.until_result:
+ if not terminal:raise RuntimeError('Original mission did not reach a result within the requested frame bound')
+ # Continue the same original call and stack through recovery, FINISH and
+ # teardown. This supplies no outcome or script variable, and skips no game
+ # routine. Any additional external dependency must still be declared.
+ (args.output/'result-boundary.json').write_text(json.dumps({'terminal':terminal,'snapshot':snapshots[-1]},indent=2)+'\n')
+ im.cpu.emu_start(im.cpu.reg_read(r.UC_X86_REG_EIP),im.RETURN,count=20000000)
+ if im.cpu.reg_read(r.UC_X86_REG_EIP)!=im.RETURN:raise RuntimeError('Original result/teardown did not return within its execution bound')
+ terminal['returned']=True
+ terminal['campaign']={variable['name']:im.read(0x1a400+index*4,'<i')[0]for index,variable in enumerate(program['variables'])if not variable['string_value']}
 assert parser_base<=im.read(0x1acfc,'<I')[0]<parser_base+0x100000,'presentation arena exhausted'
 recordings=[]
 for index,(filename,contents)in enumerate(memory_files.files.items()):
@@ -378,13 +404,14 @@ for index,(filename,contents)in enumerate(memory_files.files.items()):
  recordings.append({'name':filename,'file':target,'closed':not any(handle[0]==filename for handle in memory_files.handles.values())})
 record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
- 'inputs':inputs.rows(args.frames),
+ 'inputs':inputs.rows(frames[0]),
+ 'terminal':terminal,
  'recordings':recordings,
  'preflight_projection':preflight_projection,
- 'trail_events':trail_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
+ 'trail_events':trail_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'world_cameras':world_cameras,'terrain_passes':terrain_passes,
  'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
  'dependencies':{hex(address):reason for address,reason in im.dependencies.items()},
  'host_services':['DPMI exception-vector transport','VGA planar memory and ports','capture-owned in-memory DOS files','fixed startup calendar','zeroed DOS low page for unused cleared-shot owner','inherited presentation declarations'],
 }
 (args.output/'session.json').write_text(json.dumps(record,indent=2)+'\n')
-print(f'Captured original mission {args.mission}: {args.frames} complete frames, {len(loads)} resource requests; {args.output}')
+print(f'Captured original mission {args.mission}: {frames[0]} complete frames, {len(loads)} resource requests; {args.output}')

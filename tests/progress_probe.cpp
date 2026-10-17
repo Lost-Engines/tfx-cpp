@@ -41,7 +41,9 @@ int main(int const argc, char const *const argv[]) try {
         .arcade{arcade != 0},
       })};
       bool const timer_notice{state.finish_frame(static_cast<uint16_t>(elapsed))};
-      std::vector<int64_t> values{state.results.targets_destroyed,state.results.credited_targets,state.target_cursor,state.remaining_timer,state.results.completed,state.exit_ticks,state.resolved,state.ended,std::to_underlying(state.outcome),std::to_underlying(state.status),state.return_score,static_cast<int64_t>(notices.size()) + timer_notice};
+      auto const returned_landed{state.force_landed_return ? 1u : landed};
+      auto const returned_speed{state.force_landed_return ? 0 : speed};
+      std::vector<int64_t> values{state.results.targets_destroyed,state.results.credited_targets,state.target_cursor,state.remaining_timer,state.results.completed,state.exit_ticks,state.resolved,state.ended,std::to_underlying(state.outcome),std::to_underlying(state.status),state.return_score,returned_landed,returned_speed,static_cast<int64_t>(notices.size()) + timer_notice};
       for(auto const &event : notices) {
         if(auto const *notice{std::get_if<tfx::missions::progress_notice>(&event)}) values.insert(values.end(),{std::to_underlying(notice->kind),notice->target});
         else values.insert(values.end(),{4,0});

@@ -23,7 +23,7 @@ void progress::reset() {
   return_score = 0; target_cursor = 0; violations = 0; exit_ticks = 0;
   remaining_timer = initialisation.timer.value_or(-1);
   beyond_airspace = false;
-  resolved = false; ended = false; critical_loss = false; player_ejected = false; impact_started = false; death_ticks = 0;
+  resolved = false; ended = false; force_landed_return = false; critical_loss = false; player_ejected = false; impact_started = false; death_ticks = 0;
   outcome = session_outcome::normal; status = session_status::normal;
 }
 
@@ -204,6 +204,7 @@ std::vector<progress_event> progress::begin_frame(progress_context const &contex
     exit_ticks = word(exit_ticks - context.elapsed);
     if(exit_ticks <= 0) {
       exit_ticks = 0;
+      force_landed_return = true; // Native 71BBB/71BCA; this does not perform physical ground placement.
       if(critical_loss) { outcome = session_outcome::critical_loss; status = session_status::critical_loss; ended = true; }
       else set_termination(context.arcade);
     }

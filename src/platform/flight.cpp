@@ -1072,7 +1072,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     };
   }};
   auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed, double const physics_seconds, bool const fire = false, bool const command_fire = false) {
-    if(mission_progress.ended) return;
+    if(result_evaluated) return;
     ++designator_frame_gap;
     // Native 0x7205c gates animation before the player obtains this frame's time.
     auto const scene_update{scene.advance(previous_animation_ticks)};
@@ -1237,7 +1237,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     // Native 0x70ec8 follows player physics; the SSD event switches actors here,
     // leaving the first launch update to the next flight frame.
-    if(ejection.advance_aircraft(player.position,body_basis(),player.fixed_speed,elapsed)) player_visual = pilot_visual;
+    if(ejection.advance_aircraft(player.position,body_basis(),player.fixed_speed,elapsed)) {
+      player_visual = pilot_visual;
+      scene.show_actor(aircraft_visual,false); // The departed aircraft has its own pre-terrain submission.
+    }
     if(ejection.value().stage == tfx::flight::ejection_stage::pilot) scene.place_actor(aircraft_visual,vec3d{ejection.value().aircraft_position_q8} / tfx::actors::position_unit,ejection.value().aircraft_orientation.angles());
     // Native 0x86898 fires the held Space key after its player-physics callback, before other actors update.
     // Original nonzero checks read FLP and COM slots, despite their unrelated display names.
@@ -1269,6 +1272,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         if(sound) sound->music_cue(audio::music_cue_id::mission_complete);
         sample(audio::sample_priority::urgent,audio::sample_id::mission_complete);
       }
+    }
+    if(mission_progress.force_landed_return) {
+      player.fixed_speed = 0;
+      player.landed = true;
     }
     air_world.player = tfx::actors::air_contact{
       .position{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
@@ -1373,7 +1380,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     projectiles.advance(elapsed,air_simulation.random_stream());
     sky_animation = scene_update.animated;
-    if(scene.animate_player_model(player_visual)) ejection.request();
     flak_flash = false;
     if(auto const event{tfx::world::advance_flak(flak_state,{
       .player{vec3<int32_t>{player.integer_position}},
@@ -1399,6 +1405,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       auto const &event{mission_setup.scenery_events[index]};
       scene.terrain_event(event.cell.x,event.cell.y,event.entry);
     }
+    // Native 0x70e44 updates player streams after all world/HUD drawing.
+    if(scene.animate_player_model(player_visual)) ejection.request();
     if(mission_progress.finish_frame(elapsed)) radio.show(tables.timer_expired_message);
     if(mission_progress.ended) {
       auto const recovered{recovery.resolve({
@@ -1832,6 +1840,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
     }};
     auto const paint_scene{[&](tfx::render::camera const &view, vec3<int32_t> const &reference, bool const primary) {
+      if(primary && ejection.value().stage == tfx::flight::ejection_stage::pilot) scene.queue_actor(aircraft_visual,vec3d{ejection.value().aircraft_position_q8} / tfx::actors::position_unit,ejection.value().aircraft_orientation.angles(),nullptr,tfx::world::submission_phase::before_terrain);
       queue_projectiles(reference);
       scene.set_query_reference(inspect ? nullptr : &player.integer_position);
       if(!inspect) select_actor_draw_region(reference);
@@ -1897,7 +1906,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     if(!inspect) update_designator();
     if(!inspect) options.ground_reference = vec3<int32_t>{view_motion.value().ground_reference};
-    if(ejection.value().stage == tfx::flight::ejection_stage::pilot) scene.show_actor(aircraft_visual,true);
     auto const projection_origin{cockpit_frame.projection_origin(view_index(),cockpit_position.value())};
     auto view{inspect ? tfx::render::inspection_camera(position,heading,pitch) : designator_view ? tfx::cockpit::designator_pose(designator).camera(projection_origin) : view_motion.last_pose().camera(projection_origin)};
     if(!inspect) {
@@ -2223,8 +2231,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         }
         if(result.end_flight) {
           mission_progress.ended = true;
-          finish_world(0);
-          continue;
         }
       }
       std::array<std::pair<int,tfx::flight::defensive_key>,6> constexpr defensive_bindings{{

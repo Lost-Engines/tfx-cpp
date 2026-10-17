@@ -233,13 +233,14 @@ bool scene::advance_instance(instance &state, vec3d const &origin, math::angle c
 
 scene_events scene::advance(timer_ticks const elapsed) {
   animation_pending = clock.advance(elapsed);
+  player_animation_pending = animation_pending;
   return {
     .animated{animation_pending},
   };
 }
 
 bool scene::animate_player_model(scene_handle const handle) {
-  if(!animation_eligible(animation_policy::unconditional,animation_pending,true)) return false;
+  if(!std::exchange(player_animation_pending,false)) return false;
   auto &actor{actors.at(handle.value)};
   return advance_instance(actor.state,actor.position);
 }
@@ -493,6 +494,22 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       }
     }
   }};
+  auto const submit_queued{[&](submission_phase const phase) {
+    struct restore_reference {
+      vec3<int32_t> const *&current;
+      vec3<int32_t> const *previous;
+      ~restore_reference() { current = previous; }
+    } const restore{
+      .current{query_reference},
+      .previous{query_reference},
+    };
+    for(auto const &submission : submissions) if(submission.phase == phase) {
+      // Native projectile drawing temporarily substitutes the current camera
+      // for the player's SSD query origin, including animation/effect requests.
+      query_reference = submission.distance_reference ? &*submission.distance_reference : restore.previous;
+      submit(actors.at(submission.handle.value),submission.position,submission.angles);
+    }
+  }};
   // Native sky models enter the bounded queue before world/actor models.
   // Even an offscreen sun changes the original quicksort's equal-depth order.
   for(auto const &submission : model_submissions) {
@@ -507,6 +524,9 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
     auto &actor{actors.at(player_model->handle.value)};
     if(actor.visible) submit(actor,player_model->position,player_model->angles,player_model->animation);
   }
+  // Native 0x71024 submits the abandoned aircraft after the current player
+  // model, before terrain. Its ordinary constructor still advances animation.
+  submit_queued(submission_phase::before_terrain);
   std::vector<terrain_cell> cells;
   if(native) visit_terrain_cells({static_cast<int32_t>(std::floor(view.position.x)),static_cast<int32_t>(std::floor(view.position.z))},static_cast<int16_t>(radius * 2),[&](terrain_cell const &cell) { cells.push_back(cell); });
   else for(int x{first_x}; x <= last_x; ++x) for(int z{first_z}; z <= last_z; ++z) cells.push_back(terrain_cell{
@@ -550,22 +570,6 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       warnings.insert(grid.variant(col,row) + ": " + error.what());
     }
   }
-  auto const submit_queued{[&](submission_phase const phase) {
-    struct restore_reference {
-      vec3<int32_t> const *&current;
-      vec3<int32_t> const *previous;
-      ~restore_reference() { current = previous; }
-    } const restore{
-      .current{query_reference},
-      .previous{query_reference},
-    };
-    for(auto const &submission : submissions) if(submission.phase == phase) {
-      // Native projectile drawing temporarily substitutes the current camera
-      // for the player's SSD query origin, including animation/effect requests.
-      query_reference = submission.distance_reference ? &*submission.distance_reference : restore.previous;
-      submit(actors.at(submission.handle.value),submission.position,submission.angles);
-    }
-  }};
   // Native 0xa30cc submits weapons before 0x7572c submits moving actors.
   // Equal-depth insertion and retained model-slot metadata observe this order.
   submit_queued(submission_phase::before_actors);

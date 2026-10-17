@@ -4,14 +4,15 @@ Reference: TFX 2.05, September 1994 CD. Native offsets refer to `TFX.DAT`, SHA-2
 
 ## Current integrated reference check
 
-The actual C++ game and the original `launch_game`/flight loop agree over
-256 neutral four-tick frames of mission 501 (20.48 seconds): player position,
-angles and speed; every retained aircraft controller field observed by the
-session probe; shared RNG; and the complete camera/horizon handoff. The newer
-every-frame image check also matches **all 32 frames pixel for pixel** in
-Arcade, Military-spec and Realistic flight. The longer Arcade run and Simple
-flight expose a distant-aircraft admission difference still under investigation;
-this does not establish complete-game equivalence.
+All **128 retail missions** match the original launch and their first sixteen
+Arcade frames in every captured state and indexed pixel: **2,048 complete
+frames**. Controlled comparisons also cover targeting, cannon and missile
+release, a real aircraft kill, objective completion, recording and mission
+return. The successful training sortie agrees through all **233 frames** and
+the original recovery/FINISH return, including final score and campaign values.
+The verification sections below distinguish these complete sessions from
+isolated subsystem checks and list the remaining gaps. This does not establish
+complete-game equivalence.
 
 The original presentation variables, DOS devices, external timer, silent audio
 and host memory remain explicit capture inputs. The original mission,
@@ -19,7 +20,7 @@ environment, renderer, arming and AI code executes. `--flight-model` selects
 any of the four models, and `--output` retains the private frames and observer
 log. `--strict-pixels` requires every captured image to match, not just the last.
 
-All **179 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+All **195 CTests** pass in development, Release and ASan/UBSan. All 128 retail
 missions also compose 64 development frames and 16 sanitizer frames without
 preview warnings. Real private-window controls exercise firing, MFDs,
 missile cameras, designator use, ejection and an automatic FINISH handoff.
@@ -4922,3 +4923,54 @@ model queues and every live pixel, including the real missile hit, kill/score
 credit and objective countdown. All 195 regressions pass in development,
 Release and ASan/UBSan. These are complete flight-loop comparisons; full normal
 mission return and broader campaign paths retain separate verification gates.
+
+### Natural mission return and ejection frame ordering
+
+`capture_native_flight.py --until-result` now follows ordinary control inputs
+through the original loop's own termination flag, recovery, FINISH script and
+teardown. `--frames` is an execution bound. The observer stops at `0x723d7` to
+retain the final live snapshot, then resumes the same original call and stack
+until it returns. No result, target life, score or campaign value is supplied.
+The C++ comparison independently observes the actual FINISH variable table.
+
+The successful mission-501 intercept agrees through **233 complete frames**:
+missile kill at 206, objective completion at 207 and countdown return at 233.
+Every captured gameplay field and indexed pixel agrees, including the final
+score of 7,000, one credited air kill and successful mission result. Development
+and ASan/UBSan both pass. Direct mission launches now initialise their actual
+mission number and Arcade campaign flag, as the reference launch does.
+
+The original countdown return also sets reported speed to zero and the landed
+flag before its final drawing pass (`0x71bbb`/`0x71bca`); it does not move the
+aircraft to the ground. That state now reaches the final C++ frame. The expanded
+progress comparison checks those fields across **4,439 original updates in
+512 sequences**, retaining compact original-derived hashes for ordinary CTest.
+
+Double Escape followed by Escape after parachute deployment gives a second
+natural return: **65 frames**, with recovered status 2, outcome 3 and `safe=1`.
+All state, every pixel and the final campaign table agree in development and
+ASan/UBSan. The closing Escape frame must still advance and draw before FINISH.
+
+Ejection exposed two separate drawing-order mistakes. Player streams advance
+in the frame tail (`0x70e44`), after their frozen camera submission and HUD
+drawing. The abandoned aircraft uses a separate ordinary submission at
+`0x71024`, before terrain; it must leave the general actor drawing list when
+control switches to the pilot. Both orders are now retained. A recorded
+68-frame ejection sequence agrees on every live pixel and all **66 recorded
+model queues**, including seat separation and parachute deployment.
+
+Camera observations now distinguish actual world-entry camera words from
+horizon inputs. Ejection paints its horizon before installing the new camera,
+so the old native projection cache at horizon entry is diagnostic state, not
+the new world pose. The comparator checks both consumers at their actual
+boundaries, using the projector's signed 32-bit Q16 representation.
+
+```sh
+python3 tools/check_combat_sessions.py --case training-result --output build/training-return
+python3 tools/check_combat_sessions.py --case ejection-result --output build/ejection-return
+python3 tools/check_combat_sessions.py --case ejection-recording --output build/ejection-recording
+```
+
+All 195 asset-free regressions pass in development, Release and ASan/UBSan.
+Broader ground-attack, failure/recovery and campaign paths remain separate
+whole-session verification gates.
