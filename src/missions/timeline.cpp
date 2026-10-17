@@ -24,9 +24,13 @@ std::vector<unsigned int> timeline::begin_frame() {
   return result;
 }
 
-std::vector<unsigned int> timeline::finish_frame(simulation::timer_ticks const elapsed) {
-  /// Native 0x72324 / 0x70e44: advance the clock, then dispatch scenery events strictly before it, in authored order.
+void timeline::advance_clock(simulation::timer_ticks const elapsed) {
+  // Native 0x72324 advances mission time before drawing the HUD and its clock.
   elapsed_ticks += elapsed;
+}
+
+std::vector<unsigned int> timeline::finish_frame() {
+  // Native 0x70e44 runs after the HUD: scenery events strictly before this tick, in authored order.
   std::vector<unsigned int> result;
   for(unsigned int index{0}; index != dispatched_events.size(); ++index) {
     if(!dispatched_events[index] && static_cast<mission_tick>(initialisation.scenery_events[index].time) < elapsed_ticks) {

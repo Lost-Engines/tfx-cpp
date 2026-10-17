@@ -15,9 +15,10 @@ import struct
 import subprocess
 from native_reference import NativeReference,r
 from native_vga import VgaCapture
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=512);p.add_argument('--record',type=Path);p.add_argument('--model',type=Path);p.add_argument('--rounded',action='store_true',help='exercise original 56/62 rounded quads and 90/91 standalone arcs');p.add_argument('--inert',action='store_true',help='insert retained no-op instructions 6/80 between stateful drawing operations');p.add_argument('--far',action='store_true',help='draw admitted model faces with vertices beyond the host inspection far distance');a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=512);p.add_argument('--record',type=Path);p.add_argument('--model',type=Path);p.add_argument('--rounded',action='store_true',help='exercise original 56/62 rounded quads and 90/91 standalone arcs');p.add_argument('--inert',action='store_true',help='insert retained no-op instructions 6/80 between stateful drawing operations');p.add_argument('--far',action='store_true',help='draw admitted model faces with vertices beyond the host inspection far distance');p.add_argument('--lines',action='store_true',help='exercise authored lines and native endpoint/near/screen clipping');a=p.parse_args()
 assert not(a.model and a.rounded)
-assert not(a.far and (a.model or a.rounded or a.inert))
+assert not(a.far and (a.model or a.rounded or a.inert or a.lines))
+assert not(a.lines and (a.model or a.rounded or a.inert))
 assert not(a.inert and (a.model or a.rounded))
 assert not(a.model and a.record),'retained game model bytes stay external to source fixtures'
 def initialise():
@@ -70,18 +71,40 @@ def rounded_program(case):
  if case%2:emit([84])
  emit([91,modes[(case//3)%9],55,20,21,22,88,114,24,25,26,27,89,3,57,28,29,30,31,0,65535])
  return bytes(source)
+def line_program(case):
+ source=bytearray(50)
+ def store(at,value):struct.pack_into('>H',source,at,value&65535)
+ def emit(words):source.extend(struct.pack('>'+str(len(words))+'H',*[v&65535 for v in words]))
+ for at,value in ((2,32767),(34,14),(48,65535)):store(at,value)
+ emit([48,1])
+ endpoints=[]
+ for vertex in range(2):
+  if case<64:
+   x,y=((case%8-4)*80,(case//8-4)*60) if vertex==0 else ((4-case%8)*80,(4-case//8)*60)
+   z=600
+  else:x,y,z=rng.randrange(-5000,5001),rng.randrange(-3000,3001),rng.choice((-1000,0,7,8,9,16,100,1000,12000))
+  if vertex==1 and case%11==0:x,y,z=endpoints[0]
+  endpoints.append((x,y,z));emit([98,vertex,x,y,z])
+ emit([97,2,0])
+ if case%3==0:emit([86,1])
+ if case%5==0:emit([87,2])
+ if case%7==0:emit([84])
+ emit([1,case&255,0,1,0,65535]);return bytes(source)
 for case in range(a.cases):
- source=a.model.read_bytes() if a.model else rounded_program(case) if a.rounded else program(case);origin=[rng.randrange(-50,51)*65536,rng.randrange(-50,51)*65536,(18 if not a.model and case%4 in (2,3) else 350)*65536]
+ source=a.model.read_bytes() if a.model else rounded_program(case) if a.rounded else line_program(case) if a.lines else program(case);origin=[rng.randrange(-50,51)*65536,rng.randrange(-50,51)*65536,(18 if not a.model and case%4 in (2,3) else 350)*65536]
  if not a.model and case%4 in (2,3):origin[2]-=300*65536
  modes=(0,1,2,3,4,7,10,11,12);params=[case%2,rng.randrange(256),modes[case%len(modes)],rng.randrange(256),modes[(case//7)%len(modes)],0,0,0]
  basis=[32767,0,0,0,32767,0,0,0,32767]
  if a.model and case%3:basis=[0,0,32767,0,32767,0,-32767,0,0] if case%3==1 else [32767,0,0,0,0,32767,0,-32767,0]
- rows.append([case%2,rng.randrange(65536),rng.randrange(256),rng.randrange(256),1000,0,*basis,*origin,*params,source.hex()])
-request=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode();command=[str((a.build/'model_frame_probe').resolve())];actual=subprocess.check_output(command,input=request).decode().splitlines();pixels=subprocess.check_output(command+['--pixels'],input=request);assert len(actual)==len(rows) and len(pixels)==len(rows)*64000;fixtures=[];painted=undefined=0
+ viewport=([160,100,0,0,319,199] if case%3 else [159,56,80,2,241,144]) if a.lines else []
+ if a.lines and case%7==0:viewport=[rng.choice((0,159,319)),rng.choice((0,56,199)),32,24,287,175]
+ rows.append([case%2,rng.randrange(65536),rng.randrange(256),rng.randrange(256),1000,0,*basis,*origin,*params,*viewport,source.hex()])
+request=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode();command=[str((a.build/'model_frame_probe').resolve())]+(['--viewport'] if a.lines else []);actual=subprocess.check_output(command,input=request).decode().splitlines();pixels=subprocess.check_output(command+['--pixels'],input=request);assert len(actual)==len(rows) and len(pixels)==len(rows)*64000;fixtures=[];painted=undefined=0
 for case,(row,line) in enumerate(zip(rows,actual)):
- wide,seed,object_offset,fixed_offset,distance,status=row[:6];basis=row[6:15];origin=row[15:18];params=row[18:26];source=bytes.fromhex(row[26]);im.cpu.mem_write(0x300000,source);im.call(0xb9f3f,stack=(0x300000,));im.call(0xb930f);im.call(0xca780)
+ wide,seed,object_offset,fixed_offset,distance,status=row[:6];basis=row[6:15];origin=row[15:18];params=row[18:26];source=bytes.fromhex(row[-1]);im.cpu.mem_write(0x300000,source);im.call(0xb9f3f,stack=(0x300000,));im.call(0xb930f);im.call(0xca780)
  if wide:im.call(0xca6fc,stack=(0xffffffff,0xffffffff))
- im.call(0xb9238,stack=(0,319,0,199));im.call(0xb94da,stack=(160,100,319,199));im.cpu.mem_write(code(0x47c6e),struct.pack('<9h',*basis));im.cpu.mem_write(code(0x47c80),struct.pack('<hH',distance,status));im.cpu.mem_write(code(0x47cb0),bytes(params));im.cpu.mem_write(code(0x47c84),struct.pack('<H',42));im.cpu.mem_write(code(0x54a50),struct.pack('<H',9))
+ cx,cy,mx,my,hx,hy=row[26:32] if a.lines else (160,100,0,0,319,199)
+ im.call(0xb9238,stack=(mx,hx,my,hy));im.call(0xb94da,stack=(cx,cy,hx,hy));im.cpu.mem_write(code(0x47c6e),struct.pack('<9h',*basis));im.cpu.mem_write(code(0x47c80),struct.pack('<hH',distance,status));im.cpu.mem_write(code(0x47cb0),bytes(params));im.cpu.mem_write(code(0x47c84),struct.pack('<H',42));im.cpu.mem_write(code(0x54a50),struct.pack('<H',9))
  for f,value in zip((0xb9447,0xb944d,0xb9452),origin):im.cpu.mem_write(im.native(f),struct.pack('<i',value))
  for f,value in zip((0xbc3ef,0xbc3fd,0xbc40b),origin):im.cpu.mem_write(im.native(f),struct.pack('<i',value))
  im.cpu.ctl_remove_cache(im.native(0xb9434),im.native(0xb94d9));im.cpu.ctl_remove_cache(im.native(0xbc3e8),im.native(0xbc497));im.cpu.mem_write(im.data+0x24c9c,bytes((i*3+fixed_offset+row*17)&255 for row in range(16) for i in range(256)));im.cpu.mem_write(0x320000,bytes((i*5+object_offset)&255 for i in range(256)));im.cpu.mem_write(code(0x4787e),struct.pack('<I',0x320000))

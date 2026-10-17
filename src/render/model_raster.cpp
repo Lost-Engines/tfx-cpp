@@ -2,6 +2,7 @@
 #include "model_projection.h"
 #include "near_clip.h"
 #include "pattern_raster.h"
+#include "presentation/drawing.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -60,6 +61,19 @@ void circle(framebuffer &output, vec2<int16_t> const &point, int const radius, c
 
 bool paint_model_primitive(framebuffer &output, models::primitive const &source, std::span<models::model_vertex const> const vertices, camera const &view, std::span<uint8_t const> const texture, colour_map const *const remap, uint16_t &seed) {
   if(paint_model_polygon(output,source,vertices,view,texture,remap,seed)) return true;
+  if(source.kind == models::primitive_kind::line && vertices.size() == 2 && view.projection == projection_mode::original_model) {
+    auto a{model_camera_point(vertices[0])}, b{model_camera_point(vertices[1])};
+    if(!a || !b) return false;
+    bool const behind_a{a->z >> 16 <= model_near_depth}, behind_b{b->z >> 16 <= model_near_depth};
+    if(behind_a && behind_b) return true;
+    vec2<int16_t> const origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)};
+    auto const from{behind_a ? std::optional{project_near_plane(intersect_near_plane(*a,*b),view.opening,origin)} : project_model_point(*a,view)};
+    auto const to{behind_b ? std::optional{project_near_plane(intersect_near_plane(*b,*a),view.opening,origin)} : project_model_point(*b,view)};
+    if(!from || !to) return false;
+    uint8_t const index{static_cast<uint8_t>(source.colour)};
+    presentation::draw_clipped_line(output,vec2<int>{*from},vec2<int>{*to},vec2<int>{view.viewport_minimum},vec2<int>{view.viewport_maximum},remap ? (*remap)[index] : index);
+    return true;
+  }
   if(source.kind != models::primitive_kind::point || vertices.size() != 1 || view.projection != projection_mode::original_model) return false;
   auto const raw{model_camera_point(vertices.front())};
   if(!raw) return false;

@@ -42,9 +42,12 @@ uint64_t run(std::istream &input, bool const emit) {
     unsigned int ticks{0};
     input >> ticks;
     auto const due_messages{state.begin_frame()};
-    auto const due_events{state.finish_frame(static_cast<uint16_t>(ticks))};
-    word(state.elapsed());
-    word(state.time_of_day());
+    state.advance_clock(static_cast<uint16_t>(ticks));
+    // HUD consumers observe the advanced clock before scenery events run.
+    auto const hud_elapsed{state.elapsed()}, hud_time{state.time_of_day()};
+    auto const due_events{state.finish_frame()};
+    word(hud_elapsed);
+    word(hud_time);
     word(static_cast<uint32_t>(due_messages.size()));
     for(auto const index : due_messages) word(index);
     word(static_cast<uint32_t>(due_events.size()));
