@@ -20,6 +20,8 @@ add_library(tfx_core
   src/flight/mouse_input.h
   src/flight/joystick.cpp
   src/flight/joystick.h
+  src/configuration/save.cpp
+  src/configuration/save.h
   src/configuration/settings.cpp
   src/configuration/settings.h
   src/flight/player_flight.cpp
@@ -532,6 +534,16 @@ if(BUILD_TESTING)
   configure_first_party(aerodynamic_recovery_probe)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
+
+  add_executable(configuration_save_test tests/configuration_save_test.cpp)
+  target_link_libraries(configuration_save_test PRIVATE tfx_core)
+  configure_first_party(configuration_save_test)
+  add_test(NAME configuration.preference_file_roundtrip COMMAND configuration_save_test)
+
+  add_executable(configuration_save_probe tests/configuration_save_probe.cpp)
+  target_link_libraries(configuration_save_probe PRIVATE tfx_core)
+  configure_first_party(configuration_save_probe)
+  add_test(NAME configuration.native_preference_writer COMMAND configuration_save_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/configuration_save.txt")
 
   add_executable(weather_probe tests/weather_probe.cpp)
   target_link_libraries(weather_probe PRIVATE tfx_core)

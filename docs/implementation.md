@@ -1690,3 +1690,18 @@ the numerical consumers. Visual cloud, precipitation and lightning rendering
 remain separate work.
 The weather comparison, existing 33-environment palette/binding checks and all
 91 asset-free tests pass in development, Release and ASan/UBSan builds.
+
+
+### Original flight preference writer
+
+The portable writer follows complete native `0xa6808`, retaining all unrelated
+configuration bytes and updating REALISM, DETAIL, JOYSCALE and HUDCOL in their
+original order. It preserves first-prefix removal, case sensitivity, existing
+line endings, three-column rounded sensitivity and signed HUD-word formatting.
+**512 complete original file writes agree**, with only filesystem delivery and
+output intercepted; native string search, formatting and each setting writer run
+unchanged. 128 compact captures provide an asset-free CTest. A private-directory
+integration test verifies save/reload, lowercase filenames, preserved hardware
+settings and no writes for unavailable or oversized files. Unlike the original
+fixed stack buffer, output cannot overflow or exceed the reader's 1,024-byte
+limit. This safety boundary is explicit and excluded from numerical equivalence.
