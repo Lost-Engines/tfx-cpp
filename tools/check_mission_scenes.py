@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check all retail mission scene selections/starts, then render their initial scenes."""
+"""Check retail mission setup and optionally complete composed flight frames."""
 import argparse
 from collections import Counter
 import json
@@ -11,6 +11,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--research',type=Path,required=True)
 parser.add_argument('--flight-steps',type=int,default=0)
+parser.add_argument('--flight-frames',type=int,default=0)
 parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 args=parser.parse_args()
 
@@ -36,17 +37,21 @@ for mission,line in zip(missions,actual):
 failures=[]
 notes=Counter()
 outcomes=[]
-for mission in missions:
-    result=subprocess.run([str(build/'tfx'),'--data-dir',data,'--mission',mission['name'].removeprefix('miss'),'--flight-model',args.flight_model,'--flight-steps',str(args.flight_steps),'--screenshot',os.devnull],capture_output=True,text=True,timeout=20)
+for ordinal,mission in enumerate(missions):
+    result=subprocess.run([str(build/'tfx'),'--data-dir',data,'--mission',mission['name'].removeprefix('miss'),'--flight-model',args.flight_model,'--flight-steps',str(args.flight_steps),'--flight-frames',str(args.flight_frames),'--screenshot',os.devnull],capture_output=True,text=True,timeout=max(20,args.flight_frames*.1))
     if result.returncode:failures.append((mission['name'],result.stderr))
     else:
         assert 'model parts' in result.stdout and ': 0 model parts' not in result.stdout,mission['name']
         finished=[line for line in result.stdout.splitlines() if line.startswith('Mission result:')]
         assert len(finished)<=1,(mission['name'],finished)
         if finished:outcomes.append((mission['name'],finished[0]))
+        if args.flight_frames:
+            frames=[int(line.split(':')[1]) for line in result.stdout.splitlines() if line.startswith('Complete flight frames:')]
+            assert len(frames)==1 and (frames[0]==args.flight_frames or (0<=frames[0]<args.flight_frames and finished)),(mission['name'],frames,finished)
         for line in result.stderr.splitlines():notes[line]+=1
+    if args.flight_frames and (ordinal+1)%16==0:print(f'Complete-frame mission checks: {ordinal+1}/{len(missions)}',flush=True)
 assert not failures,failures
-print(f'Mission scene startup passed: {len(missions)} retail missions; signed starts, regional geometry and separate weather palettes verified')
+print(f'Mission scene coverage passed: {len(missions)} retail missions; signed starts, regional geometry and separate weather palettes verified')
 print('Distinct preview limitations:',dict(notes))
 
-if args.flight_steps:print('Mission result handoffs reached exactly once:',len(outcomes),outcomes[:3])
+if args.flight_steps or args.flight_frames:print('Mission result handoffs reached exactly once:',len(outcomes),outcomes[:3])

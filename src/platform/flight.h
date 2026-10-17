@@ -21,7 +21,7 @@ struct flight_options {
   std::optional<vec2<unsigned int>> cell{};
   std::optional<std::filesystem::path> screenshot{};
   std::optional<unsigned int> joystick{};
-  unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0};
+  unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0}, flight_frames{0};
   configuration::settings &preferences;
   world::flak_state &flak;
   world::sky_state &sky;

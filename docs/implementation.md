@@ -3114,3 +3114,38 @@ All **147 regressions** pass in development, Release and ASan/UBSan. Release
 and sanitizers repeat 128 complete native queue sequences each. All **128
 retail scenes** advance and render without preview warnings. Sanitized
 private-window controls retain weapons, cameras, MFDs, pause and FINISH flow.
+
+
+### Complete composed-flight frame coverage
+
+The developer `--flight-frames N` runner now executes the same ordered stages
+as the live loop: an initial composed scene, then world update, complete draw
+and frame-tail/result processing for each supplied four-tick step. Rendering
+therefore participates in camera state, HUD retention, scenery/effect requests
+and following-frame decisions. It can capture the resulting scene without a
+window and stops on a real mission result. The existing `--flight-steps`
+remains a fast numerical warm-up without intermediate drawing. Both options
+remain absent from Release's command-line interface.
+
+These runs supply neutral controls and fixed tick/physics intervals, bypassing
+the host clock/input sampling. They are C++ integration/reproducibility checks,
+not full original-session comparisons. Reproduce corpus coverage with
+`tools/check_mission_scenes.py --research ../tfx-reverse --flight-frames 64`
+and select the other models with `--flight-model simple`, `military-spec` or
+`realistic`. All **128 retail missions × 64 complete frames × all four flight
+models** pass in development, without preview warnings. ASan/UBSan repeat
+**all 128 missions × 64 composed frames** without warnings or sanitizer errors.
+
+Longer neutral runs use `--mission`, `--flight-model`, `--flight-frames 4096`
+and `--screenshot /dev/null`. FWS mission 501 reaches an ordinary loss/FINISH
+after **2,780 frames**, and Arcade mission 605 after **445 frames**; no damage
+or outcome values are injected. Tour missions 801 (Military-spec) and 830
+(Realistic) each complete **4,096 composed frames** cleanly. These exercise
+actual lifecycle outcomes, not successful player-controlled mission completion.
+
+Repeated 64-frame Arcade mission-501 captures using the same disposable
+silent installation agree byte for byte in development and sanitizers; their
+PPM SHA-256 is `20cdd6250b457c8cdfa343325f6d2b7530a6d42513cbcfaa4011246ea5ee7ea0`.
+All **147 asset-free regressions** remain green. This runner improves the
+coverage of render-dependent state without implying original whole-frame or
+whole-campaign equivalence.
