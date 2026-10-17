@@ -139,6 +139,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
   std::array<unsigned int, 3> jitter_shifts{14,14,14};
   unsigned int cursor{0}, colour{112}, address{0};
   uint8_t state{context.initial_state};
+  palette_source palette{palette_source::distance}, colour_palette{palette};
   double camera_scale{1};
   vec3d origin;
   mat3d matrix;
@@ -192,6 +193,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       .vertices{},
       .colour{ink & 255},
       .mode{mode},
+      .palette{textured || shaded ? palette : colour_palette},
       .texture{textured ? texture : std::nullopt},
       .rounded{rounded},
       .source_address{address},
@@ -271,6 +273,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         continue;
       }
       if(opcode == 72) { state = context.parameters.at(a[0]); continue; }
+      if(opcode == 84) { palette = palette_source::fixed;continue; }
       if(is_condition(opcode)) {
         if(condition(opcode, a[0], state, context.distance, context.status)) {
           if(condition_calls(opcode)) self(self, active, target, depth + 1);
@@ -348,6 +351,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       }
       if(opcode == 1) {
         colour = a[0] & 255;
+        colour_palette = palette;
         if(a[1] < vertex_slots && a[2] < vertex_slots && world[a[1]] && world[a[2]]) {
           result.primitives.push_back({
             .kind{primitive_kind::line},
@@ -364,6 +368,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
               },
             },
             .colour{colour},
+            .palette{colour_palette},
             .source_address{address},
             .attachment_slot{attachment_slot},
           });
@@ -403,6 +408,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
             }},
             .colour{static_cast<unsigned int>(record[offset] & 255)},
             .mode{offset ? record[0] : -1},
+            .palette{palette},
             .radius{record.size() > offset + 2 ? record[offset + 2] * std::abs(vertex_scales[index]) : 0},
             .pixel_size{opcode == 51 ? 1u : opcode == 52 ? 2u : 0u},
             .source_address{address},
@@ -411,11 +417,12 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         }
         continue;
       }
-      if(opcode == 2 || opcode == 3 || opcode == 56) { colour = a[0] & 255; surface(a.subspan(1), colour, -1, false, false); continue; }
-      if(opcode == 4) { colour = a[0] & 255; surface(a.subspan(2), colour, -1, false, false); continue; }
+      if(opcode == 2 || opcode == 3 || opcode == 56) { colour = a[0] & 255; colour_palette = palette; surface(a.subspan(1), colour, -1, false, false); continue; }
+      if(opcode == 4) { colour = a[0] & 255; colour_palette = palette; surface(a.subspan(2), colour, -1, false, false); continue; }
       if(opcode == 26 || opcode == 27 || opcode == 62 || opcode == 90 || opcode == 91) {
         unsigned int const offset{opcode == 90 ? 0u : 1u};
         colour = a[offset] & 255;
+        colour_palette = palette;
         surface(a.subspan(offset + 1), colour, opcode == 26 || opcode == 27 || opcode == 62 ? a[0] : -1, false, false, opcode == 62);
         continue;
       }
@@ -427,7 +434,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         surface(opcode == 115 || opcode == 80 || opcode == 47 ? a.subspan(1) : a, opcode == 47 ? 112 : colour, -1, opcode == 47, false);
         continue;
       }
-      if(opcode == 74 || opcode == 84 || opcode == 86 || opcode == 87 || opcode == 88 || opcode == 89 || opcode == 118) continue;
+      if(opcode == 74 || opcode == 86 || opcode == 87 || opcode == 88 || opcode == 89 || opcode == 118) continue;
       result.warnings.insert("shape opcode " + std::to_string(opcode) + " requires runtime context");
     }
   }};

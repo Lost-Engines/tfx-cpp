@@ -286,3 +286,8 @@ patterned pixel and procedural-state comparisons over 1,024 frames. Sparse
 skipped-row termination and empty-byte procedural consumption also retain their
 native rules, with another 2,048 patterned/near-clipped frames unchanged.
 Remaining model material-state operations and texture boundaries are next.
+
+Authored fixed-palette model effects now retain row-zero lookup, ink reuse and
+helper persistence, with 1,024 complete original model frames and live crash
+painter observation. Parameter-selected drawing state, specialised retained
+helpers and general texture edge/near-plane fidelity remain separate work.
