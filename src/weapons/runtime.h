@@ -56,7 +56,7 @@ struct runtime_callbacks {
   std::function<void(unsigned int,bool)> reset_visual{};
   std::function<void(active_projectile const&)> launched{};
   std::function<void(active_projectile const&)> target_cleared{};
-  std::function<void(active_projectile const&)> ground_impact{};
+  std::function<void(active_projectile const&,int16_t&)> ground_impact{};
   std::function<void(active_projectile&,uint16_t)> contacts{};
 };
 

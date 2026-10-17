@@ -2343,3 +2343,50 @@ The preceding tanker-collision increment was additionally compared across all
 **192 retail aircraft programs / 352,896 updates**, including each profile's
 forced fall. The observer-only double-Escape/parachute/recovery window check
 passes under sanitizers after the contact changes.
+
+### Projectile impact visuals and sample ordering
+
+Projectile ground contacts now bind the retained framebuffer classifier to the
+native temporary-effect pool. Ordinary stores select hit, miss or splash;
+cannon rounds select cannon hit, cannon miss or cannon splash instead. A valid
+cannon hit requests normal sample 14 before resetting its effect model. The
+separate player-owned explosion sample follows the original class and decoy
+rules, including its cannon-splash distinction. Shots retire through the
+existing population pass. A terrain query that destroys a shot also creates
+clatter; all 33 retail TFX environments set the native bit enabling that path.
+
+Weapon record byte 30 now has its own `impact_effects` field. It is distinct
+from guidance category at byte 29. The nonsampling mode is used by chaff, flares
+and cargo. The original bypasses classification there and reads the prior local
+word. Adjacent `0xa373c`/`0xa31cc` calls have matching stack layouts: their
+terrain-world and classifier locals alias. Four complete adjacent-call cases
+establish base/upper world IDs 0/1 in that slot; both make the same non-water
+sound decision. C++ starts each substep with that equivalent class and retains
+subsequent classifier results explicitly, without reading uninitialized memory.
+The output comparison also supplies arbitrary prior words to cover the branch
+itself. Complete surrounding-frame stack residue is outside that capture;
+chaff/flare suppress the sound and authored AI cargo is not player-owned.
+
+All **27 decoded weapon definitions** agree on their independent guidance and
+impact fields. **8,192 native impact-output cases** agree in gates, inherited
+word, exact effect/model/sample order and shot retirement. They execute the
+real effect allocator and sample helper. **8,192 full original pixel
+classifiers** cover every palette byte in ordinary and cannon modes, along with
+projection failure, strict screen bounds and the water-world override; the
+existing **4,096 crash selectors** remain unchanged. A 512-case output fixture
+and the expanded pixel fixture run without game assets.
+
+Original `0x75030` is not a missing TFX flash/debris producer: it returns
+immediately whenever native environment bit 1 is set, including all retail TFX
+environments. The impact comparison executes that return rather than replacing
+it with an output stub. The separate flak/lighting effects still have active
+TFX consumers to restore.
+
+All **113 regressions**, native output cases and pixel/selector comparisons pass
+in development, Release and ASan/UBSan. A private controlled cannon scenario
+supplies a ground position and the already-compared terrain classification,
+then observes the actual runtime callback, cannon-effect spawn, scene handoff
+and next-pass shot retirement. It passes in development and sanitizers; it is
+explicitly a supplied-input integration case, not a naturally reached hit or a
+complete pixel comparison. Original framebuffer-page age and world-renderer
+fidelity remain separate boundaries.

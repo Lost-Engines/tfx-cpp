@@ -115,6 +115,9 @@ void runtime::advance(simulation::timer_ticks const elapsed, math::random_state 
   while(auto const ticks{clock.next()}) {
     substep = *ticks;
     begin_warning_step(warnings,*ticks);
+    // Native contact processing shares this stack word with the next motion
+    // pass. Retail base/upper world IDs are 0/1, both non-water sound classes.
+    int16_t ground_appearance{0};
     auto *slot{first};
     unsigned int budget{static_cast<unsigned int>(slots.size()) * 4096u};
     while(slot) {
@@ -152,7 +155,7 @@ void runtime::advance(simulation::timer_ticks const elapsed, math::random_state 
           if(warning && callbacks.warning) callbacks.warning(*warning);
         }
         if(ground_effects && shot.state.position.y >= 0) {
-          if(callbacks.ground_impact) callbacks.ground_impact(shot);
+          if(callbacks.ground_impact) callbacks.ground_impact(shot,ground_appearance);
           shot.spent = true;
         }
       }
