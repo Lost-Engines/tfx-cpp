@@ -344,7 +344,9 @@ im.call(0xc86b4,limit=2000000)
 im.call(0xc756c,limit=2000000)
 im.call(0xc7588,limit=2000000)
 try:
- im.call(0x72588,eax=2,edx=0x400200,limit=100000000+args.frames*2000000)
+ # Dense missions can spend over 100 million original instructions in
+ # launch/arming alone. This is an execution bound, not a game-clock input.
+ im.call(0x72588,eax=2,edx=0x400200,limit=150000000+args.frames*2000000)
 except RuntimeError:
  # A bounded capture deliberately stops at the next real frame boundary;
  # it does not pretend that launch_game returned through a mission result.

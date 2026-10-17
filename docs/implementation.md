@@ -4798,3 +4798,45 @@ line-only fixture; this increment changes no production rendering behaviour.
 python3 tools/check_model_transforms.py --lines
 ctest --test-dir build --output-on-failure -R 'render.native_.*model_lines'
 ```
+
+### Launch fuel and retained inventory
+
+The wider retail-session sweep exposed a startup-order error in mission 604.
+Original player/engine initialisation (`0x8c184`, `0x95f3c`) precedes arming
+(`0x8b47c`): it reads the previous global pylon inventory. Fitting external
+tanks increases capacity without giving an already airborne aircraft extra
+fuel. Fresh mission 604 therefore starts with 4,000 fuel units, rather than the
+8,000 units incorrectly supplied by initialising from its newly fitted tanks.
+
+The host now retains the actual pylon inventory between flights and supplies
+it to the next physical initialisation. Current mounted stores are installed
+afterwards. Ordinary arming previews update store statistics; automatic
+`DEFAULT_WEAP` fitting skips that preview update until the first flight tick.
+Landed cold-start placement fills the current capacity later, after its
+initial mass calculation. These distinctions matter even in Arcade mode.
+
+`tools/capture_launch_stores.py` adds read-only entry observers to the ordinary
+complete-session harness. Its `launch.json` retains fuel, inventory and raw
+physical fields before/after the original arming calls. The C++ observer now
+also checks initial fuel and, when these additional observations are present,
+the pre-arming mass and capacity. No original game instructions or outcomes
+are replaced by these observations.
+
+All sixteen frames of mission 604 agree in all four flight models, including
+every indexed pixel. The landed tank-equipped mission 762 also agrees through
+sixteen Arcade frames, including its first-frame refill. A private-window
+campaign test completes an actual AMRAAM engagement, records 507 flight frames,
+passes both WNN introductions and replay, then reaches the next arming screen
+with the final live inventory retained. That campaign test checks host
+integration; it is not an original full-campaign equivalence claim. All 195
+regressions pass in development, Release and ASan/UBSan.
+
+Dense original mission launches can exceed the capture harness's former
+instruction bound before sixteen frames complete. Its bounded execution
+allowance is now larger; this changes no simulated timer or device input.
+
+```sh
+python3 tools/capture_launch_stores.py --mission 604 --flight-model realistic --output build/native-launch-604
+python3 tools/check_flight_session.py --mission 604 --flight-model realistic --frames 16 --native-capture build/native-launch-604 --strict-pixels
+python3 tools/check_training_engagement.py --campaign --recording
+```

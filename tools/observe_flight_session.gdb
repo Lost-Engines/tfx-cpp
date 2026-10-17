@@ -6,6 +6,7 @@ set print thread-events off
 python
 import hashlib
 import json
+import struct
 from pathlib import Path
 renderer_pointer=None
 player_model_pointer=None
@@ -32,6 +33,24 @@ def current_renderer():
    except (ValueError,gdb.error):frame=frame.older()
   if renderer_pointer is None:raise RuntimeError('No actual flight renderer in observed call stack')
  return renderer_pointer.dereference()
+class InitialReturn(gdb.FinishBreakpoint):
+ def __init__(self):
+  super().__init__(internal=True)
+  pointer=gdb.parse_and_eval('this')
+  # Materialise the address now: a lazy register-backed value can lose its
+  # location when initialise returns, especially in the sanitizer build.
+  self.player=gdb.Value(int(pointer)).cast(pointer.type)
+ def stop(self):
+  player=self.player.dereference()
+  bits=lambda value:struct.unpack('<Q',struct.pack('<d',float(value)))[0]
+  print('CPP_INITIAL '+json.dumps({'fuel':bits(player['physical']['powerplant']['fuel']),'mass':bits(player['physical']['data']['mass_kg']),'capacity':bits(player['physical']['stores']['fuel_capacity'])}))
+  return False
+end
+break tfx::flight::player_flight::initialise
+commands
+silent
+python InitialReturn()
+continue
 end
 set $navigation_flag = 0
 set $cheat = 0
@@ -235,12 +254,20 @@ print('CPP_PREFLIGHT '+json.dumps([int(origin[axis]) for axis in ('x','y')]))
 end
 continue
 end
-break tfx::cockpit::radio_ticker::show
+break *'tfx::cockpit::radio_ticker::show(std::basic_string_view<char, std::char_traits<char> >, bool)'
 commands
 silent
 python
 message=gdb.parse_and_eval('message')
-raw=bytes(gdb.selected_inferior().read_memory(int(message['_M_str']),int(message['_M_len'])))
+try:
+ address=int(message['_M_str']);length=int(message['_M_len'])
+except gdb.error:
+ # GCC's sanitizer debug information can omit this mutated parameter.
+ # At the exact function entry, GNU x86-64 passes string_view's length
+ # and pointer in RSI/RDX. Read them without changing the inferior.
+ if gdb.newest_frame().architecture().name()!='i386:x86-64':raise
+ length=int(gdb.parse_and_eval('$rsi'));address=int(gdb.parse_and_eval('$rdx'))
+raw=bytes(gdb.selected_inferior().read_memory(address,length))
 print('CPP_RADIO '+json.dumps({'frame':flight_frame+int(bool(virtual_devices and virtual_devices['input_pending'])),'message':raw.decode('latin1'),'persistent':bool(gdb.parse_and_eval('repeat'))}))
 end
 continue
