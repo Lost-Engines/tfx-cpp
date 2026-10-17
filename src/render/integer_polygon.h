@@ -10,6 +10,15 @@ struct indexed_vertex {
   uint16_t shade_q8;
 };
 
+struct polygon_span {
+  int16_t row;
+  int16_t left;
+  int16_t right;
+};
+// Ascending native scanlines, including empty spans so bottom-relative drawing
+// phases remain intact. Consumers can traverse backwards like the VGA painter.
+std::vector<polygon_span> integer_polygon_spans(std::span<vec2<int16_t> const> vertices, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum);
+
 // Original Gouraud path: interpolate authored 8.8 palette indices, then remap.
 void integer_gouraud_polygon(framebuffer &output, std::span<indexed_vertex const> vertices, colour_map const &remap, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum);
 

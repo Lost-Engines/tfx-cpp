@@ -234,3 +234,10 @@ frame-tail decisions in the interactive order. All retail missions pass
 Longer neutral flights exercise real loss/FINISH and retained render state.
 These supplied-input C++ runs complement the isolated original comparisons;
 original complete-session traces and successful campaign coverage remain.
+
+
+Unrounded patterned model faces now share the verified integer near clipping
+and edge table. All nine pattern/logical modes agree through complete VGA
+frames and procedural states, including their sparse endpoint/phase rules
+and the original narrow-span line-stipple quirk. Rounded/textured edges,
+full actor transforms, shadows and complete scene scheduling remain open.

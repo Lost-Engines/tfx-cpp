@@ -6,6 +6,9 @@
 
 namespace tfx::render {
 
+// Restore native camera coordinates and project/near-clip an unshaded face.
+std::optional<std::vector<vec2<int16_t>>> project_model_face(std::span<models::model_vertex const> vertices, camera const &view);
+
 // Project flat/Gouraud model faces through native Q16 projection and integer screen
 // clipping, including native near-plane crossings. Returns false for inspection
 // cameras, out-of-range coordinates or the separate far-plane path; no pixels
