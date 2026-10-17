@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise land/water crash handoffs in a private silent window.
+"""Exercise land/water and solid-contact crash handoffs in a private silent window.
 
 Unlike observer-only input checks, this deliberately seeds one collision at the
 loss boundary through GDB. It changes only the private process's test scenario;
@@ -18,7 +18,7 @@ p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--data-dir',type=Path,required=True)
 p.add_argument('--screenshot-dir',type=Path)
 a=p.parse_args()
-for label,mission,collision in [('land','501',2),('water','504',1)]:
+for label,mission,collision in [('land','501',2),('water','504',1),('contact','602',0)]:
  with tempfile.TemporaryDirectory(prefix='tfx-crash-'+label+'-') as temporary:
   directory=Path(temporary);install=directory/'TFX';install.mkdir()
   for name in ('DID.DAT','TFX.DAT'):(install/name).symlink_to((a.data_dir/name).resolve())
@@ -42,6 +42,17 @@ for label,mission,collision in [('land','501',2),('water','504',1)]:
     'commands','silent','printf "TFX_CRASH_PLACED\\n"','disable 4','continue','end',
     'break tfx::cockpit::view_camera::advance if views.state.current == tfx::cockpit::view_mode::impact_orbit && context.impact_target_q8._M_payload._M_engaged',
     'commands','silent','printf "TFX_CRASH_CAMERA\\n"','disable 5','continue','end','run']
+   if label=='contact':
+    script=['set pagination off','set confirm off','set startup-with-shell off','set print thread-events off','set $selected = 0',
+     'break tfx::world::resolve_player_contact','commands','silent',
+     'set context.destroyed = true','set context.previously_destroyed = false',
+     'printf "TFX_CRASH_SEEDED\\n"','disable 1','continue','end',
+     'break tfx::missions::progress::begin_contact_explosion','commands','silent',
+     'set $selected = 1','printf "TFX_CRASH_SELECTED\\n"','disable 2','continue','end',
+     'break tfx::world::scene::place_actor if $selected','commands','silent',
+     'printf "TFX_CRASH_PLACED\\n"','disable 3','continue','end',
+     'break tfx::cockpit::view_camera::advance if views.state.current == tfx::cockpit::view_mode::unbanked_chase',
+     'commands','silent','printf "TFX_CRASH_CAMERA\\n"','disable 4','continue','end','run']
    if label=='water':
     # Put the controlled sea impact clear of the starting carrier, so the splash is visible.
     at=script.index('set context.collision = true')
@@ -70,7 +81,7 @@ for label,mission,collision in [('land','501',2),('water','504',1)]:
      a.screenshot_dir.mkdir(parents=True,exist_ok=True);run('import','-window',window,str((a.screenshot_dir/(label+'.png')).resolve()))
     tap('Shift_L+q');game.wait(timeout=15);text=log.read_text()
     assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
-    print(f'Private {label} crash scenario passes: seeded collision {collision}, original selector, placed upright authored model, player impact-orbit target, rendered animation and clean exit',flush=True)
+    print(f'Private {label} crash scenario passes: seeded contact, original model selection, authored effect placement, selected loss camera, rendered animation and clean exit',flush=True)
   finally:
    for process in (game,display):
     if process is not None and process.poll() is None:
