@@ -30,6 +30,7 @@ struct player_loss_context {
 };
 struct player_loss_effects {
   bool first_loss{false};
+  bool first_impact{false};
   bool explosion{false};
   bool mayday{false};
 };

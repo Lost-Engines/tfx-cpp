@@ -34,6 +34,7 @@
 #include "flight/mouse_input.h"
 #include "flight/damage.h"
 #include "flight/defence.h"
+#include "world/impact.h"
 #include "flight/ejection_sequence.h"
 #include "flight/simple.h"
 #include "flight/fuel_gauge.h"
@@ -234,6 +235,16 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   std::array<char const*,3> constexpr player_definitions{"efa","f_117a","f_22"};
   auto const aircraft_visual{scene.create_actor(player_definitions.at(std::to_underlying(player.aircraft) - 1),{0,0,0},{0,0,0})};
   auto const pilot_visual{scene.create_actor("man",{0,0,0},{0,0,0})};
+  struct crash_models {
+    tfx::world::scene_handle land;
+    tfx::world::scene_handle water;
+  };
+  crash_models const crashes{
+    .land{scene.create_actor("crash",{0,0,0},{0,0,0})},
+    .water{scene.create_actor("plop",{0,0,0},{0,0,0})},
+  };
+  for(auto const handle : {crashes.land,crashes.water}) scene.show_actor(handle,false);
+  std::optional<tfx::render::point_projection> impact_projection;
   auto player_visual{aircraft_visual};
   scene.show_actor(aircraft_visual,false);
   scene.show_actor(pilot_visual,false);
@@ -541,7 +552,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(ground_designation) context.tracking_target_q8.emplace(vec3<int32_t>{designated_point});
     else if(seeker.guidance && air_simulation.aircraft()[*seeker.guidance]) context.tracking_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*seeker.guidance]->flight.pose.position});
     else if(radar.selected && air_simulation.aircraft()[*radar.selected]) context.tracking_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*radar.selected]->flight.pose.position});
-    if(impact_aircraft && air_simulation.aircraft()[*impact_aircraft]) context.impact_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*impact_aircraft]->flight.pose.position});
+    if(player_disabled) context.impact_target_q8.emplace(vec3<int32_t>{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)});
+    else if(impact_aircraft && air_simulation.aircraft()[*impact_aircraft]) context.impact_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*impact_aircraft]->flight.pose.position});
     if(context.impact_target_q8) context.observed_target_q8.emplace(vec3<int32_t>{*context.impact_target_q8});
     else if(seeker.guidance && air_simulation.aircraft()[*seeker.guidance]) context.observed_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*seeker.guidance]->flight.pose.position});
     else if(context.tracking_target_q8) context.observed_target_q8.emplace(vec3<int32_t>{*context.tracking_target_q8});
@@ -699,6 +711,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     simple_body = simple_mode;
     player_visual = aircraft_visual;
     scene.show_actor(pilot_visual,false);
+    for(auto const handle : {crashes.land,crashes.water}) scene.show_actor(handle,false);
+    impact_projection.reset();
     radio.clear();
     camera_missile.reset();
     impact_aircraft.reset();
@@ -963,10 +977,22 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       if(loss.first_loss) {
         if(sound) sound->music_cue(audio::music_cue_id::aircraft_lost);
         scene.actor_event(player_visual,21);
+        views.enqueue(tfx::cockpit::view_mode::impact_orbit,player.fixed_speed);
       }
       if(loss.explosion && sound) {
         if(loss.mayday) sound->sequence(audio::sample_priority::normal,{std::to_underlying(audio::sample_id::aircraft_explosion),std::to_underlying(audio::sample_id::mayday)});
         else sample(audio::sample_priority::normal,audio::sample_id::aircraft_explosion);
+      }
+      if(loss.first_impact) {
+        bool const water_world{environment.lighting.water_world};
+        auto const point{impact_projection ? impact_projection->integer(player.integer_position) : std::nullopt};
+        auto const surface{tfx::world::classify_impact(renderer.output,point,water_world)};
+        auto const appearance{tfx::world::select_crash_appearance(player.collision,scene.terrain_type(player.integer_position),surface,water_world)};
+        scene.show_actor(player_visual,false);
+        player_visual = appearance == tfx::world::crash_appearance::water ? crashes.water : crashes.land;
+        scene.actor_event(player_visual,0);
+        player.angles = {0,0,0};
+        scene.place_actor(player_visual,vec3d{player.position},player.angles);
       }
     }
     projectiles.advance(elapsed,air_simulation.random_stream());
@@ -1315,6 +1341,19 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         frame_colours = *upload == tfx::render::palette_bank::infrared ? &infrared_colours : &colours;
       }
     }
+    if(!inspect) {
+      tfx::render::point_projection projected_view{
+        .matrix{},
+        .position_q16{vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{view.position * 65536}}}},
+        .origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
+      };
+      // Recover the exact Q15 rows for native cameras; the designator's current camera supplies its own rows.
+      for(unsigned int row{0}; row != 3; ++row) {
+        auto const &axis{row == 0 ? view.right : row == 1 ? view.down : view.forward};
+        for(unsigned int column{0}; column != 3; ++column) projected_view.matrix.data[row * 3 + column] = static_cast<int32_t>(axis[column] * tfx::math::matrix_unit);
+      }
+      impact_projection.emplace(projected_view);
+    }
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
     queue_projectiles();
@@ -1353,7 +1392,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         renderer.text(100,160,std::format("ZOOM {}",designator.zoom),hud_colour);
       }
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
-      if(player_disabled) renderer.text(120,92,"AIRCRAFT LOST",hud_colour);
       flight_frame = renderer.output;
       if(!designator_view && views.value().ready) {
         views.consume();

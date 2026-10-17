@@ -22,7 +22,7 @@ int main(int const argc, char const *const argv[]) try {
       .invulnerable{invulnerable != 0},
       .height{height},
     })};
-    std::vector<int64_t> values{state.player_ejected,state.impact_started,state.death_ticks,state.ended,std::to_underlying(state.outcome),std::to_underlying(state.status),effects.first_loss,effects.explosion};
+    std::vector<int64_t> values{state.player_ejected,state.impact_started,state.death_ticks,state.ended,std::to_underlying(state.outcome),std::to_underlying(state.status),effects.first_loss,effects.first_impact,effects.explosion};
     if(effects.explosion) {
       values.insert(values.end(),{1,effects.mayday ? 2 : 1,std::to_underlying(tfx::audio::sample_id::aircraft_explosion)});
       if(effects.mayday) values.push_back(std::to_underlying(tfx::audio::sample_id::mayday));

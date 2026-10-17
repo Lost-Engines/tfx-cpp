@@ -2120,3 +2120,43 @@ retains state and audio outputs together. This comparison and all **105
 asset-free regressions** pass in development, Release and ASan/UBSan. Crash
 model/palette classification, aftermath artwork and full loss-camera handoff
 remain separate integration work.
+
+
+### Land/water crash models and player-loss camera
+
+First impact now exposes its own transition effect. The live caller selects the
+original `crash` or `plop` assembly, restarts its authored stream, hides the old
+aircraft and places the effect with cleared Euler angles. Native collision 2
+forces the land choice; a sea-classified terrain definition, classified water
+pixel or water-world flag selects the splash otherwise. The separate native
+water-world field is used; renderer detail flags are not environment flags.
+The old diagnostic `AIRCRAFT LOST` overlay has been removed.
+
+First loss now queues the original impact-orbit view (25). Its target follows the
+player's world-integer snapshot converted to Q8, as native `0x7d270` does; it
+cannot accidentally continue following an earlier enemy kill. Both crash models
+have named ownership and restart with a new mission. The existing disabled
+flight controller continues to own post-collision motion.
+
+`check_impact.py` executes **4,096 complete native `0x7da20` classifications**
+with supplied projection/pixel access, covering every palette byte, projection
+failure, strict screen boundaries and the water-world override. Another **4,096
+complete native loss handlers** check crash selection, the absent-terrain
+sentinel, terrain type, sampled surface, the collision-2 override, zeroed angles
+and the 200-tick countdown start. An asset-free fixture retains all palette
+bytes plus representative boundary/selector cases. The existing 4,096 loss cases
+now additionally observe the first-impact transition and confirm the exact
+first-loss camera-25 request alongside music/model/audio effects.
+
+The host samples its retained indexed framebuffer through the retained view's
+Q15 point projection. Original frame-page age and complete world-renderer
+fidelity remain open; these supplied-input comparisons do not establish them.
+
+Private silent X11 scenarios deliberately seed a collision through GDB, then
+observe the live selector, upright effect placement and player impact-orbit
+target. These are explicitly controlled integration cases, unlike observer-only
+input tests. Land and open-water handoffs render and exit cleanly in development
+and ASan/UBSan. All **106 asset-free regressions**, original classifier/selector
+cases and the extended loss cases pass in development, Release and ASan/UBSan.
+This closes the basic crash-model/camera binding; palette flashes, debris and
+broader aftermath/session rendering still have separate consumers to integrate.
