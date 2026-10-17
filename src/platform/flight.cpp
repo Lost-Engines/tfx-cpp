@@ -121,6 +121,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   if(environment.lighting.cloud_layer) upper_environment = std::make_unique<tfx::world::environment>(game,environment.lighting.upper_grid,environment.lighting_name);
   tfx::world::scene scene{environment,assets,upper_environment.get()};
   auto &sky_state{options.sky};
+  auto &ground_phase{options.ground_phase};
   bool sky_animation{false};
   tfx::render::software_renderer renderer{tables}, camera_renderer{tables};
   tfx::missions::timeline mission_time{mission_setup};
@@ -905,6 +906,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .surface_celsius{surface_celsius()},
     },mission_setup.speed_factor,wind_parameters,player_damage,air_simulation.random_stream());
     player.crashing = preferences.effects.crashing != 0;
+    view_motion.initialise_ground_reference(player.integer_position);
   }};
   auto const flight_audio{[&] {
     return audio::flight_audio_state{
@@ -1036,6 +1038,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     })};
     if(preferences.effects.g_force != tfx::configuration::g_effects::none) tfx::render::advance_g_effects(g_effects,simple_player.displayed_g_load,preferences.effects.g_force,elapsed);
     else g_effects = {};
+    if(update.horizon_motion) ground_phase.advance(*update.horizon_motion);
     bool const landing_callback{update.callback == tfx::flight::player_callback::automatic_landing};
     for(auto const id : update.gear_sounds) sample(audio::sample_priority::urgent,id);
     for(auto const change : update.aerodynamic.recovery_changes) if(change == flight::aerodynamic_recovery_change::engaged) sample(audio::sample_priority::urgent,audio::sample_id::recovery);
@@ -1383,7 +1386,15 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       scene_displays.draw(renderer,side,page,display.offset,camera_state,[&](tfx::cockpit::scene_camera_request const &request) {
         auto camera{request.view()};
         camera.far_distance = scene_radius * tfx::world::cell_units;
-        camera_renderer.background(camera,0,32);
+        tfx::render::paint_horizon(camera_renderer.output,{
+          .pitch{request.angles.x},
+          .roll{request.angles.z},
+          .camera_y{tfx::math::signed_word(static_cast<uint16_t>(request.position.y))},
+          .ground_phase{ground_phase.sample()},
+          .minimum{vec2<int16_t>{request.minimum}},
+          .maximum{vec2<int16_t>{request.maximum}},
+          .origin_y{static_cast<int16_t>(camera.projection_origin.y)},
+        });
         queue_projectiles();
         scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); },request.position.y);
         // The current world painter renders a whole software target; copy its viewport
@@ -1514,15 +1525,23 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       renderer.text(140,80,"PAUSED",15);
       return;
     }
+    int16_t const horizon_phase{ground_phase.sample()};
     if(!inspect && !result_evaluated) update_refuelling();
     if(!inspect && !designator_view) {
       if(!tables.instruments().viewports[view_index()].panel.empty()) cockpit_position.move_to(cockpit_frame.clamp(view_index(),cockpit_position.value()));
       views.offset(cockpit_position.value());
       if(!view_motion.advance(views,camera_context())) throw std::runtime_error{"unimplemented flight camera"};
+      if(auto const movement{view_motion.last_pose().ground_motion}) ground_phase.advance(*movement);
       auto const entry{view_motion.last_pose().player_model_entry};
       scene.show_actor(player_visual,entry.has_value());
       if(entry) scene.actor_event(player_visual,*entry);
-    } else scene.show_actor(player_visual,false);
+    } else {
+      scene.show_actor(player_visual,false);
+      if(!inspect && designator_view) {
+        view_motion.advance_ground_reference(camera_context());
+        if(auto const movement{view_motion.last_pose().ground_motion}) ground_phase.advance(*movement);
+      }
+    }
     if(ejection.value().stage == tfx::flight::ejection_stage::pilot) scene.show_actor(aircraft_visual,true);
     auto view{inspect ? tfx::render::inspection_camera(position,heading,pitch) : designator_view ? flight_view() : view_motion.last_pose().camera(cockpit_frame.projection_origin(view_index(),cockpit_position.value()))};
     if(!inspect && designator_view) {
@@ -1593,7 +1612,20 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
     }
     view.far_distance = scene_radius * tfx::world::cell_units;
-    renderer.background(view,0,32);
+    if(inspect) renderer.background(view,0,32);
+    else if(designator_view || view_motion.last_pose().horizon_angles) {
+      auto const angles{designator_view ? vec2<tfx::math::angle>{static_cast<tfx::math::angle>(-designator.pitch),0} : vec2<tfx::math::angle>{*view_motion.last_pose().horizon_angles}};
+      auto const &layout{tables.instruments().viewports[view_index()]};
+      tfx::render::paint_horizon(renderer.output,{
+        .pitch{angles.x},
+        .roll{angles.y},
+        .camera_y{designator_view ? tfx::math::signed_word(static_cast<uint16_t>(static_cast<int32_t>(std::floor(view.position.y)))) : view_motion.last_pose().horizon_camera_y},
+        .ground_phase{horizon_phase},
+        .maximum{tfx::render::screen_width - 1,static_cast<int16_t>(layout.bottom + (layout.panel.empty() ? 0 : cockpit_position.value().y))},
+        .origin_y{static_cast<int16_t>(view.projection_origin.y)},
+        .projection_shift{views.value().current == tfx::cockpit::view_mode::missile_infrared ? vec2<unsigned int>{9u,9u} : vec2<unsigned int>{8u,8u}},
+      });
+    }
     queue_projectiles();
     scene.set_query_reference(inspect ? nullptr : &player.integer_position);
     scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y});

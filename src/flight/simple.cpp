@@ -180,6 +180,7 @@ simple_update advance_simple(simple_state &state, simple_inputs const &inputs, s
   }
   state.first_update = false;
   return {
+    .horizon_motion{math::signed_word(static_cast<uint16_t>(truncate(static_cast<calculation>(flight.movement_per_tick))))},
     .gear_sounds{std::move(gear_sounds)},
   };
 }

@@ -72,6 +72,7 @@ void update_basic_disabled(arcade_state &state, flight_controls const &controls,
 void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {});
 struct arcade_update {
   vec3f movement_origin;
+  int16_t horizon_motion{0};
 };
 // Native Arcade overwrites the outer movement snapshot after ground/gear
 // adjustments, immediately before translation. The frame tail measures from it.

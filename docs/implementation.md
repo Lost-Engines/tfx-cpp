@@ -2703,3 +2703,55 @@ Release and ASan/UBSan. All **128 retail mission scenes** also run 64 integrated
 steps, with only the same two pre-existing unavailable-vertex notes. The original
 horizon bands, precipitation, full renderer eligibility/lighting and complete
 sessions remain open.
+
+
+### Original banded horizon and moving ground phase
+
+Live flight and scene displays now paint the native `0xcaf84` backdrop instead
+of the inspector's flat horizon. It retains the original sky/ground palette
+bands, altitude-dependent projected boundaries, steep-pitch fill, banked edge
+caps and inverted views. No RGB interpolation or new atmosphere is introduced.
+The missile nose horizon uses its native projection shift. Free scene
+inspection retains its independent simple backdrop.
+
+The horizon's solid polygon path now has the original signed-word winding,
+bounding-span overflow clamp, bottom/top/right/left clipping order, farther-end
+IDIV intersection rounding, reciprocal Q16 edges, half-step bias and inclusive
+spans. These routines are separate from the still-in-progress general model
+painter. **8,192 complete original surface programs** agree in every emitted
+vertex/index, with **1,024 complete original VGA frames** matching pixel for
+pixel. A further **192 wider-projection VGA frames** agree. Raster callbacks
+execute unchanged; only the camera/viewport/phase and video aperture are
+supplied. Compact surface and complete-pixel hashes run without game assets.
+
+**8,192 complete original ground-phase updates** also agree. The counter is a
+word, with a separate adjacent period-mode word; updating the counter must not
+overwrite that mode. Signed movement shifts, word comparisons and the original
+single period correction remain. Arcade and Simple supply their own movement
+notifications; the camera supplies its separately rotated horizontal-distance
+notification except in chase view. The horizon consumes the phase before that
+camera update, matching the original frame order.
+
+The camera now exposes whether a horizon was actually submitted, its angles,
+and the camera height at that submission. Tactical, unbanked chase and ejection
+views draw before installing their new translation; a missing impact target can
+skip the horizon for one transition frame. **12,288 complete original camera
+updates** agree in these handoffs, ground-motion inputs and retained reference,
+alongside the existing pose/matrix/queue state. **4,608 complete player updates**
+across 48 initialized scenes and manual/autopilot/model handovers additionally
+agree in the actual phase state, covering all four flight models and disabled
+paths. Numerical flight helpers and their original phase consumer execute.
+
+All **127 regressions**, complete surface/phase cases and camera/player handoffs
+pass in development, Release and ASan/UBSan. Controlled normal-projection VGA
+frames pass in each configuration; the larger 1,024-frame and wide captures use
+development, with compact pixel fixtures checked in all three. All **128 retail
+missions** additionally render and run 64 integrated steps, retaining only the
+same two unavailable-vertex notes. Private silent camera switching passes in
+development and sanitizers.
+
+Reproduce with `tools/check_horizon.py`, `tools/check_horizon_pixels.py`,
+`tools/check_horizon_phase.py`, `tools/check_view_cameras.py --horizon` and
+`tools/check_player_flight.py --horizon --model-changes`. Complete world/MFD
+pixels, general model lighting/remaps, driver projection-mode configuration,
+precipitation and whole-session equivalence remain separate gates.

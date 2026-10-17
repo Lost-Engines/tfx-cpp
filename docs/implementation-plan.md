@@ -161,3 +161,11 @@ The original sun/lightning producers and one-shot lightning palette consumer
 are connected, with 16,384 complete original cases. Upper cloud scenery now
 uses the native frame's base/upper-grid selection and camera anchor, including
 height equality. The original banded horizon and precipitation remain next.
+
+
+The original altitude/bank-dependent horizon replaces the flat flight backdrop.
+Its complete projected surfaces, integer clipping/scan conversion and full VGA
+frames have native comparisons. Moving ground phase and the actual camera draw
+eligibility/height handoffs are also connected and checked through complete
+camera/player controllers. Precipitation and general world raster/lighting
+remain next.

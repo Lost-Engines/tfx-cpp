@@ -17,9 +17,16 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--refuelling',action='store_true',help='exercise all four refuelling model phases')
+parser.add_argument('--horizon',action='store_true',help='observe the native background pitch/roll handoff')
 parser.add_argument('--split-basis',action='store_true',help='supply distinct physics and renderer bases as used by Simple flight')
 a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');base=im.layout['objects'][0]['preferred_base']
-for address,reason in [(0x94efc,'Supply the player pose without the separate navigation-contact controller.'),(0xca780,'Exclude world-painter mode configuration; native camera matrix setters still execute.'),(0xca6fc,'Exclude missile-camera world-painter mode configuration.'),(0xb6ea4,'Exclude forwarding player angles into the model renderer.'),(0xb4fd0,'Exclude forwarding the player model into the scene queue.'),(0xcac04,'Exclude weather-distance advancement after the completed camera update.'),(0x90320,'Exclude forwarding the player pose into the model renderer.')]:im.intercept(address,reason,lambda im:im.return_from())
+for address,reason in [(0x94efc,'Supply the player pose without the separate navigation-contact controller.'),(0xca780,'Exclude world-painter mode configuration; native camera matrix setters still execute.'),(0xca6fc,'Exclude missile-camera world-painter mode configuration.'),(0xb6ea4,'Exclude forwarding player angles into the model renderer.'),(0xb4fd0,'Exclude forwarding the player model into the scene queue.'),(0x90320,'Exclude forwarding the player pose into the model renderer.')]:im.intercept(address,reason,lambda im:im.return_from())
+horizon_angles=[];ground_motion=[]
+if a.horizon:
+    im.intercept(0x8fcd4,'Observe native horizon pitch/roll from the complete camera controller; its complete geometry/VGA consumer is checked separately.',lambda im:(horizon_angles.append([im.cpu.reg_read(r.UC_X86_REG_EAX)&65535,im.cpu.reg_read(r.UC_X86_REG_EDX)&65535,struct.unpack('<h',im.cpu.mem_read(base+0x47c08,2))[0]]),im.return_from()))
+im.intercept(0xcac04,'Observe native ground-phase movement after the completed camera update; its exact counter is checked separately.',lambda im:(ground_motion.append(im.cpu.reg_read(r.UC_X86_REG_EAX)&65535),im.return_from()))
+if a.horizon:
+    im.intercept(0xcaf84,'Observe the direct missile-nose horizon call; geometry/VGA rendering has separate checks.',lambda im:(horizon_angles.append([im.cpu.reg_read(r.UC_X86_REG_EAX)&65535,im.cpu.reg_read(r.UC_X86_REG_EDX)&65535,struct.unpack('<h',im.cpu.mem_read(base+0x47c08,2))[0]]),im.return_from()))
 model_entries=[]
 im.intercept(0xb52d4,'Record the native player-model entry request without loading its SSD resource.',lambda im:(model_entries.append(im.cpu.reg_read(r.UC_X86_REG_EDX)&65535),im.return_from()))
 im.intercept(0x787fc,'Supply no fallback aircraft when neither an explicit ground nor air target is selected.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,0),im.return_from()))
@@ -57,6 +64,7 @@ if a.refuelling:
     for index,row in enumerate(cases):row.append(index%4)
 command=[str((a.build/'view_camera_probe').resolve())]
 if a.refuelling:command.append('--refuelling')
+if a.horizon:command.append('--horizon')
 if a.split_basis:command.append('--split-basis')
 output=subprocess.check_output(command,input=('\n'.join(' '.join(str(int(v)) for v in row) for row in cases)+'\n').encode()).decode().splitlines();assert len(output)==len(cases)
 for index,(row,line) in enumerate(zip(cases,output)):
@@ -67,9 +75,10 @@ for index,(row,line) in enumerate(zip(cases,output)):
     im.write(0x13b04,'<B',phase)
     reset,mode=row[:2];position=row[2:5];q8=row[5:8];angles=row[8:11];elapsed,pan,ground,low=row[11:15];basis=row[15:24];tracked,tx,ty,tz,observed,ox,oy,oz,speed,landing=row[24:34]
     if reset:
+        if a.horizon:im.cpu.mem_write(base+0x47c08,struct.pack('<h',0))
         distance,recenter,delay,tracking,target_distance,fx,fy,fz=row[45:53];orbit=row[53:62]
         im.call(0x8fc44);im.write(0x87ac,'<h',0);im.write(0x13494,'<3i',0,0,0);im.write(0x134ac,'<3H',0,0,0);im.write(0x13508,'<10h',*([0]*10));im.write(0x13578,'<h',0);im.write(0x87b6,'<h',mode);im.write(0x87b8,'<h',distance);im.write(0x1357c,'<h',recenter);im.write(0x1357e,'<h',delay);im.write(0x13580,'<h',tracking);im.write(0x87b4,'<h',target_distance);im.write(0x13520,'<3i',fx,fy,fz);im.write(0x87f0,'<9h',*orbit)
-        im.write(0x87ba,'<3h',0,0,0);im.write(0x87c0,'<3i',0,0,0);im.write(0x13590,'<2H',0,0);im.write(0x13588,'<H',0);im.write(0x134dc,'<i',0);im.write(0x1359c,'<i',position[0]);im.write(0x13594,'<i',position[2])
+        im.write(0x87ba,'<3h',0,0,0);im.write(0x87c0,'<3i',0,0,0);im.write(0x13590,'<2H',0,0);im.write(0x13588,'<H',0);im.write(0x134dc,'<i',0);im.write(0x1359c,'<i',position[0]);im.write(0x13598,'<i',position[1]);im.write(0x13594,'<i',position[2])
     missile,mx,my,mz,mp,mh,mr,impact,ix,iy,iz=row[34:45]
     im.write(0x16e70,'<I',0x310200 if missile else 0);im.cpu.mem_write(0x310208,struct.pack('<3i',mx,my,mz));im.cpu.mem_write(0x310220,struct.pack('<3H',mp,mh,mr))
     im.write(0x87dc,'<B',0)
@@ -80,7 +89,7 @@ for index,(row,line) in enumerate(zip(cases,output)):
     im.write(0x10f28,'<3i',*q8);im.write(0x86c8,'<3H',*angles);im.write(0x13476,'<H',elapsed);im.write(0x1358a,'<H',pan);im.write(0xabf2,'<h',ground);im.write(0xa4ea,'<B',low)
     im.cpu.mem_write(base+0x47c38,struct.pack('<9h',*basis));im.write(0x1345e,'<9h',*body)
     for field,value in zip((0x1341c,0x13428,0x13434),q8):im.write(field,'<f',value/256)
-    model_entries.clear()
+    model_entries.clear();horizon_angles.clear();ground_motion.clear()
     im.call(0x92144,limit=2000000)
     want=[]
     for field,fmt in [(0x87b8,'<h'),(0x1357c,'<h'),(0x1357e,'<h'),(0x87dc,'<B'),(0x87f0,'<9h'),(0x87ba,'<3h'),(0x87c0,'<3i'),(0x13590,'<2H'),(0x13588,'<H'),(0x87b0,'<h'),(0x87b2,'<h'),(0x87ae,'<h'),(0x134dc,'<i'),(0x134f0,'<i'),(0x134f8,'<i'),(0x13500,'<i')]:want.extend(im.read(field,fmt))
@@ -89,5 +98,8 @@ for index,(row,line) in enumerate(zip(cases,output)):
     assert len(model_entries)<=1,(index,model_entries)
     want += [model_entries[0] if model_entries else -1]
     for field,fmt in [(0x87b6,'<h'),(0x87b4,'<h'),(0x1358c,'<h'),(0x1358e,'<h'),(0x13508,'<10h'),(0x87ac,'<h'),(0x13580,'<h'),(0x1358a,'<H'),(0x13494,'<3i'),(0x134ac,'<3H'),(0x13520,'<3i')]:want.extend(im.read(field,fmt))
+    if a.horizon:
+        want += [1,*horizon_angles[-1]] if horizon_angles else [0,0,0,0]
+        want += [int(bool(ground_motion)),struct.unpack('<h',struct.pack('<H',ground_motion[-1]))[0] if ground_motion else 0,*[im.read(at,'<i')[0] for at in (0x1359c,0x13598,0x13594)]]
     got=list(map(int,line.split()));assert got==want,(index,row,[(n,x,y) for n,(x,y) in enumerate(zip(got,want)) if x!=y][:25],len(got),len(want))
 print(f'{len(modes)} cockpit, head/chase, missile/infrared and impact camera modes agree in {len(cases)} native pose/matrix updates with declared world/weather boundaries')

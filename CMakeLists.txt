@@ -334,6 +334,8 @@ add_library(tfx_core
   src/render/clipping.h
   src/render/sprites.cpp
   src/render/sprites.h
+  src/render/horizon.cpp src/render/horizon.h
+  src/render/integer_polygon.cpp src/render/integer_polygon.h
   src/render/software_renderer.cpp
   src/render/software_renderer.h
   src/math/native.cpp
@@ -544,6 +546,19 @@ if(BUILD_TESTING)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
 
+  add_executable(horizon_pixels_probe tests/horizon_pixels_probe.cpp)
+  target_link_libraries(horizon_pixels_probe PRIVATE tfx_core)
+  configure_first_party(horizon_pixels_probe)
+  add_test(NAME render.native_horizon_pixels COMMAND horizon_pixels_probe ${PROJECT_SOURCE_DIR}/tests/reference/horizon_pixels.txt)
+  add_test(NAME render.native_wide_horizon_pixels COMMAND horizon_pixels_probe ${PROJECT_SOURCE_DIR}/tests/reference/horizon_wide_pixels.txt)
+  add_executable(horizon_phase_probe tests/horizon_phase_probe.cpp)
+  target_link_libraries(horizon_phase_probe PRIVATE tfx_core)
+  configure_first_party(horizon_phase_probe)
+  add_test(NAME render.native_horizon_phase COMMAND horizon_phase_probe ${PROJECT_SOURCE_DIR}/tests/reference/horizon_phase.txt)
+  add_executable(horizon_probe tests/horizon_probe.cpp)
+  target_link_libraries(horizon_probe PRIVATE tfx_core)
+  configure_first_party(horizon_probe)
+  add_test(NAME render.native_horizon_surfaces COMMAND horizon_probe ${PROJECT_SOURCE_DIR}/tests/reference/horizon.txt)
   add_executable(sky_scene_probe tests/sky_scene_probe.cpp)
   target_link_libraries(sky_scene_probe PRIVATE tfx_core)
   configure_first_party(sky_scene_probe)
