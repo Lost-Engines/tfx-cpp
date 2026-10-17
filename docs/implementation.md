@@ -4773,3 +4773,28 @@ the untested missions, later encounters or complete campaign paths.
 python3 tools/check_mission_sessions.py --capture-only --output build/native-retail-sessions
 python3 tools/check_mission_sessions.py --native-root build/native-retail-sessions --output build/retail-sessions
 ```
+
+### Queued model lines through camera rotation and near clipping
+
+The existing original authored-line regression is supplemented by 1,024
+complete queued line-only programs, including 417 nonempty frames. Converter,
+queue constructor, component/view matrix composition, scaled cache, model
+program, projection, near-plane clipping, viewport clipping and VGA drawing
+all execute in the original. Every pixel and all nine Q15 basis words agree.
+Both apertures, behind/near/front endpoints, collapsed segments, all viewport
+edges and rotated models are covered. Inputs deliberately stay inside the
+original signed-word division domain; no faulted frames are used as evidence.
+
+The existing production line painter already agrees for these inputs, so no
+rendering change is needed. The additional 157 compact fixture rows retain
+synthetic inputs and matrix/frame hashes, alongside the original authored-line
+fixture. Older sprite-backed primitives and complete-session context retain
+their separate verification gates.
+
+All 195 regressions pass in development, Release and ASan/UBSan with the added
+line-only fixture; this increment changes no production rendering behaviour.
+
+```sh
+python3 tools/check_model_transforms.py --lines
+ctest --test-dir build --output-on-failure -R 'render.native_.*model_lines'
+```
