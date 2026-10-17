@@ -4672,3 +4672,14 @@ python3 tools/check_targeting_session.py --research ../tfx-reverse --build build
 
 All 192 regressions pass in development, Release and ASan/UBSan. The private
 designator window check passes in both development and the sanitizer build.
+
+### Original recording codec
+
+The original `.REC` encoder and bounded reader are implemented independently
+of the live renderer. Forty-eight complete original files/96 frames agree
+byte for byte; the original decompressor also restores all supplied fields.
+The codec retains the 348-slot queue layout, 255-byte fill/literal runs,
+2 KiB compression bound, resource-name dictionary and patched file offsets.
+Malformed/truncated file checks run in the asset-free suite. Live recording
+and the post-flight viewer are being connected separately. See
+[recording.md](recording.md) for the layout and original-execution boundaries.
