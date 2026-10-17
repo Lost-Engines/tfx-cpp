@@ -68,6 +68,16 @@ print('CPP_RENDER '+json.dumps({'sha256':hashlib.sha256(raw).hexdigest(),'patter
 end
 continue
 end
+break tfx::cockpit::radio_ticker::show
+commands
+silent
+python
+message=gdb.parse_and_eval('message')
+raw=bytes(gdb.selected_inferior().read_memory(int(message['_M_str']),int(message['_M_len'])))
+print('CPP_RADIO '+json.dumps({'frame':rendered_frames+1,'message':raw.decode('latin1'),'persistent':bool(gdb.parse_and_eval('repeat'))}))
+end
+continue
+end
 break tfx::render::framebuffer::screenshot
 commands
 silent

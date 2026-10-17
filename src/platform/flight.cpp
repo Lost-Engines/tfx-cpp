@@ -940,6 +940,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       },
       .surface_celsius{surface_celsius()},
     },mission_setup.speed_factor,wind_parameters,player_damage,options.session_random);
+    // Native player-SSD setup 0x7d736 changes only the landed integer Y;
+    // the float position and runway/carrier placement wait for the first update.
+    if(mission_setup.start.landed) {
+      int32_t constexpr initial_landed_visual_height{-3};
+      player.integer_position.y = initial_landed_visual_height;
+    }
     options.rain.initialise(options.session_random);
     player.crashing = preferences.effects.crashing != 0;
     // Native DATA 0x13594..0x1359c survives camera and mission resets.

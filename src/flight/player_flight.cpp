@@ -77,9 +77,13 @@ player_flight_events player_flight::advance(damage_state &damage, math::random_s
   math::floating_environment const environment;
   player_flight_events events;
   auto &view{basic.flight};
-  vec3f previous_position{view.position};
   bool const ejected{context.aircraft_disabled};
   capture_shared_player(physical,basic,damage,simple_body);
+  if(physical.cold_start) {
+    place_aerodynamic_start(physical,context.physics.ground_elevation_steps);
+    publish_shared_player(basic,physical);
+  }
+  vec3f previous_position{view.position};
   if(context.physics.refuelling_phase) {
     events.refuel_afterburner_warning = physical.powerplant.afterburner != 0;
     physical.powerplant.fuel = static_cast<double>(static_cast<calculation>(physical.powerplant.fuel) + context.refuel_per_update);

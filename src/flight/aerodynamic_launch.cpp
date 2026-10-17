@@ -51,28 +51,31 @@ aerodynamic_flight launch_aerodynamic_flight(aerodynamic_airframe const &aircraf
   state.data.fixed_speed = context.landed ? 0 : airborne_fixed_speed;
   state.powerplant.engine_factor = context.landed ? vec2d{0,0} : vec2d{1,1};
   state.powerplant.throttle = context.landed ? 0 : airborne_throttle;
-  if(context.landed) {
-    state.view.position.y = static_cast<float>(static_cast<calculation>(context.ground_elevation_steps) - basic_parameters(aircraft.stores_and_mounts.stores.aircraft).gear_height);
-    bool const advanced_setting{context.model == aerodynamic_model::military_spec || context.model == aerodynamic_model::realistic};
-    if(context.ground_elevation_steps < carrier_height_limit) {
-      if(advanced_setting) {
-        state.view.position.x = static_cast<float>(static_cast<calculation>(state.view.position.x) + carrier_start_offset.x);
-        state.view.position.z = static_cast<float>(static_cast<calculation>(state.view.position.z) + carrier_start_offset.y);
-        state.view.integer_position.x += static_cast<int32_t>(carrier_start_offset.x);
-        state.view.integer_position.z += static_cast<int32_t>(carrier_start_offset.y);
-      }
-    } else {
-      for(unsigned int axis : {0u,2u}) {
-        calculation const setback{static_cast<calculation>(math::signed_word(static_cast<uint16_t>(orientation.forward[axis]))) * normalised_word * runway_start_setback};
-        state.view.integer_position[axis] = truncate(static_cast<calculation>(state.view.integer_position[axis]) - setback);
-        state.view.position[axis] = static_cast<float>(static_cast<calculation>(state.view.position[axis]) - setback);
-      }
-    }
-    if(context.ground_elevation_steps >= carrier_height_limit || advanced_setting) state.reset_motion(context.ground_elevation_steps,true);
-    state.cold_start = false;
-  }
   state.autopilot.recovery.model_reset_requested = true;
   return state;
+}
+
+void place_aerodynamic_start(aerodynamic_flight &state, int16_t const ground_elevation_steps) {
+  math::floating_environment const environment;
+  if(!state.cold_start) return;
+  state.view.position.y = static_cast<float>(static_cast<calculation>(ground_elevation_steps) - basic_parameters(state.aircraft.stores_and_mounts.stores.aircraft).gear_height);
+  bool const advanced_setting{state.model == aerodynamic_model::military_spec || state.model == aerodynamic_model::realistic};
+  if(ground_elevation_steps < carrier_height_limit) {
+    if(advanced_setting) {
+      state.view.position.x = static_cast<float>(static_cast<calculation>(state.view.position.x) + carrier_start_offset.x);
+      state.view.position.z = static_cast<float>(static_cast<calculation>(state.view.position.z) + carrier_start_offset.y);
+      state.view.integer_position.x += static_cast<int32_t>(carrier_start_offset.x);
+      state.view.integer_position.z += static_cast<int32_t>(carrier_start_offset.y);
+    }
+  } else {
+    for(unsigned int axis : {0u,2u}) {
+      calculation const setback{static_cast<calculation>(math::signed_word(static_cast<uint16_t>(state.view.orientation.forward[axis]))) * normalised_word * runway_start_setback};
+      state.view.integer_position[axis] = truncate(static_cast<calculation>(state.view.integer_position[axis]) - setback);
+      state.view.position[axis] = static_cast<float>(static_cast<calculation>(state.view.position[axis]) - setback);
+    }
+  }
+  if(ground_elevation_steps >= carrier_height_limit || advanced_setting) state.reset_motion(ground_elevation_steps,true);
+  state.cold_start = false;
 }
 
 } // namespace tfx::flight
