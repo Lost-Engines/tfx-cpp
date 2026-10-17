@@ -25,6 +25,7 @@ struct definition {
   std::string secondary{};
   weapon_role role{weapon_role::air};
   uint8_t category{0};
+  bool impact_effects{true}; // Original byte 30; independent of guidance category at byte 29.
   int16_t mass{0};
   std::array<uint16_t,3> mount_masks{}; // Eurofighter, F-117, F-22; one bit per store slot.
   int32_t range{0};

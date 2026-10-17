@@ -544,6 +544,11 @@ if(BUILD_TESTING)
   configure_first_party(effects_probe)
   add_test(NAME world.native_temporary_effect_pool COMMAND effects_probe ${PROJECT_SOURCE_DIR}/tests/reference/effects.txt)
 
+  add_executable(projectile_impact_probe tests/projectile_impact_probe.cpp)
+  target_link_libraries(projectile_impact_probe PRIVATE tfx_core)
+  configure_first_party(projectile_impact_probe)
+  add_test(NAME world.native_projectile_impact_outputs COMMAND projectile_impact_probe ${PROJECT_SOURCE_DIR}/tests/reference/projectile_impact.txt)
+
   add_executable(impact_probe tests/impact_probe.cpp)
   target_link_libraries(impact_probe PRIVATE tfx_core)
   configure_first_party(impact_probe)

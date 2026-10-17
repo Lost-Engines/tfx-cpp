@@ -422,6 +422,20 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         if(current == shot.id) { current.reset(); threats[shot.target.actor->index].reset(); }
       }
     }},
+    .ground_impact{[&](tfx::weapons::active_projectile const &shot, int16_t &appearance) {
+      auto const position{projectile_world_position(shot.state.position)};
+      auto const &weapon{tables.weapons[shot.state.weapon]};
+      std::optional<tfx::world::effect_kind> sampled;
+      if(weapon.impact_effects) sampled = tfx::world::select_impact_effect(impact_surface(position),shot.state.weapon == std::to_underlying(tfx::weapons::weapon_id::cannon));
+      auto const result{tfx::world::select_projectile_impact(appearance,{
+        .weapon{shot.state.weapon},
+        .sample_surface{weapon.impact_effects},
+        .player_owned{shot.owner.pool == tfx::weapons::actor_pool::player},
+        .sampled_effect{sampled},
+      })};
+      if(result.visual) spawn_effect(position,*result.visual);
+      if(result.explosion) sample(audio::sample_priority::normal,audio::sample_id::aircraft_explosion);
+    }},
     .contacts{[&](tfx::weapons::active_projectile &shot,uint16_t const ticks) {
       auto const source{weapon_visuals[shot.state.weapon][shot.state.secondary]};
       auto const previous{projectile_world_position(shot.state.previous)}, current{projectile_world_position(shot.state.position)};
@@ -490,6 +504,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           else if(effects.notice == tfx::missions::terrain_loss_notice::violation) radio.show(tables.ground_orders_violation,true);
           if(shot.state.weapon == std::to_underlying(tfx::weapons::weapon_id::cbu55)) spawn_effect({current.x,0,current.z},tfx::world::effect_kind::boom);
         }
+        // Every retail TFX environment sets native environment bit 1, enabling
+        // clatter after a terrain query destroys the shot (0xa3a7c).
+        if(scene.actor_destroyed(source)) spawn_effect(current,tfx::world::effect_kind::clatter);
       }
       if(scene.actor_destroyed(source)) {
         shot.spent = true;

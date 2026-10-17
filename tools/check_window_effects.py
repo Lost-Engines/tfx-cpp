@@ -17,6 +17,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--data-dir',type=Path,required=True)
 p.add_argument('--mission',default='602')
+p.add_argument('--projectile',action='store_true',help='seed a cannon ground impact and supply its already compared terrain classification')
 a=p.parse_args()
 with tempfile.TemporaryDirectory(prefix='tfx-effects-') as temporary:
  directory=Path(temporary);install=directory/'TFX';install.mkdir()
@@ -42,6 +43,25 @@ with tempfile.TemporaryDirectory(prefix='tfx-effects-') as temporary:
    'printf "TFX_EFFECTS_POSITIONED\\n"','disable 3','continue','end',
    'break tfx::world::scene::draw if $spawned','commands','silent',
    'printf "TFX_EFFECTS_DRAWN\\n"','disable 4','continue','end']
+  if a.projectile:
+   script=['set pagination off','set confirm off','set startup-with-shell off','set print thread-events off','set $spawned = 0','set $classify = 0',
+    'break tfx::weapons::runtime::advance if this->first != 0','commands','silent',
+    'set this->first->value.state.position.y = 0','set this->first->value.state.speed = 0',
+    'set this->first->value.state.weapon = 0','set this->first->value.state.ticks = 100',
+    'set this->first->value.state.motion = tfx::weapons::flight_stage::falling_store',
+    'set $classify = 1','printf "TFX_EFFECTS_SEEDED\\n"','disable 1','continue','end',
+    'break tfx::world::classify_impact if $classify','commands','silent',
+    'printf "TFX_EFFECTS_CLASSIFIED\\n"','disable 2','return (tfx::world::impact_surface)0','continue','end',
+    'break tfx::world::effect_pool::spawn if kind == tfx::world::effect_kind::cannon_hit','commands','silent',
+    'set $spawned = 1','printf "TFX_EFFECTS_SPAWNED\\n"','disable 3','continue','end',
+    'break tfx::world::effect_position if $spawned','commands','silent',
+    'printf "TFX_EFFECTS_POSITIONED\\n"','disable 4','continue','end',
+    'break tfx::world::scene::draw if $spawned','commands','silent',
+    'printf "TFX_EFFECTS_DRAWN\\n"','disable 5','continue','end',
+    'break tfx::weapons::runtime::retire if slot.value.spent && slot.value.state.weapon == 0','commands','silent',
+    'printf "TFX_EFFECTS_RETIRED\\n"','disable 6','continue','end',
+    'break tfx::weapons::runtime::advance','commands','silent',
+    'printf "TFX_EFFECTS_READY\\n"','disable 7','continue','end']
   debugger=directory/'observe.gdb';debugger.write_text('\n'.join(script+['run'])+'\n');log=directory/'game.log'
   with log.open('w') as output:
    game=subprocess.Popen(['gdb','--quiet','--batch','-x',str(debugger),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',a.mission,'--scale','2'],env=env,stdout=output,stderr=subprocess.STDOUT)
@@ -58,10 +78,13 @@ with tempfile.TemporaryDirectory(prefix='tfx-effects-') as temporary:
     time.sleep(.05)
    if not window:raise RuntimeError(log.read_text()[-6000:])
    run('xdotool','windowfocus','--sync',window)
-   for label in ('SEEDED','SPAWNED','POSITIONED','DRAWN'):await_text(label)
+   if a.projectile:
+    await_text('READY')
+    run('xdotool','keydown','space');time.sleep(.15);run('xdotool','keyup','space')
+   for label in (('SEEDED','CLASSIFIED','SPAWNED','POSITIONED','DRAWN','RETIRED') if a.projectile else ('SEEDED','SPAWNED','POSITIONED','DRAWN')):await_text(label)
    run('xdotool','keydown','Shift_L+q');time.sleep(.15);run('xdotool','keyup','Shift_L+q');game.wait(timeout=15)
    text=log.read_text();assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
-   print('Private silent effect handoff passes: explicitly seeded aircraft impact, real actor effect request, pool spawn, word placement, world drawing and clean exit')
+   print(('Private silent controlled cannon impact and retirement pass' if a.projectile else 'Private silent aircraft impact pass') + ': explicitly supplied scenario, live effect request, pool spawn, word placement, world drawing and clean exit')
  finally:
   for process in (game,display):
    if process is not None and process.poll() is None:

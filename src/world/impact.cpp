@@ -1,6 +1,32 @@
 #include "impact.h"
+#include <utility>
+#include "weapons/definition.h"
 
 namespace tfx::world {
+
+std::optional<effect_kind> select_impact_effect(impact_surface const surface, bool const cannon) {
+  switch(surface) {
+    case impact_surface::terrain: return cannon ? effect_kind::cannon_hit : effect_kind::hit;
+    case impact_surface::structure: return cannon ? effect_kind::cannon_miss : effect_kind::miss;
+    case impact_surface::water: return cannon ? effect_kind::cannon_splash : effect_kind::splash;
+    case impact_surface::unknown: return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+projectile_impact_effects select_projectile_impact(int16_t &appearance, projectile_impact_context const &context) {
+  // Native 0xa3423: byte 30 selects the nonsampling chaff/flare/cargo mode,
+  // which inherits the preceding classifier word. Other stores replace it.
+  projectile_impact_effects effects;
+  if(context.sample_surface) {
+    effects.visual = context.sampled_effect;
+    appearance = effects.visual ? static_cast<int16_t>(std::to_underlying(*effects.visual)) : -1;
+  }
+  // Cannon splash is 5, so the original deliberately does not take water's
+  // ordinary class-2 sound exemption for cannon effects.
+  effects.explosion = appearance != -1 && appearance != std::to_underlying(effect_kind::splash) && context.player_owned && context.weapon != std::to_underlying(weapons::weapon_id::chaff) && context.weapon != std::to_underlying(weapons::weapon_id::flare);
+  return effects;
+}
 
 player_contact_effects resolve_player_contact(player_contact_context const &context) {
   // Native 0x7145d: contact entry 2 runs on a temporarily restored falling aircraft.

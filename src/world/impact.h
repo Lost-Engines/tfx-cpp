@@ -2,6 +2,7 @@
 
 #include <optional>
 #include "render/framebuffer.h"
+#include "world/effects.h"
 
 namespace tfx::world {
 
@@ -19,6 +20,20 @@ struct player_contact_effects {
   bool collision{false};
   bool release_motion_hold{false};
 };
+
+struct projectile_impact_context {
+  uint8_t weapon;
+  bool sample_surface;
+  bool player_owned;
+  std::optional<effect_kind> sampled_effect;
+};
+struct projectile_impact_effects {
+  std::optional<effect_kind> visual{};
+  bool explosion{false};
+};
+
+std::optional<effect_kind> select_impact_effect(impact_surface surface, bool cannon);
+projectile_impact_effects select_projectile_impact(int16_t &appearance, projectile_impact_context const &context);
 
 player_contact_effects resolve_player_contact(player_contact_context const &context);
 

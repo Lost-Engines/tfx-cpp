@@ -13,15 +13,21 @@ int main(int const argc, char const *const argv[]) try {
   char operation;
   while(input >> operation) {
     int value;
-    if(operation == 'P') {
+    if(operation == 'P' || operation == 'W') {
       unsigned int valid,pixel,water;
       int x,y;
       input >> valid >> x >> y >> pixel >> water;
+      unsigned int cannon{0};
+      if(operation == 'W') input >> cannon;
       tfx::render::framebuffer frame;
       if(x >= 0 && x < tfx::render::screen_width && y >= 0 && y < tfx::render::screen_height) frame.pixels[static_cast<unsigned int>(y * tfx::render::screen_width + x)] = static_cast<uint8_t>(pixel);
       std::optional<vec2<int16_t>> point;
       if(valid) point.emplace(static_cast<int16_t>(x),static_cast<int16_t>(y));
-      value = std::to_underlying(tfx::world::classify_impact(frame,point,water != 0));
+      auto const surface{tfx::world::classify_impact(frame,point,water != 0)};
+      if(operation == 'W') {
+        auto const effect{tfx::world::select_impact_effect(surface,cannon != 0)};
+        value = effect ? static_cast<int>(std::to_underlying(*effect)) : -1;
+      } else value = std::to_underlying(surface);
     } else if(operation == 'C') {
       int collision,type,surface;
       unsigned int present,water;

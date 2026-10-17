@@ -46,6 +46,11 @@ for index in range(4096):
  result=struct.unpack('<i',struct.pack('<I',result))[0]
  row=['P',valid,x,y,byte,water];rows.append(row);expected.append(result)
  if index<512 or index%31==0:fixtures.append(row+[result])
+ cannon=1
+ result=pixel_image.call(0x7da20,eax=1000,edx=(-100)&0xffffffff,ebx=2000,ecx=0 if cannon else 1)
+ result=struct.unpack('<i',struct.pack('<I',result))[0]
+ row=['W',valid,x,y,byte,water,cannon];rows.append(row);expected.append(result)
+ if index<512 or index%31==0:fixtures.append(row+[result])
 for index in range(4096):
  collision=rng.choice([1,2,-1,32767]);present=rng.randrange(2);kind=rng.choice([-1,0,1,2,50,56]);sample=rng.choice([-1,0,1,2]);water=rng.randrange(2)
  terrain[:]=[present,kind];surface[0]=sample
@@ -60,5 +65,5 @@ result=subprocess.check_output([str((a.build/'impact_probe').resolve())],input=(
 assert len(result)==len(expected)
 for index,(line,value) in enumerate(zip(result,expected)):assert int(line)==value,(index,rows[index],line,value)
 if a.record:a.record.write_text('\n'.join(' '.join(map(str,row))for row in fixtures)+'\n')
-print('4096 complete original impact classifiers agree: all palette bytes, strict screen bounds, projection failure and water-world override')
+print('8192 complete original impact classifiers agree: ordinary/cannon mapping, all palette bytes, strict screen bounds, projection failure and water-world override')
 print('4096 complete original crash selectors agree: terrain sentinel/type, sampled appearance, forced water, collision-2 override, cleared Euler angles and 200-tick start')
