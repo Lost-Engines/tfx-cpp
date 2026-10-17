@@ -2473,3 +2473,36 @@ cases pass in development, Release and ASan/UBSan. The private silent ejection
 check also completes ordinary double-Escape, authored seat release, parachute
 and recovery/FINISH after the correction; it is not a post-ejection projectile
 hit reproduction.
+
+
+### Flak cockpit shake and frame order
+
+The remaining flak callback is now connected to the shared cockpit-position
+controller. Close daytime bursts save the panel offset, restore the base before
+restarting an interrupted shake, and follow the original signed-word sequence
+from `0x6044`. Its sentinel ends the callback. Changing away from the forward
+cockpit cancels the shake and restores the saved offset. Raising/lowering the
+panel can replace that callback and updates the same saved position, as in the
+original. The saved-Y `-1` sentinel and conditional X restoration are retained.
+
+The frame loop now advances the existing cockpit callback before physics and
+the flak controller, matching native `0x720b8`. A newly requested shake
+therefore starts moving on the next frame. Panel, projection and HUD consumers
+already share this position. This restores positional feedback; it does not
+change fog, range lighting or aircraft forces. The separate aerodynamic ground
+bump callback and sun-glare producer remain unbound.
+
+`check_cockpit_shake.py` executes **8,192 complete original positioning
+callbacks** across repeated shakes, reset/restoration, raise/lower
+interruptions, camera changes, external offset changes and word-wrap/sentinel
+boundaries. Every observed offset, panel-step and callback state agrees. No
+numerical or state dependency is intercepted. The existing **2,048 original
+raise/lower steps** and all six instrument-start cases still agree. These
+checks load tables from the user's executable; full panel-pixel comparisons
+remain in their existing independent harness.
+
+All **115 regressions**, 8,192 shake cases and the existing positioning/setup
+comparisons pass in development, Release and ASan/UBSan. The private daytime
+flak test observes the live shake request, burst model and palette flash in
+development and sanitizers, then exits cleanly. Its region/height/random inputs
+remain explicitly controlled rather than a naturally reached flak encounter.

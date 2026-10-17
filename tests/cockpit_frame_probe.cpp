@@ -23,13 +23,19 @@ int main(int const argc, char const *const argv[]) try {
       for(auto const condition : state.systems) std::cout << ' ' << static_cast<unsigned int>(std::to_underlying(condition));
       std::cout << '\n';
     }
-  } else if(mode == "position") {
+  } else if(mode == "position" || mode == "position-shake") {
     tfx::cockpit::cockpit_position position{assets,{0,28}};
     unsigned int action{0}, view{0};
     while(std::cin >> action >> view) {
       if(action == 1) position.raise();
       if(action == 2) position.lower();
-      position.advance(assets.viewports.at(view).bottom);
+      if(mode == "position-shake") {
+        vec2<int16_t> requested;
+        if(!(std::cin >> requested.x >> requested.y)) throw std::runtime_error{"incomplete cockpit-shake input"};
+        if(action == 3) position.shake();
+        if(action == 4) position.move_to(requested);
+      }
+      position.advance(assets.viewports.at(view).bottom,view == 0);
       std::cout << position.value().x << ' ' << position.value().y << ' ' << position.step_index() << ' ' << std::to_underlying(position.movement()) << '\n';
     }
   } else if(mode == "frame") {

@@ -888,6 +888,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   }};
   auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed, double const physics_seconds, bool const fire = false, bool const release_store = false, bool const joystick_fire = false) {
     if(mission_progress.ended) return;
+    // Native 0x720b8 advances the previous cockpit callback before flight/flak.
+    cockpit_position.advance(tables.instruments().viewports[view_index()].bottom,views.value().current == tfx::cockpit::view_mode::cockpit);
     for(auto const index : mission_time.begin_frame()) {
       radio.show(mission_setup.messages[index].text);
     }
@@ -1171,10 +1173,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       if(event->sample) sample(audio::sample_priority::normal,audio::sample_id::nearby_flak);
       if(event->radio) radio.show(tables.flak_warning);
       flak_flash = event->flash;
+      if(event->flash) cockpit_position.shake();
       auto const slot{flak.spawn(*event)};
       scene.actor_event(flak_visuals[slot].at(event->model),0);
     }
-    cockpit_position.advance(tables.instruments().viewports[view_index()].bottom);
     refresh_sensors(elapsed);
   }};
   auto const finish_world{[&](tfx::simulation::timer_ticks const elapsed) {
@@ -1499,7 +1501,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     if(!inspect) {
       // Native 0x73838 supplies 40 for a new flak flash and otherwise 50.
-      // Sun-glare and the separate fog-lighting pulse retain their own callers.
+      // Sun glare retains its separate producer; flak also drives cockpit shake.
       if(!night_flak) palette_lighting.flash(flak_flash ? tfx::world::flak_flash_level : tfx::render::lighting_stages);
       flak_flash = false;
       auto const lighting{palette_lighting.advance({
