@@ -110,6 +110,8 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   autopilot_height_scale = real(0x1c93);
   radar_bank = resource(0x1610);
   radar_format = string(0x1884);
+  nearby_fighters_message = string(0x1888);
+  cleared_for_takeoff_message = string(0x16b8);
   for(unsigned int index{0}; index != horizontal_scales.size(); ++index) horizontal_scales[index] = {
     .label{source.signed_le16(data + 0x7d80 + index * 2)},
     .world_per_pixel{source.signed_le16(data + 0x7d88 + index * 2)},

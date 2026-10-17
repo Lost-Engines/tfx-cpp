@@ -433,6 +433,14 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       }
     }
   }};
+  // Native sky models enter the bounded queue before world/actor models.
+  // Even an offscreen sun changes the original quicksort's equal-depth order.
+  for(auto const &submission : model_submissions) {
+    auto const &shape{resources.shape(submission.part.name)};
+    mat3d const identity{1.,0.,0.,0.,1.,0.,0.,0.,1.};
+    queue_part(shape,submission.part,submission.position,identity,0,{0,0,0},projection.camera_integer(vec3<int32_t>{submission.position}),render::model_render_path::unrotated);
+  }
+  model_submissions.clear();
   // The main camera submits the player's model before the world. Instrument
   // world passes do not invoke that separate player-model constructor.
   if(pass == scene_pass::primary && player_model) {
@@ -488,11 +496,6 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
   if(final_submissions) final_submissions();
   for(auto const &submission : submissions) submit(actors.at(submission.handle.value),submission.position,submission.angles);
   submissions.clear();
-  for(auto const &submission : model_submissions) {
-    auto const &shape{resources.shape(submission.part.name)};
-    mat3d const identity{1.,0.,0.,0.,1.,0.,0.,0.,1.};
-    queue_part(shape,submission.part,submission.position,identity,0,{0,0,0},projection.camera_integer(vec3<int32_t>{submission.position}),render::model_render_path::unrotated);
-  }
   if(!native) std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
   auto const order{native ? native_queue.draw_order() : std::vector<render::model_slot>{}};
   unsigned int const count{native ? native_queue.size() : static_cast<unsigned int>(queue.size())};
@@ -500,7 +503,6 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
     auto &item{queue[native ? static_cast<unsigned int>(order[draw_index]) : draw_index]};
     paint_part(item,item.path);
   }
-  model_submissions.clear();
   return events;
 }
 

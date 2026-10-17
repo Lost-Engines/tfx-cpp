@@ -13,12 +13,15 @@ vec3<int32_t> integer_position(air_contact const &contact) { return {contact.pos
 
 } // anonymous namespace
 
-void air_contacts::update(vec3<int32_t> const &player, std::span<air_contact const> const contacts) {
+air_scan_report air_contacts::update(vec3<int32_t> const &player, std::span<air_contact const> const contacts) {
   // Native 0x836ac/0x8296c preserves slots across successive scans; new contacts fill the remaining holes.
   auto const previous{slots};
   slots.fill({});
   hostile_nearby = false;
   std::vector<unsigned int> added;
+  int16_t nearby_count{0}, farthest{0};
+  std::optional<unsigned int> announcement;
+  int constexpr announcement_miles{25};
   for(auto const &contact : contacts) {
     if(contact.flags & std::to_underlying(actors::air_flag::retired)) continue;
     auto const position{integer_position(contact)};
@@ -26,7 +29,14 @@ void air_contacts::update(vec3<int32_t> const &player, std::span<air_contact con
     auto const x{word(magnitude(word(subtract(position.x,player.x) / world_units_per_mile)))};
     auto const z{word(magnitude(word(subtract(player.z,position.z) / world_units_per_mile)))};
     if(std::max(x,z) >= radar_miles) continue;
-    if(contact.enemy_pool) hostile_nearby = true;
+    if(contact.enemy_pool) {
+      hostile_nearby = true;
+      auto const distance{std::max(x,z)};
+      if(distance < announcement_miles) {
+        ++nearby_count;
+        if(distance > farthest) { farthest = distance;announcement = contact.actor; }
+      }
+    }
     auto const found{std::ranges::find(previous,contact.actor)};
     if(found != previous.end()) slots[static_cast<unsigned int>(found - previous.begin())] = contact.actor;
     else added.push_back(contact.actor);
@@ -36,6 +46,12 @@ void air_contacts::update(vec3<int32_t> const &player, std::span<air_contact con
     if(free == slots.end()) break;
     *free = actor;
   }
+  air_scan_report const report{
+    .more_hostiles{nearby_count > nearby_hostile_count},
+    .announced_actor{nearby_count > nearby_hostile_count ? announcement : std::nullopt},
+  };
+  nearby_hostile_count = nearby_count;
+  return report;
 }
 
 void air_contacts::next() {

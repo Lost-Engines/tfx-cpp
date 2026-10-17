@@ -15,13 +15,18 @@ struct air_contact {
   actors::allegiance side{actors::allegiance::enemy};
   bool enemy_pool{false}; // The warning scan distinguishes the actor registry, not the model classification.
 };
+struct air_scan_report {
+  bool more_hostiles{false};
+  std::optional<unsigned int> announced_actor{};
+};
 class air_contacts {
 public:
   std::array<std::optional<unsigned int>,contact_capacity> slots{};
   int16_t cursor{-1};
   std::optional<unsigned int> selected{};
-  bool hostile_nearby{false};
-  void update(vec3<int32_t> const &player, std::span<air_contact const> contacts);
+  bool hostile_nearby{false}; // Within 50 miles.
+  int16_t nearby_hostile_count{0}; // Within 25 miles; retained between missions.
+  air_scan_report update(vec3<int32_t> const &player, std::span<air_contact const> contacts);
   void next();
   unsigned int count() const;
 };

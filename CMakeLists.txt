@@ -21,6 +21,7 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_audio
+  src/audio/radar_voice.cpp src/audio/radar_voice.h
   src/audio/sample_scheduler.cpp src/audio/sample_scheduler.h
   src/audio/sample_bank.cpp src/audio/sample_bank.h
   src/audio/sample_voice.cpp src/audio/sample_voice.h
@@ -816,10 +817,15 @@ if(BUILD_TESTING)
   configure_first_party(damage_probe)
   add_test(NAME flight.native_system_damage_and_repair COMMAND damage_probe ${PROJECT_SOURCE_DIR}/tests/reference/damage.txt)
 
+  add_executable(radar_voice_probe tests/radar_voice_probe.cpp)
+  target_link_libraries(radar_voice_probe PRIVATE tfx_audio)
+  configure_first_party(radar_voice_probe)
+  add_test(NAME audio.native_radar_speech COMMAND radar_voice_probe ${PROJECT_SOURCE_DIR}/tests/reference/radar_voice.txt)
+
   add_executable(sensors_probe tests/sensors_probe.cpp)
   target_link_libraries(sensors_probe PRIVATE tfx_core)
   configure_first_party(sensors_probe)
-  add_test(NAME sensors.native_air_radar_and_seeker COMMAND sensors_probe ${PROJECT_SOURCE_DIR}/tests/reference/sensors.txt)
+  add_test(NAME sensors.native_air_radar_and_seeker COMMAND sensors_probe --announcements ${PROJECT_SOURCE_DIR}/tests/reference/sensors.txt)
 
   add_executable(attachment_tests tests/attachment_test.cpp)
   target_link_libraries(attachment_tests PRIVATE tfx_core)

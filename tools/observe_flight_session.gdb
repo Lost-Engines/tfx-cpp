@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 renderer_pointer=None
 rendered_frames=0
+flight_frame=0
 def current_renderer():
  global renderer_pointer
  if renderer_pointer is None:
@@ -35,6 +36,9 @@ break tfx::flight::player_flight::advance
 commands
 silent
 set $player = this
+python
+flight_frame+=1
+end
 printf "CPP_PRE %d %d %d %u %u %u %d\n", this->basic.flight.integer_position.x, this->basic.flight.integer_position.y, this->basic.flight.integer_position.z, this->basic.flight.angles.x, this->basic.flight.angles.y, this->basic.flight.angles.z, this->basic.flight.fixed_speed
 continue
 end
@@ -74,7 +78,7 @@ silent
 python
 message=gdb.parse_and_eval('message')
 raw=bytes(gdb.selected_inferior().read_memory(int(message['_M_str']),int(message['_M_len'])))
-print('CPP_RADIO '+json.dumps({'frame':rendered_frames+1,'message':raw.decode('latin1'),'persistent':bool(gdb.parse_and_eval('repeat'))}))
+print('CPP_RADIO '+json.dumps({'frame':flight_frame,'message':raw.decode('latin1'),'persistent':bool(gdb.parse_and_eval('repeat'))}))
 end
 continue
 end

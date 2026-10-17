@@ -21,6 +21,7 @@
 #include "actors/scenery.h"
 #include "actors/contact_region.h"
 #include "actors/visibility.h"
+#include "audio/radar_voice.h"
 #include "flight/arcade.h"
 #include "flight/aerodynamic_launch.h"
 #include "flight/aerodynamic_step.h"
@@ -897,9 +898,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     for(auto const handle : {crashes.land,crashes.water,crashes.contact}) scene.show_actor(handle,false);
     impact_projection.reset();
     radio.clear();
+    // Native 0x7df30 announces a landed start before the first flight frame.
+    if(mission_setup.start.landed) radio.show(tables.instruments().cleared_for_takeoff_message);
     camera_missile.reset();
     impact_aircraft.reset();
     radar = {};
+    radar.nearby_hostile_count = options.nearby_hostile_count;
     seeker = {};
     designator = {};
     designator_view = designator_tracking_frame = false;
@@ -1471,7 +1475,18 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(fault == tfx::flight::system_condition::failed || (fault == tfx::flight::system_condition::intermittent && (air_simulation.random_stream().next() & 1))) return;
     // Original 0x8015b scans after the seeker update (0x7213f), only while
     // drawing a working forward HUD. Newly found contacts are acquired next frame.
-    radar.update(player.integer_position,radar_actors);
+    auto const scan{radar.update(player.integer_position,radar_actors)};
+    options.nearby_hostile_count = radar.nearby_hostile_count;
+    if(scan.more_hostiles && radio.status().complete) radio.show(tables.instruments().nearby_fighters_message);
+    if(scan.announced_actor && sound) {
+      auto const &actor{*std::ranges::find(radar_actors,*scan.announced_actor,&tfx::sensors::air_contact::actor)};
+      vec3<int32_t> const player_q8{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)};
+      int constexpr angle_units_per_degree{182}, feet_per_thousand{1000};
+      auto const bearing{static_cast<int16_t>(tfx::math::bearing(player_q8,actor.position).y / angle_units_per_degree)};
+      auto const altitude{tfx::math::signed_word(static_cast<uint16_t>(-(actor.position.y >> tfx::actors::position_fraction_bits) * tfx::flight::feet_per_world_unit / feet_per_thousand))};
+      sound->sequence(audio::sample_priority::urgent,audio::radar_report_voice(bearing,altitude));
+      sound->music_cue(audio::music_cue_id::normal_flight);
+    }
     auto const offset{vec2<int16_t>{cockpit_position.value()}};
     unsigned int const weapon_index{armament.selected < 0 ? 0u : armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
     auto const &weapon{tables.weapons.at(weapon_index < tables.weapons.size() ? weapon_index : 0)};
@@ -1717,8 +1732,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       renderer.text(40,160,"ENTER OR ESCAPE TO CLOSE",15);
     } else if(!inspect) {
       auto const callback{tables.instruments().viewports[view_index()].callback_file};
-      auto const radio_window{callback == 0x80704 ? std::optional<std::string>{} : radio.advance(launch_elapsed)};
       if(!designator_view && (callback == 0x806dc || callback == 0x80718 || callback == 0x80758)) draw_aiming(view,callback != 0x80758);
+      auto const radio_window{callback == 0x80704 ? std::optional<std::string>{} : radio.advance(launch_elapsed)};
       if(!designator_view && view_index() == tfx::cockpit::forward_cockpit) {
         cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
         draw_instruments(radio_window);

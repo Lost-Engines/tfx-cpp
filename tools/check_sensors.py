@@ -9,6 +9,7 @@ from pathlib import Path
 import random
 import struct
 import subprocess
+from unicorn import UC_HOOK_CODE
 from unicorn import x86_const as r
 from native_reference import NativeReference
 
@@ -18,6 +19,7 @@ def main():
     parser.add_argument('--data-dir',type=Path,default=Path('../tfx-reverse/installs/cd_1994_09/TFX'))
     parser.add_argument('--build',type=Path,default=Path('build'))
     parser.add_argument('--save-fixture',type=Path)
+    parser.add_argument('--announcements',action='store_true')
     args=parser.parse_args();rng=random.Random(0x93328)
     image=NativeReference(args.data_dir/'TFX.DAT');image.cpu.mem_map(0x300000,0x10000)
     for file in (0x81198,0xa4e80,0xa5a9c,0xa4fb4,0xa5008):image.intercept(file,'Radio/lock-tone output; no aircraft/radar/reticle state changes at this output boundary.',lambda im:im.return_from())
@@ -32,6 +34,12 @@ def main():
         image.write(base,'<50I',*[0x301000+(start+i)*128 if i<8 else 0 for i in range(50)])
     ptr_to_id={0x301000+i*128:i for i in range(16)}
     rows=[];expected=[]
+    announcement=[-1];messages=[]
+    def observe_message(cpu,address,size,unused):messages.append(1)
+    def observe_actor(cpu,address,size,unused):announcement[0]=ptr_to_id[cpu.reg_read(r.UC_X86_REG_EBX)]
+    if args.announcements:
+        image.cpu.hook_add(UC_HOOK_CODE,observe_message,begin=image.native(0x83852),end=image.native(0x83852))
+        image.cpu.hook_add(UC_HOOK_CODE,observe_actor,begin=image.native(0x83860),end=image.native(0x83860))
     for frame in range(1024):
         player=[(frame*83)%50000-25000,-1000,(frame*97)%50000-25000]
         actors=[]
@@ -43,11 +51,14 @@ def main():
                 actors.append([actor,*pos,flags,int(pool==0)]);address=0x301000+actor*128
                 image.cpu.mem_write(address,struct.pack('<3i',*pos));image.cpu.mem_write(address+66,struct.pack('<H',flags))
         for addr,val in zip((0x13424,0x13430,0x1343c),player):image.write(addr,'<i',val)
+        announcement[0]=-1;messages.clear()
+        if args.announcements:image.write(0x7612,'<B',1)
         cycle=int(frame%11==0);image.call(0x836ac)
         if cycle:image.call(0x828b0)
         slots=image.read(image.read(0x76c8,'<I')[0]-image.data,'<20I');selected=image.read(0x11108,'<I')[0]
         rows.append(['R',*player,len(actors),cycle,*[v for actor in actors for v in actor]])
         expected.append([image.read(0x76d0,'<h')[0],ptr_to_id.get(selected,-1),*[ptr_to_id.get(p,-1) for p in slots],int(image.read(0x763e,'<H')[0]!=0)])
+        if args.announcements:expected[-1].extend([image.read(0x7774,'<h')[0],int(bool(messages)),announcement[0]])
     for case in range(4096):
         flags=3 if case%3 else rng.randrange(128);category=rng.choice((0,1,2,4,5,6,9,10,14));role=rng.choice((0,1,6));klass=rng.randrange(4);ticks=rng.choice((0,1,4,10,55,30000,65535))
         minimum=rng.choice((0,100,1000));distance=rng.choice((3000,20000,65535,100000));position=[rng.randrange(-30000,30001),rng.randrange(-4000,0),rng.randrange(-30000,30001)];angles=[rng.randrange(65536),rng.randrange(65536)]
@@ -68,7 +79,7 @@ def main():
         values=[int(bool(image.read(a,'<I')[0])) for a in (0x11108,0x135c8,0x135d0)]
         values.extend([*image.read(0x135c0,'<2i'),*image.read(0x135cc,'<2h'),*image.read(0x135d4,'<2h'),image.read(0x8860,'<B')[0]])
         rows.append(row);expected.append(values)
-    result=subprocess.run([str(args.build/'sensors_probe')],input=''.join(' '.join(map(str,row))+'\n' for row in rows),capture_output=True,text=True,check=True)
+    result=subprocess.run([str(args.build/'sensors_probe')]+(['--announcements'] if args.announcements else []),input=''.join(' '.join(map(str,row))+'\n' for row in rows),capture_output=True,text=True,check=True)
     actual=[[int(v) for v in line.split()] for line in result.stdout.splitlines()];assert len(actual)==len(expected)
     for i,(a,b) in enumerate(zip(actual,expected)):assert a==b,(i,rows[i],a,b)
     if args.save_fixture:
@@ -78,7 +89,7 @@ def main():
             for value in values:
                 for byte in struct.pack('<I',value&0xffffffff):digest=((digest^byte)*1099511628211)&0xffffffffffffffff
             fixtures.append(' '.join(map(str,row+[digest]))+'\n')
-        args.save_fixture.write_text(''.join(fixtures));subprocess.run([str(args.build/'sensors_probe'),str(args.save_fixture)],check=True)
+        args.save_fixture.write_text(''.join(fixtures));subprocess.run([str(args.build/'sensors_probe')]+(['--announcements'] if args.announcements else [])+[str(args.save_fixture)],check=True)
     print('1024 persistent radar frames and 4096 seeker acquisition/lock states agree with native execution')
 
 
