@@ -13,3 +13,8 @@ under GPL-2.0-or-later. Its source and licence headers are retained in the build
 the small standalone adapter follows our Darker implementation. Munt's MT-32
 emulator is linked under its LGPL-2.1-or-later licence, with upstream sources and
 licence files retained by CMake's dependency fetch.
+
+The pinned Nuked Sound Canvas emulator is copyright nukeykt and contributors,
+including J.C. Moyer's backend integration, under GPL-2.0-or-later. Its original
+source headers and licence accompany the fetched dependency. Synthesiser ROMs
+are external user assets and are not distributed with this project.

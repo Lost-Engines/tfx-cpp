@@ -161,7 +161,7 @@ void osl_sequencer::retrigger(playing &voice, osl_channel &channel, unsigned int
   if(channel.arpeggio_note) driver.note(channel,physical,static_cast<uint8_t>(channel.arpeggio_note + transpose(voice,channel)),127);
 }
 void osl_sequencer::row_effect(playing &voice, osl_channel &channel, unsigned int const physical, osl_device_driver &driver, bool &jump, bool &stop) {
-  if(channel.cell.effect & 128) return; // All three native device-extension callbacks return unchanged.
+  if(channel.cell.effect & 128) { driver.extension(channel,physical);return; }
   auto const argument{channel.cell.argument};
   switch(static_cast<osl_effect>(channel.cell.effect & 31)) {
   // Native MEDIT scales the nibble before the device callback. LA applies
@@ -194,7 +194,7 @@ void osl_sequencer::row_effect(playing &voice, osl_channel &channel, unsigned in
   }
 }
 void osl_sequencer::tick_effect(playing &voice, osl_channel &channel, unsigned int const physical, osl_device_driver &driver) {
-  if(channel.cell.effect & 128) return;
+  if(channel.cell.effect & 128) { driver.extension(channel,physical);return; }
   auto const argument{channel.cell.argument};
   switch(static_cast<osl_effect>(channel.cell.effect & 31)) {
   case osl_effect::pitch_up: channel.pitch_bend = static_cast<uint16_t>(channel.pitch_bend + argument * 20);driver.pitch(channel,physical);break;

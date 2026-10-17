@@ -1,11 +1,10 @@
 #pragma once
 
-#include <functional>
+#include "audio/midi_byte_sink.h"
 #include "audio/osl_device.h"
 
 namespace tfx::audio {
 
-using midi_byte_sink = std::function<void(uint8_t)>;
 class osl_la_driver final : public osl_device_driver {
 private:
   resources::bytes native_data;

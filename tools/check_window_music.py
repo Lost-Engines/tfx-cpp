@@ -14,13 +14,13 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--data-dir',type=Path,required=True)
 p.add_argument('--rom-dir',type=Path)
-p.add_argument('--music',choices=('roland-lapc','soundblaster-fm'),default='roland-lapc')
+p.add_argument('--music',choices=('roland-lapc','soundblaster-fm','roland-scc1a','roland-sc55'),default='roland-lapc')
 a=p.parse_args()
-if a.music=='roland-lapc' and not a.rom_dir:p.error('Roland playback requires --rom-dir')
+if a.music!='soundblaster-fm' and not a.rom_dir:p.error('Roland playback requires --rom-dir')
 with tempfile.TemporaryDirectory(prefix='tfx-music-window-') as temporary:
  directory=Path(temporary);install=directory/'TFX';install.mkdir()
  for name in ('DID.DAT','TFX.DAT','START.EXE','TUNES'):(install/name).symlink_to((a.data_dir/name).resolve())
- (install/'TFX.CFG').write_bytes(('CONTROL=0\r\nMODEL=0\r\nSOUNDFX=0\r\nMUSIC='+('2' if a.music=='roland-lapc' else '1')+'\r\nREALISM=0,0,1,1,0,0,0\r\nDETAIL=2\r\n').encode())
+ (install/'TFX.CFG').write_bytes(('CONTROL=0\r\nMODEL=0\r\nSOUNDFX=0\r\nMUSIC='+('2' if a.music=='roland-lapc' else '1' if a.music=='soundblaster-fm' else '4')+'\r\nREALISM=0,0,1,1,0,0,0\r\nDETAIL=2\r\n').encode())
  sink='tfx_music_'+str(os.getpid());module=None;display=game=capture=None
  try:
   module=subprocess.check_output(['pactl','load-module','module-null-sink','sink_name='+sink,'rate=48000','channels=2'],text=True).strip()
@@ -53,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-music-window-') as temporary:
    time.sleep(8)
    raw=pcm.read_bytes();raw=raw[:len(raw)//8*8];values=array.array('f');values.frombytes(raw)
    assert values and max(map(abs,values))>.001,('presentation music was silent',log.read_text())
-   if a.music=='roland-lapc':assert any(abs(values[index]-values[index+1])>1e-5 for index in range(0,len(values),2)),'LA stereo output was lost'
+   if a.music!='soundblaster-fm':assert any(abs(values[index]-values[index+1])>1e-5 for index in range(0,len(values),2)),'LA stereo output was lost'
    else:assert all(values[index]==values[index+1] for index in range(0,len(values),2)),'FM dual mono changed'
    run('xdotool','keydown','Shift_L');run('xdotool','keydown','q');time.sleep(.2);run('xdotool','keyup','q');run('xdotool','keyup','Shift_L');game.wait(timeout=10)
    assert game.returncode==0 and 'ERROR:' not in log.read_text() and 'unavailable' not in log.read_text(),log.read_text()

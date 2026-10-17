@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include "audio/music_player.h"
+#include "audio/sc55_synth.h"
 
 namespace {
 
@@ -73,13 +74,13 @@ std::vector<float> exercise(tfx::audio::music_player &player, bool const fragmen
 } // namespace
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 3 && argc != 4) throw std::runtime_error{"expected START.EXE DID.DAT [ROM_DIRECTORY]; omission selects FM"};
+  if(argc < 3 || argc > 5) throw std::runtime_error{"expected START.EXE DID.DAT [ROM_DIRECTORY [sc55|scc1a]]; omission selects FM"};
   auto const launcher{tfx::resources::read_file(argv[1])};
   tfx::resources::archive const game{std::filesystem::path{argv[2]}};
   auto const record{[&](bool const fragmented) {
     auto receiver{std::make_unique<recording_receiver>()};
     auto *recording{receiver.get()};
-    tfx::audio::music_player player{game,launcher,tfx::audio::make_la_music_device(launcher,std::move(receiver)),rate};
+    tfx::audio::music_player player{game,launcher,(argc == 5 ? tfx::audio::make_scc_music_device(launcher,std::move(receiver)) : tfx::audio::make_la_music_device(launcher,std::move(receiver))),rate};
     exercise(player,fragmented,false);
     return std::move(recording->events);
   }};
@@ -93,7 +94,11 @@ int main(int const argc, char const *const argv[]) try {
   // Munt's pitch timer jitter consumes the host C random generator in voice
   // processing order. Test the sequencer's timestamps exactly above; do not
   // mistake chip-level random variation for a callback scheduling fault.
-  if(argc == 4) {
+  if(argc == 5) {
+    auto const model{std::string_view{argv[4]} == "scc1a" ? tfx::audio::sound_canvas_model::scc1a : tfx::audio::sound_canvas_model::sc55};
+    tfx::audio::music_player player{game,launcher,tfx::audio::make_scc_music_device(launcher,std::make_unique<tfx::audio::sc55_synth>(argv[3],rate,model)),rate};
+    exercise(player,true,true);
+  } else if(argc == 4) {
     tfx::audio::music_player player{game,launcher,argv[3],rate};
     exercise(player,true,true);
   } else {

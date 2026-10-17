@@ -24,6 +24,7 @@ class NativeOSL:
         c.hook_add(UC_HOOK_INSN,self._write,None,1,0,r.UC_X86_INS_OUT)
         c.hook_add(UC_HOOK_INTR,self._interrupt)
         if mode=='rld':c.hook_add(UC_HOOK_CODE,self._skip_delay,None,0x20173,0x20173)
+        elif mode=='scc':c.hook_add(UC_HOOK_CODE,self._skip_delay,None,0x20272,0x20272)
 
     def _read(self,c,port,size,user):
         if port==0x330:return 0xfe
