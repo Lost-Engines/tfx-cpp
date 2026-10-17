@@ -20,7 +20,7 @@ environment, renderer, arming and AI code executes. `--flight-model` selects
 any of the four models, and `--output` retains the private frames and observer
 log. `--strict-pixels` requires every captured image to match, not just the last.
 
-All **195 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+All **197 CTests** pass in development, Release and ASan/UBSan. All 128 retail
 missions also compose 64 development frames and 16 sanitizer frames without
 preview warnings. Real private-window controls exercise firing, MFDs,
 missile cameras, designator use, ejection and an automatic FINISH handoff.
@@ -4992,4 +4992,76 @@ requirement, without claiming support for other retained engine configurations.
 
 ```sh
 python3 tools/check_legacy_effect_gates.py
+```
+
+### Ground bombing, shared prediction targets and radar retirement
+
+The controlled mission-502 sequence selects a GBU-12, designates ground through
+the ordinary laser view, returns to the cockpit and releases at frame 70.
+All **256 complete frames** agree in captured state and every indexed pixel,
+including **226 actual projectile-motion target inputs** and ground impact at
+frame 182. Mission completion remains covered separately by the intercept.
+
+The first capture exposed an observer assumption: the original temporarily
+reuses its air-guidance scratch pointer for the designated ground point.
+Aircraft-identity observations now retain their aircraft-only meaning, while
+the actual guidance coordinates are compared independently at the live motion
+dispatch (`0xa32a6`). Temporary HUD predictions use the same movement helpers
+but are excluded from that live-dispatch observation.
+
+That stronger check found a real shared-state omission. Original HUD cannon
+and bomb predictions call the ordinary projectile constructor. Although they
+allocate no live projectile and consume no ammunition, they replace its shared
+untargeted aim point. The runtime now owns those temporary prediction launches
+and retains this side effect. The 32-frame cannon sequence agrees on all
+**236 live motion inputs**, all captured state and every pixel.
+
+The bomb-contact frame also exposed a four-pixel radar difference. The original
+radar still visits impacted records before `0xa31a0` retires them in the frame
+tail. The supplied projectile list now includes those records until that same
+boundary, retaining the existing newest-first ordering.
+
+### Original renderer exception delivery in the capture host
+
+The original installs a divide-fault handler during renderer startup. Ground
+bombing reaches three legitimate projection overflows, which the old capture
+host could not deliver. `native_dpmi.py` now supplies DPMI vector storage and
+the documented 32-bit exception frame. The installed game handler executes
+unchanged, edits the saved return address and returns through the host.
+`check_dpmi_exceptions.py` exercises divide-by-zero and quotient overflow at
+all four recognised renderer fault sites: **eight original handler returns**,
+preserving integer, segment, x87, SSE, control/debug registers, flags and stack.
+
+Unicorn's interrupt hook bypasses its ordinary exception-delivery bookkeeping.
+The host clears that internal pending state through a clean public context
+restore while preserving the client's architectural registers. Otherwise a
+second handled divide is incorrectly reported as a double fault. No original
+instruction is patched and no rendering result is substituted.
+
+```sh
+python3 tools/check_dpmi_exceptions.py
+python3 tools/check_combat_sessions.py --case held-cannon --output build/cannon-guidance
+python3 tools/check_combat_sessions.py --case ground-bomb --output build/ground-bomb
+```
+
+### Model projection overflow
+
+The original divide handler also establishes a rendering rule: a signed-word
+projection quotient overflow returns from the entire current model, preserving
+primitives already emitted. Later bytecode, material changes and jitter do not
+execute. The C++ model interpreter now follows that early return, with the
+actual camera aperture supplied explicitly; it does not fall back to a
+continuous projection for these vertices.
+
+There are **1,024 complete original-program comparisons**, split between flat
+and Gouraud drawing, with large vertices, near depths and both apertures.
+The original installs and executes its own handler. These checks compare every
+pixel and drawing count, including programs that stop before or after drawing.
+Two compact 140-case fixtures make the overflow paths available without game
+assets. All 197 regressions pass in development, Release and ASan/UBSan; the
+complete 256-frame bomb sequence also agrees with the guard enabled.
+
+```sh
+python3 tools/check_model_programs.py --overflow --cases 512
+python3 tools/check_model_programs.py --overflow --gouraud --cases 512
 ```

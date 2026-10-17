@@ -6,11 +6,11 @@ from pathlib import Path
 import runpy
 import sys
 from unicorn import UC_HOOK_CODE
-import native_reference
+import native_dpmi
 
 images = []
 
-class LaunchReference(native_reference.NativeReference):
+class LaunchReference(native_dpmi.DpmiReference):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.launch_events = []
@@ -48,13 +48,15 @@ def main():
     a = p.parse_args()
     # Add read-only observers before the ordinary complete-session harness
     # constructs its VM. Its existing DOS/video/input boundaries stay intact.
-    native_reference.NativeReference = LaunchReference
+    reference = native_dpmi.DpmiReference
+    native_dpmi.DpmiReference = LaunchReference
     sys.argv = ['capture_native_flight.py', '--research', str(a.research.resolve()),
                 '--mission', str(a.mission), '--frames', str(a.frames), '--flight-model', a.flight_model,
                 '--output', str(a.output.resolve())]
     try:
         runpy.run_path(str(Path(__file__).with_name('capture_native_flight.py')), run_name='__main__')
     finally:
+        native_dpmi.DpmiReference = reference
         if images and a.output.exists():
             (a.output / 'launch.json').write_text(json.dumps(images[-1].launch_events, indent=2) + '\n')
     events = images[-1].launch_events

@@ -6,7 +6,11 @@ namespace tfx::weapons {
 vec3<int32_t> predict_bomb_impact(definition const &weapon, uint8_t const index, vec3<int32_t> const &anchor_q8,
   vec3<math::angle> const &angles, int32_t const speed, vec2<int32_t> const &height_bounds) {
   if(weapon.category != bomb_impact_category) throw std::invalid_argument{"impact prediction requires a category-9 bomb"};
-  auto shot{launch(weapon,index,anchor_q8,angles,speed)};
+  return predict_bomb_impact(weapon,launch(weapon,index,anchor_q8,angles,speed),anchor_q8,height_bounds);
+}
+
+vec3<int32_t> predict_bomb_impact(definition const &weapon, projectile shot, vec3<int32_t> const &anchor_q8, vec2<int32_t> const &height_bounds) {
+  if(weapon.category != bomb_impact_category) throw std::invalid_argument{"impact prediction requires a category-9 bomb"};
   uint16_t constexpr prediction_step_ticks{10};
   motion_context const context{
     .elapsed{prediction_step_ticks},

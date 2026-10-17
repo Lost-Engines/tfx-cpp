@@ -29,6 +29,14 @@ class RadarInput(gdb.Breakpoint):
   print('CPP_RADAR_INPUT '+json.dumps({'frame':flight_frame,'pulse_before':bool(gdb.parse_and_eval('this').dereference()['pulse']),'player':[int(state['player'][axis])for axis in ('x','y','z')],'heading':int(state['heading']),'range':int(gdb.parse_and_eval('range')),'offset':[int(state['offset'][axis])for axis in ('x','y')],'projectiles':shots}))
   return False
 if 'TFX_OBSERVE_RADAR_CONTEXT' in os.environ:RadarInput('tfx::cockpit::radar::draw',internal=True)
+class ProjectileGuidance(gdb.Breakpoint):
+ def stop(self):
+  caller=gdb.newest_frame().older()
+  if not caller or 'tfx::weapons::runtime::advance' not in (caller.name()or''):return False
+  state=gdb.parse_and_eval('state');context=gdb.parse_and_eval('context')
+  print('CPP_PROJECTILE_GUIDANCE '+json.dumps({'frame':flight_frame,'weapon':int(state['weapon']),'position':[int(state['position'][axis])for axis in ('x','y','z')],'target':[int(context['target'][axis])for axis in ('x','y','z')]}))
+  return False
+if 'TFX_OBSERVE_PROJECTILE_GUIDANCE' in os.environ:ProjectileGuidance('tfx::weapons::advance_motion',internal=True)
 class FinishReturn(gdb.FinishBreakpoint):
  def __init__(self):
   super().__init__(internal=True)

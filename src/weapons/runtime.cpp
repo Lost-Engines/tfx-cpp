@@ -1,4 +1,6 @@
 #include "runtime.h"
+#include "cannon_prediction.h"
+#include "impact_prediction.h"
 #include <stdexcept>
 #include <utility>
 
@@ -8,6 +10,29 @@ runtime::runtime(std::span<definition const> const weapons, runtime_callbacks ha
   if(!capacity || !callbacks.motion_inputs) throw std::invalid_argument{"projectile runtime needs a pool and motion inputs"};
   free.reserve(capacity);
   for(auto &slot : slots) free.push_back(&slot);
+}
+
+void runtime::prepare_untargeted_target(projectile const &shot) {
+  auto const elapsed{substep.value_or(callbacks.launch_elapsed ? callbacks.launch_elapsed() : 0)};
+  untargeted_point = vec3<int32_t>{shot.position};
+  int32_t const distance{std::bit_cast<int32_t>(static_cast<uint32_t>(shot.speed) * 1000u * elapsed)};
+  actors::move(untargeted_point,shot.angles,distance);
+  untargeted_point.y = 0;
+}
+
+std::array<vec3<int32_t>,5> runtime::predict_cannon(vec3<int32_t> const &anchor_q8, vec3<math::angle> const &angles, int32_t const speed, vec2<int32_t> const &height_bounds) {
+  if(definitions.empty()) throw std::out_of_range{"cannon prediction requires its weapon definition"};
+  auto shot{weapons::launch(definitions[0],0,anchor_q8,angles,speed)};
+  prepare_untargeted_target(shot);
+  return weapons::predict_cannon(definitions[0],std::move(shot),height_bounds);
+}
+
+vec3<int32_t> runtime::predict_bomb_impact(unsigned int const weapon, vec3<int32_t> const &anchor_q8, vec3<math::angle> const &angles, int32_t const speed, vec2<int32_t> const &height_bounds) {
+  if(weapon >= definitions.size()) throw std::out_of_range{"impact prediction requires a valid weapon definition"};
+  if(definitions[weapon].category != bomb_impact_category) throw std::invalid_argument{"impact prediction requires a category-9 bomb"};
+  auto shot{weapons::launch(definitions[weapon],static_cast<uint8_t>(weapon),anchor_q8,angles,speed)};
+  prepare_untargeted_target(shot);
+  return weapons::predict_bomb_impact(definitions[weapon],std::move(shot),anchor_q8,height_bounds);
 }
 
 void runtime::retire(pool_slot &slot) {
@@ -57,13 +82,7 @@ projectile_id runtime::launch(release const &request) {
     .target{request.target},
     .mount{mount},
   };
-  if(slot.value.target.untargeted) {
-    auto const elapsed{substep.value_or(callbacks.launch_elapsed ? callbacks.launch_elapsed() : 0)};
-    untargeted_point = slot.value.state.position;
-    int32_t const distance{std::bit_cast<int32_t>(static_cast<uint32_t>(slot.value.state.speed) * 1000u * elapsed)};
-    actors::move(untargeted_point,slot.value.state.angles,distance);
-    untargeted_point.y = 0;
-  }
+  if(slot.value.target.untargeted) prepare_untargeted_target(slot.value.state);
   slot.previous = nullptr;
   slot.next = first;
   if(first) first->previous = &slot;

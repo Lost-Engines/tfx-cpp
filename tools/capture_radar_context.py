@@ -6,13 +6,13 @@ from pathlib import Path
 import runpy
 import sys
 from unicorn import UC_HOOK_CODE
-import native_reference
+import native_dpmi
 
 
 images = []
 
 
-class RadarReference(native_reference.NativeReference):
+class RadarReference(native_dpmi.DpmiReference):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         images.append(self)
@@ -61,13 +61,15 @@ def main():
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    native_reference.NativeReference = RadarReference
+    reference = native_dpmi.DpmiReference
+    native_dpmi.DpmiReference = RadarReference
     sys.argv = ['capture_native_flight.py', '--research', str(args.research.resolve()),
                 '--mission', str(args.mission), '--frames', str(args.frames),
                 '--inputs', str(args.inputs.resolve()), '--output', str(args.output.resolve())]
     try:
         runpy.run_path(str(Path(__file__).with_name('capture_native_flight.py')), run_name='__main__')
     finally:
+        native_dpmi.DpmiReference = reference
         if images and args.output.exists():
             (args.output / 'radar.json').write_text(json.dumps(images[-1].radar_events, indent=2) + '\n')
 

@@ -29,6 +29,7 @@ int main(int const argc, char const *const argv[]) try {
     context.camera.emplace(tfx::models::shape_camera{
       .basis{32767,0,0,0,32767,0,0,0,32767},
       .origin{0,0,0},
+      .projection_shift{tfx::render::projection_shift(wide ? tfx::render::aperture::missile_nose : tfx::render::aperture::normal)},
     });
     auto const geometry{tfx::models::interpret(shape,context)};
     if(!geometry.warnings.empty() || geometry.primitives.size() != 1) throw std::runtime_error{"texture model emitted incomplete geometry"};

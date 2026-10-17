@@ -310,6 +310,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       if(native) context.camera.emplace(models::shape_camera{
         .basis{mat3<int32_t>{transform.matrix()}},
         .origin{vec3<int32_t>{item.camera_origin}},
+        .projection_shift{render::projection_shift(view.opening)},
       });
       auto const &parameters{native ? model_parameters : item.parameters};
       std::copy(parameters.begin(),parameters.end(),context.parameters.begin());
