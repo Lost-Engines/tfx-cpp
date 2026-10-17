@@ -28,12 +28,15 @@ struct player_loss_context {
   simulation::timer_ticks elapsed;
   bool invulnerable{false};
   int32_t height{0}; // World-integer down coordinate; airborne values are negative.
+  bool pilot_active{false};
+  bool contact_explosion{false};
 };
 struct player_loss_effects {
   bool first_loss{false};
   bool first_impact{false};
   bool explosion{false};
   bool mayday{false};
+  bool force_collision{false};
 };
 struct progress_context {
   mission_tick mission_time;
@@ -66,6 +69,7 @@ public:
   session_status status{session_status::normal};
   explicit progress(setup const &source);
   void reset();
+  void begin_contact_explosion();
   player_loss_effects observe_player_loss(player_loss_context const &context);
   loss_effects record_air_loss(bool enemy_pool, int16_t type, bool player_owned, bool authorised, math::random_state &random);
   loss_effects record_surface_loss(bool hostile, int16_t type);

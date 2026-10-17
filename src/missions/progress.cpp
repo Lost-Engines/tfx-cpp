@@ -24,12 +24,27 @@ void progress::reset() {
   outcome = session_outcome::normal; status = session_status::normal;
 }
 
+void progress::begin_contact_explosion() {
+  // Native 0x7150c has already selected camera 27 and kapow before 0x7d270.
+  player_ejected = true;
+  impact_started = false;
+  death_ticks = 200;
+}
+
 player_loss_effects progress::observe_player_loss(player_loss_context const &context) {
   // Native 0x7d270: loss/ejection and impact are separate stages; the post-impact exit waits strictly past zero.
   player_loss_effects effects;
+  if(context.contact_explosion && (!context.invulnerable || player_ejected)) {
+    effects.force_collision = true;
+    outcome = session_outcome::aircraft_lost;
+    status = session_status::aircraft_lost;
+    death_ticks = word(death_ticks - context.elapsed);
+    if(death_ticks < 0) ended = true;
+    return effects;
+  }
   if((!context.invulnerable || player_ejected) && (context.fatal || context.collision)) {
-    effects.first_loss = !player_ejected;
-    player_ejected = true;
+    effects.first_loss = !player_ejected && !context.pilot_active;
+    if(effects.first_loss) player_ejected = true;
     outcome = session_outcome::aircraft_lost;
     status = session_status::aircraft_lost;
     if(effects.first_loss && !context.collision) {
@@ -38,7 +53,7 @@ player_loss_effects progress::observe_player_loss(player_loss_context const &con
       effects.mayday = context.height < mayday_height;
     }
   }
-  if(context.collision && !impact_started) {
+  if(context.collision && !impact_started && !context.pilot_active) {
     impact_started = true;
     effects.first_impact = true;
     death_ticks = 200;

@@ -12,7 +12,10 @@
 
 namespace tfx::world {
 
-struct scene_handle { unsigned int value; };
+struct scene_handle {
+  unsigned int value;
+  bool operator==(scene_handle const&) const = default;
+};
 struct scene_events {
   bool eject_player{false};
 };

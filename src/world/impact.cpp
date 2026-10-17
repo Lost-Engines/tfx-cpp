@@ -2,6 +2,24 @@
 
 namespace tfx::world {
 
+player_contact_effects resolve_player_contact(player_contact_context const &context) {
+  // Native 0x7145d: contact entry 2 runs on a temporarily restored falling aircraft.
+  // No new hit restores its fatal state; another fatal hit switches to kapow.
+  player_contact_effects effects;
+  if(context.previously_destroyed) {
+    if(!context.destroyed) effects.action = player_contact_action::restore_destroyed;
+    else if(!context.contact_explosion) {
+      effects.collision = true;
+      if(!context.pilot_active) effects.action = player_contact_action::explode;
+    }
+  } else if(!context.destroyed) effects.release_motion_hold = true;
+  else if(!context.contact_explosion && !context.pilot_active) {
+    effects.collision = true;
+    effects.action = player_contact_action::explode;
+  }
+  return effects;
+}
+
 impact_surface classify_impact(render::framebuffer const &frame, std::optional<vec2<int16_t>> const &point, bool const water_world) {
   // Native 0x7da20 deliberately classifies a pixel from the rendered image, rather than querying collision geometry.
   if(!point || point->x <= 0 || point->x >= render::screen_width || point->y <= 0 || point->y >= render::screen_height) return impact_surface::unknown;

@@ -2221,3 +2221,40 @@ notice, then a player-targeted projectile reaching the launch/guidance lamps.
 No scenario state is changed. Both development and ASan/UBSan checks pass and
 exit normally. The class/pixel/state comparisons above remain the detailed
 proof; this window check establishes the live delivery path.
+
+### Fatal solid contacts and the immediate explosion model
+
+The player-contact controller now preserves the distinction between an aircraft
+falling after combat damage and an immediate fatal solid contact. Original
+`0x7145d..0x71535` selects `kapow`, camera 27 (unbanked chase), one normal
+explosion sample and a 200-tick aftermath. It does not request the ordinary
+first-loss music/camera sequence. The subsequent `0x7d270` branch sets the loss
+result, decrements the signed-word countdown, and exits strictly below zero.
+
+World contacts continue after a collision. Before querying a previously
+fatal ordinary model, the controller executes its reset entry; a query that
+does not destroy it again restores entry 17. This lets a falling aircraft
+encounter solid scenery without confusing its earlier combat destruction with
+a new impact. The no-hit branch releases the native movement hold. The other
+legacy word cleared there has no identified reader and no invented gameplay
+meaning. Pilot-phase gates now suppress aircraft loss/ground-impact model
+changes, while preserving the original outcome and countdown branches.
+
+**8,192 native post-contact transitions** agree on every branch, collision and
+countdown write, held-motion/legacy-word clearing and ordered camera/model/sample
+outputs. SSD fatal state is the supplied input; SSD execution and geometry have
+separate comparisons. The expanded **8,192 complete loss-controller cases**
+include immediate explosions, pilot gates, existing land/water impact handling,
+invulnerability, wrapping and exact audio sequences. Compact fixtures cover the
+contact branches without distributing original game data.
+
+Private silent window scenarios explicitly seed the contact/loss inputs, then
+observe the live model handoff, placement and camera for land, water and solid
+impacts. They establish integration, not natural collision discovery or complete
+session equivalence. The selected-refueller contact, transient collision effects
+and broader aftermath rendering remain separate integration work.
+
+All **109 asset-free regressions** and the contact/loss native comparisons pass
+in development, Release and ASan/UBSan. The natural observer-only engagement
+check also passes after the contact-loop change, preserving permission and
+incoming-projectile warning delivery.

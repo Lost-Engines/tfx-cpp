@@ -543,6 +543,11 @@ if(BUILD_TESTING)
   configure_first_party(impact_probe)
   add_test(NAME world.native_impact_palette_and_crash_choice COMMAND impact_probe ${PROJECT_SOURCE_DIR}/tests/reference/impact.txt)
 
+  add_executable(player_contact_probe tests/player_contact_probe.cpp)
+  target_link_libraries(player_contact_probe PRIVATE tfx_core)
+  configure_first_party(player_contact_probe)
+  add_test(NAME world.native_player_contact_transition COMMAND player_contact_probe ${PROJECT_SOURCE_DIR}/tests/reference/player_contact.txt)
+
   add_executable(death_probe tests/death_probe.cpp)
   target_link_libraries(death_probe PRIVATE tfx_core)
   configure_first_party(death_probe)
