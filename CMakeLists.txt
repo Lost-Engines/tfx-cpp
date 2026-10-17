@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/render/g_effects.cpp
+  src/render/g_effects.h
   src/flight/mouse_input.cpp
   src/flight/mouse_input.h
   src/flight/joystick.cpp
@@ -530,6 +532,11 @@ if(BUILD_TESTING)
   configure_first_party(aerodynamic_recovery_probe)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
+
+  add_executable(g_effects_probe tests/g_effects_probe.cpp)
+  target_link_libraries(g_effects_probe PRIVATE tfx_core)
+  configure_first_party(g_effects_probe)
+  add_test(NAME render.native_g_effects COMMAND g_effects_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/g_effects.txt")
 
   add_executable(mouse_input_probe tests/mouse_input_probe.cpp)
   target_link_libraries(mouse_input_probe PRIVATE tfx_core)

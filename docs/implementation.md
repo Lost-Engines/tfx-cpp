@@ -1647,3 +1647,21 @@ captures pass in development, Release and ASan/UBSan builds. Live window checks
 also confirm the actual configuration's HUD intensity and ILS behaviour. Joystick
 tests use the original repeat tables; UI keyboard tests explicitly override
 controller selection so unrelated connected devices cannot interfere.
+
+
+### Connected G-force redout and blackout
+
+The original `0x73654` controller now produces live palette effects from the
+player's shared G-load. Reduced realism uses the original -5/+10 limits;
+realistic effects use -4/+9. Signed strain, asymmetric recovery rates, clamping
+and retained colour levels agree in **8,192 complete original updates**, including
+persistent sequences and floating boundary/unordered values. No dependency is
+intercepted. A compact 256-update sequence is checked by CTest.
+
+Flight updates exposure once per simulation update; paused redraws do not advance
+it. Mission restart and disabling G effects clear the controller. The existing
+independently verified palette painter consumes its redout/blackout mode and
+levels. Audio requests remain deferred with the sound integration. Weather flash
+production remains separate; it is not assumed to be damage feedback.
+The G-effect comparison and all **91 asset-free tests** pass in development,
+Release and ASan/UBSan builds.
