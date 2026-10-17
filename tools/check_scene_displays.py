@@ -12,11 +12,13 @@ from native_vga import VgaCapture
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
+parser.add_argument('--world-bounds',action='store_true',help='use the initialized TFX mission movement limits')
 args=parser.parse_args();directory=args.research/'installs/cd_1994_09/TFX'
 rng=random.Random(0x88378);total=0
 for step in (0,512,-1024):
     im=NativeReference(directory/'TFX.DAT',data_base=0x100000);video=VgaCapture(im,aperture=0xa0000)
     im.cpu.mem_map(0x300000,4096);im.write(0x7dcc,'<h',step)
+    if args.world_bounds:im.write(0xac58,'<2i',-16384,0)
     request=[];projection=[0,0]
     def scene(im):
         side=im.cpu.reg_read(r.UC_X86_REG_EAX)&65535;assert side in (0,2)
@@ -42,7 +44,7 @@ for step in (0,512,-1024):
         dx,dy=[(0,0),(1,0),(2,0),(3,0),(-10,-100),(12,8)][index%6]
         x,y=[(83,150),(238,150),(2,2),(318,198),(-10,20)][index%5]
         cases.append([page,side,aircraft,*position,*angles,*free,tracking,(index*53)&65535,*target,*ground,dx,dy,x,y])
-    output=subprocess.check_output([str((args.build/'scene_display_probe').resolve()),str(directory),str(step)],input=('\n'.join(' '.join(map(str,row)) for row in cases)+'\n').encode())
+    output=subprocess.check_output([str((args.build/'scene_display_probe').resolve()),str(directory),str(step),*(['--world-bounds']if args.world_bounds else [])],input=('\n'.join(' '.join(map(str,row)) for row in cases)+'\n').encode())
     stride=128068;assert len(output)==len(cases)*stride
     for index,row in enumerate(cases):
         page,side,aircraft=row[:3];px,py,pz=row[3:6];pitch,heading,roll=row[6:9];free_pitch,free_heading=row[9:11];tracking=row[11];tracking_roll=row[12];target=row[13:16];ground=row[16:19];dx,dy,x,y=row[19:]

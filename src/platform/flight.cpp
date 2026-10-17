@@ -105,6 +105,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   bool inspect{options.inspect};
   tfx::world::mission const selected{game,mission_name};
   auto const mission_setup{tfx::missions::initialise(selected.script)};
+  // Native mission entry 0x71138 replaces the executable image's prelaunch
+  // limits with the TFX world bounds. Camera movement and HUD trajectories
+  // share those initialized globals with moving actors and live projectiles.
+  vec2<int32_t> const movement_height_bounds{tfx::actors::minimum_world_y,tfx::actors::maximum_world_y};
   tfx::world::environment environment{game,override_grid.empty() ? selected.grid_name() : override_grid,override_environment.empty() ? mission_setup.environment : override_environment};
   environment.lighting.status = tfx::world::apply_detail_status(environment.lighting.status,preferences.detail);
   std::array<tfx::render::dac_palette,tfx::render::altitude_palette_count> altitude_palettes;
@@ -199,7 +203,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   std::vector<tfx::sensors::air_contact> radar_actors;
   tfx::sensors::designator designator;
   bool designator_view{false},designator_tracking_frame{false};
-  tfx::cockpit::aiming_mode aiming_mode{tfx::cockpit::aiming_mode::navigation};
+  auto &cannon_navigation{options.cannon_navigation};
   tfx::flight::refuelling refuelling{tables.refuel_parameters()};
   tfx::flight::landing_system landing;
   tfx::flight::player_flight player_flight;
@@ -744,7 +748,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .ground_height{ground.present ? ground.height : int16_t{0}},
       .refuel_phase{refuelling.value().phase},
       .speed{player.fixed_speed},
-      .height_bounds{vec2<int32_t>{tables.instruments().camera_height_bounds}},
+      .height_bounds{vec2<int32_t>{movement_height_bounds}},
     };
     if(ground_designation) context.tracking_target_q8.emplace(vec3<int32_t>{designated_point});
     else if(seeker.guidance && air_simulation.aircraft()[*seeker.guidance]) context.tracking_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*seeker.guidance]->flight.pose.position});
@@ -767,11 +771,21 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(change.clear_tracking) { seeker.tracking.reset(); seeker.guidance.reset(); ground_designation.reset(); mobile_designation.reset(); }
   }};
   auto const select_weapon{[&](tfx::weapons::weapon_role const role) {
-    if(player.collision) return;
+    if(player.collision || player_disabled || ejected()) return;
+    if(role == tfx::weapons::weapon_role::air) {
+      physical_player.configure_controls(tfx::flight::input_configuration::combat);
+      sample(audio::sample_priority::normal,audio::sample_id::control_selection);
+      cannon_navigation = false;
+    }
     if(armament.selected == tfx::weapons::no_pylon) armament.selected = 0;
-    aiming_mode = role == tfx::weapons::weapon_role::ground ? tfx::cockpit::aiming_mode::ground : tfx::cockpit::aiming_mode::air;
     apply_selection(armament.select(role,true));
+    // Native F-117 selection skips its first cannon result through the air selector.
+    if(player.aircraft == tfx::flight::player_aircraft::nighthawk && armament.selected == tfx::weapons::cannon_pylon) apply_selection(armament.select(tfx::weapons::weapon_role::air,true));
     armament.guns = armament.selected == tfx::weapons::no_pylon || armament.selected == tfx::weapons::cannon_pylon;
+    if(role == tfx::weapons::weapon_role::ground) {
+      if(armament.guns) cannon_navigation = false;
+      else physical_player.configure_controls(tfx::flight::input_configuration::cruise);
+    }
   }};
   auto const selected_weapon{[&]()->tfx::weapons::definition const* {
     if(armament.guns || armament.selected < 0 || armament.selected >= tfx::weapons::cannon_pylon) return nullptr;
@@ -897,7 +911,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     // Native command initialization at 0x83cb0 runs after automatic selection.
     // Even the cannon sentinel starts in the aircraft's weapon sight, not NAV.
     armament.guns = false;
-    aiming_mode = ground_weapons ? tfx::cockpit::aiming_mode::ground : tfx::cockpit::aiming_mode::air;
     refuelling.reset();
     landing.reset();
     ejection.reset();
@@ -1449,8 +1462,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       auto const &target{air_simulation.aircraft()[*radar.selected]->flight.pose.position};
       range_target.emplace(target.x >> 8,target.y >> 8,target.z >> 8);
     }
-    auto const *weapon{selected_weapon()};
-    auto const &range_weapon{weapon ? *weapon : tables.weapons[std::to_underlying(tfx::weapons::weapon_id::cannon)]};
+    // Native 0x80320 reads the selected pylon even in cannon/NAV mode.
+    unsigned int const range_weapon_index{armament.selected < 0 ? 0u : armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
+    auto const &range_weapon{tables.weapons.at(range_weapon_index < tables.weapons.size() ? range_weapon_index : 0u)};
     if(range_target) {
       int32_t const distance{tfx::math::distance_estimate(player.integer_position,*range_target)};
       state.in_range = distance != 0 && distance < range_weapon.range;
@@ -1465,6 +1479,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .tracked_position_q8{},
         .tracking_roll{0},
         .ground_target{0,0,0},
+        .height_bounds{vec2<int32_t>{movement_height_bounds}},
       };
       if(ground_designation) camera_state.tracked_position_q8.emplace(vec3<int32_t>{designated_point});
       if(!mission_setup.targets.empty()) camera_state.ground_target = vec3<int32_t>{mission_setup.targets[ground_target_page].position};
@@ -1531,7 +1546,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     // selects the weapon layout from the current role, including automatic
     // post-release and jettison selection changes.
     auto const role{armament.selected_role()};
-    auto const mode{armament.guns && (armament.selected != tfx::weapons::cannon_pylon || aiming_mode == tfx::cockpit::aiming_mode::navigation)
+    auto const mode{armament.guns && (armament.selected != tfx::weapons::cannon_pylon || cannon_navigation)
       ? tfx::cockpit::aiming_mode::navigation
       : role == tfx::weapons::weapon_role::air ? tfx::cockpit::aiming_mode::air
       : role == tfx::weapons::weapon_role::ground ? tfx::cockpit::aiming_mode::ground
@@ -1642,10 +1657,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         return vec2<int16_t>{-1,-1};
       }};
       if(state.mode == tfx::cockpit::aiming_mode::navigation || state.cannon) {
-        auto const samples{tfx::weapons::predict_cannon(tables.weapons[0],anchor,player.angles,player.fixed_speed,tables.instruments().camera_height_bounds)};
+        auto const samples{tfx::weapons::predict_cannon(tables.weapons[0],anchor,player.angles,player.fixed_speed,movement_height_bounds)};
         for(unsigned int index{0}; index != samples.size(); ++index) state.cannon_path[index] = project_prediction(samples[index]);
       }
-      if(state.mode != tfx::cockpit::aiming_mode::navigation && weapon.category == tfx::weapons::bomb_impact_category) state.bomb_impact.emplace(project_prediction(tfx::weapons::predict_bomb_impact(weapon,static_cast<uint8_t>(weapon_index),anchor,player.angles,player.fixed_speed,tables.instruments().camera_height_bounds)));
+      if(state.mode != tfx::cockpit::aiming_mode::navigation && weapon.category == tfx::weapons::bomb_impact_category) state.bomb_impact.emplace(project_prediction(tfx::weapons::predict_bomb_impact(weapon,static_cast<uint8_t>(weapon_index),anchor,player.angles,player.fixed_speed,movement_height_bounds)));
     }
     aiming.draw_forward(renderer,state);
   }};
@@ -1757,7 +1772,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .projection_shift{tfx::render::projection_shift(view.opening),tfx::render::projection_shift(view.opening)},
       });
     }
-    // Native 0x93328 projects after 0x73cd0 installs this frame's actual
+    // Native 0x93328 projects after 0x92144 installs this frame's actual
     // camera. External and target views must not use a forward-only matrix.
     if(!inspect) advance_air_tracking(*impact_projection);
     vec3<int32_t> const draw_reference{inspect ? vec3<int32_t>{view.position} : designator_view ? vec3<int32_t>{designator.camera} : vec3<int32_t>{view_motion.last_pose().anchor}};
@@ -2068,7 +2083,13 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         }
         if(pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER)) select_weapon(tfx::weapons::weapon_role::air);
         if(pressed(GLFW_KEY_BACKSPACE) || pressed(GLFW_KEY_O)) select_weapon(tfx::weapons::weapon_role::ground);
-        if(pressed(GLFW_KEY_F)) { armament.guns = true;aiming_mode = tfx::cockpit::aiming_mode::navigation; }
+        bool const navigation_key{pressed(GLFW_KEY_F)};
+        bool const left_control{pressed(GLFW_KEY_LEFT_CONTROL)}, right_control{pressed(GLFW_KEY_RIGHT_CONTROL)};
+        if((navigation_key || left_control || right_control) && !player.collision && !player_disabled) {
+          sample(audio::sample_priority::normal,audio::sample_id::control_selection);
+          armament.guns = true;cannon_navigation = true;
+          physical_player.configure_controls(tfx::flight::input_configuration::cruise);
+        }
         if(pressed(GLFW_KEY_D) && !player.collision && !player_disabled) {
           if(down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)) {
             // Native 0x85d27 restores the mission's default fit, without
@@ -2148,7 +2169,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           },actor_program.player_route,[&](auto const &cell) { return scene.terrain_landing_port(cell); },carriers);
           if(result.afterburner_stop_sample) sample(audio::sample_priority::normal,audio::sample_id::afterburner_stop);
           if(result.music_cue && sound) sound->music_cue(static_cast<uint8_t>(*result.music_cue));
-          if(result.navigation) { armament.guns = true;aiming_mode = tfx::cockpit::aiming_mode::navigation; }
+          if(result.navigation) { armament.guns = true;cannon_navigation = true; }
           for(auto const message : result.messages) radio.show(tables.instruments().landing_radio_messages[std::to_underlying(message)]);
           if(result.waypoint) physical_player.autopilot.navigation.route_index = static_cast<int16_t>(*result.waypoint + 1);
           if(result.controls) {
@@ -2198,7 +2219,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .speed{player.fixed_speed},
         .position{vec3<int32_t>{player.integer_position}},
         .angles{vec3<tfx::math::angle>{player.angles}},
-        .height_bounds{vec2<int32_t>{tables.instruments().camera_height_bounds}},
+        .height_bounds{vec2<int32_t>{movement_height_bounds}},
         .missile_available{context.missile.has_value()},
         .target_available{context.observed_target_q8.has_value()},
         .target_is_ground{ground_designation.has_value() && !seeker.guidance && !context.impact_target_q8},

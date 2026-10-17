@@ -13,6 +13,8 @@ namespace tfx::flight {
 
 using aerodynamic_model = simulation::flight_model; // Configured native mode, distinct from the callback selected for this update.
 
+enum class input_configuration : uint16_t { combat, cruise };
+
 struct aerodynamic_input_gains {
   double pitch{1};
   double roll{.19};
@@ -46,6 +48,8 @@ struct aerodynamic_flight {
   bool chute_deployed{false};
   bool chute_cutaway{false};
   bool cold_start{false};
+  // Native weapon-mode keys also select the flight response and HUD configuration.
+  auto configure_controls(input_configuration configuration)->void;
   // Native 0x954fc, also called immediately by the autopilot toggle key.
   void reset_motion(int16_t ground_elevation_steps, bool terrain_present);
 };

@@ -33,6 +33,13 @@ def current_renderer():
   if renderer_pointer is None:raise RuntimeError('No actual flight renderer in observed call stack')
  return renderer_pointer.dereference()
 end
+set $navigation_flag = 0
+break tfx::platform::fly_mission
+commands
+silent
+set $navigation_flag = &options.cannon_navigation
+continue
+end
 set $player = 0
 set $air = 0
 set $seeker = 0
@@ -141,6 +148,7 @@ class FrameReturn(gdb.FinishBreakpoint):
   values += [int(armament['pylons']['_M_elems'][i][name])for i in range(11)for name in ('weapon','count')]
   values += [struct.unpack('<Q',struct.pack('<d',float(player['physical']['powerplant']['fuel'])))[0]]
   print('CPP_ARMAMENT '+json.dumps(values))
+  print('CPP_AIMING_FLAGS '+json.dumps([int(not bool(armament['guns'])),int(gdb.parse_and_eval('$navigation_flag').dereference())]))
   projectiles=gdb.parse_and_eval('$projectiles').dereference()
   printer=gdb.default_visualizer(projectiles['active'])
   if printer is None:raise RuntimeError('GNU std::map printer required for read-only projectile observation')
