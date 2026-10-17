@@ -13,6 +13,9 @@ function(configure_first_party target)
   )
 endfunction()
 
+add_library(tfx_audio src/audio/sample_scheduler.cpp src/audio/sample_scheduler.h)
+configure_first_party(tfx_audio)
+
 add_library(tfx_core
   src/render/g_effects.cpp
   src/render/g_effects.h
@@ -540,6 +543,11 @@ if(BUILD_TESTING)
   configure_first_party(aerodynamic_recovery_probe)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
+
+  add_executable(sample_scheduler_probe tests/sample_scheduler_probe.cpp)
+  target_link_libraries(sample_scheduler_probe PRIVATE tfx_audio)
+  configure_first_party(sample_scheduler_probe)
+  add_test(NAME audio.native_sample_scheduler COMMAND sample_scheduler_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/sample_scheduler.txt")
 
   add_executable(detail_status_probe tests/detail_status_probe.cpp)
   target_link_libraries(detail_status_probe PRIVATE tfx_core)
