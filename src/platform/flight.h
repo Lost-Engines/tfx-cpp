@@ -8,6 +8,7 @@
 #include "resources/executable_tables.h"
 #include "simulation/timing.h"
 #include "world/flak.h"
+#include "world/animation.h"
 #include "world/sky.h"
 #include "render/horizon.h"
 #include "render/precipitation.h"
@@ -25,6 +26,7 @@ struct flight_options {
   configuration::settings &preferences;
   world::flak_state &flak;
   world::sky_state &sky;
+  world::animation_clock &scenery_clock;
   render::horizon_phase &ground_phase;
   vec3<int32_t> &ground_reference;
   int16_t &nearby_hostile_count;
