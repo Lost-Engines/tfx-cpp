@@ -33,6 +33,7 @@
 #include "flight/joystick.h"
 #include "flight/mouse_input.h"
 #include "flight/damage.h"
+#include "flight/defence.h"
 #include "flight/ejection_sequence.h"
 #include "flight/simple.h"
 #include "flight/fuel_gauge.h"
@@ -179,6 +180,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::weapons::cannon_state cannon;
   tfx::flight::damage_state player_damage;
   auto const instrument_setup{tfx::cockpit::initialise_instruments(mission_setup.aircraft,mission_setup.start.landed)};
+  tfx::flight::defensive_systems const initial_defences{
+    .chaff{instrument_setup.chaff},
+    .flares{instrument_setup.flares},
+    .stealth{instrument_setup.stealth},
+  };
+  auto defences{initial_defences};
   tfx::cockpit::hud_selection display_selection{instrument_setup.displays};
   tfx::cockpit::cockpit_position cockpit_position{tables.instruments(),instrument_setup.offset};
   tfx::cockpit::view_control views;
@@ -317,6 +324,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .player_speed{player.fixed_speed},
         .target_is_player{shot.target.actor && shot.target.actor->pool == tfx::weapons::actor_pool::player},
         .player_ejected{ejected()},
+        .player_decoys{defences.ecm},
         .player_distance{tfx::math::distance_estimate(player.integer_position,projectile_world_position(shot.state.position))},
       };
     }},
@@ -649,6 +657,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .angles{vec3<tfx::math::angle>{player.angles}},
       .elapsed{elapsed},
       .guns{armament.guns},
+      .sensor_suppressed{defences.stealth},
       .centre{vec2<int16_t>{projection.origin}},
       .project{[&](vec3<int32_t> const &position) {
         if(auto const point{projection.integer(position)}) return vec2<int16_t>{*point};
@@ -676,6 +685,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     player_damage.systems = instrument_setup.systems;
     ground_target_page = 0;
     fuel_display = instrument_setup.fuel;
+    defences = initial_defences;
     armament.pylons = initial_stores;
     armament.selected = 0;
     armament.select(mission_setup.aircraft == tfx::flight::player_aircraft::nighthawk ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false);
@@ -1076,9 +1086,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     state.ticks = mission_time.elapsed();
     state.clock_offset = static_cast<uint32_t>(mission_setup.clock);
     state.elapsed = launch_elapsed;
-    state.chaff = instrument_setup.chaff;
-    state.flares = instrument_setup.flares;
-    state.stealth = instrument_setup.stealth;
+    state.chaff = defences.chaff;
+    state.flares = defences.flares;
+    state.ecm = defences.ecm;
+    state.stealth = defences.stealth;
     state.stall_recovery = player.recovering;
     state.hook = player.arrestor_hook;
     // This host repaints the full framebuffer, so request a full refresh of cached indicators.
@@ -1487,6 +1498,30 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           mission_progress.ended = true;
           finish_world(0);
           continue;
+        }
+      }
+      std::array<std::pair<int,tfx::flight::defensive_key>,6> constexpr defensive_bindings{{
+        {GLFW_KEY_E,tfx::flight::defensive_key::ecm},
+        {GLFW_KEY_S,tfx::flight::defensive_key::stealth},
+        {GLFW_KEY_INSERT,tfx::flight::defensive_key::chaff},
+        {GLFW_KEY_KP_0,tfx::flight::defensive_key::chaff},
+        {GLFW_KEY_DELETE,tfx::flight::defensive_key::flare},
+        {GLFW_KEY_KP_DECIMAL,tfx::flight::defensive_key::flare},
+      }};
+      for(auto const &[key,action] : defensive_bindings) if(pressed(key)) {
+        auto const effects{tfx::flight::press_defensive_key(defences,action,{
+          .aircraft{player.aircraft},
+          .ejecting{ejected()},
+          .collision{player.collision != 0},
+          .disabled{player_disabled},
+          .afterburner{player.afterburner},
+        })};
+        if(effects.clear_targeting) { radar.selected.reset();seeker.tracking.reset();seeker.guidance.reset(); }
+        if(effects.release) {
+          tfx::weapons::actor_identity const owner{
+            .pool{tfx::weapons::actor_pool::player},
+          };
+          projectiles.countermeasure(owner,actor_position(owner),effects.release->radar,effects.release->strength,air_simulation.random_stream());
         }
       }
       if(!ejected()) {

@@ -278,6 +278,7 @@ add_library(tfx_core
   src/actors/scenery.h
   src/missions/progress.cpp
   src/missions/progress.h
+  src/flight/defence.cpp src/flight/defence.h
   src/flight/damage.cpp
   src/flight/damage.h
   src/sensors/air.cpp
@@ -529,6 +530,11 @@ if(BUILD_TESTING)
   target_link_libraries(world_contacts_probe PRIVATE tfx_core)
   configure_first_party(world_contacts_probe)
   add_test(NAME world.native_fixed_placements_and_surface_region COMMAND world_contacts_probe ${PROJECT_SOURCE_DIR}/tests/reference/world_contacts.txt)
+
+  add_executable(defence_probe tests/defence_probe.cpp)
+  target_link_libraries(defence_probe PRIVATE tfx_core)
+  configure_first_party(defence_probe)
+  add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
 
   add_executable(death_probe tests/death_probe.cpp)
   target_link_libraries(death_probe PRIVATE tfx_core)

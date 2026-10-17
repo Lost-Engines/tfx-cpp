@@ -72,6 +72,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "Arcade uses mouse/arrow steering; other models use the original arrow-key controls.\n"
                    "Keypad * raises afterburner; Alt+keypad * or keypad - lowers it.\n"
                    "[ and ] toggle engines; G gear; H arrestor hook; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
+                   "E/S toggle ECM/stealth on F-117/F-22; Insert releases chaff; Delete releases a flare.\n"
                    "Enter selects air-to-air weapons; Backspace/O air-to-ground; F selects cannon/navigation.\n"
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
                    "X clears targets; F1 returns to flight view; Space fires; P pauses; backtick opens configuration; double Escape ejects; Shift+Q quits.\n"
