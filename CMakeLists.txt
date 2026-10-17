@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.30)
-project(tfx VERSION 0.1.0 LANGUAGES CXX)
+project(tfx VERSION 0.1.0 LANGUAGES C CXX)
+if(APPLE)
+  enable_language(OBJC)
+endif()
 include(CTest)
 include(cmake/dependencies.cmake)
 
@@ -17,6 +20,7 @@ add_library(tfx_audio
   src/audio/sample_scheduler.cpp src/audio/sample_scheduler.h
   src/audio/sample_bank.cpp src/audio/sample_bank.h
   src/audio/sample_voice.cpp src/audio/sample_voice.h
+  src/audio/runtime.cpp src/audio/runtime.h
 )
 configure_first_party(tfx_audio)
 
@@ -339,7 +343,20 @@ configure_first_party(tfx_core)
 
 target_link_libraries(tfx_audio PUBLIC tfx_core)
 
+if(APPLE)
+  set_source_files_properties(src/platform/miniaudio_implementation.c PROPERTIES LANGUAGE OBJC)
+endif()
+add_library(pcm_device STATIC src/platform/miniaudio_implementation.c)
+target_include_directories(pcm_device SYSTEM PUBLIC "${miniaudio_SOURCE_DIR}")
+target_compile_definitions(pcm_device PUBLIC MA_NO_ENGINE MA_NO_RESOURCE_MANAGER MA_NO_NODE_GRAPH MA_NO_DECODING MA_NO_ENCODING MA_NO_GENERATION MA_NO_NULL)
+target_link_libraries(pcm_device PRIVATE Threads::Threads PRIVATE ${CMAKE_DL_LIBS})
+if(UNIX)
+  target_link_libraries(pcm_device PRIVATE m)
+endif()
+
 add_executable(tfx
+  src/platform/audio_output.cpp
+  src/platform/audio_output.h
   src/main.cpp
   src/platform/configuration.cpp
   src/platform/configuration.h
@@ -352,7 +369,7 @@ add_executable(tfx
   src/platform/window.cpp
   src/platform/window.h
 )
-target_link_libraries(tfx PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
+target_link_libraries(tfx PRIVATE tfx_audio PRIVATE pcm_device PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
 
 if(BUILD_TESTING)

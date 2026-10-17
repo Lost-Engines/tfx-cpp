@@ -14,6 +14,8 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include "audio/runtime.h"
+#include "platform/audio_output.h"
 #include "platform/flight.h"
 #include "platform/presentations.h"
 #include "world/environment.h"
@@ -163,6 +165,19 @@ auto main(int const argc, char const *const argv[])->int try {
   if(!language_selected && preferences.language >= 1 && preferences.language <= language_names.size()) language = language_names[preferences.language - 1];
   tfx::resources::archive const game{archive_path};
   tfx::resources::executable_tables const tables{archive_path.parent_path() / "TFX.DAT"};
+  std::unique_ptr<tfx::audio::runtime> sound;
+  std::unique_ptr<tfx::platform::audio_output> output;
+  if(!screenshot && !inspect && preferences.sound_effects) {
+    try {
+      sound = std::make_unique<tfx::audio::runtime>(tables.samples,game,tfx::platform::audio_output::sample_rate,true);
+      output = std::make_unique<tfx::platform::audio_output>([](void *const user, std::span<float> const pcm) noexcept {
+        static_cast<tfx::audio::runtime*>(user)->render(pcm);
+      },sound.get());
+    } catch(std::exception const &error) {
+      std::cerr << "Sound output unavailable: " << error.what() << '\n';
+      sound.reset();
+    }
+  }
   if(!presentation.empty()) {
     tfx::platform::play_presentation(game,tables,presentation,presentation_function,language,scale,frame_limit,screenshot);
     return EXIT_SUCCESS;
@@ -180,6 +195,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .frame_limit{frame_limit},
     .flight_steps{flight_steps},
     .preferences{preferences},
+    .sound{sound.get()},
     .inspect{inspect},
   };
   if(direct_mission || inspect || flight_steps || !override_environment.empty() || !override_grid.empty()) {

@@ -48,7 +48,7 @@ struct refuel_state {
   int32_t horizontal_distance{0};
   vec3<int32_t> angle_errors{0,0,0};
 };
-enum class refuel_event_kind { play_sound, stop_sound, player_model, tanker_model, connected_voice };
+enum class refuel_event_kind { urgent_sample, normal_sample, player_model, tanker_model, connected_voice };
 struct refuel_event {
   refuel_event_kind kind;
   unsigned int argument{0};

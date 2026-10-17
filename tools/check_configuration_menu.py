@@ -15,6 +15,7 @@ from native_reference import r
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
+p.add_argument('--audio',action='store_true',help='include available sound/music switches and state')
 a=p.parse_args()
 path=a.research/'installs/cd_1994_09/TFX/TFX.DAT'
 rng=random.Random(0x94448)
@@ -31,15 +32,19 @@ for page,count in [(0,19),(1,13)]:
    model=[0,1,2,6][repeat]
    fields=[model,rng.randrange(3),rng.randrange(3),fbits(rng.choice([0.,5.,512.,995.,999.])),96,rng.randrange(3),rng.randrange(2),rng.randrange(2),rng.randrange(2),rng.randrange(2),rng.randrange(2),rng.randrange(2)]
    rows.append(fields+[page,action])
-output=subprocess.check_output([str((a.build/'configuration_menu_probe').resolve()),str(path)],input=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode())
+if a.audio:
+ for index,row in enumerate(rows):
+  mask=index%16;row[12:12]=[(mask>>bit)&1 for bit in range(4)]
+output=subprocess.check_output([str((a.build/'configuration_menu_probe').resolve()),*(['--audio'] if a.audio else []),str(path)],input=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode())
 position=0
 for index,row in enumerate(rows):
- values,page,action=row[:12],row[12],row[13]
+ values,page,action=row[:12],row[-2],row[-1]
+ audio=row[12:16] if a.audio else None
  end=output.index(b'\n',position)
  state=list(map(int,output[position:end].split()))
  pixels=output[end+1:end+1+64000]
  position=end+1+64000
- im,vga,pointers=menu_image(path,values,page)
+ im,vga,pointers=menu_image(path,values,page,audio)
  if action!=999:
   # These cases exercise individual preference controls, without completing a
   # dialog or replacing a page. Their native widget activation is the input.
@@ -49,6 +54,7 @@ for index,row in enumerate(rows):
   assert im.cpu.reg_read(r.UC_X86_REG_EIP)==im.native(stop)
  offsets=[(0x1347a,'<B'),(0x13478,'<B'),(0x8864,'<B'),(0xac68,'<I')]+[(f,'<B') for f in (0x5954,0x8f31,0x8e22,0x8e23,0x8e25,0x8f30,0x8867)]
  expected=[im.read(offset,fmt)[0] for offset,fmt in offsets]+[page,0]
+ if a.audio:expected += [int(im.read(offset,'<b')[0]==1) for offset in (0x8865,0x8866)]
  assert state==expected,(index,row,state,expected)
  native=vga.pixels()
  assert pixels==native,(index,row,[(i%320,i//320,x,y) for i,(x,y) in enumerate(zip(pixels,native)) if x!=y][:30],sum(x!=y for x,y in zip(pixels,native)))

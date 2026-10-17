@@ -77,6 +77,12 @@ namespace tfx::platform {
 flight_result fly_mission(resources::archive const &game, resources::executable_tables const &tables,
   flight_options const &options, missions::variables &campaign, window *const shared_window) {
   auto &preferences{options.preferences};
+  auto *const sound{options.sound};
+  auto const sample{[&](audio::sample_priority const priority, auto const id) { if(sound) sound->sample(priority,id); }};
+  auto const reheat_sound{[&](flight::afterburner_change const change) {
+    if(change != flight::afterburner_change::none) sample(audio::sample_priority::normal,
+      change == flight::afterburner_change::started || change == flight::afterburner_change::increased ? audio::sample_id::afterburner : audio::sample_id::afterburner_stop);
+  }};
   bool simple_mode{preferences.model == simulation::flight_model::simple};
   bool arcade_mode{preferences.model == simulation::flight_model::arcade};
   auto const &mission_name{options.mission};
@@ -229,7 +235,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     for(auto const &event : events) {
       if(event.kind == tfx::flight::refuel_event_kind::player_model) scene.actor_event(player_visual,event.argument);
       else if(event.kind == tfx::flight::refuel_event_kind::tanker_model) scene.actor_event(*air_visuals.at(tfx::actors::aircraft_per_side + *event.tanker),event.argument);
-      // The original sample and connected-voice requests await the audio backend.
+      else if(event.kind == tfx::flight::refuel_event_kind::urgent_sample) sample(audio::sample_priority::urgent,event.argument);
+      else if(event.kind == tfx::flight::refuel_event_kind::normal_sample) sample(audio::sample_priority::normal,event.argument);
+      else if(event.kind == tfx::flight::refuel_event_kind::connected_voice && sound) sound->sequence(audio::sample_priority::normal,{std::to_underlying(audio::sample_id::fill_up),std::to_underlying(audio::sample_id::refuel_response)});
     }
   }};
   auto const update_refuelling{[&] {
@@ -714,6 +722,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       radio.show(mission_setup.messages[index].text);
     }
     launch_elapsed = elapsed;
+    if(sound) sound->advance(elapsed);
     bool const flying{!player.collision};
     auto const previous{vec3<int32_t>{player.integer_position}};
     bool const previous_gear{player.gear_down}, previous_chute{player.brake_chute};
@@ -828,14 +837,20 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(preferences.effects.g_force != tfx::configuration::g_effects::none) tfx::render::advance_g_effects(g_effects,simple_player.displayed_g_load,preferences.effects.g_force,elapsed);
     else g_effects = {};
     bool const landing_callback{update.callback == tfx::flight::player_callback::automatic_landing};
+    for(auto const id : update.gear_sounds) sample(audio::sample_priority::urgent,id);
+    for(auto const change : update.aerodynamic.recovery_changes) if(change == flight::aerodynamic_recovery_change::engaged) sample(audio::sample_priority::urgent,audio::sample_id::recovery);
     if(update.refuel_afterburner_warning) radio.show(tables.refuel_parameters().afterburner_message);
     if(update.aerodynamic.descent_warning) radio.show(tables.instruments().descent_warning);
     for(auto const entry : update.model_entries) scene.actor_event(player_visual,entry);
     for(auto const event : update.aerodynamic.afterburner) {
-          if(event == tfx::flight::afterburner_change::started) scene.actor_event(player_visual,9);
-          else if(event == tfx::flight::afterburner_change::stopped) scene.actor_event(player_visual,10);
-        }
+      reheat_sound(event);
+      if(event == tfx::flight::afterburner_change::started) scene.actor_event(player_visual,9);
+      else if(event == tfx::flight::afterburner_change::stopped) scene.actor_event(player_visual,10);
+    }
     for(auto const event : update.landing.ordered) {
+      if(event == flight::automatic_landing_event::gear_lowered || event == flight::automatic_landing_event::gear_raised) sample(audio::sample_priority::normal,audio::sample_id::gear);
+      else if(event == flight::automatic_landing_event::afterburner_stopped) sample(audio::sample_priority::normal,audio::sample_id::afterburner_stop);
+      else if(event == flight::automatic_landing_event::stopped) sample(audio::sample_priority::urgent,audio::sample_id::landing_stopped);
       if(event == tfx::flight::automatic_landing_event::gear_lowered) scene.actor_event(player_visual,3);
       else if(event == tfx::flight::automatic_landing_event::gear_raised) scene.actor_event(player_visual,4);
       else if(event == tfx::flight::automatic_landing_event::afterburner_stopped) scene.actor_event(player_visual,10);
@@ -1090,7 +1105,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       });
     })};
     player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::fuel)] = result.fuel_condition;
-    // The compositor returns its warning sound event; the audio backend is still pending.
+    if(result.threat_sound) sample(audio::sample_priority::urgent,audio::sample_id::threat);
   }};
   auto const draw_aiming{[&](tfx::render::camera const &view, bool const limited) {
     aiming.check_fuel(player.fuel);
@@ -1364,7 +1379,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(!inspect && !result_evaluated && pressed(GLFW_KEY_GRAVE_ACCENT)) {
       captured = mouse_started = false;
       preferences.hud_green = static_cast<uint16_t>(hud_green);
-      auto const action{configure_flight(window,tables,preferences,options.data_directory,renderer.output,*frame_colours)};
+      auto const action{configure_flight(window,tables,preferences,options.data_directory,renderer.output,*frame_colours,sound)};
       if(action == tfx::presentation::configuration_action::enrol) return flight_result::enrol;
       if(action == tfx::presentation::configuration_action::quit) break;
       simple_mode = preferences.model == tfx::simulation::flight_model::simple;
@@ -1428,7 +1443,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         for(auto const &event : result.events) {
           if(event.kind == tfx::flight::ejection_event_kind::player_model) scene.actor_event(player_visual,event.argument);
           else if(event.kind == tfx::flight::ejection_event_kind::camera) views.enqueue(static_cast<tfx::cockpit::view_mode>(event.argument),player.fixed_speed);
-          // Voice/sample requests remain explicit pending the audio backend.
+          else if(event.kind == tfx::flight::ejection_event_kind::sample && sound) sound->sequence(audio::sample_priority::normal,{event.argument,event.argument});
+          // Voice is a separate auxiliary OSL bank request.
         }
         if(result.end_flight) {
           mission_progress.ended = true;
@@ -1455,10 +1471,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
             .recovery_available{preferences.effects.recovery != 0},
           })};
           if(events.notice) radio.show(tables.instruments().pilot_notices[std::to_underlying(*events.notice)]);
+          if(events.recovery.change == flight::aerodynamic_recovery_change::engaged) sample(audio::sample_priority::urgent,audio::sample_id::recovery);
           for(auto const event : events.recovery.afterburner) {
-          if(event == tfx::flight::afterburner_change::started) scene.actor_event(player_visual,9);
-          else if(event == tfx::flight::afterburner_change::stopped) scene.actor_event(player_visual,10);
-        }
+            reheat_sound(event);
+            if(event == tfx::flight::afterburner_change::started) scene.actor_event(player_visual,9);
+            else if(event == tfx::flight::afterburner_change::stopped) scene.actor_event(player_visual,10);
+          }
           tfx::flight::publish_shared_player(simple_player,physical_player);
         }
         if(pressed(GLFW_KEY_TAB)) {
@@ -1470,10 +1488,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
             .ejected{player_disabled},
             .landed{player.landed},
           })};
+          if(events.change == flight::aerodynamic_recovery_change::engaged) sample(audio::sample_priority::urgent,audio::sample_id::recovery);
           for(auto const event : events.afterburner) {
-          if(event == tfx::flight::afterburner_change::started) scene.actor_event(player_visual,9);
-          else if(event == tfx::flight::afterburner_change::stopped) scene.actor_event(player_visual,10);
-        }
+            reheat_sound(event);
+            if(event == tfx::flight::afterburner_change::started) scene.actor_event(player_visual,9);
+            else if(event == tfx::flight::afterburner_change::stopped) scene.actor_event(player_visual,10);
+          }
           tfx::flight::publish_shared_player(simple_player,physical_player);
         }
         if(pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER)) select_weapon(tfx::weapons::weapon_role::air);
@@ -1620,10 +1640,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           if(pressed(GLFW_KEY_MINUS) || pressed(GLFW_KEY_KP_SUBTRACT)) change = physical_player.powerplant.decrease_afterburner();
           player.afterburner = physical_player.powerplant.afterburner;
           player.throttle = physical_player.powerplant.throttle;
+          reheat_sound(change);
           if(change == tfx::flight::afterburner_change::started) scene.actor_event(player_visual,9);
           else if(change == tfx::flight::afterburner_change::stopped) scene.actor_event(player_visual,10);
         }
         if(pressed(GLFW_KEY_G) && player_damage.condition(tfx::flight::aircraft_system::landing_gear) != tfx::flight::system_condition::failed) {
+          sample(audio::sample_priority::normal,audio::sample_id::gear);
           player.gear_down = !player.gear_down;
           player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::landing_gear)] = player.gear_down ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
           scene.actor_event(player_visual,player.gear_down ? 3u : 4u);

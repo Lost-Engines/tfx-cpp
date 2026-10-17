@@ -12,3 +12,12 @@ if(NOT TARGET glfw)
   )
   FetchContent_MakeAvailable(glfw)
 endif()
+
+include(FetchContent)
+find_package(Threads REQUIRED)
+FetchContent_Declare(miniaudio
+  URL https://codeload.github.com/mackron/miniaudio/tar.gz/f40cf03f80cdb7e741d43e53b7e706e8c1394bcf
+  URL_HASH SHA256=412326cf55133404cbfb81ec8974b10149dc68732ce5bdeee8ba9cfc2695d646
+  SOURCE_SUBDIR unused_upstream_build
+)
+FetchContent_MakeAvailable(miniaudio)

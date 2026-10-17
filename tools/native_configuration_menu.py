@@ -4,7 +4,7 @@ from native_reference import NativeReference, r
 from native_vga import VgaCapture
 
 
-def menu_image(path, values, page=0):
+def menu_image(path, values, page=0, audio=None):
     image = NativeReference(path, data_base=0x100000)
     image.call(0xde851)
     image.call(0xde547)
@@ -17,6 +17,10 @@ def menu_image(path, values, page=0):
     for (offset,fmt),value in zip(fields,values): image.write(offset,fmt,value)
     image.write(0x8865,'<b',-1)
     image.write(0x8866,'<b',-1)
+    if audio is not None:
+        available_sound,available_music,sound,music=audio
+        image.write(0x8865,'<b',sound if available_sound else -1)
+        image.write(0x8866,'<b',music if available_music else -1)
     image.write(0x13aed,'<B',values[1])
     image.intercept(0xd07b4,'Supply no new keyboard/mouse event between declared option selections',lambda im:im.return_from())
     image.intercept(0xce4b0,'Hide hardware cursor outside captured dialog pixels',lambda im:im.return_from())

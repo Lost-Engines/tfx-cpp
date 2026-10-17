@@ -63,11 +63,11 @@ refuel_toggle refuelling::toggle(uint8_t const weapon_mode, bool const inhibited
   };
   if(inhibited || crashed || ejected) return result;
   result.events.push_back({
-    .kind{refuel_event_kind::stop_sound},
+    .kind{refuel_event_kind::normal_sample},
     .argument{8},
   });
   result.events.push_back({
-    .kind{refuel_event_kind::stop_sound},
+    .kind{refuel_event_kind::normal_sample},
     .argument{0},
   });
   result.events.push_back({
@@ -141,7 +141,7 @@ refuel_update refuelling::advance(refuel_player &player, refuel_registry &allies
   unsigned int const selected{*state.selected};
   auto &tanker{*allies[selected]};
   if(!previous) result.events.push_back({
-    .kind{refuel_event_kind::play_sound},
+    .kind{refuel_event_kind::urgent_sample},
     .argument{46},
   });
   result.target_override = selected;
@@ -182,7 +182,7 @@ refuel_update refuelling::advance(refuel_player &player, refuel_registry &allies
     state.phase = 0;
     if(aligned(player,tanker)) {
       result.events.push_back({
-        .kind{refuel_event_kind::play_sound},
+        .kind{refuel_event_kind::urgent_sample},
         .argument{47},
       });
       if(follow(player,tanker,elapsed)) result.moved_tanker = selected;

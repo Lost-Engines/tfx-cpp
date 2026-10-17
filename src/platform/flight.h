@@ -1,5 +1,6 @@
 #pragma once
 
+#include "audio/runtime.h"
 #include "missions/rules.h"
 #include "configuration/settings.h"
 #include "platform/window.h"
@@ -18,6 +19,7 @@ struct flight_options {
   std::optional<unsigned int> joystick{};
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0};
   configuration::settings &preferences;
+  audio::runtime *sound{nullptr};
   bool inspect{false};
 };
 enum class flight_result { finished, quit, enrol };
