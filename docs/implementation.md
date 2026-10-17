@@ -2971,3 +2971,50 @@ All **138 regressions** pass in development, Release and ASan/UBSan. The
 complete row/asset/submission and remapped-pixel comparisons repeat in all
 three builds. All **128 retail scenes** advance 64 steps, private development
 window controls still pass, and storm/cockpit composition remains correct.
+
+
+### Native Gouraud edges, near clipping and model-program delivery
+
+Live Gouraud model faces now share the verified integer screen clipper and
+reciprocal edge walker with flat faces. Clipping retains the original
+farther-endpoint division and signed-word differences for both coordinates
+and 8.8 colour attributes. Each edge retains its fractional colour accumulator;
+the horizontal painter uses the original rotated ADD/ADC or SUB/SBB state,
+including the initial fraction-only phase. The latter matters when colour
+differences wrap across the full attribute word. Lookup follows interpolation,
+without blending RGB values.
+
+Near crossings follow original `0xd8074` / `0xd809b` / `0xd824e`. The word-depth
+search shares its decision path with the flat clipper, but colour midpoints
+use unsigned dword sums while XY uses wrapped signed sums. Exact-near
+vertices retain their original attribute. The resulting vertices use the
+same saturated normal/wide projection and inclusive raster. Inspection and
+the still-separate textured/patterned/rounded paths retain their own painter.
+
+`tools/check_gouraud_polygons.py` compares **1,024 complete original VGA
+frames**, covering fractional shades, clipped convex faces, both lookup
+directions, partial viewports, single-row/column extents and degeneracies.
+`tools/check_world_polygons.py --gouraud` adds **1,024 complete projected
+frames**; adding `--near` compares another **1,024 near-crossing frames**,
+including depth/coordinate wraps and camera-unit scales.
+
+`tools/check_model_programs.py --gouraud` executes **1,024 complete synthetic
+programs** through the original endian converter, absolute vertices, scaling,
+translation, projection, facing branch, packed colour instructions, Gouraud
+face instructions, near clipping and VGA writes. Every pixel and the
+branch-dependent attribute/draw count agrees. Original code and drawing
+helpers execute without intercepted dependencies; model bytes, identity
+matrices, translation, viewport and remap remain declared inputs. Full actor
+transforms, lighting eligibility and whole-scene order are separate gates.
+
+A further **1,024 full-word colour cases** retain signed attribute-difference
+wrap and rotated carry/borrow behaviour. Tracing the original span arguments
+isolates the one-step differences caused by replacing that state with an
+ordinary fixed-point accumulator; the native carry path now agrees. Compact
+fixtures retain the cross-ramp cases as well as ordinary shading.
+
+All **142 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizers each repeat 256 complete original screen/near/model-program
+comparisons. All **128 retail scenes** advance 64 steps. Private development
+and sanitized windows retain weapon, missile-camera, MFD, designator, pause
+and combat-to-FINISH coverage; storm/cockpit composition also still passes.

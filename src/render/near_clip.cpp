@@ -6,9 +6,12 @@ int16_t word(int32_t const value) { return math::signed_word(static_cast<uint16_
 int32_t midpoint(int32_t const a, int32_t const b) { return std::bit_cast<int32_t>(static_cast<uint32_t>(a) + static_cast<uint32_t>(b)) >> 1; }
 }
 
-vec2<int32_t> intersect_near_plane(vec3<int32_t> const &outside, vec3<int32_t> const &inside) {
+shaded_near_vertex intersect_shaded_near_plane(vec3<int32_t> const &outside, vec3<int32_t> const &inside, uint16_t const outside_shade, uint16_t const inside_shade) {
   int16_t lower{word(outside.z >> 16)}, upper{word(inside.z >> 16)};
-  if(lower == model_near_depth) return {outside.x,outside.y};
+  if(lower == model_near_depth) return {
+    .position{outside.x,outside.y},
+    .shade_q8{outside_shade},
+  };
   uint16_t path{0};
   // Original unrolled search bisects signed WORD depths, including overflow
   // before SAR. It records branch decisions low bit first. Equality adds a
@@ -24,15 +27,25 @@ vec2<int32_t> intersect_near_plane(vec3<int32_t> const &outside, vec3<int32_t> c
     else lower = centre;
   }
   vec2<int32_t> a{outside.x,outside.y}, b{inside.x,inside.y};
+  uint32_t shade_a{outside_shade},shade_b{inside_shade};
   bool upper_half{(path & 1) != 0};path >>= 1;
   for(;;) {
     auto &endpoint{upper_half ? b : a};
     endpoint = {midpoint(a.x,b.x),midpoint(a.y,b.y)};
+    auto &shade{upper_half ? shade_b : shade_a};
+    shade = (shade_a + shade_b) >> 1;
     upper_half = (path & 1) != 0;path >>= 1;
     // The last set bit terminates replay; it is not another midpoint step.
     // The native loop still performs one midpoint when its path word is zero.
-    if(!path) return vec2<int32_t>{endpoint};
+    if(!path) return {
+      .position{vec2<int32_t>{endpoint}},
+      .shade_q8{static_cast<uint16_t>(shade)},
+    };
   }
+}
+
+vec2<int32_t> intersect_near_plane(vec3<int32_t> const &outside, vec3<int32_t> const &inside) {
+  return vec2<int32_t>{intersect_shaded_near_plane(outside,inside,0,0).position};
 }
 
 vec2<int16_t> project_near_plane(vec2<int32_t> const &point, aperture const opening, vec2<int16_t> const &origin) {
