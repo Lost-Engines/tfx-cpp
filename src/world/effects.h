@@ -34,6 +34,6 @@ public:
 };
 
 // Place a word-positioned native effect in the nearest 65,536-unit world copy.
-vec3<int32_t> effect_position(effect_record const &effect, vec3<int32_t> const &reference);
+vec3<int32_t> effect_position(vec3<int16_t> const &position, vec3<int32_t> const &reference);
 
 } // namespace tfx::world

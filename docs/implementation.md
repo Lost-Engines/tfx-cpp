@@ -2390,3 +2390,49 @@ and next-pass shot retirement. It passes in development and sanitizers; it is
 explicitly a supplied-input integration case, not a naturally reached hit or a
 complete pixel comparison. Original framebuffer-page age and world-renderer
 fidelity remain separate boundaries.
+
+
+### Authored area flak and independent effect pool
+
+Mission flak rectangles now drive the original once-per-frame controller
+(`0x7cc30`). Its inclusive altitude/region tests, cloud-layer gate, signed-word
+delay and dedicated phase/scatter generator retain native wrapping and
+rounding. That generator is independent of the shared combat random stream.
+Its delay, seeds and night-model cycle belong to the application session:
+mission initialization clears the pool and centre without resetting them.
+
+Daytime regions use `burst`; nighttime regions cycle five `snake_*` models.
+The separate 20-slot pool allocates in the original reverse/free order and
+reuses the oldest slot when full, with no invented lifetime. Each slot has its
+own SSD animation state. Positions retain native word storage and are
+unwrapped near the camera before drawing. The original centre/range gate
+includes its signed absolute-value edge case.
+
+Close daytime bursts request the original normal-priority sample and climb
+warning, with radio delivery gated by the ticker's idle flag (`0x7612`). Their
+white palette flash uses level 40 for the pending frame, restoring level 50
+afterward. The separate native fog/range-lighting pulse (`0x7d7e0`/`0x7d94c`)
+and the ordinary sun-glare producer remain unbound; this increment does not
+claim complete flak illumination or full renderer equivalence. No combat
+damage was added to this visual pool.
+
+`check_flak.py` compares **8,192 complete original frames** over 16 persistent
+day/night sequences: **2,871 spawns and 85 flash requests** agree in state,
+random consumption, gates, placement, output ordering, pool reuse and draw
+queues. Resource, SSD, sample, radio, pulse setup and final drawing are observed
+boundaries; the controller, random generator, integer rotation, allocator and
+draw gate execute unchanged. The compact fixture runs without game assets.
+
+The environment decoder now also retains the original signed cloud-layer
+height/offset and upper-grid filename. All **33 native environment parses**
+agree on these and their palette/status bindings; **1,056 original atmosphere
+and wind initializations** still agree. Retaining an upper grid does not yet
+implement its rendering.
+
+All **114 regressions** and the native flak/environment comparisons pass in
+development, Release and ASan/UBSan. Controlled private day/night window checks observe
+the real controller, selected model, pool, word placement and scene handoff,
+plus the daytime palette flash. They explicitly supply a small region, player
+height and flak seeds; they are integration checks, not naturally reached
+encounters or complete pixel comparisons. The private day/night checks pass in
+both development and ASan/UBSan.

@@ -7,6 +7,7 @@
 #include "resources/archive.h"
 #include "resources/executable_tables.h"
 #include "simulation/timing.h"
+#include "world/flak.h"
 
 namespace tfx::platform {
 
@@ -19,6 +20,7 @@ struct flight_options {
   std::optional<unsigned int> joystick{};
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0};
   configuration::settings &preferences;
+  world::flak_state &flak;
   audio::runtime *sound{nullptr};
   bool inspect{false};
 };

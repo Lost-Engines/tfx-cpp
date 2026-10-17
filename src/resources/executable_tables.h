@@ -68,6 +68,7 @@ public:
   std::string orders_violation_message;
   std::string ground_training_warning;
   std::string ground_orders_violation;
+  std::string flak_warning;
   presentation::dac_palette text_palette;
   render::dac_palette fixed_flight_palette;
   uint8_t hud_green;
