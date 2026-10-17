@@ -55,6 +55,7 @@
 #include "render/point_projection.h"
 #include "render/palette_selection.h"
 #include "render/palette_lighting.h"
+#include "render/g_effects.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
@@ -94,6 +95,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     std::ranges::copy(bytes,altitude_palettes[bank].begin());
   }
   tfx::render::palette_lighting palette_lighting{altitude_palettes,environment.lighting.palette_altitudes,tables.fixed_flight_palette};
+  tfx::render::g_effects_state g_effects;
   auto colours{tfx::render::expand_dac_palette(palette_lighting.colours())};
   auto const infrared_colours{tfx::render::decode_palette(game.read("colours/" + environment.lighting.infrared_palette_name + ".col"))};
   auto const *frame_colours{&colours};
@@ -635,6 +637,7 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
     player = {};
     cannon = {};
     player_damage = {};
+    g_effects = {};
     display_selection = instrument_setup.displays;
     aiming.reset_tracking();
     player_damage.systems = instrument_setup.systems;
@@ -808,6 +811,8 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
       .aircraft_disabled{player_disabled},
       .water_world{environment.lighting.water_world},
     })};
+    if(preferences.effects.g_force != tfx::configuration::g_effects::none) tfx::render::advance_g_effects(g_effects,simple_player.displayed_g_load,preferences.effects.g_force,elapsed);
+    else g_effects = {};
     bool const landing_callback{update.callback == tfx::flight::player_callback::automatic_landing};
     if(update.refuel_afterburner_warning) radio.show(tables.refuel_parameters().afterburner_message);
     if(update.aerodynamic.descent_warning) radio.show(tables.instruments().descent_warning);
@@ -1205,6 +1210,9 @@ bool fly_mission(resources::archive const &game, resources::executable_tables co
         .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
         .hud_green{static_cast<uint8_t>(hud_green)},
         .normal_changed{palette_selection.value().normal_changed},
+        .blackout{g_effects.mode},
+        .blackout_level{g_effects.blackout_level},
+        .redout_level{g_effects.redout_level},
       })};
       if(lighting.changed) palette_selection.invalidate_normal();
       if(auto const upload{palette_selection.advance({
