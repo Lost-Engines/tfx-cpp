@@ -2258,3 +2258,49 @@ All **109 asset-free regressions** and the contact/loss native comparisons pass
 in development, Release and ASan/UBSan. The natural observer-only engagement
 check also passes after the contact-loop change, preserving permission and
 incoming-projectile warning delivery.
+
+### Selected-tanker collisions and unauthorized terrain targets
+
+The player's contact query now uses the querying SSD's real impact-damage word,
+read before its temporary reset. The three ordinary aircraft initialize it to
+51; it was previously being supplied as zero. The query retains its original
+source handle even if an earlier contact switches the visible player to kapow.
+After ordinary world contacts, only the selected refueller receives the extra
+native `0x71535` query. A newly fatal player state restores entry 17 and sends
+that tanker through `0x785ec`'s forced fall, without sampling combat ejection.
+The existing combat-damage path retains its random ejection choice.
+
+Twelve test-authored scenarios compare **98,304 persistent aircraft updates**
+through that original collision-fall path, including subsequent impact and
+retirement. Both original and C++ checks explicitly require unchanged shared
+RNG at each forced-fall request. They do not claim a naturally reached aerial
+refuelling collision; its selected-target caller and SSD geometry remain
+separate verification boundaries.
+
+Projectile contacts now skip terrain once an earlier contact has destroyed the
+querying shot. Newly destroyed terrain cells drive the native ground-target
+rules. Authorization uses the original unwrapped cell match against authored
+mission targets, independently of radar/fire permission. Player-owned authorized
+hits request the explosion sample. Unauthorized hits request cue 5 and the
+normal explosion/unauthorized-target sample sequence even for Arcade or decoys.
+The subsequent orders gate exempts Arcade, chaff and flare; training produces
+its ordinary warning, while ordinary campaign flight increments the signed-word
+orders counter and displays the persistent return-to-base warning. Text remains
+read from external `TFX.DAT`. Static-target completion/credit continues through
+the existing authored-target observer rather than inventing mobile-kill credit.
+
+**8,192 complete original `0xa373c` contact passes** agree on exact target-cell
+matching, absent/already destroyed/intact terrain, player/AI ownership, all 27
+weapon IDs, Arcade/training gates, counter wrapping and ordered music, sample
+and radio output. Geometry and air/mobile victims are supplied boundaries;
+blast/debris output is captured separately. The original bookkeeping helper
+reads the cleared shot's owner from DOS flat address `0x4b`; the capture supplies
+zeroed low memory for that unused owner, leaving the helper's instructions
+unchanged. A 512-case fixture exercises these rules without original assets.
+
+Private silent live refuelling-control and natural-engagement checks both pass
+after the contact-source and terrain-gate changes. Full transient effects,
+area flak and complete combat-session equivalence remain outstanding.
+
+All **111 asset-free regressions** and the complete terrain-credit native cases
+pass in development, Release and ASan/UBSan.

@@ -323,10 +323,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     auto const delta{[](int32_t const x, int32_t const y) { return std::bit_cast<int32_t>(static_cast<uint32_t>(x) - static_cast<uint32_t>(y)); }};
     return std::max(std::abs(static_cast<int64_t>(delta(a.x,b.x))),std::abs(static_cast<int64_t>(delta(a.z,b.z))));
   }};
-  auto const fatal_aircraft{[&](unsigned int const index) {
+  auto const fatal_aircraft{[&](unsigned int const index, tfx::actors::air_loss_cause const cause = tfx::actors::air_loss_cause::combat) {
     if(!impact_aircraft) impact_aircraft = index;
     if(radar.selected == index) { radar.selected.reset(); seeker.guidance.reset(); }
-    for(auto const &request : air_simulation.fatal_damage(index)) if(auto const event{std::get_if<tfx::actors::air_scenery_event>(&request.data)}) scene.actor_event(*air_visuals[index],event->entry);
+    for(auto const &request : air_simulation.fatal_damage(index,cause)) if(auto const event{std::get_if<tfx::actors::air_scenery_event>(&request.data)}) scene.actor_event(*air_visuals[index],event->entry);
   }};
   auto const projectile_world_position{[](vec3<int32_t> const &position) {
     return vec3<int32_t>{position.x >> tfx::actors::position_fraction_bits,position.y >> tfx::actors::position_fraction_bits,position.z >> tfx::actors::position_fraction_bits};
@@ -437,7 +437,27 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         }
         for(auto const handle : fixed_scenery) scene.collide_actor(handle,previous,current,damage,response);
       }
-      scene.collide_terrain(previous,current,damage,false,response);
+      if(!scene.actor_destroyed(source)) {
+        bool const terrain_destroyed{scene.terrain_destroyed(current)};
+        scene.collide_terrain(previous,current,damage,false,response);
+        if(!terrain_destroyed && scene.terrain_destroyed(current)) {
+          auto const rules{permission_context()};
+          auto const effects{mission_progress.record_terrain_loss({
+            .cell{current.x >> tfx::world::cell_shift,current.z >> tfx::world::cell_shift},
+            .player_owned{shot.owner.pool == tfx::weapons::actor_pool::player},
+            .weapon{shot.state.weapon},
+            .arcade{rules.arcade},
+            .training{rules.training},
+          })};
+          if(effects.unauthorised && sound) sound->music_cue(audio::music_cue_id::unauthorised_target);
+          if(effects.explosion) {
+            if(effects.unauthorised && sound) sound->sequence(audio::sample_priority::normal,{std::to_underlying(audio::sample_id::aircraft_explosion),std::to_underlying(audio::sample_id::unauthorised_target)});
+            else sample(audio::sample_priority::normal,audio::sample_id::aircraft_explosion);
+          }
+          if(effects.notice == tfx::missions::terrain_loss_notice::training_warning) radio.show(tables.ground_training_warning);
+          else if(effects.notice == tfx::missions::terrain_loss_notice::violation) radio.show(tables.ground_orders_violation,true);
+        }
+      }
       if(scene.actor_destroyed(source)) {
         shot.spent = true;
         scene.actor_event(source,0);
@@ -973,23 +993,25 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     scene.place_actor(player_visual,vec3d{player.position},player.angles);
     tfx::flight::repair_systems(player_damage,elapsed);
     advance_actors(elapsed);
+    auto const contact_source{player_visual};
+    auto const contact_damage{scene.actor_impact_damage(contact_source)};
     {
       // Native 0x72018 updates actors before collecting contacts; the next flight frame consumes this surface result.
       bool const previously_destroyed{scene.actor_destroyed(player_visual)};
       bool const contact_explosion{player_visual == crashes.contact};
       if(previously_destroyed && !contact_explosion) scene.actor_event(player_visual,0);
-      auto const response{[&](uint16_t const cost) { scene.apply_actor_contact_damage(player_visual,cost);damage_player(100); }};
+      auto const response{[&](uint16_t const cost) { scene.apply_actor_contact_damage(contact_source,cost);damage_player(100); }};
       ground.present = false;
       ground_zone = -1;
       auto const collect{[&](tfx::world::instance_result const &contact) {
         if(contact.zone != -1) ground_zone = contact.zone;
         if(contact.surface_present) { ground.present = true; ground.height = contact.surface_height; }
       }};
-      for(auto const handle : fixed_scenery) collect(scene.collide_actor(handle,previous,player.integer_position,0,response,damage_player,true));
-      collect(scene.collide_terrain(previous,player.integer_position,0,true,response));
+      for(auto const handle : fixed_scenery) collect(scene.collide_actor(handle,previous,player.integer_position,contact_damage,response,damage_player,true));
+      collect(scene.collide_terrain(previous,player.integer_position,contact_damage,true,response));
       // Native 0x7c724 queries nearby mobile assemblies after the terrain, including carrier decks.
       auto const region{tfx::actors::nearby_surface_region(previous,player.integer_position)};
-      for(auto const &actor : surface_actors) if(!(actor.state.pose.flags & std::to_underlying(tfx::actors::surface_flag::retired)) && region.contains(actor.state.pose.position)) collect(scene.collide_actor(actor.visual,previous,player.integer_position,0,response,damage_player,true));
+      for(auto const &actor : surface_actors) if(!(actor.state.pose.flags & std::to_underlying(tfx::actors::surface_flag::retired)) && region.contains(actor.state.pose.position)) collect(scene.collide_actor(actor.visual,previous,player.integer_position,contact_damage,response,damage_player,true));
       auto const contact{tfx::world::resolve_player_contact({
         .previously_destroyed{previously_destroyed},
         .destroyed{scene.actor_destroyed(player_visual)},
@@ -1007,6 +1029,19 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         scene.actor_event(player_visual,0);
         scene.place_actor(player_visual,vec3d{player.position},player.angles);
         sample(audio::sample_priority::normal,audio::sample_id::aircraft_explosion);
+      }
+    }
+    // Native 0x71535 checks only the selected refueller after ordinary world contacts.
+    bool const before_tanker{scene.actor_destroyed(player_visual)};
+    if(auto const selected{refuelling.value().selected}) {
+      unsigned int const index{tfx::actors::aircraft_per_side + *selected};
+      if(air_simulation.aircraft()[index] && air_visuals[index]) {
+        auto const response{[&](uint16_t const cost) { scene.apply_actor_contact_damage(contact_source,cost);damage_player(100); }};
+        scene.collide_actor(*air_visuals[index],previous,player.integer_position,contact_damage,response,damage_player,true);
+        if(!before_tanker && scene.actor_destroyed(player_visual)) {
+          scene.actor_event(player_visual,17);
+          fatal_aircraft(index,tfx::actors::air_loss_cause::collision);
+        }
       }
     }
     {

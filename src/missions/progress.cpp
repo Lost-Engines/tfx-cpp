@@ -1,6 +1,8 @@
 #include "progress.h"
 #include <algorithm>
 #include <stdexcept>
+#include <utility>
+#include "weapons/definition.h"
 
 namespace tfx::missions {
 namespace {
@@ -89,6 +91,24 @@ loss_effects progress::record_surface_loss(bool const hostile, int16_t const typ
   results.personal_air_score = add(results.personal_air_score,1000);
   if(hostile && (initialisation.surface_type_filter == -1 || type == initialisation.surface_type_filter)) results.enemy_mobile_down = add(results.enemy_mobile_down,1);
   return {.friendly_target{!hostile}};
+}
+
+terrain_loss_effects progress::record_terrain_loss(terrain_loss_context const &context) {
+  terrain_loss_effects effects;
+  if(!context.player_owned) return effects;
+  effects.explosion = true;
+  // Native 0xa36e4 matches unwrapped cells, independently of radar/fire permission.
+  effects.unauthorised = !std::ranges::any_of(initialisation.targets,[&](target const &value) {
+    return (value.position.x >> world::cell_shift) == context.cell.x && (value.position.z >> world::cell_shift) == context.cell.y;
+  });
+  // Native 0xa39c0 still requests the unauthorized-hit cue/sample for Arcade and decoys.
+  if(!effects.unauthorised || context.arcade || context.weapon == std::to_underlying(weapons::weapon_id::chaff) || context.weapon == std::to_underlying(weapons::weapon_id::flare)) return effects;
+  if(context.training) effects.notice = terrain_loss_notice::training_warning;
+  else {
+    violations = word(violations + 1);
+    effects.notice = terrain_loss_notice::violation;
+  }
+  return effects;
 }
 
 void progress::set_termination(bool const arcade) {
