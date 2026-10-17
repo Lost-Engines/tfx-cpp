@@ -2663,3 +2663,43 @@ All **122 regressions**, complete trail/visibility comparisons and the private
 smoke handoff pass in development, Release and ASan/UBSan (the private window
 uses development and sanitizer builds). The existing **5,796 original
 projectile-population frames** also still agree.
+
+
+### Sun, storm lightning and upper cloud scenery
+
+The live frame now submits the original `sun1.3` textured model, suppresses it
+in twilight and below the cloud layer, and produces `lightnin.3` strikes in
+storms. Lightning retains its independent countdown and two-word generator
+across missions. A zero countdown wraps instead of firing immediately. Strike
+positions are word-wrapped for drawing, while the full stored position remains
+available to the palette consumer. A pending strike produces its native level-12
+white tint once its ground-relative flash point is strictly inside the view.
+The existing separately checked camera-volume test guards model submission.
+
+The scene can queue a shape directly, without inventing an SSD wrapper. These
+sky shapes join the same depth ordering as scenery and moving actors, retain
+their authored primitive order and resolve their original global texture page.
+The separate cloud grid is loaded from the environment's named layer resource;
+above and exactly at the layer height, the native frame chooses that grid at
+its signed-word height plus offset, rather than drawing the regional ground.
+Collision and mission target queries retain the regional grid. The frame's
+camera anchor selects the layer independently of its fractional camera pose.
+
+`tools/check_sky.py` executes **8,192 complete original sun/lightning requests**,
+**4,096 complete pending-flash/projector cases** and **4,096 actual main-frame
+grid-selection branches**. They agree in state, model/position requests, 461
+strikes, 247 visible flashes, independent player/camera gates, timer/RNG wrapping,
+strict viewport bounds and cloud-height equality. Model submission, external
+resource handles and grid traversal are declared boundaries; original point
+projection and state arithmetic execute. The 33 native environment captures
+also verify twilight suppression. Compact captures are asset-free CTests.
+
+Controlled day/storm/night scenes render below, at and above the cloud layer.
+Separate sun/lightning scenes assert that each submitted model changes visible
+pixels, including its native texture/patterns; captures remain ignored scratch.
+This checks resource delivery and composition, not native whole-frame pixels.
+All **123 regressions** and the complete sky comparisons pass in development,
+Release and ASan/UBSan. All **128 retail mission scenes** also run 64 integrated
+steps, with only the same two pre-existing unavailable-vertex notes. The original
+horizon bands, precipitation, full renderer eligibility/lighting and complete
+sessions remain open.

@@ -155,3 +155,9 @@ with complete original segment, pool and post-motion dispatch comparisons.
 Camera bounding-volume visibility is independently checked, and a controlled
 private-window test verifies the live smoke path without replacing visibility.
 Sky/weather and complete world-renderer eligibility remain open.
+
+
+The original sun/lightning producers and one-shot lightning palette consumer
+are connected, with 16,384 complete original cases. Upper cloud scenery now
+uses the native frame's base/upper-grid selection and camera anchor, including
+height equality. The original banded horizon and precipitation remain next.

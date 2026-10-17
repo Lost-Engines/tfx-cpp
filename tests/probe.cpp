@@ -281,7 +281,7 @@ auto main(int const argc, char const *const argv[])->int try {
         if(name.empty()) continue;
         tfx::world::environment const environment{game,name,lighting};
         if(mode == "environment_bindings") {
-          std::cout << '[' << environment.lighting.status << ',' << std::quoted(environment.lighting.palette_name) << ',' << std::quoted(environment.lighting.schematic_name) << ',' << environment.lighting.water_world << ',' << environment.lighting.cloud_layer << ',' << environment.lighting.layer_y << ',' << environment.lighting.layer_offset_y << ',' << std::quoted(environment.lighting.upper_grid) << "]\n";
+          std::cout << '[' << environment.lighting.status << ',' << std::quoted(environment.lighting.palette_name) << ',' << std::quoted(environment.lighting.schematic_name) << ',' << environment.lighting.water_world << ',' << environment.lighting.cloud_layer << ',' << environment.lighting.layer_y << ',' << environment.lighting.layer_offset_y << ',' << std::quoted(environment.lighting.upper_grid) << ',' << environment.lighting.sun_suppressed << "]\n";
           continue;
         }
         std::cout << '[' << environment.lighting.status << ',' << std::quoted(environment.lighting.palette_name) << ",[";

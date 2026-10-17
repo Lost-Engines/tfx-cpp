@@ -220,6 +220,7 @@ auto main(int const argc, char const *const argv[])->int try {
     return EXIT_SUCCESS;
   }
   tfx::world::flak_state flak_state;
+  tfx::world::sky_state sky_state;
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -234,6 +235,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .flight_steps{flight_steps},
     .preferences{preferences},
     .flak{flak_state},
+    .sky{sky_state},
     .sound{sound.get()},
     .inspect{inspect},
   };
