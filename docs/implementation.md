@@ -4639,3 +4639,36 @@ receives Hop 1's actual final position and exact float Mach bits, plus its
 WEAPONS index, after successful combat and debrief. A fresh eight-frame
 Realistic mission-602 comparison includes the live speed bits and agrees on
 every captured state and all pixels. All 192 development regressions pass.
+
+### Complete-session targeting controls
+
+Laser-designator entry and exit now use the original view queue instead of
+switching the rendering path immediately. The old camera finishes its frame
+before the queued view takes over. The direct ISO extra-key binding enters
+without designating; Z designates only when the designator is already active.
+Entry retains the original aircraft-state and carried-weapon gates. The gimbal
+recentres after more than one absent input frame, and the designator suspends
+ordinary held-key refresh while retaining previously sampled flight controls.
+
+The designator paints after the ground-reference update and uses its updated
+scroll phase. Its callback does not advance or draw the ordinary radio ticker.
+X clears ground/mobile/radar selection and resets the radar cursor without
+resetting the seeker reticle, projected point or lock timers. It also retains
+the original lack of an aircraft-state guard.
+
+`tools/check_targeting_session.py` retains three declared input sequences.
+Complete 16-frame Arcade and 22-frame Realistic mission-601 captures match all
+observed player, actor, random, control, weapon, seeker/radar, camera/horizon,
+animation and projectile state, and every pixel in all 38 frames. They cover
+entry, both zoom directions, designation, clearing, held steering, direct ISO
+entry, cockpit return and re-entry. The independent mission-501 target-cycle
+and clearing sequence supplies eight further complete frames. The existing
+private-window test additionally exercises real device input, pause and
+ejection from the designator without injecting any scenario state.
+
+```sh
+python3 tools/check_targeting_session.py --research ../tfx-reverse --build build
+```
+
+All 192 regressions pass in development, Release and ASan/UBSan. The private
+designator window check passes in both development and the sanitizer build.

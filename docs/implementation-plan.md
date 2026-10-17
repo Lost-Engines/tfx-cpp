@@ -30,16 +30,16 @@ from infrared flight. Its complete painter/state comparison covers 1,920
 original frames. Private-window input checks cover pause preservation,
 consumed dismissal keys and the infrared return. Both maps now bind the ILS
 runway marker; surface contact enumeration excludes destroyed, retired and
-neutral actors as the original does. Remaining flight shortcuts and recording
-are the next input integration work. The 4-key ILBM capture, slash afterburner
+neutral actors as the original does. Flight recording remains input integration
+work. The 4-key ILBM capture, slash afterburner
 stop, keypad cockpit-height controls and held keypad throttle controls are
 also connected. Twelve complete screenshot files match the original encoder
 byte for byte; 24-frame Arcade and Realistic shortcut sequences match every
 captured state and pixel. The original right-Shift PLOP dispatcher is also
 connected, with 4,096 original input comparisons, a complete 20-frame
-activation/deactivation comparison and a private-window check. Flight recording,
-cheat-enabled in-flight rearming and remaining keyboard acquisition details
-are separate work. The persistent held-key poller now matches all 16,384
+activation/deactivation comparison and a private-window check. Cheat-enabled
+in-flight rearming is connected, including the paused custom-fit screen and
+immediate DEFAULT_WEAPONS branch. The persistent held-key poller now matches all 16,384
 combinations, including modifier/automatic-landing retention. Orbit, roll,
 distance, Ctrl chase translation and keypad steering are connected; 32-frame
 Simple and Realistic sequences match all captured state and pixels. Arcade
