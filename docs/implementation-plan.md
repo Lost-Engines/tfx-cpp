@@ -300,3 +300,9 @@ shared Gouraud clipping remains unchanged. All 164 regressions and every retail
 mission pass development/sanitizer coverage, and a private-window observer
 confirms real retail-atlas texels reach the production painter. Parameter-selected
 materials, specialised lighting helpers and full session/phase equivalence remain.
+
+Scoped helper depth palettes and vertex-selected condition distance now execute
+instead of being silently omitted. Complete original frame comparisons also
+establish the distinct flat/Gouraud rules for crossed projected edges; ordinary,
+varied-depth and texture paths retain separate regressions. Parameter-selected
+constant ink/mode controls and complete world/session scheduling remain next.

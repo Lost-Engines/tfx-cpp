@@ -341,7 +341,9 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
         }
         auto const texture{primitive.texture ? resources.texture(*primitive.texture) : std::span<uint8_t const>{}};
         if(primitive.texture && texture.empty()) warnings.insert("unresolved runtime texture: " + item.name);
-        uint8_t const colour_row{primitive.palette == models::palette_source::fixed ? uint8_t{0} : item.metrics.colour_row};
+        uint8_t colour_row{item.metrics.colour_row};
+        if(primitive.palette == models::palette_source::fixed) colour_row = 0;
+        else if(primitive.palette == models::palette_source::face_depth) colour_row = render::distance_colour_row(static_cast<int32_t>(primitive.palette_depth) * 65536);
         renderer.primitive(primitive,vertices,view,texture,native ? &resources.model_colours(colour_row) : nullptr);
         ++primitives_drawn;
       }

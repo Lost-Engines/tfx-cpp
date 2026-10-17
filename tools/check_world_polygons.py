@@ -20,10 +20,12 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--record',type=Path)
+p.add_argument('--input-file',type=Path,help='replay plain input rows instead of generating a corpus')
 p.add_argument('--cases',type=int,default=1024)
 p.add_argument('--gouraud',action='store_true',help='exercise projected Gouraud faces rather than flat ink')
 p.add_argument('--pattern',action='store_true',help='exercise all nine original stipple/logical face painters and procedural seeds')
 p.add_argument('--near',action='store_true',help='exercise original near-plane clipping on signed Q16 triangles')
+p.add_argument('--warped',action='store_true',help='vary each vertex depth to exercise crossed/concave projected polygons')
 a=p.parse_args();kind='patterned' if a.pattern else 'Gouraud' if a.gouraud else 'flat';im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);rng=random.Random(0xbd3a8)
 code=lambda off:im.native(0x70aa4+off)
 im.cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=10000)
@@ -60,9 +62,15 @@ if a.near:
  for case,row in enumerate(rows):
   row[1]=3;row[7:]=row[7:16]
   for vertex in range(3):row[9+vertex*3]=rng.choice((-32768,-1000,-100,-1,0,15,16,17,18,100,1000,32767))*65536+rng.randrange(65536)
+if a.warped:
+ assert not a.near
+ for row in rows:
+  for vertex in range(row[1]):row[9+vertex*3]=rng.choice((17,18,31,100,512,1024,16000,32767))*65536+rng.randrange(65536)
 if a.pattern:
  assert not a.gouraud
  for case,row in enumerate(rows):row.extend(((0,1,2,3,4,7,10,11,12)[case%9],rng.randrange(65536)))
+if a.input_file:
+ rows=[[float(v) if i==2 else int(v) for i,v in enumerate(line.split())] for line in a.input_file.read_text().splitlines() if line.strip()]
 text='\n'.join(' '.join(map(str,row)) for row in rows)+'\n'
 output=subprocess.check_output([str((a.build/'world_polygon_probe').resolve()),'--pixels']+(['--shaded'] if a.gouraud else [])+(['--pattern'] if a.pattern else []),input=text.encode());stride=64004 if a.pattern else 64000;assert len(output)==stride*len(rows)
 fixtures=[]
@@ -87,7 +95,7 @@ for case,row in enumerate(rows):
  if want!=got:
   differences=[(i%320,i//320,x,y) for i,(x,y) in enumerate(zip(got,want)) if x!=y]
   raise AssertionError((case,row,len(differences),differences[:30]))
- if case<128 or case%31==0:
+ if case<128 or case%31==0 or case==142:
   digest=14695981039346656037
   for byte in want:digest=((digest^byte)*1099511628211)&0xffffffffffffffff
   fixtures.append(row+[digest]+([want_seed] if a.pattern else []))
