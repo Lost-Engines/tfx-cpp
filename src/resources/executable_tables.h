@@ -5,6 +5,7 @@
 #include <memory>
 #include <span>
 #include <vector>
+#include "audio/sample_bank.h"
 #include "actors/air_motion.h"
 #include "actors/program.h"
 #include "cockpit/instrument_assets.h"
@@ -52,6 +53,7 @@ private:
   std::array<unsigned int,256> measured_advances;
 
 public:
+  std::vector<audio::sample_definition> samples;
   std::vector<weapons::definition> weapons;
   weapons::arming_tables arming;
   std::array<flight::airframe,3> airframes;

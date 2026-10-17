@@ -13,10 +13,15 @@ function(configure_first_party target)
   )
 endfunction()
 
-add_library(tfx_audio src/audio/sample_scheduler.cpp src/audio/sample_scheduler.h)
+add_library(tfx_audio
+  src/audio/sample_scheduler.cpp src/audio/sample_scheduler.h
+  src/audio/sample_bank.cpp src/audio/sample_bank.h
+  src/audio/sample_voice.cpp src/audio/sample_voice.h
+)
 configure_first_party(tfx_audio)
 
 add_library(tfx_core
+  src/resources/sample_definitions.cpp
   src/render/g_effects.cpp
   src/render/g_effects.h
   src/flight/mouse_input.cpp
@@ -332,6 +337,8 @@ add_library(tfx_core
 target_compile_definitions(tfx_core PUBLIC VECTORSTORM_NO_BOOST)
 configure_first_party(tfx_core)
 
+target_link_libraries(tfx_audio PUBLIC tfx_core)
+
 add_executable(tfx
   src/main.cpp
   src/platform/configuration.cpp
@@ -544,6 +551,10 @@ if(BUILD_TESTING)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
 
+  add_executable(sample_bank_probe tests/sample_bank_probe.cpp)
+  target_link_libraries(sample_bank_probe PRIVATE tfx_audio)
+  configure_first_party(sample_bank_probe)
+  add_test(NAME audio.sample_clock_and_pcm COMMAND sample_bank_probe)
   add_executable(sample_scheduler_probe tests/sample_scheduler_probe.cpp)
   target_link_libraries(sample_scheduler_probe PRIVATE tfx_audio)
   configure_first_party(sample_scheduler_probe)
