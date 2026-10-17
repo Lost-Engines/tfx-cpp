@@ -36,6 +36,8 @@ struct instrument_assets {
   std::string in_range_label;
   std::string radio_padding;
   std::string aiming_bank;
+  std::string designator_bank;
+  std::array<std::string,2> designator_labels;
   std::array<std::string,7> aiming_labels;
   std::array<std::string,3> brake_messages;
   std::array<std::vector<hud_segment>,2> hud_alert_shapes;

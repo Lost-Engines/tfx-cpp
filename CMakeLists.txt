@@ -186,6 +186,7 @@ add_library(tfx_core
   src/cockpit/initialisation.cpp
   src/cockpit/initialisation.h
   src/flight/fuel_gauge.h
+  src/cockpit/designator.cpp src/cockpit/designator.h
   src/cockpit/scene_display.cpp
   src/cockpit/scene_display.h
   src/cockpit/hud.cpp
@@ -1210,6 +1211,11 @@ if(BUILD_TESTING)
   add_executable(fuel_gauge_probe tests/fuel_gauge_probe.cpp)
   target_link_libraries(fuel_gauge_probe PRIVATE tfx_core)
   configure_first_party(fuel_gauge_probe)
+
+  add_executable(designator_probe tests/designator_probe.cpp)
+  target_link_libraries(designator_probe PRIVATE tfx_core)
+  configure_first_party(designator_probe)
+  add_test(NAME cockpit.native_designator_pose COMMAND designator_probe --camera ${PROJECT_SOURCE_DIR}/tests/reference/designator_pose.txt)
 
   add_executable(scene_display_probe tests/scene_display_probe.cpp)
   target_link_libraries(scene_display_probe PRIVATE tfx_core)

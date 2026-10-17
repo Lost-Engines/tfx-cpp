@@ -324,3 +324,11 @@ corner-clipping quirk. All 174 regressions pass in development, Release and
 sanitizers; every retail mission and private-window effects/controls pass.
 Native lines, legacy sprite-backed model drawing and full phase/session
 comparison remain separate work.
+
+The laser-designator placeholder is replaced by its original full-screen
+viewport, integer camera, projected reticle sprite and flashing T/L indicators.
+Complete native search/tracking controller/overlay comparisons cover gimbals,
+zoom, camera caches/matrices, projection, pixels, coverage and blink state;
+normal private-window input reaches each live consumer and returns to flight.
+Complete world/session scheduling and acquisition context remain independent
+gates, alongside native line precision and legacy sprite-backed models.
