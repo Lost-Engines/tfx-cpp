@@ -97,7 +97,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     radio=records('CPP_RADIO ')
     wanted_radio=[event for event in expected['radio_events'] if event['frame']<=a.frames]
     assert radio==wanted_radio,('radio requests',radio,wanted_radio)
-    for field,prefix in (('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES ')):
+    for field,prefix in (('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES '),('player_parts','CPP_PLAYER_PARTS '),('launch_notice','CPP_LAUNCH_NOTICE ')):
         if field in expected['snapshots'][1]:
             actual_records=records(prefix)
             wanted_records=[snapshot[field] for snapshot in expected['snapshots'][1:a.frames+1]]
@@ -121,6 +121,6 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     differences=sum(x!=y for x,y in zip(actual,image))
     verified=['player','actors','shared RNG','radio','camera','horizon']
     if 'trail_events' in expected:verified.append('smoke samples')
-    verified += [field for field in ('body_basis','sensors','animation','armament','projectiles') if field in expected['snapshots'][1]]
+    verified += [field for field in ('body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice') if field in expected['snapshots'][1]]
     print(f'Mission {a.mission}, {a.flight_model}, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
     if a.strict_pixels:assert not different_frames,('whole-frame pixels',different_frames[:20],differences)

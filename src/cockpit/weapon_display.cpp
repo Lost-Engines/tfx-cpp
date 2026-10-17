@@ -8,7 +8,7 @@ namespace tfx::cockpit {
 namespace {
 
 int32_t constexpr short_sight_range_limit{7004}, compact_sight_range{24720};
-uint8_t constexpr lock_blink_frames{9}, anti_radiation_category{11};
+uint8_t constexpr lock_blink_frames{9}, launch_message_frames{5}, anti_radiation_category{11};
 
 } // anonymous namespace
 
@@ -16,6 +16,7 @@ weapon_display::weapon_display(instrument_assets const &source, resources::archi
   : assets{source}, attitude{source,game}, numbers{source}, targets{source}, alerts{source}, framing{resources::decode_sprites(game.read(assets.aiming_bank)).at(0)} {
 }
 void weapon_display::reset_tracking() { tracking = {}; }
+void weapon_display::show_launch() { tracking.launch_frames = launch_message_frames; }
 target_animation weapon_display::animation() const { return tracking; }
 void weapon_display::check_fuel(double const fuel) { alerts.check_fuel(fuel); }
 void weapon_display::show_alert(hud_alert const alert) { alerts.show(alert); }
@@ -125,7 +126,7 @@ weapon_effects weapon_display::draw_forward(render::software_renderer &renderer,
   if(state.mode != aiming_mode::navigation) alerts.draw(renderer,offset,state.elapsed,coverage);
   return {.lock_acquired{new_lock}};
 }
-void weapon_display::draw(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *const coverage, vec2<int> const &line_limit) const {
+void weapon_display::draw(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *const coverage, vec2<int> const &line_limit) {
   uint8_t constexpr colour{6};
   auto const &offset{state.attitude.offset};
   auto const point{[&](vec2<int> const &local) {
@@ -180,7 +181,10 @@ void weapon_display::draw(render::software_renderer &renderer, weapon_display_st
     if(state.cannon) cannon_label(0);
     else text({96,91},state.weapon);
     right(230,assets.aiming_labels[3]);pitch();clip({89,2},{231,96});
-    text({96,85},assets.aiming_labels[state.air_lock ? 5 : 6]);
+    if(tracking.launch_frames) {
+      text({96,85},assets.launch_label);
+      --tracking.launch_frames; // Native 0x7e8fa counts AA paints, independently of elapsed ticks.
+    } else text({96,85},assets.aiming_labels[state.air_lock ? 5 : 6]);
     if(state.air_target) targets.heading(renderer,state.air_target->reading.heading,state.attitude.angles.y,offset,point({89,2}),point({231,96}),coverage);
     return;
   }

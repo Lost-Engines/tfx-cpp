@@ -596,6 +596,14 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
     }},
   }};
+  auto const emit_store{[&](tfx::weapons::release const &shot) {
+    // Native 0x8bd8c announces release, opens internal bays, then constructs
+    // the projectile. Alt+J suppresses audio but retains the bay event.
+    if(sound && !shot.jettisoned) sound->sequence(audio::sample_priority::normal,audio::store_release_sequence(tables.weapons.at(shot.weapon).category));
+    if(player.aircraft != tfx::flight::player_aircraft::eurofighter) scene.actor_event(player_visual,5);
+    projectiles.launch(shot);
+    options.last_released_mount = shot.mount;
+  }};
   air_world.emitted = [&](tfx::actors::air_request const &request) {
     std::visit([&](auto const &data) {
       using data_type = std::remove_cvref_t<decltype(data)>;
@@ -912,6 +920,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     stick_pressure = true;
     simple_body = simple_mode;
     player_visual = aircraft_visual;
+    // Native 0x7d720 installs the landed model stream before the loss/reset
+    // pair at 0x7d7a3. Its gear state advances at the normal animation gate.
+    if(mission_setup.start.landed) scene.actor_event(player_visual,25);
+    scene.actor_event(player_visual,21);
+    scene.actor_event(player_visual,0);
     scene.show_actor(pilot_visual,false);
     for(auto const handle : {crashes.land,crashes.water,crashes.contact}) scene.show_actor(handle,false);
     impact_projection.reset();
@@ -1016,6 +1029,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       // Native Space first acquires a ship for Harpoon; a subsequent press releases it. Laser stores require a designation.
       auto const status{player_damage.condition(tfx::flight::aircraft_system::weapons)};
       bool const trigger_available{status != tfx::flight::system_condition::failed && (status != tfx::flight::system_condition::intermittent || air_simulation.random_stream().next() <= 3000)};
+      if(trigger_available && !player.collision && weapon.role == tfx::weapons::weapon_role::air) aiming.show_launch();
       bool acquired_ship{false};
       if(trigger_available && weapon.category == 13 && !ground_designation) {
         refresh_ground_contacts();
@@ -1044,7 +1058,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           .target{target},
           .inhibited{player.collision != 0 || refuelling.value().phase != 0},
           .unlimited{unlimited_stores},
-        },tables.store_mounts[std::to_underlying(player.aircraft) - 1],change,[&](auto const &shot) { projectiles.launch(shot);options.last_released_mount = shot.mount; });
+        },tables.store_mounts[std::to_underlying(player.aircraft) - 1],change,emit_store);
         apply_selection(change);
       }
     }
@@ -1330,6 +1344,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   for(unsigned int step{0}; step != flight_steps; ++step) {
     advance_world({},4,static_cast<double>(4 * .02f));
     finish_world(4);
+    projectiles.finish_frame();
   }
   // Native 0x72588 resumes the parser directly after FINISH and teardown.
   // A direct --mission launch keeps its standalone diagnostic result display.
@@ -1831,6 +1846,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     advance_world({},4,static_cast<double>(4 * .02f));
     draw();
     finish_world(4);
+    projectiles.finish_frame();
   }
   if(flight_frames) std::cout << "Complete flight frames: " << complete_frames << std::endl;
   if(campaign_flight && result_evaluated) return flight_result::finished;
@@ -2078,7 +2094,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
             .speed{player.fixed_speed},
             .target{target},
             .unlimited{unlimited_stores},
-          },tables.store_mounts[std::to_underlying(player.aircraft) - 1],change,[&](auto const &shot) { projectiles.launch(shot);options.last_released_mount = shot.mount; });
+          },tables.store_mounts[std::to_underlying(player.aircraft) - 1],change,emit_store);
           apply_selection(change);
           auto &powerplant{physical_player.powerplant};
           if(powerplant.fuel > powerplant.fuel_capacity) powerplant.fuel = powerplant.fuel_capacity;
@@ -2140,8 +2156,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           }
         }
         if(pressed(GLFW_KEY_APOSTROPHE)) {
-          auto const result{refuelling.toggle(static_cast<uint8_t>(std::to_underlying(aiming_mode)),false,player.collision != 0,player_disabled)};
-          aiming_mode = static_cast<tfx::cockpit::aiming_mode>(result.weapon_mode);
+          auto const result{refuelling.toggle(static_cast<uint8_t>(!armament.guns),false,player.collision != 0,player_disabled)};
+          armament.guns = result.weapon_mode == 0;
           refuel_events(result.events);
         }
         if(replay_key && !down(GLFW_KEY_LEFT_ALT) && !down(GLFW_KEY_RIGHT_ALT) && !player.collision && !player_disabled) radio.replay();
@@ -2327,7 +2343,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(paused || result_evaluated) glfwWaitEventsTimeout(.01);
     draw();
     window.present(renderer.output.colourise(*frame_colours));
-    if(frame_ticks) finish_world(*frame_ticks);
+    if(frame_ticks) {
+      finish_world(*frame_ticks);
+      projectiles.finish_frame();
+    }
     if(campaign_flight && result_evaluated) break;
     ++frames;
     ++interval_frames;

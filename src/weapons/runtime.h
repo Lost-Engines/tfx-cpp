@@ -95,6 +95,7 @@ public:
   active_projectile const *first_targeting_player() const;
   warning_state const &player_warnings() const;
   void advance(simulation::timer_ticks elapsed, math::random_state &random, bool tfx_effects = true);
+  void finish_frame(); // Native 0xa31a0 retires spent records after their final drawing pass.
 };
 
 } // namespace tfx::weapons

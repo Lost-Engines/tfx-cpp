@@ -113,6 +113,16 @@ active_projectile const *runtime::first_targeting_player() const {
 
 warning_state const &runtime::player_warnings() const { return warnings; }
 
+void runtime::finish_frame() {
+  // Expired stage timers alone wait for the next motion pass. Only the spent
+  // flag participates in the original post-flip removal walk.
+  for(auto *slot{first}; slot;) {
+    auto *const next{slot->next};
+    if(slot->value.spent) retire(*slot);
+    slot = next;
+  }
+}
+
 void runtime::advance(simulation::timer_ticks const elapsed, math::random_state &random, bool const tfx_effects) {
   struct substep_guard {
     std::optional<simulation::timer_ticks> &value;

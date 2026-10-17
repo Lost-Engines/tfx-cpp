@@ -39,6 +39,7 @@ struct instrument_assets {
   std::string designator_bank;
   std::array<std::string,2> designator_labels;
   std::array<std::string,7> aiming_labels;
+  std::string launch_label;
   std::array<std::string,3> brake_messages;
   std::array<std::vector<hud_segment>,2> hud_alert_shapes;
   double bingo_fuel;

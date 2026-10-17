@@ -26,6 +26,7 @@ struct target_animation {
   uint8_t blink{0};
   bool had_lock{false};
   target_sight sight{target_sight::normal};
+  uint8_t launch_frames{0};
 };
 struct weapon_effects {
   bool lock_acquired{false};
@@ -73,9 +74,10 @@ public:
   target_animation animation() const;
   void check_fuel(double fuel);
   void show_alert(hud_alert alert);
+  void show_launch();
   hud_alert_state alert_state() const;
   weapon_effects draw_forward(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *coverage = nullptr);
-  void draw(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *coverage = nullptr, vec2<int> const &line_limit = {319,199}) const;
+  void draw(render::software_renderer &renderer, weapon_display_state const &state, render::framebuffer *coverage = nullptr, vec2<int> const &line_limit = {319,199});
 };
 
 } // namespace tfx::cockpit

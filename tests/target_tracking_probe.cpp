@@ -6,12 +6,13 @@
 #include "weapons/impact_prediction.h"
 
 int main(int const argc, char const *const argv[]) try {
-  bool alerts_mode{false}, navigation_mode{false}, landing_mode{false};
+  bool alerts_mode{false}, navigation_mode{false}, landing_mode{false}, launch_mode{false};
   if(argc < 2) throw std::runtime_error{"target tracking probe requires original data directory"};
   for(int argument{2}; argument != argc; ++argument) {
     if(std::string_view{argv[argument]} == "--alerts") alerts_mode = true;
     else if(std::string_view{argv[argument]} == "--navigation") navigation_mode = true;
     else if(std::string_view{argv[argument]} == "--landing") landing_mode = true;
+    else if(std::string_view{argv[argument]} == "--launch") launch_mode = true;
     else throw std::runtime_error{"unknown target tracking probe mode"};
   }
   auto const archive{tfx::resources::find_game_archive(argv[1])};
@@ -53,6 +54,10 @@ int main(int const argc, char const *const argv[]) try {
         };
       }));
     }
+    if(launch_mode) {
+      bool request_launch{false};std::cin >> request_launch;
+      if(request_launch) display.show_launch();
+    }
     if(request >= 0) display.show_alert(static_cast<tfx::cockpit::hud_alert>(request));
     display.check_fuel(fuel);
     state.mode = static_cast<tfx::cockpit::aiming_mode>(mode);
@@ -75,6 +80,10 @@ int main(int const argc, char const *const argv[]) try {
       auto const &value{landing->value()};
       std::array<int32_t,16> const words{value.enabled,value.carrier,value.beacon,value.cell.x,value.cell.y,value.port.offset.x,value.port.offset.y,value.port.heading,value.beacon_position.x,value.beacon_position.y,value.bearing.x,value.bearing.y,value.correction.x,value.correction.y,value.pitch_error,static_cast<int32_t>(std::to_underlying(value.height))};
       std::cout.write(reinterpret_cast<char const*>(words.data()),sizeof(words));
+    }
+    if(launch_mode) {
+      int32_t const remaining{animation.launch_frames};
+      std::cout.write(reinterpret_cast<char const*>(&remaining),sizeof(remaining));
     }
     std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());
     std::cout.write(reinterpret_cast<char const*>(coverage.pixels.data()),coverage.pixels.size());

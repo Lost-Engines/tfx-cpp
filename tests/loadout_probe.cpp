@@ -4,9 +4,25 @@
 #include <memory>
 #include <utility>
 #include "resources/executable_tables.h"
+#include "audio/requests.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 2 && argc != 3) throw std::runtime_error{"loadout_probe DATA_DIRECTORY|--synthetic|--check [FIXTURE]"};
+  if(argc != 2 && argc != 3) throw std::runtime_error{"loadout_probe DATA_DIRECTORY|--synthetic|--check|--feedback [FIXTURE]"};
+  if(std::string_view{argv[1]} == "--feedback") {
+    std::ifstream fixture;
+    if(argc == 3) fixture.open(argv[2]);
+    std::istream &input{argc == 3 ? fixture : std::cin};
+    if(!input) throw std::runtime_error{"cannot read release feedback fixture"};
+    unsigned int category{0};
+    while(input >> category) {
+      auto const sounds{tfx::audio::store_release_sequence(static_cast<uint8_t>(category))};
+      if(argc == 3) {
+        unsigned int first{0},second{0};
+        if(!(input >> first >> second) || sounds != std::array<unsigned int,2>{first,second}) throw std::runtime_error{"native store release sequence differs"};
+      } else std::cout << sounds[0] << ' ' << sounds[1] << '\n';
+    }
+    return EXIT_SUCCESS;
+  }
   bool const check{std::string_view{argv[1]} == "--check"};
   bool const synthetic{check || std::string_view{argv[1]} == "--synthetic"};
   std::unique_ptr<tfx::resources::executable_tables> tables;
