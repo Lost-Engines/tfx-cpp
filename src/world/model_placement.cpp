@@ -23,4 +23,17 @@ model_placement place_model_part(render::point_projection const &view, vec3<int3
   };
 }
 
+std::optional<model_placement> place_model_shadow(render::point_projection const &view, vec3<int32_t> const &assembly_q16, int16_t const ground_height, int16_t const radius) {
+  int constexpr maximum_shadow_altitude{1024};
+  int32_t const height{assembly_q16.y >> 16};
+  if(height <= -maximum_shadow_altitude || height > 0) return std::nullopt;
+  vec3<int32_t> const position{assembly_q16.x,std::bit_cast<int32_t>(static_cast<uint32_t>(ground_height) << 16),assembly_q16.z};
+  auto const camera{view.camera_fixed(position)};
+  return model_placement{
+    .position{math::signed_word(static_cast<uint16_t>(position.x >> 16)),ground_height,math::signed_word(static_cast<uint16_t>(position.z >> 16))},
+    .camera_origin{vec3<int32_t>{camera}},
+    .visible{view.camera_sphere_visible(camera,radius)},
+  };
+}
+
 } // namespace tfx::world

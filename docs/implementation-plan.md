@@ -249,3 +249,11 @@ actual submitted camera cache. All six constructors have angle/size captures;
 complete converted absolute-vertex programs agree in basis words and VGA
 frames. Model-local articulation/matrix stacks, shadows, immediate delivery
 and complete scene scheduling remain independent gates.
+
+
+Ground-shadow requests now retain their native height eligibility, shared
+ground plane, fixed camera cache, queue entry, quantised flattening and forced
+black model drawing. Original placement and complete flat/Gouraud silhouette
+frames agree, and a normal landed mission reaches the production draw path.
+Immediate delivery, renderer-phase scheduling and model-local articulation
+remain separate work alongside rounded/textured edge fidelity.
