@@ -190,3 +190,9 @@ Flat untextured model faces beyond the near plane now use native integer
 screen clipping and scan conversion, with complete original VGA comparisons.
 Explicit camera bounds carry the actual cockpit and MFD rectangles. Near
 crossings and shaded/patterned/textured coverage remain separate next steps.
+
+
+Flat model near-plane crossings now use the original word-depth midpoint
+search, Q16 replay, clipped projection and integer raster, with complete native
+edge and VGA-frame comparisons. The model-facing bytecode fallback, general
+shaded/patterned/textured drawing and full-scene transforms/order remain open.

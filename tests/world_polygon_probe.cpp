@@ -13,6 +13,7 @@ int main(int const argc, char const *const argv[]) try {
   mat3<int32_t> const identity{32767,0,0,0,32767,0,0,0,32767};
   while(input >> wide >> count >> scale) {
     auto view{tfx::render::original_camera({0,0,0},identity,{160,100},wide ? tfx::render::aperture::missile_nose : tfx::render::aperture::normal)};
+    view.far_distance = 100000; // Far-range eligibility is separate from the native near-clip capture.
     input >> view.viewport_minimum.x >> view.viewport_minimum.y >> view.viewport_maximum.x >> view.viewport_maximum.y;
     std::vector<tfx::models::model_vertex> vertices;
     for(unsigned int i{0}; i != count; ++i) {
