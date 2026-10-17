@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""Compare complete flat model-face frames through native projection and VGA.
+
+Original B9434 projection and BD3A8 clipping/scan conversion execute. Synthetic
+Q16 faces are wholly beyond the near plane; near crossings, shaded/textured
+faces and whole-scene ordering remain separate verification gates. Camera/actor
+translation, colour/remap, viewport and input vertices are supplied boundaries.
+"""
+import argparse
+from pathlib import Path
+import random
+import struct
+import subprocess
+from native_reference import NativeReference,r
+from native_vga import VgaCapture
+
+p=argparse.ArgumentParser(description=__doc__)
+p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
+p.add_argument('--build',type=Path,default=Path('build'))
+p.add_argument('--record',type=Path)
+p.add_argument('--cases',type=int,default=1024)
+a=p.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);rng=random.Random(0xbd3a8)
+code=lambda off:im.native(0x70aa4+off)
+im.cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=10000)
+for file in (0xb9447,0xb944d,0xb9452):im.cpu.mem_write(im.native(file),bytes(4))
+im.cpu.mem_write(code(0x47cea),bytes(im.cpu.mem_read(code(0x68106),4)))
+im.cpu.mem_write(code(0x4787e),struct.pack('<I',im.native(0xc4c9c)));im.cpu.mem_write(code(0x47ca8),bytes([17]))
+def hull(points):
+ def cross(a,b,c):return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
+ points=sorted(set(points));lo=[];hi=[]
+ for point in points:
+  while len(lo)>1 and cross(lo[-2],lo[-1],point)<=0:lo.pop()
+  lo.append(point)
+ for point in reversed(points):
+  while len(hi)>1 and cross(hi[-2],hi[-1],point)<=0:hi.pop()
+  hi.append(point)
+ return lo[:-1]+hi[:-1]
+rows=[]
+for case in range(a.cases):
+ wide=case%2;scale=(1,.5,.025,.005,.0025,1/7,1/23)[case%7];z=rng.randrange(18,2000)*65536
+ if case<128:
+  points=[(rng.randrange(-1000,0)*65536,rng.randrange(-700,0)*65536,z),(rng.randrange(1,1000)*65536,rng.randrange(-700,0)*65536,z),(rng.randrange(-300,300)*65536,rng.randrange(1,700)*65536,z)]
+ else:
+  xy=hull([(rng.randrange(-1600,1600)*65536+rng.randrange(65536),rng.randrange(-1000,1000)*65536+rng.randrange(65536)) for _ in range(rng.randrange(4,14))]);assert len(xy)>=3
+  points=[(x,y,z) for x,y in xy]
+  if case%11==0:points.reverse()
+ if case%23==0:points=[(-30*65536,0,z),(0,0,z),(30*65536,0,z)]
+ if case%31==0:points=[(0,-30*65536,z),(0,0,z),(0,30*65536,z)]
+ minimum=[0,0];maximum=[319,199]
+ if case%3==0:maximum[1]=172
+ if case%5==0:minimum=[30,40];maximum=[110,120]
+ rows.append([wide,len(points),scale,*minimum,*maximum,*[v for point in points for v in point]])
+text='\n'.join(' '.join(map(str,row)) for row in rows)+'\n'
+output=subprocess.check_output([str((a.build/'world_polygon_probe').resolve()),'--pixels'],input=text.encode());assert len(output)==64000*len(rows)
+fixtures=[]
+for case,row in enumerate(rows):
+ wide,count,scale,mx,my,hx,hy=row[:7];flat=row[7:];points=[flat[i:i+3] for i in range(0,len(flat),3)]
+ im.call(0xca780)
+ if wide:im.call(0xca6fc,stack=(0xffffffff,0xffffffff))
+ im.call(0xb9238,stack=(mx,hx,my,hy));im.call(0xb94da,stack=(160,100,hx,hy))
+ for i,point in enumerate(points):im.cpu.mem_write(code(0x6814c+i*32),bytes(20)+struct.pack('<3i',*point))
+ im.cpu.reg_write(r.UC_X86_REG_EDI,code(0x6814c));im.call(0xb9434,ecx=count)
+ im.cpu.mem_write(0x300000,struct.pack('<'+str(count)+'H',*[i*32 for i in range(count)]));im.cpu.reg_write(r.UC_X86_REG_ESI,0x300000);vga.reset()
+ for plane in vga.planes:plane[:]=bytes([99])*16000
+ im.call(0xbd3a8,ecx=count,limit=3000000)
+ want=bytes(vga.pixels());got=output[case*64000:(case+1)*64000]
+ if want!=got:
+  differences=[(i%320,i//320,x,y) for i,(x,y) in enumerate(zip(got,want)) if x!=y]
+  raise AssertionError((case,row,len(differences),differences[:30]))
+ if case<128 or case%31==0:
+  digest=14695981039346656037
+  for byte in want:digest=((digest^byte)*1099511628211)&0xffffffffffffffff
+  fixtures.append(row+[digest])
+ if case and case%256==0:print(f'Checked {case} complete flat model-face frames',flush=True)
+if a.record:a.record.write_text('\n'.join(' '.join(map(str,row)) for row in fixtures)+'\n')
+print(f'{len(rows)} complete flat model-face VGA frames agree pixel for pixel: native Q16 normal/wide projection, scaled coordinates, winding, bottom/top/right/left clipping, reciprocal integer edges and inclusive spans; partial cockpit/MFD viewports included')

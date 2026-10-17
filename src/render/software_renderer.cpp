@@ -1,4 +1,5 @@
 #include "software_renderer.h"
+#include "integer_model_polygon.h"
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -109,7 +110,7 @@ void software_renderer::patterned_span(int const y, double const left, double co
 }
 
 void software_renderer::background(camera const &view, uint8_t const sky, uint8_t const ground) {
-  /// A simple horizon for scene inspection; original sky, weather and altitude palette transitions are still separate work
+  /// Independent free-inspection backdrop; live flight uses the original banded horizon
   for(int y{0}; y != screen_height; ++y) {
     auto const ray_y{view.forward.y + (y + .5 - view.projection_origin.y) / view.focal_distance * view.down.y};
     auto const colour{ray_y > 0 ? ground : sky};
@@ -215,6 +216,9 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   /// Clip a complete authored primitive before projection, including its attributes
   if(camera_vertices.empty()) return;
   auto const ink_index{static_cast<uint8_t>(source.colour)};
+  if(source.kind == models::primitive_kind::polygon && source.mode == -1 && !source.rounded && texture.empty() && std::ranges::all_of(camera_vertices,[](auto const &vertex) { return vertex.shade < 0; })) {
+    if(integer_model_polygon(output,camera_vertices,view,ink_index)) return;
+  }
   if(source.kind == models::primitive_kind::point) {
     auto const &v{camera_vertices[0].position};
     if(v.z <= view.near_distance * camera_vertices.front().projection_scale || v.z > view.far_distance) return;

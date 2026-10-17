@@ -184,3 +184,9 @@ model projection, bounding-volume visibility and horizon painting. Both modes,
 complete controller handoffs and the live firing/camera/result path have
 native or private-window coverage. General polygon coverage and near-plane
 clipping, textures/remaps, lighting and visibility-conditioned animation remain.
+
+
+Flat untextured model faces beyond the near plane now use native integer
+screen clipping and scan conversion, with complete original VGA comparisons.
+Explicit camera bounds carry the actual cockpit and MFD rectangles. Near
+crossings and shaded/patterned/textured coverage remain separate next steps.
