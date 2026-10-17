@@ -38,6 +38,7 @@ public:
   void begin(timing_options options);
   void resume(timer_counter counter, timing_options options);
   std::optional<frame_timing> poll(timer_counter counter);
+  std::optional<frame_timing> poll(timer_counter counter, timing_options options);
 };
 
 class projectile_clock {

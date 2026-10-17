@@ -22,6 +22,7 @@ void progress::reset() {
   std::ranges::fill(reported,0);
   return_score = 0; target_cursor = 0; violations = 0; exit_ticks = 0;
   remaining_timer = initialisation.timer.value_or(-1);
+  beyond_airspace = false;
   resolved = false; ended = false; critical_loss = false; player_ejected = false; impact_started = false; death_ticks = 0;
   outcome = session_outcome::normal; status = session_status::normal;
 }
@@ -117,6 +118,31 @@ void progress::set_termination(bool const arcade) {
   ended = true;
 }
 
+airspace_event progress::observe_airspace(airspace_context const &context) {
+  // Native 0x71d74 divides toward zero, then compares the signed WORD cells.
+  auto const cells{vec2<int16_t>{word(context.position.x / world::cell_units),word(context.position.y / world::cell_units)}};
+  auto const [minimum,maximum]{std::minmax(cells.x,cells.y)};
+  int16_t constexpr safe_first_cell{1}, safe_last_cell{world::map_width - 2};
+  int16_t constexpr outer_first_cell{-2}, outer_last_cell{world::map_width + 1};
+  int16_t constexpr departure_return_ticks{810};
+  if(minimum >= safe_first_cell && maximum <= safe_last_cell) {
+    beyond_airspace = false;
+    return {};
+  }
+  airspace_event event{
+    .cancel_acceleration{context.acceleration_active},
+  };
+  if(minimum < outer_first_cell || maximum > outer_last_cell) {
+    if(!beyond_airspace) {
+      beyond_airspace = true;
+      violations = word(violations + 1);
+      exit_ticks = departure_return_ticks;
+      event.notice = airspace_notice::departed;
+    }
+  } else if(context.radio_idle || event.cancel_acceleration) event.notice = airspace_notice::approaching;
+  return event;
+}
+
 std::vector<progress_event> progress::begin_frame(progress_context const &context) {
   if(context.targets.size() != reported.size()) throw std::runtime_error{"mission target observations differ from the authored targets"};
   results.targets.assign(context.targets.begin(),context.targets.end());
@@ -134,6 +160,13 @@ std::vector<progress_event> progress::begin_frame(progress_context const &contex
     if(initialisation.targets[index].time_limit != -1) remaining_timer = initialisation.targets[index].time_limit;
     target_cursor = word(target_cursor + 1);
     if(target_cursor >= static_cast<int>(reported.size())) target_cursor = 0;
+  }
+  if(context.airspace) {
+    auto boundary{*context.airspace};
+    // Native target notices precede the boundary test and make the radio busy.
+    if(!notices.empty()) boundary.radio_idle = false;
+    auto const event{observe_airspace(boundary)};
+    if(event.notice != airspace_notice::none || event.cancel_acceleration) notices.emplace_back(event);
   }
   if(!resolved && initialisation.completion) {
     auto const &rule{*initialisation.completion};

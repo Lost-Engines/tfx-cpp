@@ -43,6 +43,13 @@ auto main()->int try {
   require(!clock.poll(100002),"resuming in Realistic must retain its extra poll");
   step = clock.poll(100005);
   require(step && step->world_ticks == 5 && step->filtered_ticks == (retained_filter * 3 + 5) / 4,"resuming must discard menu time and partial polling, retaining the timing filter");
+  sim::flight_clock changed{0};
+  changed.begin({});
+  require(!changed.poll(1),"one pending tick should remain before acceleration changes");
+  auto const accelerated{changed.poll(2,{
+    .time_warp{true},
+  })};
+  require(accelerated && accelerated->world_ticks == 10 && accelerated->physics_seconds == 2 * static_cast<double>(0.02f),"changing acceleration during a pending frame must retain its elapsed ticks");
   sim::projectile_clock chunks{25};
   require(chunks.next() == 10 && chunks.next() == 10 && chunks.next() == 5 && !chunks.next(),"projectile subdivision differs");
   sim::projectile_clock zero{0};

@@ -230,6 +230,10 @@ def observe_seeker_reset(cpu,address,size,unused):
 im.cpu.hook_add(UC_HOOK_CODE,observe_seeker_reset,begin=im.native(0x930d4),end=im.native(0x930d4))
 radio_events=[]
 def observe_radio(cpu,address,size,unused):
+ # Persistent 0x81254 calls the ordinary builder internally. Count the public
+ # request once, matching radio_ticker::show(message,true).
+ caller=struct.unpack('<I',cpu.mem_read(cpu.reg_read(r.UC_X86_REG_ESP),4))[0]
+ if address==im.native(0x81198) and caller==im.native(0x8125c):return
  radio_events.append({'frame':frames[0],'message':string(cpu.reg_read(r.UC_X86_REG_EAX)),'persistent':address==im.native(0x81254)})
 for file in (0x81198,0x81254):im.cpu.hook_add(UC_HOOK_CODE,observe_radio,begin=im.native(file),end=im.native(file))
 terrain_passes=[]

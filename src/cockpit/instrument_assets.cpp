@@ -9,7 +9,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   unsigned int constexpr data{973476};
   auto const string{[&](unsigned int const address) {
     std::string result;
-    for(unsigned int index{0}; index != 128; ++index) {
+    for(unsigned int index{0}; index != 256; ++index) {
       auto const byte{source.byte(data + address + index)};
       if(!byte) return result;
       result.push_back(static_cast<char>(byte));
@@ -41,6 +41,8 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   for(unsigned int index{0}; index != target_heading_shape.size(); ++index) target_heading_shape[index] = {source.signed_le16(data + 0x714a + index * 4),source.signed_le16(data + 0x714c + index * 4)};
   in_range_label = string(0x179c);
   radio_padding = string(0x17cc);
+  time_warp_message = string(0x1980);
+  airspace_messages = {string(0x2a8),string(0x220)};
   aiming_bank = resource(0x1634);
   designator_bank = resource(0x15fc);
   designator_labels = {string(0x2460),string(0x2464)};
