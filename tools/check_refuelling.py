@@ -24,8 +24,8 @@ parser.add_argument('--build',type=Path,default=Path('build'))
 a=parser.parse_args();directory=a.research/'installs/cd_1994_09/TFX';im=NativeReference(directory/'TFX.DAT');im.cpu.mem_map(0x300000,0x10000)
 events=[];types=[-1]*50;moved=None;warning=False;pointer=lambda slot:0x300000+slot*256
 im.intercept(0xb7a3c,'Supply the verified SSD shape category for a registry resource handle',lambda image:(image.cpu.reg_write(r.UC_X86_REG_EAX,types[(image.cpu.reg_read(r.UC_X86_REG_EAX)&65535)-1]&0xffffffff),image.return_from()))
-im.intercept(0xa4dfc,'Observe sample-play requests without audio playback',lambda image:(events.append([0,image.cpu.reg_read(r.UC_X86_REG_EAX),-1]),image.return_from()))
-im.intercept(0xa4edc,'Observe sample-stop requests without audio playback',lambda image:(events.append([1,image.cpu.reg_read(r.UC_X86_REG_EAX),-1]),image.return_from()))
+im.intercept(0xa4dfc,'Observe urgent-priority sample requests without audio playback',lambda image:(events.append([0,image.cpu.reg_read(r.UC_X86_REG_EAX),-1]),image.return_from()))
+im.intercept(0xa4edc,'Observe normal-priority sample requests without audio playback',lambda image:(events.append([1,image.cpu.reg_read(r.UC_X86_REG_EAX),-1]),image.return_from()))
 def model(image):
     handle=image.cpu.reg_read(r.UC_X86_REG_EAX)&65535;entry=image.cpu.reg_read(r.UC_X86_REG_EDX)&65535
     assert handle==777 or 1<=handle<=50

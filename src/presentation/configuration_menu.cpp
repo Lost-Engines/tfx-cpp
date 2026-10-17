@@ -44,8 +44,8 @@ configuration_menu_assets::configuration_menu_assets(std::span<uint8_t const> co
   unavailable_on = string(0x2654);
 }
 
-configuration_menu::configuration_menu(configuration::settings &preferences, configuration_menu_assets const &assets, widget_font const &font) :
-  preferences{preferences}, assets{assets}, font{font}, video_name{assets.recording_name} {
+configuration_menu::configuration_menu(configuration::settings &preferences, configuration_menu_assets const &assets, widget_font const &font, configuration_audio *const audio) :
+  preferences{preferences}, assets{assets}, font{font}, video_name{assets.recording_name}, audio{audio} {
   rebuild();
 }
 configuration_page configuration_menu::page() const { return current; }
@@ -101,10 +101,12 @@ void configuration_menu::rebuild() {
     for(unsigned int index{0}; index != 3; ++index) add(assets.details[index],static_cast<uint8_t>(index == 0 ? 10 : index == 1 ? 13 : 18),7,configuration_item::detail,static_cast<uint8_t>(index),preferences.detail == index);
     std::array<simulation::flight_model,4> constexpr models{simulation::flight_model::arcade,simulation::flight_model::simple,simulation::flight_model::realistic,simulation::flight_model::military_spec};
     for(unsigned int index{0}; index != models.size(); ++index) add(assets.models[index],static_cast<uint8_t>(index == 0 ? 10 : index == 1 ? 15 : index == 2 ? 20 : 26),9,configuration_item::model,std::to_underlying(models[index]),preferences.model == models[index]);
-    // No native sound device has been opened yet. Retain the original unavailable labels.
     for(unsigned int row{0}; row != 2; ++row) {
-      add(assets.unavailable_off,10,static_cast<uint8_t>(11 + row * 2),row ? configuration_item::music : configuration_item::sound,0,false,false);
-      add(assets.unavailable_on,13,static_cast<uint8_t>(11 + row * 2),row ? configuration_item::music : configuration_item::sound,1,false,false);
+      bool const available{audio && (row ? audio->music_available : audio->sound_available)};
+      bool const enabled{audio && (row ? audio->music_enabled : audio->sound_enabled)};
+      for(unsigned int value{0}; value != 2; ++value) add(available ? assets.switches[value] : value ? assets.unavailable_on : assets.unavailable_off,
+        static_cast<uint8_t>(10 + value * 3),static_cast<uint8_t>(11 + row * 2),row ? configuration_item::music : configuration_item::sound,
+        static_cast<uint8_t>(value),available && enabled == (value != 0),available);
     }
     for(unsigned int index{0}; index != 2; ++index) add(assets.switches[index],static_cast<uint8_t>(10 + index * 3),15,configuration_item::recovery,static_cast<uint8_t>(index),preferences.effects.recovery == index);
   } else {
@@ -143,6 +145,8 @@ configuration_action configuration_menu::select(unsigned int const index) {
       }
       break;
     }
+    case configuration_item::sound: if(audio) audio->sound_enabled = value != 0;break;
+    case configuration_item::music: if(audio) audio->music_enabled = value != 0;break;
     case configuration_item::recovery: preferences.effects.recovery = value;break;
     case configuration_item::g_force: preferences.effects.g_force = static_cast<configuration::g_effects>(value);break;
     case configuration_item::precipitation: preferences.effects.precipitation = value;break;

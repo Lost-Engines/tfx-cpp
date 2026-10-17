@@ -22,7 +22,7 @@ Startup reads the original `TFX.CFG`; `--flight-model` overrides its model selec
 
 Joystick buttons follow the original mapping: fire, select ground weapons, select air weapons and cycle targets on buttons 1–4. Stick sensitivity uses the original `JOYSCALE` setting.
 
-Press **backtick** in flight for the original configuration and realism menus. Changes take effect when you return to the game, and preferences are saved to the installation’s `TFX.CFG`. The dialogs include flight model, controls, joystick sensitivity, world detail, recovery and realism settings. Sound controls remain unavailable until audio is connected.
+Press **backtick** in flight for the original configuration and realism menus. Changes take effect when you return to the game, and preferences are saved to the installation’s `TFX.CFG`. The dialogs include flight model, controls, joystick sensitivity, world detail, recovery and realism settings. The sound switch controls the original sampled effects and speech; synthesised music is still being connected.
 
 `A` toggles autopilot. `7` selects waypoint following, `8` heading/altitude hold, `9` aircraft tracking and `0` speed hold. Arrow keys adjust applicable autopilot targets; `=`/`-` adjust target speed. `6` restores cruise speed, `5` toggles automatic stick pressure and Tab requests recovery. Alt+L requests automatic landing at the selected runway or carrier. Cockpit control displays show the live autopilot, flaps and F-22 thrust-vectoring state.
 
@@ -34,7 +34,7 @@ Apostrophe toggles aerial refuelling: the nearest allied tanker supplies the ori
 
 The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
 
-This is still an integration build. Complete sensor displays and crash/result artwork, aircraft-to-aircraft contacts, area flak, the remaining HUD cues, complete campaign progression and audio remain unfinished. The numerical flight backend currently requires x87 support; it preserves the original startup precision within flight calculations. See [implementation status](docs/implementation.md) for precise verification boundaries.
+This is still an integration build. Complete sensor displays and crash/result artwork, aircraft-to-aircraft contacts, area flak, the remaining HUD cues, complete campaign progression and synthesised music remain unfinished. The numerical flight backend currently requires x87 support; it preserves the original startup precision within flight calculations. See [implementation status](docs/implementation.md) for precise verification boundaries.
 
 RelWithDebInfo retains the developer scene inspector and headless captures:
 

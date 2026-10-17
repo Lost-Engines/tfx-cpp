@@ -16,6 +16,12 @@ struct configuration_menu_assets {
   std::string no, yes, enrol, missing_joystick, missing_keyboard, unavailable_off, unavailable_on;
   explicit configuration_menu_assets(std::span<uint8_t const> executable);
 };
+struct configuration_audio {
+  bool sound_available{false};
+  bool music_available{false};
+  bool sound_enabled{false};
+  bool music_enabled{false};
+};
 enum class configuration_page { main, realism, confirm_quit };
 enum class configuration_action { none, resume, quit, enrol };
 enum class configuration_item { source, sensitivity, detail, model, sound, music, recovery, g_force, precipitation, crashing, gear_damage, wind, temperature, recording, quit, resume, change_page, cancel_quit, confirm_quit, enrol };
@@ -34,11 +40,12 @@ private:
   configuration_page current{configuration_page::main};
   std::vector<configuration_button> buttons;
   std::string video_name;
+  configuration_audio *audio;
   dialogue_form form;
   void rebuild();
 
 public:
-  configuration_menu(configuration::settings &preferences, configuration_menu_assets const &assets, widget_font const &font);
+  configuration_menu(configuration::settings &preferences, configuration_menu_assets const &assets, widget_font const &font, configuration_audio *audio = nullptr);
   configuration_page page() const;
   std::span<configuration_button const> widgets() const;
   configuration_action select(unsigned int index);

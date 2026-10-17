@@ -6,8 +6,12 @@ namespace tfx::platform {
 
 presentation::configuration_action configure_flight(window &window, resources::executable_tables const &tables,
     configuration::settings &preferences, std::filesystem::path const &directory,
-    render::framebuffer const &background, render::palette const &colours) {
-  presentation::configuration_menu menu{preferences,tables.configuration_widgets(),tables.interface_font()};
+    render::framebuffer const &background, render::palette const &colours, audio::runtime *const sound) {
+  presentation::configuration_audio audio{
+    .sound_available{sound != nullptr},
+    .sound_enabled{sound && sound->sound_enabled()},
+  };
+  presentation::configuration_menu menu{preferences,tables.configuration_widgets(),tables.interface_font(),&audio};
   auto palette{colours};
   for(unsigned int shade{0}; shade != 16; ++shade) {
     auto const value{static_cast<uint8_t>((shade * 4u << 2) | (shade * 4u >> 4))};
@@ -30,6 +34,7 @@ presentation::configuration_action configure_flight(window &window, resources::e
       if(action != presentation::configuration_action::none) { result = action;break; }
     }
     mouse_held = mouse;
+    if(sound) sound->enable_sound(audio.sound_enabled);
     auto image{background};
     menu.draw(image);
     window.title(menu.page() == presentation::configuration_page::realism ? "TFX C++ — Realism" : "TFX C++ — Configuration");
