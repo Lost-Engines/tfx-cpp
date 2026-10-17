@@ -1705,3 +1705,13 @@ integration test verifies save/reload, lowercase filenames, preserved hardware
 settings and no writes for unavailable or oversized files. Unlike the original
 fixed stack buffer, output cannot overflow or exceed the reader's 1,024-byte
 limit. This safety boundary is explicit and excluded from numerical equivalence.
+
+
+### Original dialog drawing
+
+Native window bodies, double bevels, raised and selected buttons, flat outlines
+and centred proportional labels now have portable indexed drawing. **320 full
+native frame comparisons agree pixel for pixel** in development, Release and
+ASan/UBSan builds. The capture executes the original form/widget painters and
+raster routines with VGA writes observed; it substitutes no drawing operation.
+This is the drawing foundation for the original in-flight configuration dialogs.

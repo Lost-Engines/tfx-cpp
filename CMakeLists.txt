@@ -182,6 +182,8 @@ add_library(tfx_core
   src/planning/notes.h
   src/planning/map_view.cpp
   src/planning/map_view.h
+  src/presentation/dialogue.cpp
+  src/presentation/dialogue.h
   src/presentation/widget_font.cpp
   src/presentation/widget_font.h
   src/resources/compiled_overlay.cpp
@@ -534,6 +536,10 @@ if(BUILD_TESTING)
   configure_first_party(aerodynamic_recovery_probe)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
+
+  add_executable(dialogue_probe tests/dialogue_probe.cpp)
+  target_link_libraries(dialogue_probe PRIVATE tfx_core)
+  configure_first_party(dialogue_probe)
 
   add_executable(configuration_save_test tests/configuration_save_test.cpp)
   target_link_libraries(configuration_save_test PRIVATE tfx_core)
