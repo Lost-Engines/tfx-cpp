@@ -783,6 +783,20 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(change.clear_contact) radar.selected.reset();
     if(change.clear_tracking) { seeker.tracking.reset(); seeker.guidance.reset(); ground_designation.reset(); mobile_designation.reset(); }
   }};
+  auto const reset_weapon_targets{[&] {
+    radar.selected.reset();seeker.tracking.reset();seeker.guidance.reset();
+    ground_designation.reset();mobile_designation.reset();
+    armament.selected = 0;
+    apply_selection(armament.select(player.aircraft == tfx::flight::player_aircraft::nighthawk ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false));
+  }};
+  auto const finish_information_key{[&](bool const shift) {
+    if(shift) {
+      armament.fit_default(mission_setup.weapons);
+      reset_weapon_targets();
+      uint8_t constexpr restored_countermeasure_count{15};
+      defences.chaff = defences.flares = restored_countermeasure_count;
+    } else options.flight_information = !options.flight_information;
+  }};
   auto const select_weapon{[&](tfx::weapons::weapon_role const role) {
     if(player.collision || player_disabled || ejected()) return;
     if(role == tfx::weapons::weapon_role::air) {
@@ -957,22 +971,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     mobile_designation.reset();
     radiation_cursor = 0;
     player.aircraft = mission_setup.aircraft;
-    tfx::flight::loadout mounted;
     auto const &airframe{tables.aerodynamic_airframes.at(std::to_underlying(player.aircraft) - 1)};
-    for(unsigned int slot{0}; slot != mounted.size(); ++slot) {
-      auto const &pylon{armament.pylons[slot]};
-      if(!pylon.count || pylon.weapon == tfx::weapons::empty_pylon) continue;
-      auto const &weapon{tables.weapons.at(pylon.weapon)};
-      mounted[slot] = {
-        .position{vec3d{airframe.stores_and_mounts.mounts[slot]}},
-        .properties{
-          .mass_kg{weapon.mass},
-          .drag{weapon.drag},
-          .fuel_tank{weapon.role == tfx::weapons::weapon_role::external_tank},
-        },
-        .occupied{true},
-      };
-    }
+    auto const mounted{armament.flight_stores(airframe.stores_and_mounts.mounts)};
     player_flight.initialise(airframe,mounted,{
       .position{vec3<int32_t>{mission_setup.start.position}},
       .angles{vec3<tfx::math::angle>{mission_setup.angles}},
@@ -1073,7 +1073,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         apply_selection(change);
       }
     }
-    for(unsigned int slot{0}; slot != physical_player.mounted_stores.size(); ++slot) physical_player.mounted_stores[slot].occupied = armament.pylons[slot].count != 0 && armament.pylons[slot].weapon != tfx::weapons::empty_pylon;
+    // Original 0x95dc8 reads each current weapon record, not just occupancy.
+    // Rearming or restoring defaults can replace the weapon in a mount.
+    physical_player.mounted_stores = armament.flight_stores(physical_player.aircraft.stores_and_mounts.mounts);
     physical_player.stores = tfx::flight::accumulate_stores(physical_player.aircraft.stores_and_mounts.stores,physical_player.mounted_stores);
     tfx::flight::aerodynamic_navigation_context navigation{
       .route_cells{player_route},
@@ -1963,8 +1965,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     bool const map_key{pressed(GLFW_KEY_M)};
     bool const map_prompt{map_key && !down(GLFW_KEY_LEFT_SHIFT) && !down(GLFW_KEY_RIGHT_SHIFT)};
+    bool const information_key{pressed(GLFW_KEY_D)};
+    bool const information_shift{down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)};
+    bool const rearm_key{information_key && (down(GLFW_KEY_LEFT_CONTROL) || down(GLFW_KEY_RIGHT_CONTROL)) && options.cheat.value().enabled && !player.collision && !player_disabled && !ejected()};
+    bool const rearm_prompt{rearm_key && !mission_setup.default_weapons && !paused};
     if(!inspect && !result_evaluated && map_key && !map_prompt && mission_setup.completion && mission_setup.completion->text) radio.show(*mission_setup.completion->text);
-    if(!inspect && !result_evaluated && (map_prompt || quit_prompt || pressed(GLFW_KEY_GRAVE_ACCENT))) {
+    if(!inspect && !result_evaluated && (map_prompt || rearm_prompt || quit_prompt || pressed(GLFW_KEY_GRAVE_ACCENT))) {
       captured = mouse_started = false;
       preferences.hud_green = static_cast<uint16_t>(hud_green);
       auto action{tfx::presentation::configuration_action::resume};
@@ -2009,10 +2015,18 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         // changes made while infrared left normal uploads pending.
         auto const map_colours{tfx::render::expand_dac_palette(palette_lighting.colours())};
         show_tactical_map(window,tactical_map,state,map_colours);
+      } else if(rearm_prompt) {
+        glfwSetInputMode(host,GLFW_CURSOR,GLFW_CURSOR_NORMAL);
+        if(!arm_mission(window,game,tables,armament,player.aircraft,mission_setup.weapons)) break;
+        auto const &last_thumbnail{tables.arming_art().rows.back()};
+        options.projection_origin = (last_thumbnail.minimum + last_thumbnail.maximum) / int16_t{2};
+        reset_weapon_targets();
+        // Native 0x85d1d still performs D/Shift+D after the arming call.
+        finish_information_key(information_shift);
       } else action = configure_flight(window,tables,preferences,options.data_directory,renderer.output,*frame_colours,sound,quit_prompt);
       if(action == tfx::presentation::configuration_action::enrol) return flight_result::enrol;
       if(action == tfx::presentation::configuration_action::quit) break;
-      if(!map_prompt) {
+      if(!map_prompt && !rearm_prompt) {
         simple_mode = preferences.model == tfx::simulation::flight_model::simple;
         arcade_mode = preferences.model == tfx::simulation::flight_model::arcade;
         player_flight.select_model(preferences.model);
@@ -2170,18 +2184,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           armament.guns = true;cannon_navigation = true;
           physical_player.configure_controls(tfx::flight::input_configuration::cruise);
         }
-        if(pressed(GLFW_KEY_D) && !player.collision && !player_disabled) {
-          if(down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)) {
-            // Native 0x85d27 restores the mission's default fit, without
-            // repairing damage, refuelling or changing the cannon NAV flag.
-            armament.fit_default(mission_setup.weapons);
-            radar.selected.reset();seeker.tracking.reset();seeker.guidance.reset();
-            ground_designation.reset();mobile_designation.reset();
-            armament.selected = 0;
-            apply_selection(armament.select(player.aircraft == tfx::flight::player_aircraft::nighthawk ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false));
-            uint8_t constexpr restored_countermeasure_count{15};
-            defences.chaff = defences.flares = restored_countermeasure_count;
-          } else options.flight_information = !options.flight_information;
+        if(information_key && !player.collision && !player_disabled && !ejected()) {
+          // DEFAULT_WEAPONS missions take the original immediate default-fit
+          // branch; there is no arming dialog or paused-frame handoff.
+          if(rearm_key) { armament.fit_default(mission_setup.weapons);reset_weapon_targets(); }
+          finish_information_key(information_shift);
         }
         if(pressed(GLFW_KEY_J) && (down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT)) && !player.collision && !player_disabled) {
           tfx::flight::capture_shared_player(physical_player,simple_player,player_damage,simple_body);

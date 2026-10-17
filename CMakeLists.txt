@@ -490,6 +490,11 @@ if(BUILD_TESTING)
   configure_first_party(keyboard_tests)
   add_test(NAME flight.original_held_keyboard COMMAND keyboard_tests)
 
+  add_executable(current_stores_tests tests/current_stores_test.cpp)
+  target_link_libraries(current_stores_tests PRIVATE tfx_core)
+  configure_first_party(current_stores_tests)
+  add_test(NAME weapons.current_inventory_flight_load COMMAND current_stores_tests)
+
   add_executable(widget_font_probe tests/widget_font_probe.cpp)
   target_link_libraries(widget_font_probe PRIVATE tfx_core)
   configure_first_party(widget_font_probe)

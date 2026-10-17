@@ -23,7 +23,9 @@ def main():
     parser.add_argument('--build', type=Path, default=Path('build'))
     parser.add_argument('--data-dir', type=Path, required=True)
     parser.add_argument('--record', type=Path)
+    parser.add_argument('--inventory',action='store_true',help='also check current weapon-ID/quantity to flight-loadout binding')
     args = parser.parse_args()
+    if args.inventory and args.record:parser.error('inventory binding checks do not use the direct-accumulator fixture format')
     image = NativeReference(args.data_dir / 'TFX.DAT')
     image.call(0xde851)
     generator = random.Random(0x95dc8)
@@ -41,7 +43,7 @@ def main():
                 bases = [generator.uniform(0, 10000) for _ in range(3)]
             for offset, value in zip((0x142c8, 0x14258, 0x14850), bases):
                 image.write(offset, '<d', value)
-            stores = []
+            stores = [];inventory=[]
             selected = dict(selection)
             for slot in range(10):
                 position = [axis[slot] for axis in mounts] if case < 271 else [generator.uniform(-30, 30) for _ in range(3)]
@@ -55,12 +57,14 @@ def main():
                 occupied = int(slot in selected)
                 image.write(0x13374 + slot * 2, '<2B', weapon, occupied)
                 stores.extend([*position, mass, drag, tank, occupied])
+                inventory.extend([*position,weapon,occupied])
             image.call(0x95dc8)
             expected = [image.read(offset, '<Q')[0] for offset in OUTPUTS] + [image.read(0x14968, '<H')[0]]
-            source = [aircraft, *bases, *stores]
+            source = [aircraft, *bases, *(inventory if args.inventory else stores)]
             requests.append(' '.join(map(str, source)))
             cases.append({'input': source, 'expected': expected})
-    result = subprocess.run([str((args.build / 'stores_probe').resolve())], input='\n'.join(requests) + '\n', text=True, capture_output=True, check=True)
+    command=[str((args.build / 'stores_probe').resolve())]+(['--inventory',str(args.data_dir.resolve())]if args.inventory else [])
+    result = subprocess.run(command, input='\n'.join(requests) + '\n', text=True, capture_output=True, check=True)
     lines = result.stdout.splitlines()
     assert len(lines) == len(cases)
     for index, (case, line) in enumerate(zip(cases, lines)):

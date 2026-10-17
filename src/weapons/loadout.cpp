@@ -21,6 +21,26 @@ armament::armament(flight::player_aircraft const aircraft, std::span<definition 
 
 weapon_role armament::selected_role() const { return selected < 0 ? cannon_role : role(static_cast<unsigned int>(selected)); }
 
+flight::loadout armament::flight_stores(std::span<vec3d const,flight::store_slots> const mounts) const {
+  flight::loadout result;
+  for(unsigned int slot{0}; slot != result.size(); ++slot) {
+    auto const &pylon{pylons[slot]};
+    if(!pylon.count || pylon.weapon == empty_pylon) continue;
+    if(pylon.weapon >= definitions.size()) throw std::out_of_range{"flight stores require a valid weapon definition"};
+    auto const &weapon{definitions[pylon.weapon]};
+    result[slot] = {
+      .position{vec3d{mounts[slot]}},
+      .properties{
+        .mass_kg{weapon.mass},
+        .drag{weapon.drag},
+        .fuel_tank{weapon.role == weapon_role::external_tank},
+      },
+      .occupied{true},
+    };
+  }
+  return result;
+}
+
 bool armament::can_fit(unsigned int const slot, weapon_id const weapon) const {
   if(slot >= flight::store_slots) throw std::out_of_range{"mount permission requires a store slot"};
   auto const candidate{std::to_underlying(weapon)};

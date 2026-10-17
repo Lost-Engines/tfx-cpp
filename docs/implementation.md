@@ -4575,3 +4575,50 @@ All 191 regressions pass in development, Release and ASan/UBSan. A private-windo
 completes Hop 1 through normal pilot/arming/combat/debrief and the next-hop
 campaign values in 507 real frames; the tactical-map input/palette check also
 continues to pass.
+
+
+### In-flight cheat rearming and current store metadata
+
+Cheat-enabled Ctrl+D now follows original 0x85cb8 into the authored arming
+screen, pausing physics and returning to the same flight. DEFAULT_WEAPONS
+missions instead take 0x8b47c's immediate default-fit branch, without opening a
+dialog or skipping a simulation frame. Both clear the original target/weapon
+selection fields and reselect the appropriate initial role. Native 0x85d1d
+still performs ordinary D/Shift+D afterwards: the information strip toggles,
+or defaults and countermeasures are restored. Fuel and damage are retained.
+The arming viewport handoff and consumed closing make-code are connected too.
+
+The integration found a stale-metadata bug in the earlier flight binding:
+replacing a weapon refreshed only its occupied flag, retaining its old mass,
+drag and external-tank role. `armament::flight_stores` now derives the complete
+mounted loadout from current inventory and the aircraft's physical mount
+positions. Startup and each flight update use the same conversion. Visible
+but depleted dispensers remain unoccupied; a nonzero quantity is a gate rather
+than a mass multiplier. No flight arithmetic was changed.
+
+`check_stores.py --inventory` now passes weapon IDs and quantities through that
+binding before the existing x87 accumulator comparison. All 1,197 original
+cases agree on stored output bits across all 27 weapons, three aircraft, ten
+slots and mixed fractional mounts. The ordinary direct-accumulator mode remains
+available. A separate asset-free regression changes a mounted missile to a
+tank and checks refreshed mass/drag/role, quantities and empty/depleted slots.
+
+The silent private-window rearming test uses actual right-Shift PLOP, Ctrl+D
+and authored mouse controls. It derives a legal tank hit point from the original
+SSD boxes and permission mask, places it, checks current inventory against live
+flight-store metadata, then restores defaults. Physics remains stopped in the
+dialog, and a held Escape returns without initiating ejection or writing CFG.
+The original swept-pointer pick requires settling before the placement make;
+the automation does so instead of clicking across intervening mount volumes.
+
+A complete 24-frame Realistic mission-601 sequence agrees on every captured
+state and pixel, including cheat activation, Ctrl+D's immediate default branch,
+Shift+D, weapon selection and D's external-information side effect. This is
+complete-session evidence for the immediate branch. The custom dialog relies
+on the independent native arming widget/controller/picking checks plus actual
+host-window integration; it is not a complete original modal-session comparison.
+
+All 192 regressions pass in development, Release and ASan/UBSan. All 128 retail
+missions render eight complete Military-spec frames without scene warnings.
+The retained 160-frame controlled combat engagement still agrees on every
+captured state and all pixels after the inventory binding change.

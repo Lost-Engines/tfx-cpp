@@ -44,6 +44,13 @@ combinations, including modifier/automatic-landing retention. Orbit, roll,
 distance, Ctrl chase translation and keypad steering are connected; 32-frame
 Simple and Realistic sequences match all captured state and pixels. Arcade
 now uses the original relative-mouse steering without invented arrow motion.
+Cheat Ctrl+D rearming is connected too, with the original immediate branch for
+DEFAULT_WEAPONS missions. Inventory changes now refresh flight mass, drag and
+tank metadata; the inventory binding agrees in 1,197 original store cases.
+Real mouse automation places a tank, restores defaults and checks live physical
+metadata, paused physics and consumed Escape. A 24-frame immediate-refit session
+also matches all original captured state and pixels. Recording and remaining
+view/designator bindings are the next control work.
 
 Extend the relocated-original-code harness from isolated calls to reproducible initialisation/update sequences. Where complete DOS context is necessary, instrument scripted runs of the original through DOSBox. Original runs should use disposable writable installations so they do not alter the user's configuration or pilots.
 
