@@ -57,6 +57,7 @@ public:
   osl_song song(unsigned int index) const;
   unsigned int instrument_count() const;
   std::span<uint8_t const> instrument(unsigned int index) const;
+  std::span<uint8_t const> instrument_parameters(unsigned int index) const;
 };
 
 } // namespace tfx::audio

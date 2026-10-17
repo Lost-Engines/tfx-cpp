@@ -1778,3 +1778,11 @@ All 96 asset-free tests pass in development, Release and ASan/UBSan builds. Comp
 ### OSL music resources
 
 The OSL1 resource reader and packed/unpacked row decoder are translated. `tools/check_osl_patterns.py` executes the original 16-bit relocation and row decoder: all 81 resources, 1,894 complete patterns and 121,333 rows agree in every eight-byte channel cell and cursor boundary in development, Release and ASan/UBSan builds. The 128 retained synthetic cases cover all mask widths, note/effect packing flags, uncompressed rows, channel counts and empty compressed rows (which still consume one mask byte). They run without game assets as `audio.native_osl_patterns`. Device uploads are an explicit boundary of this resource-only comparison; sequencing and synthesis remain separate work.
+
+### OSL sequencing and LAPC-I device
+
+The native OSL playback controller and LA device callbacks are now translated. The controller owns sixteen resource/playback slots and the original 32 shared channel records; named fields retain row cells, pitch/portamento, arpeggio/retrigger state and output caches. The device owns its MIDI running status and patch-upload templates, read as external data from `START.EXE`; no original instructions execute in the game.
+
+`tools/check_osl_la.py` compares 4,938 complete original device callbacks and 400,272 MIDI bytes, including 842 actual patch uploads. `tools/check_osl_sequencer.py` compares all 31 LA resources over 170,635 complete original ticks and 872,811 MIDI bytes at game volume 75, retaining every slot/channel field and pattern cursor. Both comparisons pass in development, Release and ASan/UBSan. A second full corpus comparison at audition volume 127 agrees on 875,157 MIDI bytes.
+
+The joined comparison retains details that isolated patch tests cannot establish: six-byte parameter headers, signed wrapped portamento intervals, both native modulation-scaling stages and secondary chord notes accompanying retriggers. These are comparisons through the first native traversal/capture boundary, rather than complete gameplay sessions; shared timer integration, repeated resource changes and hardware PCM remain separate gates.
