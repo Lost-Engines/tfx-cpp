@@ -65,6 +65,16 @@ std::string mission::grid_name() const {
   return lower(world_name.substr(0,dos_basename_length));
 }
 
+uint16_t apply_detail_status(uint16_t const status, uint8_t const detail) {
+  uint16_t constexpr low_detail{1u << 2}, reduced_detail{1u << 6};
+  switch(detail) {
+    case 0: return static_cast<uint16_t>(status | reduced_detail | low_detail);
+    case 1: return static_cast<uint16_t>((status | reduced_detail) & ~low_detail);
+    case 2: return static_cast<uint16_t>(status & ~(low_detail | reduced_detail));
+    default: return status;
+  }
+}
+
 lighting_configuration::lighting_configuration(resources::archive const &game, std::string const &name) {
   config = text(game.read("lev/" + name + ".txt"));
   std::istringstream settings{config};

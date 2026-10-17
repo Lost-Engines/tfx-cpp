@@ -11,6 +11,7 @@ namespace tfx::platform {
 
 struct flight_options {
   std::string mission{"miss501"};
+  std::filesystem::path data_directory{};
   std::string environment{}, grid{};
   std::optional<vec2<unsigned int>> cell{};
   std::optional<std::filesystem::path> screenshot{};
@@ -19,8 +20,9 @@ struct flight_options {
   configuration::settings &preferences;
   bool inspect{false};
 };
-// True means FINISH ran and the caller may resume its authored campaign graph.
-bool fly_mission(resources::archive const &game, resources::executable_tables const &tables,
+enum class flight_result { finished, quit, enrol };
+// FINISH resumes the authored campaign; the settings dialog can return to enrolment.
+flight_result fly_mission(resources::archive const &game, resources::executable_tables const &tables,
   flight_options const &options, missions::variables &campaign, window *shared_window = nullptr);
 
 } // namespace tfx::platform

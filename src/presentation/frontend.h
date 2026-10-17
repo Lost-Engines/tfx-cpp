@@ -28,6 +28,7 @@ private:
   render::framebuffer display;
   render::palette palette{};
   bool mouse_held{false};
+  void seek_enrolment();
 
 public:
   frontend(resources::archive const &game, resources::executable_tables const &tables,
@@ -36,6 +37,7 @@ public:
     std::optional<vec2<int16_t>> const &position = {});
   void press(uint8_t scan, bool control);
   void complete();
+  void return_to_enrolment();
   variables &values();
   variables const &values() const;
   bool finished() const;

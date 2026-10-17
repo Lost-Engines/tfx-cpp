@@ -1715,3 +1715,48 @@ native frame comparisons agree pixel for pixel** in development, Release and
 ASan/UBSan builds. The capture executes the original form/widget painters and
 raster routines with VGA writes observed; it substitutes no drawing operation.
 This is the drawing foundation for the original in-flight configuration dialogs.
+
+
+### Original in-flight configuration and live model changes
+
+Backtick opens the original main, realism and quit-confirmation dialogs. Their
+labels come from the selected executable, and all three page images plus each
+preference selection agree in **200 full original controller/frame cases**.
+Original widget construction, selection helpers, text and raster routines all
+execute; device acquisition/cursor, physical page switching and heap allocation
+are supplied boundaries. The original menu restricts mouse selection to Arcade,
+with keyboard/joystick choices in the other models. Returning from Arcade restores
+the separate startup CONTROL preference, rather than conflating it with the live
+control source. Audio retains its native unavailable labels pending integration;
+video-recording input remains unfinished.
+
+Changes update the live model, controls, detail, recovery, realism and sensitivity;
+closing the dialog calls the verified compatible preference writer. The original
+detail caller agrees in **4,096 cases**, preserving night and unrelated shape
+flags, with 128 compact cases in CTest. Menu time and partial timer polling are
+discarded on resume while the timing filter is retained. Quit cancellation and
+return to enrolment are connected through explicit flight results; returning to
+enrolment resets the suspended parser stack and re-enters the original root
+pilot-selection statement.
+
+The complete player comparison now has an additional `--model-changes` run:
+**4,608 successive original callbacks across 48 scenes agree in all 324 retained
+fields**, including all four selectable models, control changes, autopilot,
+recovery, faults and scripted landing. This exposed body/display matrix sharing
+when crossing Simple/Arcade, Arcade's model-entry ground placement before speed
+calculation, and its replacement of the previous-position snapshot after contact
+adjustments. Those belong to the native caller and are now represented explicitly.
+
+Private X11/GDB input checks observe paused simulation while the dialogs are
+open, real mouse choices, live Military-spec physics after selection, saved
+realism/detail/sensitivity/HUD preferences, retained hardware/unknown lines, quit
+cancellation and clean resume/exit. A separate normal-front-end check restores a
+DOS pilot, completes original arming, enters flight, selects Return to ENROL and
+gets a pixel-identical copy of the initial enrolment screen. No original install,
+user save or game state under the debugger is modified.
+
+All **94 asset-free tests**, the ordinary and model-changing 4,608-frame player
+comparisons, the 200 complete menu frames/states and 4,096 detail-flag cases pass
+in development, Release and ASan/UBSan builds. The private-window checks use real
+input and disposable installations; audio and video recording remain separate
+integration work.

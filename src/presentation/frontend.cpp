@@ -8,16 +8,27 @@ frontend::frontend(resources::archive const &game, resources::executable_tables 
   std::filesystem::path const &save_directory, std::string const &language, bool const skip_intro) :
   game{game}, tables{tables}, language{language}, schema{game.read("tfx.par")}, store{save_directory},
   parser{game,tables.presentation_fonts(),tables.text_palette,state,"tfx",{},language} {
-  if(skip_intro) {
-    // Enter at the authored enrolment action; subsequent main-menu assignments still execute.
-    auto const &main{schema.functions.front().statements};
-    auto const entry{std::ranges::find_if(main,[](statement const &node) {
-      return node.kind == node_kind::launch && std::get<host_action>(node.data).resource == "enrol";
-    })};
-    if(entry == main.end()) throw std::runtime_error{"root presentation has no enrolment action"};
-    parser.seek({0,static_cast<unsigned int>(entry - main.begin())});
-  }
+  if(skip_intro) seek_enrolment();
 }
+void frontend::seek_enrolment() {
+  auto const &main{schema.functions.front().statements};
+  auto const entry{std::ranges::find_if(main,[](statement const &node) {
+    return node.kind == node_kind::launch && std::get<host_action>(node.data).resource == "enrol";
+  })};
+  if(entry == main.end()) throw std::runtime_error{"root presentation has no enrolment action"};
+  parser.seek({0,static_cast<unsigned int>(entry - main.begin())});
+}
+void frontend::return_to_enrolment() {
+  menu.reset();
+  pilot.reset();
+  scores.reset();
+  planner.reset();
+  selected_slot.reset();
+  mouse_held = false;
+  parser.restart("tfx");
+  seek_enrolment();
+}
+
 statement const *frontend::advance(scene_counters const counters, scene_input &input,
   std::optional<vec2<int16_t>> const &position) {
   bool const click{(input.mouse_buttons & 1) && !mouse_held};

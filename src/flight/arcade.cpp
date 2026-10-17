@@ -294,7 +294,7 @@ void advance_disabled(arcade_state &state, flight_controls const &controls, simu
   update_basic_disabled(state,controls,elapsed,ground,true,state.gear_down);
 }
 
-void advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const time_warp) {
+arcade_update advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const time_warp) {
   math::floating_environment const environment;
   /// Native Arcade 0x8dc50: throttle/fuel, gear contact, filtered controls, coordinated bank turn, then movement
   auto const &model{parameters(state.aircraft)};
@@ -339,6 +339,7 @@ void advance_arcade(arcade_state &state, flight_controls const &controls, simula
   state.orientation = turn.transposed();
   if(state.normalisation_counter & 31) state.orientation.normalise();
   ++state.normalisation_counter;
+  vec3f const movement_origin{state.position};
   if(!state.frozen) {
     auto const &forward{state.orientation.forward};
     auto moved{[&](float const value, int32_t const direction){ return static_cast<float>(static_cast<calculation>(direction) * normalised_word * elapsed * state.fixed_speed * (1.0f / fixed_speed_scale) + value); }};
@@ -357,6 +358,9 @@ void advance_arcade(arcade_state &state, flight_controls const &controls, simula
     state.position.y = ground.height;
     state.collision = 2;
   }
+  return {
+    .movement_origin{vec3f{movement_origin}},
+  };
 }
 
 } // namespace tfx::flight

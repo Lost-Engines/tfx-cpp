@@ -13,6 +13,7 @@ namespace tfx::world {
 unsigned int constexpr map_width{200}, map_height{200};
 int constexpr cell_units{2048};
 uint16_t constexpr night_status{1u << 7};
+uint16_t apply_detail_status(uint16_t status, uint8_t detail);
 
 struct terrain_tile {
   math::angle rotation;

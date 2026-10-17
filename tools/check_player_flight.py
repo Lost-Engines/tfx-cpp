@@ -19,6 +19,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--scenes',type=int,default=48)
+p.add_argument('--model-changes',action='store_true')
 a=p.parse_args();path=a.research/'installs/cd_1994_09/TFX/TFX.DAT';im=NativeReference(path);im.call(0xde851);im.cpu.mem_map(0x300000,0x4000);backends=(hardware_fpatan(im,a.build),hardware_sine_cosine(im,a.build),hardware_tangent(im,a.build));rng=random.Random(0x8f56c)
 data_size=(im.layout['objects'][2]['virtual_size']+4095)&~4095;baseline=bytes(im.cpu.mem_read(im.data,data_size));terrain_type=[50];callbacks=[];timer=[4,0];placing=[False]
 im.intercept(0x8f686,'Stop only the initial-placement prefix; subsequent complete player callbacks execute',lambda image:image.cpu.emu_stop() if placing[0] else None)
@@ -40,10 +41,12 @@ for i in range(a.scenes):
   action={8:3,9:6,36:4,50:6,60:2,61:6,84:6}.get(t,255)
   keys=rng.choice([0,0,0,1,2,4,8,16]) if t<8 or t>60 else 0
   ticks.append([rng.choice([2,4,6]),bits(.04),keys,int(t<30),int(t>80),0,(i//24)%2,action,3 if t%31==0 else 0,int(t>=76 and i%3==0),255,0,0,rng.randrange(-128,129),rng.randrange(-128,129),3 if landed and t==0 else 255,14 if t==32 else 255,11 if t==36 else 255,1 if t==60 and i%6==1 else 255])
+ if a.model_changes:
+  for t,row in enumerate(ticks): row.append((0,2,1,6)[((i//3)+(t//12)*((i%3)+1))%4])
  scenes.append((start,ticks))
 requests=[]
 for start,ticks in scenes:requests+=[' '.join(map(str,start)),str(len(ticks)),*(' '.join(map(str,row)) for row in ticks)]
-output=subprocess.check_output([str((a.build/'player_flight_probe').resolve()),str(path)],input=('\n'.join(requests)+'\n').encode()).decode().splitlines();assert len(output)==sum(len(ticks) for _,ticks in scenes)
+output=subprocess.check_output([str((a.build/'player_flight_probe').resolve()),str(path)]+(['--model-changes'] if a.model_changes else []),input=('\n'.join(requests)+'\n').encode()).decode().splitlines();assert len(output)==sum(len(ticks) for _,ticks in scenes)
 at=0;counts={}
 for scene,(row,ticks) in enumerate(scenes):
  craft,model,landed,height,count,slot,weapon,occupied,low,high=row[:10];position=row[10:13];angles=row[13:16]
@@ -63,7 +66,8 @@ for scene,(row,ticks) in enumerate(scenes):
  placing[0]=False
  for f,v,fmt in ((0x1b23c,0x300000,'<I'),(0xe76c,23,'<H'),(0x8867,1,'<B'),(0xabe9,0,'<B'),(0x8f32,1,'<B'),(0x8f31,0,'<B'),(0x8e22,1,'<B'),(0x8e23,1,'<B'),(0xabea,1,'<B'),(0xabf2,height,'<h'),(0x6c3c,9999,'<h'),(0x6c3a,2,'<h')):im.write(f,fmt,v)
  for tick,request in enumerate(ticks):
-  elapsed,seconds,keys,accelerate,decelerate,buttons,source,action,refuel,disabled,gear,pitch,roll,joyx,joyy,engines,left_condition,right_condition,landing_phase=request
+  if a.model_changes: im.write(0x1347a,'<B',request[-1])
+  elapsed,seconds,keys,accelerate,decelerate,buttons,source,action,refuel,disabled,gear,pitch,roll,joyx,joyy,engines,left_condition,right_condition,landing_phase=request[:19]
   timer[:]=[elapsed,seconds]
   im.write(0x13476,'<H',elapsed);im.write(0x142c0,'<Q',seconds);im.write(0x13478,'<B',source);im.write(0x13b04,'<B',refuel);im.write(0x86ce,'<B',disabled);im.write(0xac60,'<2h',joyx,joyy);im.write(0x10bf2,'<h',pitch);im.write(0x10bf0,'<h',roll);im.write(0x5968,'<H',buttons);im.write(0x596a,'<H',0);im.cpu.mem_write(0x300038,bytes([bool(keys&16)]))
   for f,v in zip((0x13256,0x13258,0x1325c,0x1325e,0x1325a,0x13260),(bool(keys&1),bool(keys&2),bool(keys&4),bool(keys&8),accelerate,decelerate)):im.write(f,'<H',v)
@@ -78,6 +82,6 @@ for scene,(row,ticks) in enumerate(scenes):
   callbacks.clear();im.call(0x8f56c,limit=3000000);assert len(callbacks)==1
   expected=snapshot(im)+autopilot_snapshot(im)+[im.read(f,fmt)[0] for f,fmt in ((0x6c3c,'<h'),(0x6c3a,'<h'),(0x133f0,'<i'),(0x86f4,'<I'),(0x133e8,'<I'),(0x133cc,'<I'),(0x13440,'<I'))]+callbacks+[im.read(0x86cf,'<B')[0],(struct.unpack('<I',im.cpu.mem_read(0x303000,4))[0]-1000000)&0xffffffff]
   actual=list(map(int,output[at].split()));at+=1
-  assert actual==expected,(scene,tick,craft,model,[(i,hex(fields[i][0]) if i<len(fields) else hex(tail[i-260][0]) if 260<=i<282 else 'outer',x,y) for i,(x,y) in enumerate(zip(actual,expected)) if x!=y],len(actual),len(expected))
+  assert actual==expected,(scene,tick,craft,model,request,callbacks,[(i,hex(fields[i][0]) if i<len(fields) else hex(tail[i-260][0]) if 260<=i<282 else 'outer',x,y) for i,(x,y) in enumerate(zip(actual,expected)) if x!=y],len(actual),len(expected))
   counts[callbacks[0]]=counts.get(callbacks[0],0)+1
-print(f'{at} complete original outer player callbacks agree across {len(scenes)} initialized scenes and warm manual/autopilot transitions; all 324 retained fields, fuel smoothing and movement; callbacks {counts}')
+print(f'{at} complete original outer player callbacks agree across {len(scenes)} initialized scenes and warm manual/autopilot transitions; all 324 retained fields, fuel smoothing and movement, menu model changes={a.model_changes}; callbacks {counts}')

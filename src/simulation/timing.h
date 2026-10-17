@@ -36,6 +36,7 @@ private:
 public:
   explicit flight_clock(timer_counter initial_counter);
   void begin(timing_options options);
+  void resume(timer_counter counter, timing_options options);
   std::optional<frame_timing> poll(timer_counter counter);
 };
 

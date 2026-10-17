@@ -23,6 +23,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   instrument_data = std::make_unique<cockpit::instrument_assets>(source);
   refuel_data = std::make_unique<flight::refuel_assets>(source);
   widget_font_data = std::make_unique<presentation::widget_font>(source);
+  configuration_data = std::make_unique<presentation::configuration_menu_assets>(source);
   planner_art_data = std::make_unique<planner_artwork>(source);
   font_data = std::make_unique<presentation::fonts>(source);
   binary_view const view{source};
@@ -136,6 +137,8 @@ std::span<uint8_t const> executable_tables::circle(unsigned int const radius) co
 unsigned int executable_tables::glyph_measure(unsigned char const character) const {
   return character == ' ' ? 3u : measured_advances[character];
 }
+
+presentation::configuration_menu_assets const &executable_tables::configuration_widgets() const { return *configuration_data; }
 
 hud_glyph const *executable_tables::glyph(unsigned char const character) const {
   auto const index{character_map[character & 63]};

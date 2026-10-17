@@ -59,6 +59,14 @@ void player_flight::initialise(aerodynamic_airframe const &aircraft, loadout con
   measured_speed_q8 = 0;
 }
 
+void player_flight::select_model(aerodynamic_model const model) {
+  if(physical.model == model) return;
+  if(!simple_body) basic.ground.body = basic.flight.orientation; // Native shared body matrix also receives Arcade exports.
+  physical.model = model;
+  physical.autopilot.recovery.model_reset_requested = true;
+  basic.first_update = true;
+}
+
 math::attitude const &player_flight::body() const {
   if(ejection.value().stage == ejection_stage::pilot) return ejection.value().pilot.orientation;
   return simple_body ? basic.ground.body : basic.flight.orientation;
@@ -69,7 +77,7 @@ player_flight_events player_flight::advance(damage_state &damage, math::random_s
   math::floating_environment const environment;
   player_flight_events events;
   auto &view{basic.flight};
-  auto const previous_position{vec3f{view.position}};
+  vec3f previous_position{view.position};
   bool const ejected{context.aircraft_disabled};
   capture_shared_player(physical,basic,damage,simple_body);
   if(context.physics.refuelling_phase) {
@@ -190,7 +198,11 @@ player_flight_events player_flight::advance(damage_state &damage, math::random_s
       break;
     }
     case player_callback::arcade:
-      advance_arcade(view,context.basic_controls,context.elapsed,ground,context.physics.time_warp);
+      // Simple keeps its visible stall/ground offsets apart from the shared
+      // body matrix. Arcade reuses the body, not that display-only attitude.
+      if(simple_body) view.orientation = basic.ground.body;
+      if(physical.autopilot.recovery.model_reset_requested && view.landed) view.position.y = static_cast<float>(static_cast<calculation>(ground.height) - basic_parameters(view.aircraft).gear_height);
+      previous_position = advance_arcade(view,context.basic_controls,context.elapsed,ground,context.physics.time_warp).movement_origin;
       simple_body = false;
       break;
     case player_callback::none: break;

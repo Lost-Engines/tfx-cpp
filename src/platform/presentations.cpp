@@ -98,11 +98,12 @@ void play_game(resources::archive const &game, resources::executable_tables cons
         flight.screenshot.reset();
         glfwSetKeyCallback(window->get(),nullptr);
         glfwSetWindowUserPointer(window->get(),nullptr);
-        bool const completed{fly_mission(game,tables,flight,campaign,window)};
+        auto const completed{fly_mission(game,tables,flight,campaign,window)};
         glfwSetWindowUserPointer(window->get(),&controls);
         glfwSetKeyCallback(window->get(),frontend_keys::key);
         controls.input = {};
-        if(!completed) { finished = true;return; }
+        if(completed == flight_result::enrol) { frontend.return_to_enrolment();return; }
+        if(completed == flight_result::quit) { finished = true;return; }
         for(auto const &[name,value] : campaign) frontend.values()[name] = std::bit_cast<uint32_t>(value);
         frontend.complete();
         return;
@@ -135,6 +136,7 @@ void play_game(resources::archive const &game, resources::executable_tables cons
     if(now < next) { glfwWaitEventsTimeout(std::min(.01,next - now));continue; }
     next = now + 1.0 / 70;
     controls.input.shift = glfwGetKey(host,GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(host,GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+    if(controls.input.shift && glfwGetKey(host,GLFW_KEY_Q) == GLFW_PRESS) break;
     controls.input.mouse_buttons = static_cast<uint8_t>((glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS ? 1 : 0) | (glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS ? 2 : 0));
     glfwSetInputMode(host,GLFW_CURSOR,frontend.pointer_visible() ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
     step(now - started,window.cursor_position(),&window);

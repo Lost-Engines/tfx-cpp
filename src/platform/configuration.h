@@ -1,0 +1,13 @@
+#pragma once
+
+#include "platform/window.h"
+#include "presentation/configuration_menu.h"
+#include "resources/executable_tables.h"
+
+namespace tfx::platform {
+
+presentation::configuration_action configure_flight(window &window, resources::executable_tables const &tables,
+  configuration::settings &preferences, std::filesystem::path const &directory,
+  render::framebuffer const &background, render::palette const &colours);
+
+} // namespace tfx::platform
