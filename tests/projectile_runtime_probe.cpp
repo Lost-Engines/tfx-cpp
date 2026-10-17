@@ -13,17 +13,21 @@ int main(int const argc, char const *const argv[]) try {
   while(std::cin >> frames >> elapsed >> dispenser >> capacity) {
     std::vector<int32_t> events;
     vec3<int32_t> designation{2000000,-200000,3000000};
+    bool const countermeasures{(dispenser >= 2 && dispenser <= 3) || dispenser >= 6};
+    auto const target_pool{dispenser >= 6 ? tfx::weapons::actor_pool::player : tfx::weapons::actor_pool::aircraft};
     tfx::weapons::runtime state{tables.weapons,{
       .mount_state{[] { return tfx::weapons::launch_mount{.angles{0,12000,0},.selected{4}}; }},
       .actor_position{[](tfx::weapons::actor_identity) { return vec3<int32_t>{1000000,-300000,1000000}; }},
       .designation_position{[&] { return vec3<int32_t>{designation}; }},
-      .motion_inputs{[](tfx::weapons::active_projectile const&,uint16_t const ticks) {
+      .motion_inputs{[](tfx::weapons::active_projectile const &shot,uint16_t const ticks) {
         return tfx::weapons::motion_context{
           .elapsed{ticks},
           .target{0,0,0},
+          .player_owned{shot.owner.pool == tfx::weapons::actor_pool::player},
           .launch_anchor{1001000,-300500,1002000},
           .player_angles{0,12000,0},
           .player_speed{400},
+          .target_is_player{shot.target.actor && shot.target.actor->pool == tfx::weapons::actor_pool::player},
         };
       }},
       .reset_visual{[&](unsigned int const weapon, bool const secondary) { events.insert(events.end(),{0,static_cast<int32_t>(weapon),secondary}); }},
@@ -42,7 +46,7 @@ int main(int const argc, char const *const argv[]) try {
       },
       .target{
         .position{2000000,-200000,3000000},
-        .actor{dispenser >= 2 && dispenser <= 3 ? std::optional{tfx::weapons::actor_identity{.pool{tfx::weapons::actor_pool::aircraft}}} : std::nullopt},
+        .actor{countermeasures ? std::optional{tfx::weapons::actor_identity{.pool{target_pool}}} : std::nullopt},
         .untargeted{dispenser == 4},
         .designated{dispenser == 5},
       },
@@ -50,7 +54,7 @@ int main(int const argc, char const *const argv[]) try {
     for(unsigned int frame{0}; frame != frames; ++frame) {
       events.clear();
       if(dispenser == 5) designation = vec3<int32_t>{2000000 + static_cast<int32_t>(frame) * 10000,-200000,3000000 - static_cast<int32_t>(frame) * 7000};
-      if(dispenser >= 2 && dispenser <= 3 && frame == 2) state.countermeasure({.pool{tfx::weapons::actor_pool::aircraft}},{1000000,-300000,1000000},dispenser == 2,64,random);
+      if(countermeasures && frame == 2) state.countermeasure({.pool{target_pool}},{1000000,-300000,1000000},dispenser == 2 || dispenser == 6,dispenser < 6 ? 64 : dispenser == 6 ? 60 : dispenser == 7 ? 40 : 5,random);
       state.advance(static_cast<uint16_t>(elapsed),random,false);
       uint64_t digest{14695981039346656037ULL};
       auto const word{[&](auto const value) {
@@ -64,6 +68,7 @@ int main(int const argc, char const *const argv[]) try {
         for(auto const value : {body.angles.x,body.angles.y,body.angles.z}) word(value);
         word(body.speed); word(body.fall_speed); word(body.acceleration); word(body.range); word(body.secondary); word(shot->spent); word(shot->mount);
       }
+      word(random.low);word(random.high);
       word(events.size());
       for(auto const value : events) word(value);
       std::cout << digest << '\n';

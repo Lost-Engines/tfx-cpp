@@ -2064,3 +2064,37 @@ persistent radar frames**. The existing **4,096 seeker states** and **3,864
 projectile population frames** still agree. All **104 asset-free regressions**
 and the warning/sensor original-code comparisons pass in development, Release
 and ASan/UBSan builds.
+
+
+### Player ECM, stealth and countermeasure controls
+
+E/S now operate the original aircraft-specific ECM/stealth modes, and Insert /
+keypad 0 and Delete / keypad decimal release player chaff and flares. The original
+Eurofighter ignores E/S; F-117/F-22 mode changes remain mutually exclusive.
+Enabling stealth clears selected/tracked/guidance targets and suppresses the
+normal air-lock controller. ECM reaches the original guided-projectile decoy
+logic. HUD labels and cartridge counts now read mutable flight state, initialized
+by the existing native cockpit setup, rather than permanent startup values.
+
+The native chaff/flare key gates prohibit release during ejection, collision or
+aircraft disablement and spend a cartridge before requesting a decoy. Strength
+is 60 for chaff, 40 for flares and 5 for flares with any afterburner stage active.
+The live projectile population owns creation, diversion and shared randomness;
+input does not duplicate those rules.
+
+**8,192 complete original key-handler cases** agree on inventory, mode state,
+aircraft/loss gates, target clearing and exact release arguments. A 256-case
+asset-free fixture retains those checks. The expanded population comparison now
+covers **5,796 frames** with all 27 weapons, AI decoys and the three player
+strengths, and additionally checks both shared RNG words at every frame. The
+separate **52,224 original projectile transitions** still agree, including ECM,
+guidance diversion, ejection and authored stages.
+
+A private silent X11 installation exercises real key input, observed through GDB
+without altering state: player-owned decoy requests, changing HUD counts, ECM in
+motion inputs and stealth in HUD/sensor inputs all pass, as does normal shutdown.
+The same check passes under ASan/UBSan; leak checking remains enabled in separate
+runs outside ptrace. All 105 asset-free regressions and the defensive-key/native
+population comparisons pass in development, Release and ASan/UBSan builds.
+These are composed controller/input checks, not a complete original combat
+mission or a claim that every remaining flight shortcut is integrated.
