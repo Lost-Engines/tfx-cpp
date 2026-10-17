@@ -44,6 +44,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   in_range_label = string(0x179c);
   radio_padding = string(0x17cc);
   time_warp_message = string(0x1980);
+  cheat_messages = {string(0x18bc),string(0x18ac)};
   airspace_messages = {string(0x2a8),string(0x220)};
   aiming_bank = resource(0x1634);
   designator_bank = resource(0x15fc);

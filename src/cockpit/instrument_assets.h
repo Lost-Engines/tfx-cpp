@@ -88,6 +88,7 @@ struct instrument_assets {
   std::string nearby_fighters_message;
   std::string cleared_for_takeoff_message;
   std::string time_warp_message;
+  std::array<std::string,2> cheat_messages;
   std::array<std::string,2> airspace_messages;
   std::array<radar_scale,4> horizontal_scales;
   std::array<radar_scale,3> bvr_scales;

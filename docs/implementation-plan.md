@@ -35,8 +35,11 @@ are the next input integration work. The 4-key ILBM capture, slash afterburner
 stop, keypad cockpit-height controls and held keypad throttle controls are
 also connected. Twelve complete screenshot files match the original encoder
 byte for byte; 24-frame Arcade and Realistic shortcut sequences match every
-captured state and pixel. Flight recording and the original cheat dispatcher
-remain separate work.
+captured state and pixel. The original right-Shift PLOP dispatcher is also
+connected, with 4,096 original input comparisons, a complete 20-frame
+activation/deactivation comparison and a private-window check. Flight recording,
+cheat-enabled in-flight rearming and remaining keyboard acquisition details
+are separate work.
 
 Extend the relocated-original-code harness from isolated calls to reproducible initialisation/update sequences. Where complete DOS context is necessary, instrument scripted runs of the original through DOSBox. Original runs should use disposable writable installations so they do not alter the user's configuration or pilots.
 

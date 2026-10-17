@@ -414,7 +414,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   }};
   auto const damage_player{[&](int const percentage) {
     // Native 0x8f460 keeps damage reports and their RNG consumption after seat release.
-    tfx::flight::apply_damage(player_damage,percentage,air_simulation.random_stream(),false,[&] { scene.actor_event(player_visual,13); });
+    tfx::flight::apply_damage(player_damage,percentage,air_simulation.random_stream(),options.cheat.value().enabled,[&] { scene.actor_event(player_visual,13); });
     display_selection.right = static_cast<uint16_t>(player_damage.right_display_selection);
   }};
   tfx::missions::engagement_state engagement;
@@ -539,7 +539,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       uint16_t const damage{scene.actor_impact_damage(source)};
       bool const released{tfx::weapons::has_swept_contacts(shot.state.motion)};
       // Native player dispatch precedes the source-destroyed test and has no ejection gate.
-      if(released && shot.owner.pool != tfx::weapons::actor_pool::player) scene.collide_actor(player_visual,previous,current,damage,response,damage_player);
+      if(released && !options.cheat.value().enabled && shot.owner.pool != tfx::weapons::actor_pool::player) scene.collide_actor(player_visual,previous,current,damage,response,damage_player);
       if(!scene.actor_destroyed(source) && released && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::chaff) && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::flare)) {
         int32_t const broad_phase{std::bit_cast<int32_t>(static_cast<uint32_t>(shot.state.speed) * ticks * 20u)};
         for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) {
@@ -1263,10 +1263,14 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
     }
     {
+      // Native 0x7d42b resets the player SSD every cheat frame until loss/
+      // ejection. Collision and already-started aftermath still run below.
+      if(options.cheat.value().enabled && !player_disabled) scene.actor_event(player_visual,0);
       auto const loss{mission_progress.observe_player_loss({
         .fatal{scene.actor_destroyed(player_visual)},
         .collision{player.collision != 0},
         .elapsed{elapsed},
+        .invulnerable{options.cheat.value().enabled},
         .height{player.integer_position.y},
         .pilot_active{ejection.value().pilot.phase != tfx::flight::pilot_phase::inactive},
         .contact_explosion{player_visual == crashes.contact},
@@ -1934,7 +1938,13 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     auto const pressed{[&](int const key){
       bool const active{down(key)}, edge{active && !held[static_cast<unsigned int>(key)]};
       held[static_cast<unsigned int>(key)] = active;
-      return edge;
+      if(!edge) return false;
+      using tfx::flight::cheat_key;
+      auto const letter{key == GLFW_KEY_P ? cheat_key::p : key == GLFW_KEY_L ? cheat_key::l : key == GLFW_KEY_O ? cheat_key::o : cheat_key::other};
+      bool const before{options.cheat.value().enabled};
+      bool const consumed{options.cheat.press(letter,down(GLFW_KEY_RIGHT_SHIFT))};
+      if(before != options.cheat.value().enabled) radio.show(tables.instruments().cheat_messages[options.cheat.value().enabled]);
+      return !consumed;
     }};
     if((inspect || result_evaluated) && pressed(GLFW_KEY_ESCAPE)) break;
     bool const quit_key{pressed(GLFW_KEY_Q)};

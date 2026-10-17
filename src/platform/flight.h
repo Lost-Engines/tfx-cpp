@@ -2,6 +2,7 @@
 
 #include "audio/runtime.h"
 #include "cockpit/tactical_map.h"
+#include "flight/cheat.h"
 #include "missions/rules.h"
 #include "configuration/settings.h"
 #include "platform/window.h"
@@ -38,6 +39,7 @@ struct flight_options {
   bool &flight_information;
   bool &cannon_navigation;
   cockpit::tactical_map_animation &map_animation;
+  flight::cheat_code &cheat;
   render::precipitation &rain;
   math::random_state &session_random;
   audio::runtime *sound{nullptr};

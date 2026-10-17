@@ -44,6 +44,8 @@ add_library(tfx_audio
 configure_first_party(tfx_audio)
 
 add_library(tfx_core
+  src/flight/cheat.cpp
+  src/flight/cheat.h
   src/resources/sample_definitions.cpp
   src/render/g_effects.cpp
   src/render/g_effects.h
@@ -467,6 +469,15 @@ if(BUILD_TESTING)
   target_link_libraries(screenshot_tests PRIVATE tfx_core)
   configure_first_party(screenshot_tests)
   add_test(NAME render.original_ilbm_capture COMMAND screenshot_tests)
+
+  add_executable(cheat_probe tests/cheat_probe.cpp)
+  target_link_libraries(cheat_probe PRIVATE tfx_core)
+  configure_first_party(cheat_probe)
+
+  add_executable(cheat_tests tests/cheat_test.cpp)
+  target_link_libraries(cheat_tests PRIVATE tfx_core)
+  configure_first_party(cheat_tests)
+  add_test(NAME flight.original_cheat_dispatch COMMAND cheat_tests)
 
   add_executable(widget_font_probe tests/widget_font_probe.cpp)
   target_link_libraries(widget_font_probe PRIVATE tfx_core)
