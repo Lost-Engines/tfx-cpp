@@ -210,7 +210,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   };
   auto defences{initial_defences};
   tfx::cockpit::hud_selection display_selection{instrument_setup.displays};
-  tfx::cockpit::cockpit_position cockpit_position{tables.instruments(),instrument_setup.offset};
+  // Native 0x71280 overrides the earlier instrument initializer for the
+  // later sky renderer used by TFX environments. Cockpit keys can still move it.
+  auto const initial_cockpit_offset{environment.lighting.initial_cockpit_raised ? vec2<int16_t>{instrument_setup.offset.x,0} : vec2<int16_t>{instrument_setup.offset}};
+  tfx::cockpit::cockpit_position cockpit_position{tables.instruments(),initial_cockpit_offset};
   tfx::cockpit::view_control views;
   tfx::cockpit::view_camera view_motion;
   uint16_t view_pan{0};
@@ -861,9 +864,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     defences = initial_defences;
     armament.pylons = initial_stores;
     armament.selected = 0;
-    armament.select(mission_setup.aircraft == tfx::flight::player_aircraft::nighthawk ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false);
-    armament.guns = true;
-    aiming_mode = tfx::cockpit::aiming_mode::navigation;
+    bool const ground_weapons{mission_setup.aircraft == tfx::flight::player_aircraft::nighthawk};
+    armament.select(ground_weapons ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false);
+    // Native command initialization at 0x83cb0 runs after automatic selection.
+    // Even the cannon sentinel starts in the aircraft's weapon sight, not NAV.
+    armament.guns = false;
+    aiming_mode = ground_weapons ? tfx::cockpit::aiming_mode::ground : tfx::cockpit::aiming_mode::air;
     refuelling.reset();
     landing.reset();
     ejection.reset();
@@ -884,7 +890,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     views = tfx::cockpit::view_control{};
     view_motion = tfx::cockpit::view_camera{};
     view_pan = 0;
-    cockpit_position.move_to(instrument_setup.offset);
+    cockpit_position.move_to(initial_cockpit_offset);
     ground_designation.reset();
     mobile_designation.reset();
     radiation_cursor = 0;

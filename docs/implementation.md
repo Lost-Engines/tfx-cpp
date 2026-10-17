@@ -3782,9 +3782,32 @@ attempted polygon. The retained F-117 arming program contains opcode 6.
 
 `tools/check_model_materials.py --inert` inserts both instructions between
 stateful drawing operations. **512 complete original model programs** agree
-in every pixel and final procedural seed, including constant/fixed/depth
+in every pixel and final procedural seed, including constant/fixed
 palette state, helper calls, ink reuse, restoration, shading and textures;
 425 produce nonempty frames. Compact synthetic programs retain this evidence
 without original resource bytes. All **176 regressions** pass in development,
 Release and ASan/UBSan; Release and sanitizers each additionally agree on 128
 complete original programs with these instructions.
+
+### Mission-start cockpit and weapon selection
+
+A complete original mission 501 launch exposed two later initializers whose
+results were lost when the individually checked subsystems were assembled.
+`0x7df30` initially lowers the panel by 28 pixels, but the environment branch
+at `0x71280` raises it to zero for the later sky renderer. All 33 decoded TFX
+environments select that branch. The flight host now applies that final offset
+on launch and restart; Page Up/Page Down still operate the original movement.
+The environment-binding comparison checks this flag against the complete
+native parser alongside its palette, layer, night and sun bindings.
+
+The command initializer at `0x83cb0` also runs after the automatic pylon
+selection and enables the weapon sight. Flight now starts with the aircraft's
+air-to-air or air-to-ground sight instead of forcing navigation mode. This
+retains the selected pylon and the native cannon sentinel behaviour.
+
+All 176 CTests pass in development, Release and ASan/UBSan builds. A private
+window/input check also exercises designator selection, zoom, tracking,
+cockpit return and ejection after the offset change. The arming capture's
+mouse transport now writes the original WORD outputs rather than DWORDs;
+3,072 controller sequences, 7,241 hit tests, 274 complete widget/panel frames
+and 81 fade-palette frames continue to agree.

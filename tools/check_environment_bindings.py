@@ -21,7 +21,7 @@ for row in cases:
     assert bool(image.read(0x5951,'<B')[0]) == (not bool(int(row['night_flag']))),row['environment']
     layered=image.read(0xe762,'<H')[0]!=0
     grid=bytes(image.cpu.mem_read(image.data+0xe6a0,64)).split(b'\0')[0].decode() if layered else ''
-    expected.append([int(row['night_flag'])*128,row['banks'][0]['name'].rsplit('/',1)[-1].removesuffix('.col'),map_name,int(int(str(row['flags']),0)&64!=0),int(layered),image.read(0xe75a,'<h')[0] if layered else 0,image.read(0xe760,'<h')[0] if layered else 0,grid,bool(image.read(0xe774,'<H')[0]&0x200)])
+    expected.append([int(row['night_flag'])*128,row['banks'][0]['name'].rsplit('/',1)[-1].removesuffix('.col'),map_name,int(int(str(row['flags']),0)&64!=0),int(layered),image.read(0xe75a,'<h')[0] if layered else 0,image.read(0xe760,'<h')[0] if layered else 0,grid,bool(image.read(0xe774,'<H')[0]&0x200),bool(image.read(0xe774,'<H')[0]&1)])
 output=subprocess.check_output([str((args.build/'tfx_probe').resolve()),'environment_bindings',str(directory)],input=('\n'.join(requests)+'\n').encode()).splitlines()
 assert len(output)==len(expected)
 for row,got,want in zip(cases,output,expected):assert json.loads(got)==want,(row['environment'],got,want)
