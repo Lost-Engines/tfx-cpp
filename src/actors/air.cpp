@@ -450,10 +450,10 @@ bool air_runtime::combat_action(unsigned int const index, unsigned int const act
         bool const missile{(flags & 32) && allowed && actor.wait_seconds > actor.combat.firing_delay};
         bool const gun{!(flags & 32) && (flags & 16)};
         if(world.weapons_enabled && (missile || gun)) {
-          if(player_target) requests.push_back({
+          requests.push_back({
             .actor{index},
             .data{air_warning{
-              .target{player_air_target},
+              .target{actor.target.value()},
               .kind{air_warning_kind::firing},
             }},
           });

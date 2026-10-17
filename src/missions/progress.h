@@ -20,6 +20,7 @@ using progress_event = std::variant<progress_notice,mission_completed_event>;
 struct loss_effects {
   std::optional<unsigned int> acknowledgement_sample{};
   bool friendly_target{false};
+  bool orders_violated{false};
 };
 struct player_loss_context {
   bool fatal;

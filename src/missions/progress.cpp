@@ -58,7 +58,7 @@ loss_effects progress::record_air_loss(bool const enemy_pool, int16_t const type
     // 0x782f8 acknowledges a player hit before fatal-aircraft handling consumes its ejection random value.
     if(player_owned) effects.acknowledgement_sample = random.next() & 1 ? 0x46u : 0x22u;
     if(authorised) results.personal_air_score = add(results.personal_air_score,1000);
-    else violations = word(violations + 1);
+    else { violations = word(violations + 1);effects.orders_violated = true; }
     results.credited_air_kills = add(results.credited_air_kills,1);
     if(matches) results.enemy_aircraft_down = add(results.enemy_aircraft_down,1);
   } else {

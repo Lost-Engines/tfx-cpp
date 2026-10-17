@@ -276,6 +276,7 @@ add_library(tfx_core
   src/actors/contact_region.h
   src/actors/scenery.cpp
   src/actors/scenery.h
+  src/missions/engagement.cpp src/missions/engagement.h
   src/missions/progress.cpp
   src/missions/progress.h
   src/flight/defence.cpp src/flight/defence.h
@@ -546,6 +547,11 @@ if(BUILD_TESTING)
   target_link_libraries(death_probe PRIVATE tfx_core)
   configure_first_party(death_probe)
   add_test(NAME missions.native_player_loss_transition COMMAND death_probe ${PROJECT_SOURCE_DIR}/tests/reference/death.txt)
+
+  add_executable(engagement_probe tests/engagement_probe.cpp)
+  target_link_libraries(engagement_probe PRIVATE tfx_core)
+  configure_first_party(engagement_probe)
+  add_test(NAME missions.native_permission_to_fire COMMAND engagement_probe ${PROJECT_SOURCE_DIR}/tests/reference/engagement.txt)
 
   add_executable(credit_probe tests/credit_probe.cpp)
   target_link_libraries(credit_probe PRIVATE tfx_core)
@@ -1057,6 +1063,7 @@ if(BUILD_TESTING)
   target_link_libraries(air_combat_tests PRIVATE tfx_core)
   configure_first_party(air_combat_tests)
   add_test(NAME actors.native_air_combat COMMAND air_combat_tests ${PROJECT_SOURCE_DIR}/tests/reference/air_combat.txt)
+  add_test(NAME actors.native_air_crossfire_notices COMMAND air_combat_tests ${PROJECT_SOURCE_DIR}/tests/reference/air_crossfire.txt)
   add_test(NAME actors.native_air_death COMMAND air_combat_tests ${PROJECT_SOURCE_DIR}/tests/reference/air_death.txt --death)
 
   add_executable(air_tests tests/air_test.cpp)

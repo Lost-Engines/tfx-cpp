@@ -61,7 +61,7 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
     image.intercept(0xb81de,'Supply the transformed mounted-store anchor; the render transform is separate.',anchor)
     for weapon in ((15,16,0) if dispenser==1 else range(27)):
         image.call(0xa2f84,eax=1000000,edx=(-300000)&0xffffffff,ebx=1000000,ecx=0,stack=(12000,0,400,weapon,0 if dispenser==4 else target,0x310100))
-    result=[]
+    result=[];warning=0
     for frame in range(frames):
         events.clear()
         if dispenser==5:cpu.mem_write(0x310000,struct.pack('<3i',2000000+frame*10000,-200000,3000000-frame*7000))
@@ -77,7 +77,9 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
             handle=struct.unpack_from('<H',body,46)[0]
             bodies.extend([identities[pointer],body[6],struct.unpack_from('<H',body,4)[0],KINDS[function],struct.unpack_from('<h',body,64)[0],*struct.unpack_from('<6i3Hihh',body,8),struct.unpack_from('<i',body,67)[0],(handle-100)%2,body[66],body[79]])
             pointer=struct.unpack_from('<I',body,52)[0]
-        values=[len(bodies)//21,*bodies,*struct.unpack('<2H',cpu.mem_read(image.native(0xc9894),4)),len(events),*events]
+        cached_weapon=cpu.mem_read(warning+6,1)[0] if warning else -1
+        warning=image.call(0x70b4c)
+        values=[len(bodies)//21,*bodies,*struct.unpack('<2H',cpu.mem_read(image.native(0xc9894),4)),cached_weapon,identities.get(warning,0),len(events),*events]
         digest=14695981039346656037
         for value in values:
             for byte in struct.pack('<I',value&0xffffffff):digest=((digest^byte)*1099511628211)&0xffffffffffffffff
@@ -101,7 +103,7 @@ def main():
             for frame,(a,b) in enumerate(zip(observed,expected)):assert a==b,(dispenser,elapsed,frame,a,b)
             total+=frames
             print('Population',dispenser,'elapsed',elapsed,frames,'frames agree',flush=True)
-    print(total,'native population frames agree, including launch/removal order, child releases, player/AI decoy strengths, exact shared RNG and substep contact passes')
+    print(total,'native population frames agree, including launch/removal order, child releases, player/AI decoy strengths, exact shared RNG, retained/recycled HUD warning records and substep contact passes')
 
 
 if __name__=='__main__':main()

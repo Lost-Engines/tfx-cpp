@@ -2160,3 +2160,64 @@ and ASan/UBSan. All **106 asset-free regressions**, original classifier/selector
 cases and the extended loss cases pass in development, Release and ASan/UBSan.
 This closes the basic crash-model/camera binding; palette flashes, debris and
 broader aftermath/session rendering still have separate consumers to integrate.
+
+
+### Permission to fire and the remaining cockpit warning inputs
+
+Actor tracking/firing notifications now reach the original rules-of-engagement
+state, radio and sampled audio. Player tracking grants permission and refreshes
+the 30-rendered-frame cockpit notice; its first text notice is suppressed for
+the Eurofighter and for Arcade/training. The firing handler can grant permission
+even when another AI aircraft is the target. Its first ordinary-mode request is
+urgent sample 45 followed by the permission text; later firing requests use
+normal sample 44 unless the ejection-stage gate inhibits them. These are separate
+from the near-missile cue/sample/RNG controller documented above.
+
+Air kills now pass the real permission/Arcade/training predicate into the
+existing credit rules. An unauthorized enemy kill increments the native orders
+counter and delivers the original persistent violation notice. Native kill
+music and sample concatenation still precede that notice. Campaign exemptions
+come from the running presentation parser, independently of the selected flight
+model; direct diagnostic launches retain their existing Arcade-rule exemption.
+The two native permission strings are identical, so the resource reader owns one
+text value plus the distinct orders warning, all read from external `TFX.DAT`.
+
+The launch/guidance lamps now consume native `0x70b4c`'s first/newest projectile
+targeting the player. It has no distance, motion or spent-state filter. Selection
+updates after drawing, while the next draw reads the retained pool record's
+current weapon category. The pool already keeps record addresses stable across
+retirement and reuse, so this deliberately preserves the native retained-pointer
+behaviour without dereferencing freed C++ storage. This is a third distinct
+warning source, alongside the hostile-radar lamp and permission notice.
+
+**8,192 complete original permission handlers** agree in state, ordered
+radio/sample requests, aircraft/mode/ejection gates and exact signed-word frame
+timer wrapping. Every resulting authorization state also agrees with the actual
+native score/violation branch. The expanded **4,096 full credit cases** observe
+the exact persistent violation request as well as existing counters, RNG, kill
+music and sample descriptors, with authorization supplied through either parser
+flags or the native permission latch.
+
+The actor producer now forwards nonplayer firing notifications too. All **192
+retail programs / 352,896 controlled combat updates** still agree. Four new,
+entirely test-authored crossfire scenarios put the player outside acquisition
+range and compare **7,168 mixed-pool updates**, explicitly requiring their **17
+AI-to-AI firing notifications**. These compact fixtures run without game assets.
+The **5,796 projectile population frames** now also execute native `0x70b4c` and
+check both its selected identity and the prior warning record's weapon after
+retirement/recycling, alongside full projectile/RNG/event checks.
+
+All **108 asset-free regressions**, permission/credit original-code comparisons
+and retained-projectile comparisons pass in development, Release and ASan/UBSan.
+Actor movement, notification delivery and scoring have declared comparison
+boundaries; these results do not claim a complete original campaign/combat
+session or close the remaining collision, ground-permission and renderer gates.
+
+
+The private silent live-engagement check uses the authored airborne Arcade level
+two, selected analytically from its start and hostile acquisition range. GDB
+observes natural enemy tracking reaching permission state and the cockpit
+notice, then a player-targeted projectile reaching the launch/guidance lamps.
+No scenario state is changed. Both development and ASan/UBSan checks pass and
+exit normally. The class/pixel/state comparisons above remain the detailed
+proof; this window check establishes the live delivery path.

@@ -96,6 +96,12 @@ std::map<projectile_id,active_projectile const*> const &runtime::projectiles() c
   return active;
 }
 
+active_projectile const *runtime::first_targeting_player() const {
+  // Native 0x70b4c selects newest first, without a distance, motion or spent-state filter.
+  for(auto const *slot{first}; slot; slot = slot->next) if(slot->value.target.actor && slot->value.target.actor->pool == actor_pool::player) return &slot->value;
+  return nullptr;
+}
+
 warning_state const &runtime::player_warnings() const { return warnings; }
 
 void runtime::advance(simulation::timer_ticks const elapsed, math::random_state &random, bool const ground_effects) {

@@ -25,7 +25,11 @@ def main():
     image.intercept(0xb1334,'Supply ordinary permission/Arcade/training eligibility for aircraft credit.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,0x300600),im.return_from()))
     music_requests=[];sample_requests=[]
     image.intercept(0xa5a9c,'Observe the confirmed-aircraft-kill music cue.',lambda im:(music_requests.append(im.cpu.reg_read(r.UC_X86_REG_EAX)),im.return_from()))
-    image.intercept(0x81254,'Orders-warning presentation is an external output.',lambda im:im.return_from())
+    orders_requests=[]
+    def orders(im):
+        assert im.cpu.reg_read(r.UC_X86_REG_EAX)==im.data+0x678
+        orders_requests.append(1);im.return_from()
+    image.intercept(0x81254,'Observe the exact persistent orders-violation notice request.',orders)
     def sample(im):
         priority,first,second,end=struct.unpack('<4I',im.cpu.mem_read(im.cpu.reg_read(r.UC_X86_REG_ESP)+4,16))
         assert end==0
@@ -44,15 +48,15 @@ def main():
         if surface:image.cpu.mem_write(0x30032e,struct.pack('<H',0x200 if hostile else 0))
         for offset,val in zip(offsets,counters):image.write(offset,'<i',val)
         image.write(0x11b28,'<h',filter);image.write(0x11b2c,'<h',filter);image.write(0x10f20,'<I',0x300100);image.write(0x10f24,'<I',image.data+0x10f28 if player else 0)
-        image.cpu.mem_write(0x300126,struct.pack('<i',256));image.write(0x13476,'<H',4);image.write(0xe75c,'<h',violations);image.write(0xe781,'<B',0);image.write(0x11104,'<I',0);image.write(0x11108,'<I',0)
-        image.cpu.mem_write(0x300600,struct.pack('<I',authorised));image.cpu.mem_write(image.native(0xc9894),struct.pack('<2H',low,high))
-        music_requests.clear();sample_requests.clear()
+        image.cpu.mem_write(0x300126,struct.pack('<i',256));image.write(0x13476,'<H',4);image.write(0xe75c,'<h',violations);image.write(0xe781,'<B',int(bool(authorised and case&4)));image.write(0x11104,'<I',0);image.write(0x11108,'<I',0)
+        image.cpu.mem_write(0x300600,struct.pack('<I',int(bool(authorised and not(case&4)))));image.cpu.mem_write(image.native(0xc9894),struct.pack('<2H',low,high))
+        music_requests.clear();sample_requests.clear();orders_requests.clear()
         image.call(0x7c418 if surface else 0x782f8 if hostile else 0x784d0)
         new_random=struct.unpack('<2H',image.cpu.mem_read(image.native(0xc9894),4))
         cue=(0x46 if new_random[1]&1 else 0x22) if not surface and hostile and player else 0
         assert music_requests==([10] if cue else []),(case,music_requests,cue)
         assert sample_requests==([[1,12,cue]] if cue else []),(case,sample_requests,cue)
-        expected.append([*[image.read(offset,'<i')[0] for offset in offsets],image.read(0xe75c,'<h')[0],*new_random,cue,int(not hostile)])
+        expected.append([*[image.read(offset,'<i')[0] for offset in offsets],image.read(0xe75c,'<h')[0],*new_random,cue,int(not hostile),int(bool(orders_requests))])
     output=subprocess.run([str(args.build/'credit_probe')],input=''.join(' '.join(map(str,row))+'\n' for row in rows),text=True,capture_output=True,check=True)
     actual=[[int(v) for v in line.split()] for line in output.stdout.splitlines()];assert len(actual)==len(expected)
     for i,(a,b) in enumerate(zip(actual,expected)):assert a==b,(i,rows[i],a,b)
