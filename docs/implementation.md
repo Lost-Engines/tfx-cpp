@@ -2862,3 +2862,33 @@ and sanitizer builds also match 256 complete original flat-face frames each.
 All **128 retail missions** run 64 steps. Private controls in development and
 sanitizers cover firing, missile cameras, MFD scene pages, designator controls,
 pause and combat-to-result flow. Live storm/cockpit composition still passes.
+
+
+### Native near-plane clipping for flat faces
+
+Flat model polygons now also follow the original near-crossing route
+`0xd7998`/`0xd7be5`. Vertices with signed-word depth at or below 16 remain
+unprojected until their edges are clipped. `0xd7d22` bisects word depths,
+records a low-bit-first decision path and replays wrapped Q16 XY midpoints.
+Its equality/sentinel cases are retained; replacing this with a real-valued
+line intersection changes the output. The clipped projection (`0xd7c90`)
+uses arithmetic shifts, normal/wide limits and direct ±32,000 saturation,
+which deliberately omits the origin on saturated axes.
+
+**16,384 complete original edge intersections and projected points** agree,
+including extreme signed-word and dword wraps, fractional source depth,
+normal/wide modes, saturation boundaries and screen-word origin wrapping.
+**1,024 complete original near-crossing VGA frames** agree pixel for pixel,
+covering both crossing directions, exact near depth, all-behind faces,
+clipped winding and partial viewports. The 1,024 ordinary flat-face frames
+still agree. Camera coordinates, remap/colour and viewport remain supplied
+inputs; model-facing bytecode, full transforms, general shading/textures and
+whole-scene order remain separate gates.
+
+All **134 regressions** pass in development, Release and ASan/UBSan. The full
+edge comparison repeats in all three; Release and sanitizers also compare
+256 complete near-crossing frames each. All 1,287 scale/near-clip properties
+still pass. All **128 retail scenes** run 64 steps, and private development /
+sanitizer controls cover firing, missile follow/nose views, MFDs, ground
+controls, pause and combat-to-FINISH. Reproduce with
+`tools/check_near_clip.py` and `tools/check_world_polygons.py --near`.

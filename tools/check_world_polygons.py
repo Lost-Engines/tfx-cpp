@@ -2,8 +2,9 @@
 """Compare complete flat model-face frames through native projection and VGA.
 
 Original B9434 projection and BD3A8 clipping/scan conversion execute. Synthetic
-Q16 faces are wholly beyond the near plane; near crossings, shaded/textured
-faces and whole-scene ordering remain separate verification gates. Camera/actor
+Q16 faces exercise the ordinary path or, with --near, the complete native
+near-crossing dispatcher. Shaded/textured faces and whole-scene ordering remain
+separate verification gates. Camera/actor
 translation, colour/remap, viewport and input vertices are supplied boundaries.
 """
 import argparse
@@ -19,6 +20,7 @@ p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--record',type=Path)
 p.add_argument('--cases',type=int,default=1024)
+p.add_argument('--near',action='store_true',help='exercise original near-plane clipping on signed Q16 triangles')
 a=p.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);rng=random.Random(0xbd3a8)
 code=lambda off:im.native(0x70aa4+off)
 im.cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=10000)
@@ -50,6 +52,10 @@ for case in range(a.cases):
  if case%3==0:maximum[1]=172
  if case%5==0:minimum=[30,40];maximum=[110,120]
  rows.append([wide,len(points),scale,*minimum,*maximum,*[v for point in points for v in point]])
+if a.near:
+ for case,row in enumerate(rows):
+  row[1]=3;row[7:]=row[7:16]
+  for vertex in range(3):row[9+vertex*3]=rng.choice((-32768,-1000,-100,-1,0,15,16,17,18,100,1000,32767))*65536+rng.randrange(65536)
 text='\n'.join(' '.join(map(str,row)) for row in rows)+'\n'
 output=subprocess.check_output([str((a.build/'world_polygon_probe').resolve()),'--pixels'],input=text.encode());assert len(output)==64000*len(rows)
 fixtures=[]
@@ -62,7 +68,7 @@ for case,row in enumerate(rows):
  im.cpu.reg_write(r.UC_X86_REG_EDI,code(0x6814c));im.call(0xb9434,ecx=count)
  im.cpu.mem_write(0x300000,struct.pack('<'+str(count)+'H',*[i*32 for i in range(count)]));im.cpu.reg_write(r.UC_X86_REG_ESI,0x300000);vga.reset()
  for plane in vga.planes:plane[:]=bytes([99])*16000
- im.call(0xbd3a8,ecx=count,limit=3000000)
+ im.call(0xd7998 if a.near else 0xbd3a8,ecx=count,limit=3000000)
  want=bytes(vga.pixels());got=output[case*64000:(case+1)*64000]
  if want!=got:
   differences=[(i%320,i//320,x,y) for i,(x,y) in enumerate(zip(got,want)) if x!=y]
@@ -74,3 +80,5 @@ for case,row in enumerate(rows):
  if case and case%256==0:print(f'Checked {case} complete flat model-face frames',flush=True)
 if a.record:a.record.write_text('\n'.join(' '.join(map(str,row)) for row in fixtures)+'\n')
 print(f'{len(rows)} complete flat model-face VGA frames agree pixel for pixel: native Q16 normal/wide projection, scaled coordinates, winding, bottom/top/right/left clipping, reciprocal integer edges and inclusive spans; partial cockpit/MFD viewports included')
+
+if a.near:print('Original D7998/D7BE5/D7C90 near clipping also executes, including exact/fractional near depths, both crossing directions, all-behind faces, midpoint wraps, projection saturation and winding after clipping')
