@@ -14,6 +14,8 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_core
+  src/configuration/settings.cpp
+  src/configuration/settings.h
   src/flight/player_flight.cpp
   src/flight/player_flight.h
   src/flight/player_shared.cpp
@@ -524,6 +526,13 @@ if(BUILD_TESTING)
   configure_first_party(aerodynamic_recovery_probe)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
+
+  add_executable(configuration_probe tests/configuration_probe.cpp)
+  target_link_libraries(configuration_probe PRIVATE tfx_core)
+  configure_first_party(configuration_probe)
+  add_test(NAME configuration.native_readers COMMAND configuration_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/configuration.txt")
+
+  add_test(NAME configuration.native_documents COMMAND configuration_probe --document "${PROJECT_SOURCE_DIR}/tests/fixtures/configuration_documents.txt")
 
   add_executable(player_flight_probe tests/player_flight_probe.cpp)
   target_link_libraries(player_flight_probe PRIVATE tfx_core)

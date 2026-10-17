@@ -1586,3 +1586,21 @@ scene. Private X11/GDB checks in both advanced modes observe live Down, Alt+Left
 and hook input, authored seat release, pilot launch/parachute stages and the
 original recovery/FINISH outcome. These checks observe state; they do not alter
 the game under the debugger.
+
+### Original configuration readers
+
+The portable configuration owner names the original control, model, detail,
+language, sound-selection, joystick-scale, HUD and realism fields. The byte and
+word storage rules are retained, including the file's distinct MODEL index order.
+**2,239 complete native dispatch/reader cases agree** for keyword case, signed
+conversion and wrap, partial REALISM lists and floating scale input. Both original
+CRT initialization routines run, including `0xde547` for floating-point scanf;
+no numeric conversion or scanf routine is replaced by the capture.
+
+Another **137 complete original file reads agree**, with CRLF, repeated keys,
+missing final newline, old six-value REALISM lists, coupled Sound Blaster music
+selection and the exact 1,024-byte fallback boundary. Filesystem delivery and
+sound-device setup are explicit boundaries. DOS port settings and analogue
+calibration remain separate from portable simulation settings. Compact captures
+add two asset-free CTests. Connecting these values to startup and flight is the
+next consumer integration.
