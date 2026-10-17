@@ -42,6 +42,7 @@ definition::definition(std::span<uint8_t const> const source, std::shared_ptr<st
   view.slice(0, 10);
   parts.resize(view.byte(1));
   flags = view.le16(4);
+  bounding_radius = view.signed_le16(2);
   custom_bytes = view.byte(0);
   unsigned int const entry_count{view.byte(8)}, anchor_count{view.byte(9)};
   for(unsigned int i{0}; i != anchor_count; ++i) anchors.emplace_back(view.signed_le16(10 + i * 6), view.signed_le16(12 + i * 6), view.signed_le16(14 + i * 6));
@@ -100,6 +101,7 @@ definition::definition(std::span<uint8_t const> const source, std::shared_ptr<st
           if(!duplicate) draws.push_back({
             .slot{slot},
             .anchor{vec3d{anchor}},
+            .placement{opcode == 8 || opcode == 74 ? part_position::fixed_anchor : opcode == 6 || opcode == 46 ? part_position::integer_anchor : part_position::assembly_origin},
           });
         }
       }

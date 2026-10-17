@@ -211,3 +211,11 @@ faces share native integer clipping and edges, including their distinct
 near-plane attribute interpolation. Complete converted model programs agree
 through both paths. General patterned/textured/rounded edges, full actor
 transforms, animation visibility eligibility and global scene order remain.
+
+
+Native model metrics now select the authored polygon level and distant
+one/two-pixel representations. SSD drawing retains assembly, integer-anchor
+and fixed-anchor caches and their bounding-sphere admission. Complete
+queued multi-level model frames agree with original VGA output. Full actor
+transforms, immediate/queued ordering, queue overflow and animation visibility
+eligibility remain separate work alongside patterned/textured/rounded edges.

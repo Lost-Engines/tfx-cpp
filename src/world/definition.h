@@ -18,11 +18,13 @@ struct model_part {
   uint16_t model_index{65535};
   uint8_t rotation_mode{0};
 };
+enum class part_position { assembly_origin, integer_anchor, fixed_anchor };
 enum class part_draw_kind { model, ground_shadow };
 struct part_draw {
   unsigned int slot;
   vec3d anchor;
   part_draw_kind kind{part_draw_kind::model};
+  part_position placement{part_position::assembly_origin};
 };
 struct parameter_stream {
   unsigned int part;
@@ -34,6 +36,7 @@ struct definition {
   std::vector<part_draw> draws;
   std::vector<parameter_stream> streams;
   uint16_t flags;
+  int16_t bounding_radius;
   unsigned int custom_bytes{0};
   std::vector<uint8_t> bytecode;
   std::vector<unsigned int> entries;

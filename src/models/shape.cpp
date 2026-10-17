@@ -57,19 +57,22 @@ shape::shape(std::span<uint8_t const> const source) {
   resources::binary_view const view{source};
   if(source.size() < 52 || source.size() % 2 || view.be16(18) != 0 || view.be16(34) < 14 || view.be16(34) > 256) throw std::runtime_error{"invalid shape header"};
   sort_depth_bias = view.signed_be16(16);
+  minimum_draw_distance = view.signed_be16(0);
   std::set<unsigned int> seen;
   bool terminated{false};
-  for(unsigned int slot{1}; slot <= 8; ++slot) {
+  for(unsigned int slot{1}; slot <= 7; ++slot) {
     auto const distance{view.be16(slot * 2)};
-    auto const kind{view.be16((8 + slot) * 2)};
+    auto const kind{static_cast<detail_kind>(view.be16((8 + slot) * 2))};
+    if(kind == detail_kind::reserved || kind > detail_kind::pixel) throw std::runtime_error{"unknown shape detail representation"};
     unsigned int const field{32 + slot * 2};
     unsigned int const offset{field + view.be16(field)};
     details.push_back({
       .distance{distance},
       .kind{kind},
       .offset{offset},
+      .colour{kind >= detail_kind::pixel_block ? static_cast<uint8_t>(view.be16(offset)) : uint8_t{0}},
     });
-    if(kind == 0 && seen.insert(offset).second) {
+    if(kind == detail_kind::polygon && seen.insert(offset).second) {
       if(offset < 48 || view.be16(offset) != 65535) throw std::runtime_error{"shape entry lacks its program marker"};
       levels.push_back(offset + 2);
       unsigned int at{offset + 2};
@@ -97,6 +100,12 @@ shape::shape(std::span<uint8_t const> const source) {
   if(instructions.contains(50) && instructions.at(50).opcode == 46) {
     for(size_t at{56}; at < source.size() && source[at]; ++at) texture_name += static_cast<char>(source[at]);
   }
+}
+
+shape_detail const *shape::detail_for_distance(int16_t const distance) const {
+  if(distance < minimum_draw_distance) return nullptr;
+  auto const found{std::ranges::find_if(details,[&](auto const &detail) { return distance <= math::signed_word(static_cast<uint16_t>(detail.distance)); })};
+  return found == details.end() ? nullptr : &*found;
 }
 
 bool condition(uint16_t const opcode, uint16_t const operand, uint8_t const state, int16_t const distance, uint16_t const status) {
@@ -387,7 +396,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       result.warnings.insert("shape opcode " + std::to_string(opcode) + " requires runtime context");
     }
   }};
-  run(run, program, program.levels.at(context.level), 0);
+  run(run, program, context.entry_address.value_or(program.levels.at(context.level)), 0);
   return result;
 }
 
