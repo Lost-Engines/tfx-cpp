@@ -47,8 +47,8 @@ int main(int const argc, char const *const argv[]) try {
     vec3<int16_t> local,origin;
     vec3<int32_t> reference;
     while(input >> kind >> local.x >> local.y >> local.z >> origin.x >> origin.y >> origin.z >> heading >> reference.x >> reference.y >> reference.z) {
-      auto const point{tfx::world::effect_origin(local,origin,static_cast<tfx::math::angle>(heading))};
-      std::array<int,4> const values{point.x,point.y,point.z,static_cast<int>(kind)};
+      auto const point{tfx::world::place_instance_point(local,origin,static_cast<tfx::math::angle>(heading))};
+      std::array<int,5> const values{point.x,point.y,point.z,static_cast<int>(kind),tfx::world::instance_point_distance(local,origin,static_cast<tfx::math::angle>(heading),vec3<int16_t>{reference})};
       for(auto const value : values) {
         if(argc == 3) { int expected;if(!(input >> expected) || value != expected) throw std::runtime_error{"effect placement mismatch at case " + std::to_string(cases)}; }
         else std::cout << value << ' ';

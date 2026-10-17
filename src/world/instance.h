@@ -9,6 +9,10 @@
 
 namespace tfx::world {
 
+// Native SSD placement is a word origin plus one of four exact quarter turns.
+vec3<int16_t> place_instance_point(vec3<int16_t> const &local, vec3<int16_t> const &origin, math::angle heading);
+int16_t instance_point_distance(vec3<int16_t> const &local, vec3<int16_t> const &origin, math::angle heading, vec3<int16_t> const &reference);
+
 struct scene_request;
 struct instance_context {
   collision_segment movement{};

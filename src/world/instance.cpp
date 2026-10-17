@@ -27,6 +27,31 @@ enum class instruction : uint16_t {
 
 } // anonymous namespace
 
+vec3<int16_t> place_instance_point(vec3<int16_t> const &local, vec3<int16_t> const &origin, math::angle const heading) {
+  vec3<int32_t> rotated{local};
+  switch(heading >> 14) {
+  case 1: rotated = {local.z,local.y,-static_cast<int32_t>(local.x)};break;
+  case 2: rotated = {-static_cast<int32_t>(local.x),local.y,-static_cast<int32_t>(local.z)};break;
+  case 3: rotated = {-static_cast<int32_t>(local.z),local.y,local.x};break;
+  default: break;
+  }
+  return {
+    math::signed_word(static_cast<uint16_t>(rotated.x + origin.x)),
+    math::signed_word(static_cast<uint16_t>(rotated.y + origin.y)),
+    math::signed_word(static_cast<uint16_t>(rotated.z + origin.z)),
+  };
+}
+
+int16_t instance_point_distance(vec3<int16_t> const &local, vec3<int16_t> const &origin, math::angle const heading, vec3<int16_t> const &reference) {
+  // Native 0xb6be8 wraps each placed anchor/reference subtraction before CBE94.
+  auto const placed{place_instance_point(local,origin,heading)};
+  return math::distance_word({
+    math::signed_word(static_cast<uint16_t>(placed.x - reference.x)),
+    math::signed_word(static_cast<uint16_t>(placed.y - reference.y)),
+    math::signed_word(static_cast<uint16_t>(placed.z - reference.z)),
+  });
+}
+
 instance::instance(definition const &definition) : source{definition}, streams(definition.parts.size()), parts(definition.parts.size()), custom((definition.custom_bytes + 1) / 2) {
   execute(0);
 }

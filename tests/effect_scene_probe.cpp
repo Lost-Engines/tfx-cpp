@@ -23,8 +23,10 @@ int main(int const argc, char const *const argv[]) try {
   for(unsigned int axis{0}; axis != 3; ++axis) local[axis] = (static_cast<int32_t>(source.signed_le16(at + 2 + axis * 2)) + source.signed_le16(at + 8 + axis * 2)) / 2;
   vec3d const origin{(x + .5) * tfx::world::cell_units,0,(z + .5) * tfx::world::cell_units};
   auto const heading{environment.tile(x,z).rotation};
+  vec3<int32_t> const reference{origin + vec3d{500,-1000,3000}};
+  scene.set_query_reference(&reference);
   vec3<int32_t> const point{origin + tfx::math::rotate_tile(vec3d{local},heading)};
-  std::cout << name << ' ' << heading << ' ' << static_cast<int32_t>(origin.x) << ' ' << static_cast<int32_t>(origin.y) << ' ' << static_cast<int32_t>(origin.z) << ' ' << local.x << ' ' << local.y << ' ' << local.z << '\n';
+  std::cout << name << ' ' << heading << ' ' << static_cast<int32_t>(origin.x) << ' ' << static_cast<int32_t>(origin.y) << ' ' << static_cast<int32_t>(origin.z) << ' ' << local.x << ' ' << local.y << ' ' << local.z << ' ' << reference.x << ' ' << reference.y << ' ' << reference.z << '\n';
   tfx::world::effect_pool effects;
   std::array<std::array<tfx::world::scene_handle,tfx::world::effect_kind_count>,tfx::world::effect_capacity> models;
   for(auto &slot : models) for(unsigned int kind{0}; kind != slot.size(); ++kind) {

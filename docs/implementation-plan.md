@@ -141,3 +141,10 @@ Authored SSD secondary blasts now feed the live effect pool through synchronous
 placed requests. All 782 corpus requests have native placement coverage, and a
 controlled real factory's collision/animation/draw emission agrees with the
 original. Shared smoke trails, legacy offsets and ground shadows remain.
+
+
+Live SSD drawing/animation now binds its range and anchor queries to the player
+reference, independently of camera selection. The shared placed-anchor query
+has 11,320 complete original comparisons; all 128 mission scenes also survive
+64 integrated steps after the binding change. Full renderer eligibility and
+whole-session comparisons remain open.
