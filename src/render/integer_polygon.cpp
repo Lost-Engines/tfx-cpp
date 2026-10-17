@@ -1,8 +1,10 @@
 #include "integer_polygon.h"
+#include "integer_texture_polygon.h"
 #include <algorithm>
 #include <bit>
 #include <cstdlib>
 #include <optional>
+#include <ranges>
 #include <vector>
 #include <utility>
 
@@ -10,7 +12,12 @@ namespace tfx::render {
 namespace {
 int16_t word(int32_t const value) { return math::signed_word(static_cast<uint16_t>(value)); }
 int32_t wrap(uint32_t const value) { return std::bit_cast<int32_t>(value); }
-using vertex_list = std::vector<indexed_vertex>;
+struct raster_vertex {
+  vec2<int16_t> position;
+  uint16_t shade_q8{0};
+  vec2<uint16_t> uv_q7{0,0};
+};
+using vertex_list = std::vector<raster_vertex>;
 int reciprocal(int const height) { return height == 1 ? 32767 : 32768 / height; }
 int32_t edge_initial(uint16_t const start, int32_t const step, int const difference, int const height) {
   return wrap((static_cast<uint32_t>(start) << 16) + 32768u + (difference >= height ? static_cast<uint32_t>(step >> 1) : 0u));
@@ -33,9 +40,16 @@ vertex_list clip(vertex_list const &vertices, unsigned int const axis, int16_t c
     point[axis] = boundary;point[1 - axis] = word(other);
     int const shade_delta{word(b.shade_q8 - a.shade_q8)};
     int const shade{aa > ab || (aa == ab && inside) ? a.shade_q8 + shade_delta * aa / (aa + ab) : b.shade_q8 - shade_delta * ab / (aa + ab)};
+    vec2<uint16_t> uv;
+    for(unsigned int component{0}; component != 2; ++component) {
+      int const difference{word(b.uv_q7[component] - a.uv_q7[component])};
+      int const value{aa > ab || (aa == ab && inside) ? a.uv_q7[component] + difference * aa / (aa + ab) : b.uv_q7[component] - difference * ab / (aa + ab)};
+      uv[component] = static_cast<uint16_t>(value);
+    }
     result.push_back({
       .position{vec2<int16_t>{point}},
       .shade_q8{static_cast<uint16_t>(shade)},
+      .uv_q7{vec2<uint16_t>{uv}},
     });
   }
   return result;
@@ -46,17 +60,20 @@ struct edge {
   int32_t step_q16;
   int32_t shade_q16;
   int32_t shade_step_q16;
+  vec2<int32_t> uv_accumulator;
+  vec2<int32_t> uv_step;
 };
 struct edge_chain {
   std::vector<edge> segments;
   int16_t final_x;
   uint16_t final_shade;
+  vec2<uint16_t> final_uv;
 };
 std::optional<edge_chain> chain(vertex_list const &vertices, unsigned int index, int const direction, int16_t const bottom) {
   edge_chain result;
   for(unsigned int count{0}; count <= vertices.size(); ++count) {
     auto const &a{vertices[index]};
-    if(count && a.position.y >= bottom) { result.final_x = a.position.x;result.final_shade = a.shade_q8;return result; }
+    if(count && a.position.y >= bottom) { result.final_x = a.position.x;result.final_shade = a.shade_q8;result.final_uv = a.uv_q7;return result; }
     unsigned int const count_vertices{static_cast<unsigned int>(vertices.size())};
     index = (index + count_vertices + direction) % count_vertices;
     auto const &b{vertices[index]};
@@ -66,12 +83,21 @@ std::optional<edge_chain> chain(vertex_list const &vertices, unsigned int index,
     int32_t const step{dx * 2 * reciprocal(height)};
     int const shade_delta{word(b.shade_q8 - a.shade_q8)};
     int32_t const shade_step{shade_delta * 2 * reciprocal(height)};
+    vec2<int32_t> uv_start, uv_step;
+    for(unsigned int component{0}; component != 2; ++component) {
+      int32_t const difference{static_cast<int32_t>(b.uv_q7[component]) - a.uv_q7[component]};
+      uv_step[component] = wrap(static_cast<uint32_t>(difference) * 2u * static_cast<uint32_t>(reciprocal(height)));
+      // DB3C8/DB4DC always add half a texture step at an edge's first row.
+      uv_start[component] = wrap((static_cast<uint32_t>(a.uv_q7[component]) << 16) + 32768u + static_cast<uint32_t>(uv_step[component] >> 1));
+    }
     result.segments.push_back({
       .rows{static_cast<unsigned int>(height)},
       .position_q16{edge_initial(static_cast<uint16_t>(a.position.x),step,std::abs(dx),height)},
       .step_q16{step},
       .shade_q16{edge_initial(a.shade_q8,shade_step,word(std::abs(shade_delta)),height)},
       .shade_step_q16{shade_step},
+      .uv_accumulator{vec2<int32_t>{uv_start}},
+      .uv_step{vec2<int32_t>{uv_step}},
     });
   }
   return std::nullopt;
@@ -81,10 +107,12 @@ private:
   edge_chain const &source;
   unsigned int index{0}, row{0};
   int32_t position{0}, shade_position{0};
+  vec2<int32_t> uv_position;
   void start() {
     if(index == source.segments.size()) return;
     position = source.segments[index].position_q16;
     shade_position = source.segments[index].shade_q16;
+    uv_position = source.segments[index].uv_accumulator;
   }
 public:
   explicit edge_walker(edge_chain const &chain) : source{chain} {
@@ -92,6 +120,7 @@ public:
   }
   int x() const { return index == source.segments.size() ? source.final_x : position >> 16; }
   uint16_t shade() const { return index == source.segments.size() ? source.final_shade : static_cast<uint16_t>(shade_position >> 16); }
+  vec2<uint16_t> uv() const { return index == source.segments.size() ? vec2<uint16_t>{source.final_uv} : vec2<uint16_t>{static_cast<uint16_t>(uv_position.x >> 16),static_cast<uint16_t>(uv_position.y >> 16)}; }
   void advance() {
     if(index == source.segments.size()) return;
     if(++row == source.segments[index].rows) {
@@ -100,6 +129,7 @@ public:
     } else {
       position = wrap(static_cast<uint32_t>(position) + static_cast<uint32_t>(source.segments[index].step_q16));
       shade_position = wrap(static_cast<uint32_t>(shade_position) + static_cast<uint32_t>(source.segments[index].shade_step_q16));
+      for(unsigned int component{0}; component != 2; ++component) uv_position[component] = wrap(static_cast<uint32_t>(uv_position[component]) + static_cast<uint32_t>(source.segments[index].uv_step[component]));
     }
   }
 };
@@ -208,7 +238,59 @@ std::vector<polygon_span> integer_polygon_spans(std::span<vec2<int16_t> const> c
   return result;
 }
 void integer_gouraud_polygon(framebuffer &output, std::span<indexed_vertex const> const vertices, colour_map const &remap, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum) {
-  raster(vertex_list{vertices.begin(),vertices.end()},minimum,maximum,[&](int const y, edge_walker const &left, edge_walker const &right) { shaded_span(output,y,left,right,remap); });
+  vertex_list source;source.reserve(vertices.size());
+  for(auto const &vertex : vertices) source.push_back({
+    .position{vec2<int16_t>{vertex.position}},
+    .shade_q8{vertex.shade_q8},
+  });
+  raster(std::move(source),minimum,maximum,[&](int const y, edge_walker const &left, edge_walker const &right) { shaded_span(output,y,left,right,remap); });
+}
+
+void integer_texture_polygon(framebuffer &output, std::span<textured_vertex const> const vertices, std::span<uint8_t const> const texture, colour_map const &remap, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum) {
+  vertex_list source;source.reserve(vertices.size());
+  for(auto const &vertex : vertices) source.push_back({
+    .position{vec2<int16_t>{vertex.position}},
+    .uv_q7{vec2<uint16_t>{vertex.uv_q7}},
+  });
+  struct texture_span {
+    int row;
+    int left;
+    int right;
+    vec2<uint16_t> left_uv_q7;
+    vec2<uint16_t> right_uv_q7;
+  };
+  std::vector<texture_span> spans;spans.reserve(screen_height);
+  raster(std::move(source),minimum,maximum,[&](int const y, edge_walker const &left, edge_walker const &right) {
+    spans.push_back({
+      .row{y},
+      .left{left.x()},
+      .right{right.x()},
+      .left_uv_q7{left.uv()},
+      .right_uv_q7{right.uv()},
+    });
+  });
+  // DBFA0 pushes top-to-bottom spans; the VGA consumer pops the bottom first.
+  for(auto const &span : spans | std::views::reverse) {
+    if((span.right | 3) < span.left) return;
+    int const width{span.right - span.left + 1};
+    if(width <= 0) continue;
+    auto const &first{span.left_uv_q7}, &last{span.right_uv_q7};
+    vec2<uint32_t> coordinate, step;
+    for(unsigned int component{0}; component != 2; ++component) {
+      int32_t const difference{static_cast<int32_t>(last[component]) - first[component]};
+      step[component] = static_cast<uint32_t>(difference) * 4u * static_cast<uint32_t>(reciprocal(width));
+      coordinate[component] = (static_cast<uint32_t>(first[component]) << 17) + 65536u + static_cast<uint32_t>(wrap(step[component]) >> 1);
+    }
+    for(int x{span.left}; x <= span.right; ++x) {
+      unsigned int const index{((coordinate.y >> 24) << 8) | (coordinate.x >> 24)};
+      uint8_t const ink{remap[index < texture.size() ? texture[index] : uint8_t{0}]};
+      if(ink && x >= 0 && x < screen_width) output.pixels[static_cast<unsigned int>(span.row * screen_width + x)] = ink;
+      coordinate.x += step.x;
+      // The original VGA loop holds V in EAX and overwrites AL with the
+      // remapped texel before ADD. Retain that otherwise tiny fraction change.
+      coordinate.y = ((coordinate.y & 0xffffff00u) | ink) + step.y;
+    }
+  }
 }
 
 } // namespace tfx::render

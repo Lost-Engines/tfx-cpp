@@ -1,6 +1,7 @@
 #include "integer_model_polygon.h"
 #include "integer_polygon.h"
 #include "near_clip.h"
+#include "model_projection.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -19,26 +20,11 @@ std::optional<camera_vertices> native_points(std::span<models::model_vertex cons
   if(view.projection != projection_mode::original_model || vertices.size() < 3) return std::nullopt;
   camera_vertices result;result.reserve(vertices.size());
   for(auto const &vertex : vertices) {
-    if(vertex.projection_scale <= 0) return std::nullopt;
-    vec3<int32_t> point;
-    for(unsigned int axis{0}; axis != 3; ++axis) {
-      double const fixed{std::nearbyint(vertex.position[axis] / vertex.projection_scale * 65536)};
-      if(!std::isfinite(fixed) || fixed < std::numeric_limits<int32_t>::min() || fixed > std::numeric_limits<int32_t>::max()) return std::nullopt;
-      point[axis] = static_cast<int32_t>(fixed);
-    }
-    result.emplace_back(point);
+    auto const point{model_camera_point(vertex)};
+    if(!point) return std::nullopt;
+    result.emplace_back(*point);
   }
   return result;
-}
-std::optional<vec2<int16_t>> project(vec3<int32_t> const &point, camera const &view) {
-  int32_t const depth{point.z >> 16};
-  if(depth <= model_near_depth) return std::nullopt;
-  unsigned int const shift{projection_shift(view.opening)};
-  vec2<int32_t> const quotient{(point.x >> shift) / depth,(point.y >> shift) / depth};
-  // Native IDIV uses a word destination. Leave its overflow domain to the
-  // host's separate fallback; valid quotients add the origin with WORD wrap.
-  if(quotient.x < std::numeric_limits<int16_t>::min() || quotient.x > std::numeric_limits<int16_t>::max() || quotient.y < std::numeric_limits<int16_t>::min() || quotient.y > std::numeric_limits<int16_t>::max()) return std::nullopt;
-  return vec2<int16_t>{word(quotient.x + static_cast<int32_t>(view.projection_origin.x)),word(quotient.y + static_cast<int32_t>(view.projection_origin.y))};
 }
 std::optional<screen_vertices> clip(camera_vertices const &vertices, camera const &view) {
   screen_vertices result;result.reserve(vertices.size() + 2);
@@ -47,7 +33,7 @@ std::optional<screen_vertices> clip(camera_vertices const &vertices, camera cons
     auto const &a{vertices[i]}, &b{vertices[(i + 1) % vertices.size()]};
     bool const inside_a{a.z >> 16 > model_near_depth}, inside_b{b.z >> 16 > model_near_depth};
     if(inside_a) {
-      auto const screen{project(a,view)};
+      auto const screen{project_model_point(a,view)};
       if(!screen) return std::nullopt;
       result.emplace_back(*screen);
     }
@@ -109,7 +95,7 @@ bool integer_model_polygon(framebuffer &output, std::span<models::model_vertex c
       auto const &a{(*native)[i]}, &b{(*native)[next]};
       bool const inside_a{a.z >> 16 > model_near_depth}, inside_b{b.z >> 16 > model_near_depth};
       if(inside_a) {
-        auto const point{project(a,view)};
+        auto const point{project_model_point(a,view)};
         if(!point) return false;
         projected.push_back({
           .position{vec2<int16_t>{*point}},
@@ -141,7 +127,7 @@ std::optional<bool> model_facing(std::span<models::model_vertex const> const ver
     if(std::ranges::any_of(*native | std::views::take(3),[](auto const &point) { return point.z >> 16 <= model_near_depth; })) return plane_facing(*native);
     screen_vertices screen;
     for(unsigned int i{0}; i != 3; ++i) {
-      auto const point{project((*native)[i],view)};
+      auto const point{project_model_point((*native)[i],view)};
       if(!point) return std::nullopt;
       screen.emplace_back(*point);
     }

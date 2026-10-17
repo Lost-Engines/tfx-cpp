@@ -344,6 +344,9 @@ add_library(tfx_core
   src/render/model_point.h
   src/render/model_jitter.cpp src/render/model_jitter.h
   src/render/rounded_model_polygon.cpp src/render/rounded_model_polygon.h
+  src/render/integer_texture_polygon.h
+  src/render/integer_model_texture.cpp src/render/integer_model_texture.h
+  src/render/model_projection.cpp src/render/model_projection.h
   src/render/model_transform.cpp src/render/model_transform.h
   src/world/model_orientation.h
   src/render/model_metrics.cpp
@@ -567,6 +570,22 @@ if(BUILD_TESTING)
   target_link_libraries(defence_probe PRIVATE tfx_core)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
+
+  add_executable(texture_near_probe tests/texture_near_probe.cpp)
+  target_link_libraries(texture_near_probe PRIVATE tfx_core)
+  configure_first_party(texture_near_probe)
+  add_test(NAME render.native_texture_near_intersection COMMAND texture_near_probe ${PROJECT_SOURCE_DIR}/tests/reference/texture_near.txt)
+
+  add_executable(model_texture_probe tests/model_texture_probe.cpp)
+  target_link_libraries(model_texture_probe PRIVATE tfx_core)
+  configure_first_party(model_texture_probe)
+  add_test(NAME render.native_model_textures COMMAND model_texture_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_textures.txt)
+  add_test(NAME render.native_near_model_textures COMMAND model_texture_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_textures_near.txt)
+
+  add_executable(texture_polygon_probe tests/texture_polygon_probe.cpp)
+  target_link_libraries(texture_polygon_probe PRIVATE tfx_core)
+  configure_first_party(texture_polygon_probe)
+  add_test(NAME render.native_texture_polygons COMMAND texture_polygon_probe ${PROJECT_SOURCE_DIR}/tests/reference/texture_polygons.txt)
 
   add_executable(model_palette_probe tests/model_palette_probe.cpp)
   target_link_libraries(model_palette_probe PRIVATE tfx_core)
