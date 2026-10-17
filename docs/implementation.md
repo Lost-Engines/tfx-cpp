@@ -4974,3 +4974,22 @@ python3 tools/check_combat_sessions.py --case ejection-recording --output build/
 All 195 asset-free regressions pass in development, Release and ASan/UBSan.
 Broader ground-attack, failure/recovery and campaign paths remain separate
 whole-session verification gates.
+
+### Retained sprite explosions and retail scope
+
+The older sprite-backed model opcode 31 is present only in retained `explode`
+and `explode2`. It belongs to the older explosion pool, whose initializer
+`0x74f44` and producer `0x75030` return without loading/creating explosions
+when environment bit 1 is set. All **33 decoded environments**, covering all
+**128 retail missions**, set that bit. Retail TFX uses its SSD effect path.
+
+`tools/check_legacy_effect_gates.py` executes each original environment parser,
+then the actual old initializer, producer and painter with several supplied
+heights. Neither active-list pointer changes, and no legacy model load or draw
+is requested. An unexpected load/draw fails the check; it is not replaced with
+a successful dummy consumer. This closes that path as a retail implementation
+requirement, without claiming support for other retained engine configurations.
+
+```sh
+python3 tools/check_legacy_effect_gates.py
+```
