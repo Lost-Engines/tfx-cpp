@@ -224,6 +224,7 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::world::flak_state flak_state;
   tfx::world::sky_state sky_state;
   tfx::render::horizon_phase ground_phase;
+  vec3<int32_t> ground_reference{0,0,0};
   tfx::render::precipitation rain;
   tfx::math::random_state session_random;
   tfx::platform::flight_options const flight{
@@ -243,6 +244,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .flak{flak_state},
     .sky{sky_state},
     .ground_phase{ground_phase},
+    .ground_reference{ground_reference},
     .rain{rain},
     .session_random{session_random},
     .sound{sound.get()},

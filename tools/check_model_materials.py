@@ -15,8 +15,9 @@ import struct
 import subprocess
 from native_reference import NativeReference,r
 from native_vga import VgaCapture
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=512);p.add_argument('--record',type=Path);p.add_argument('--model',type=Path);p.add_argument('--rounded',action='store_true',help='exercise original 56/62 rounded quads and 90/91 standalone arcs');p.add_argument('--inert',action='store_true',help='insert retained no-op instructions 6/80 between stateful drawing operations');a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=512);p.add_argument('--record',type=Path);p.add_argument('--model',type=Path);p.add_argument('--rounded',action='store_true',help='exercise original 56/62 rounded quads and 90/91 standalone arcs');p.add_argument('--inert',action='store_true',help='insert retained no-op instructions 6/80 between stateful drawing operations');p.add_argument('--far',action='store_true',help='draw admitted model faces with vertices beyond the host inspection far distance');a=p.parse_args()
 assert not(a.model and a.rounded)
+assert not(a.far and (a.model or a.rounded or a.inert))
 assert not(a.inert and (a.model or a.rounded))
 assert not(a.model and a.record),'retained game model bytes stay external to source fixtures'
 def initialise():
@@ -34,7 +35,9 @@ def program(case):
  emit([48,1])
  for face in range(8):
   x=(face%4)*180-350;y=(face//4)*240-230
-  for vertex in range(4):emit([98,face*4+vertex,x+(140 if vertex in (1,2) else 0),y+(170 if vertex>=2 else 0),600+rng.randrange(-50,51)])
+  for vertex in range(4):
+   vx=x+(140 if vertex in (1,2) else 0);vy=y+(170 if vertex>=2 else 0)
+   emit([98,face*4+vertex,vx*16 if a.far else vx,vy*16 if a.far else vy,11000+rng.randrange(3000) if a.far else 600+rng.randrange(-50,51)])
  def enable():emit([86,257,87,2])
  def flat(face):
   if a.inert:emit([6,180,61,62,40,0,640,80,16224,1,128])

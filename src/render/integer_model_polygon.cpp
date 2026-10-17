@@ -71,13 +71,13 @@ bool plane_facing(camera_vertices const &vertices) {
 }
 
 std::optional<std::vector<vec2<int16_t>>> project_model_face(std::span<models::model_vertex const> const vertices, camera const &view) {
-  if(std::ranges::any_of(vertices,[&](auto const &vertex) { return vertex.position.z > view.far_distance; })) return std::nullopt;
+  // Native distance admission belongs to the assembly/model. Once admitted,
+  // individual faces have a near plane but no extra per-vertex far cutoff.
   auto const native{native_points(vertices,view)};
   return native ? clip(*native,view) : std::nullopt;
 }
 
 bool integer_model_polygon(framebuffer &output, std::span<models::model_vertex const> const vertices, camera const &view, uint8_t const colour, colour_map const *const remap) {
-  if(std::ranges::any_of(vertices,[&](auto const &vertex) { return vertex.position.z > view.far_distance; })) return false;
   auto const native{native_points(vertices,view)};
   if(!native) return false;
   bool const shaded{std::ranges::all_of(vertices,[](auto const &vertex) { return vertex.shade >= 0; })};

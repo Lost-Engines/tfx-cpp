@@ -79,13 +79,13 @@ def main():
     for name in ('yugos_n','colum_n','libya_d','somal_d'):
         world=next(w for w in metadata['environments'] if w['name']==name)
         image.cpu.mem_write(image.native(0x70aa4+0x47c82),struct.pack('<H',128 if 'night' in world['config'].lower().split() else 0))
-        choices=[]
+        choices=[None]*40000
         low_seed,high_seed=0x5926,0x3141
-        for x in range(200):
-            for row in range(200):
+        for row in range(200):
+            for x in range(200):
                 tile=world['tiles'][world['cells'][(199-row)*200+x]]
                 value=high_seed+low_seed;high_seed=value&65535;low_seed=(low_seed+high_seed+(value>65535))&65535
-                choices.append(tile['variants'][high_seed%len(tile['variants'])])
+                choices[x*200+row]=tile['variants'][high_seed%len(tile['variants'])]
         requests=[]
         for n in range(1200):
             if n<200:

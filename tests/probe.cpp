@@ -272,7 +272,7 @@ auto main(int const argc, char const *const argv[])->int try {
         }
         std::cout << "]]\n";
       }
-    } else if(mode == "environment" || mode == "environment_bindings") {
+    } else if(mode == "environment" || mode == "environment_bindings" || mode == "environment_variants") {
       std::string specification;
       while(std::getline(std::cin,specification)) {
         std::istringstream fields{specification};
@@ -280,6 +280,19 @@ auto main(int const argc, char const *const argv[])->int try {
         fields >> name >> lighting;
         if(name.empty()) continue;
         tfx::world::environment const environment{game,name,lighting};
+        if(mode == "environment_variants") {
+          uint64_t hash{14695981039346656037ull};
+          auto const append{[&](uint8_t const byte) { hash = (hash ^ byte) * 1099511628211ull; }};
+          for(unsigned int z{0}; z != tfx::world::map_height; ++z) for(unsigned int x{0}; x != tfx::world::map_width; ++x) {
+            for(unsigned char const byte : environment.variant(x,z)) append(byte);
+            append(0);
+            auto const rotation{environment.tile(x,z).rotation};
+            append(static_cast<uint8_t>(rotation));append(static_cast<uint8_t>(rotation >> 8));
+          }
+          auto const random{environment.variant_random_state()};
+          std::cout << '[' << hash << ',' << random.low << ',' << random.high << "]\n";
+          continue;
+        }
         if(mode == "environment_bindings") {
           std::cout << '[' << environment.lighting.status << ',' << std::quoted(environment.lighting.palette_name) << ',' << std::quoted(environment.lighting.schematic_name) << ',' << environment.lighting.water_world << ',' << environment.lighting.cloud_layer << ',' << environment.lighting.layer_y << ',' << environment.lighting.layer_offset_y << ',' << std::quoted(environment.lighting.upper_grid) << ',' << environment.lighting.sun_suppressed << "," << environment.lighting.initial_cockpit_raised << "]\n";
           continue;
