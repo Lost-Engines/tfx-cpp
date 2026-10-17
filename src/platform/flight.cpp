@@ -84,6 +84,7 @@
 #include "weapons/cannon.h"
 #include "weapons/cannon_prediction.h"
 #include "weapons/impact_prediction.h"
+#include "recording/recorder.h"
 
 namespace tfx::platform {
 namespace {
@@ -1413,6 +1414,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     pitch = -.35;
   }
   bool paused{false};
+  tfx::recording::recorder flight_recorder;
   tfx::render::framebuffer flight_frame;
   auto const queue_projectiles{[&](vec3<int32_t> const &camera_anchor) {
     int32_t constexpr maximum_projectile_draw_distance{10000};
@@ -1727,6 +1729,96 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       renderer.text(140,80,"PAUSED",15);
       return;
     }
+    auto const prepare_lighting{[&](tfx::render::camera const &view) {
+      auto const projected_view{view.projector()};
+      if(!night_flak) palette_lighting.flash(tfx::render::glare_level(projected_view,{
+        .camera_anchor{vec3<int32_t>{view.world_anchor}},
+        .maximum{vec2<int16_t>{projected_view.maximum}},
+        .view{views.value().current},
+        .cloud_layer{environment.lighting.cloud_layer},
+        .layer_y{environment.lighting.layer_y},
+        .flak_flash{flak_flash},
+      }));
+      flak_flash = false;
+      auto const request{tfx::world::advance_sky(sky_state,{
+        .suppressed{environment.lighting.sun_suppressed},
+        .cloud_layer{environment.lighting.cloud_layer},
+        .storm{environment.lighting.storm},
+        .animate{sky_animation},
+        .layer_y{environment.lighting.layer_y},
+        .player{vec3<int32_t>{player.integer_position}},
+        .camera_anchor{vec3<int32_t>{view.world_anchor}},
+      })};
+      sky_animation = false;
+      if(request && projected_view.sphere_visible(vec3<int32_t>{request->position},tfx::world::sky_visibility_radius)) {
+        vec3<int32_t> const reference{static_cast<int32_t>(std::floor(view.position.x)),static_cast<int32_t>(std::floor(view.position.y)),static_cast<int32_t>(std::floor(view.position.z))};
+        scene.queue_model(std::string{tfx::world::sky_model_name(request->model)},tfx::world::effect_position(request->position,reference));
+      }
+      if(tfx::world::consume_lightning_flash(sky_state,projected_view)) palette_lighting.flash(12);
+      auto const lighting{palette_lighting.advance({
+        .camera_y{view.world_anchor.y},
+        .pitch{player.angles.x},
+        .roll{player.angles.z},
+        .view{views.value().current},
+        .hud_green{static_cast<uint8_t>(hud_green)},
+        .normal_changed{palette_selection.value().normal_changed},
+        .blackout{g_effects.mode},
+        .blackout_level{g_effects.blackout_level},
+        .redout_level{g_effects.redout_level},
+      })};
+      if(lighting.changed) palette_selection.invalidate_normal();
+      if(auto const upload{palette_selection.advance({
+        .view{views.value().current},
+        .projectiles_present{!projectiles.projectiles().empty()},
+        .infrared_available{!environment.lighting.infrared_palette_name.empty()},
+        .night{(environment.lighting.status & tfx::world::night_status) != 0},
+        .night_vision{night_vision},
+      })}) {
+        if(*upload == tfx::render::palette_bank::normal) colours = tfx::render::expand_dac_palette(palette_lighting.colours());
+        frame_colours = *upload == tfx::render::palette_bank::infrared ? &infrared_colours : &colours;
+      }
+    }};
+    auto const paint_precipitation{[&](tfx::render::camera const &view) {
+      if(inspect || result_evaluated) return;
+      if(auto const count{tfx::render::precipitation_count({
+        .enabled{preferences.effects.precipitation != 0},
+        .storm{environment.lighting.storm},
+        .layer_y{environment.lighting.layer_y},
+        .player_y{player.position.y},
+        .view{views.value().current},
+        .speed{player.fixed_speed},
+      })}) {
+        auto const projection{view.projector()};
+        auto const &wind{physical_player.wind.velocity_ned};
+        options.rain.paint(renderer.output,{
+          .matrix{projection.matrix},
+          .camera{tfx::math::signed_word(static_cast<uint16_t>(projection.position_q16.x >> 16)),tfx::math::signed_word(static_cast<uint16_t>(projection.position_q16.y >> 16)),tfx::math::signed_word(static_cast<uint16_t>(projection.position_q16.z >> 16))},
+          .origin{vec2<int16_t>{projection.origin}},
+          .maximum{vec2<int16_t>{projection.maximum}},
+        },*count,{wind.y,wind.x});
+      }
+    }};
+    auto const paint_scene{[&](tfx::render::camera const &view, vec3<int32_t> const &reference, bool const primary) {
+      queue_projectiles(reference);
+      scene.set_query_reference(inspect ? nullptr : &player.integer_position);
+      if(!inspect) select_actor_draw_region(reference);
+      options.projection_origin = vec2<int16_t>{view.projection_origin};
+      tfx::recording::scene_frame recording_frame;
+      recording_frame.data.camera_angles = vec3<tfx::math::angle>{view.view_angles};
+      std::function<void()> const effects{primary ? std::function<void()>{[&] { queue_effects(view); }} : std::function<void()>{}};
+      auto const rendered{scene.draw(renderer,view,scene_radius,effects,inspect ? std::nullopt : std::optional<int32_t>{reference.y},ground.height,primary ? tfx::world::scene_pass::primary : tfx::world::scene_pass::instrument,primary && flight_recorder.active() ? &recording_frame : nullptr)};
+      if(primary) {
+        clean_trails();
+        if(flight_recorder.active()) {
+          try { flight_recorder.append(recording_frame); }
+          catch(std::exception const &error) {
+            std::cerr << "Cannot record flight: " << error.what() << '\n';
+            try { flight_recorder.finish(); } catch(std::exception const &closing) { std::cerr << "Cannot finish flight recording: " << closing.what() << '\n'; }
+          }
+        }
+      }
+      if(rendered.eject_player) ejection.request();
+    }};
     // Native CODE 47C94 is one shared carried-model table. Visibility is
     // independent of quantity (for example an empty JP233 dispenser remains).
     std::array<tfx::models::shape const*,tfx::flight::store_slots> carried{};
@@ -1757,6 +1849,19 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         if(auto const movement{view_motion.last_pose().ground_motion}) ground_phase.advance(*movement);
       }
     }
+    if(!inspect && designator_view) {
+      // Native 0x92144 leaves the installed view unchanged for viewport 19.
+      // Its ordinary world pass (and C5BEC recording) precedes the 0x92c24
+      // callback, which installs the new gimbal and paints a second world.
+      if(!scene.last_camera()) throw std::runtime_error{"designator has no inherited world camera"};
+      auto primary{*scene.last_camera()};
+      primary.projection_origin = cockpit_frame.projection_origin(view_index(),cockpit_position.value());
+      primary.viewport_minimum = {0,0};primary.viewport_maximum = {tfx::render::screen_width - 1,tfx::render::screen_height - 1};
+      prepare_lighting(primary);
+      advance_air_tracking(primary.projector());
+      paint_scene(primary,primary.world_anchor,true);
+      paint_precipitation(primary);
+    }
     if(!inspect) update_designator();
     if(!inspect) options.ground_reference = vec3<int32_t>{view_motion.value().ground_reference};
     if(ejection.value().stage == tfx::flight::ejection_stage::pilot) scene.show_actor(aircraft_visual,true);
@@ -1767,54 +1872,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       view.viewport_maximum = {tfx::render::screen_width - 1,static_cast<int16_t>(layout.bottom + (layout.panel.empty() ? 0 : cockpit_position.value().y))};
       auto const projected_view{view.projector()};
       impact_projection.emplace(projected_view);
-      if(!night_flak) {
-        palette_lighting.flash(tfx::render::glare_level(*impact_projection,{
-          .camera_anchor{designator_view ? vec3<int32_t>{designator.camera} : vec3<int32_t>{view_motion.last_pose().anchor}},
-          .maximum{vec2<int16_t>{projected_view.maximum}},
-          .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
-          .cloud_layer{environment.lighting.cloud_layer},
-          .layer_y{environment.lighting.layer_y},
-          .flak_flash{flak_flash},
-        }));
-      }
-      flak_flash = false;
-      auto const request{tfx::world::advance_sky(sky_state,{
-        .suppressed{environment.lighting.sun_suppressed},
-        .cloud_layer{environment.lighting.cloud_layer},
-        .storm{environment.lighting.storm},
-        .animate{sky_animation},
-        .layer_y{environment.lighting.layer_y},
-        .player{vec3<int32_t>{player.integer_position}},
-        .camera_anchor{designator_view ? vec3<int32_t>{designator.camera} : vec3<int32_t>{view_motion.last_pose().anchor}},
-      })};
-      sky_animation = false;
-      if(request && projected_view.sphere_visible(vec3<int32_t>{request->position},tfx::world::sky_visibility_radius)) {
-        vec3<int32_t> const reference{static_cast<int32_t>(std::floor(view.position.x)),static_cast<int32_t>(std::floor(view.position.y)),static_cast<int32_t>(std::floor(view.position.z))};
-        scene.queue_model(std::string{tfx::world::sky_model_name(request->model)},tfx::world::effect_position(request->position,reference));
-      }
-      if(tfx::world::consume_lightning_flash(sky_state,projected_view)) palette_lighting.flash(12);
-      auto const lighting{palette_lighting.advance({
-        .camera_y{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},
-        .pitch{player.angles.x},
-        .roll{player.angles.z},
-        .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
-        .hud_green{static_cast<uint8_t>(hud_green)},
-        .normal_changed{palette_selection.value().normal_changed},
-        .blackout{g_effects.mode},
-        .blackout_level{g_effects.blackout_level},
-        .redout_level{g_effects.redout_level},
-      })};
-      if(lighting.changed) palette_selection.invalidate_normal();
-      if(auto const upload{palette_selection.advance({
-        .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
-        .projectiles_present{!projectiles.projectiles().empty()},
-        .infrared_available{!environment.lighting.infrared_palette_name.empty()},
-        .night{(environment.lighting.status & tfx::world::night_status) != 0},
-        .night_vision{night_vision},
-      })}) {
-        if(*upload == tfx::render::palette_bank::normal) colours = tfx::render::expand_dac_palette(palette_lighting.colours());
-        frame_colours = *upload == tfx::render::palette_bank::infrared ? &infrared_colours : &colours;
-      }
+      if(!designator_view) prepare_lighting(view);
     }
     view.far_distance = scene_radius * tfx::world::cell_units;
     if(inspect) renderer.background(view,0,32);
@@ -1834,34 +1892,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     // Native 0x93328 projects after 0x92144 installs this frame's actual
     // camera. External and target views must not use a forward-only matrix.
-    if(!inspect) advance_air_tracking(*impact_projection);
+    if(!inspect && !designator_view) advance_air_tracking(*impact_projection);
     vec3<int32_t> const draw_reference{inspect ? vec3<int32_t>{view.position} : designator_view ? vec3<int32_t>{designator.camera} : vec3<int32_t>{view_motion.last_pose().anchor}};
-    queue_projectiles(draw_reference);
-    scene.set_query_reference(inspect ? nullptr : &player.integer_position);
-    if(!inspect) select_actor_draw_region(draw_reference);
-    options.projection_origin = vec2<int16_t>{view.projection_origin};
-    auto const rendered{scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},ground.height)};
-    clean_trails();
-    if(rendered.eject_player) ejection.request();
-    if(!inspect && !result_evaluated) {
-      if(auto const count{tfx::render::precipitation_count({
-        .enabled{preferences.effects.precipitation != 0},
-        .storm{environment.lighting.storm},
-        .layer_y{environment.lighting.layer_y},
-        .player_y{player.position.y},
-        .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
-        .speed{player.fixed_speed},
-      })}) {
-        auto const &projection{*impact_projection};
-        auto const &wind{physical_player.wind.velocity_ned};
-        options.rain.paint(renderer.output,{
-          .matrix{projection.matrix},
-          .camera{tfx::math::signed_word(static_cast<uint16_t>(projection.position_q16.x >> 16)),tfx::math::signed_word(static_cast<uint16_t>(projection.position_q16.y >> 16)),tfx::math::signed_word(static_cast<uint16_t>(projection.position_q16.z >> 16))},
-          .origin{vec2<int16_t>{projection.origin}},
-          .maximum{vec2<int16_t>{projection.maximum}},
-        },*count,{wind.y,wind.x});
-      }
-    }
+    paint_scene(view,draw_reference,!designator_view);
+    if(!designator_view) paint_precipitation(view);
     if(!inspect && result_evaluated) {
       // Diagnostic result display until the original presentation/menu graph supplies its result page.
       renderer.output.pixels.fill(0);
@@ -1891,6 +1925,14 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       uint8_t constexpr hud_colour{15};
       if(designator_view) designator_display.draw(renderer,impact_projection->integer(designator.point).value_or(vec2<int16_t>{-1,-1}),designator_tracking_frame);
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
+      if(flight_recorder.active()) {
+        auto const marker{[&](unsigned int const x, unsigned int const y, uint8_t const colour) {
+          auto const &rows{tables.configuration_widgets().recording_marker};
+          for(unsigned int row{0}; row != rows.size(); ++row) for(unsigned int column{0}; column != 8; ++column)
+            if(rows[row] & (1u << column)) renderer.output.pixels[(y + row) * tfx::render::screen_width + x + column] = colour;
+        }};
+        marker(311,1,0);marker(310,0,6);
+      }
       engagement.finish_frame();
       launch_warning = projectiles.first_targeting_player();
       flight_frame = renderer.output;
@@ -2127,6 +2169,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       timer_fraction -= static_cast<double>(step);
       scene.advance(static_cast<tfx::world::timer_ticks>(step));
     } else if(!paused && !result_evaluated) {
+      if(pressed(GLFW_KEY_V) && (down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT))) {
+        try {
+          if(flight_recorder.active()) flight_recorder.finish();
+          else flight_recorder.begin(options.data_directory / tables.configuration_widgets().recording_name);
+        } catch(std::exception const &error) { std::cerr << "Cannot change flight recording: " << error.what() << '\n'; }
+      }
       if(pressed(GLFW_KEY_T)) {
         if(acceleration.toggle()) radio.show(tables.instruments().time_warp_message,true);
         else radio.stop();

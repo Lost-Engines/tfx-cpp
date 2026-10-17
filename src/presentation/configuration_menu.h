@@ -14,6 +14,7 @@ struct configuration_menu_assets {
   std::array<std::string,2> switches, quit_lines;
   std::string title, main_title, realism_title, quit, resume, recording, recording_name;
   std::string no, yes, enrol, missing_joystick, missing_keyboard, unavailable_off, unavailable_on;
+  std::array<uint8_t,6> recording_marker;
   explicit configuration_menu_assets(std::span<uint8_t const> executable);
 };
 struct configuration_audio {

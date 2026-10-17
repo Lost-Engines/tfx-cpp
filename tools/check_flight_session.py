@@ -120,8 +120,23 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     actual=(root/'cpp.indices').read_bytes();image=(native/f'frame-{a.frames}.indices').read_bytes()
     assert len(actual)==len(image)==64000
     differences=sum(x!=y for x,y in zip(actual,image))
+    if expected.get('recordings'):
+        from native_recording import decode_recording
+        for recording in expected['recordings']:
+            assert recording['closed'],('recording input must stop before the capture ends',recording)
+            name=recording['name'].replace('\\','/').rsplit('/',1)[-1]
+            path=next((path for path in install.iterdir()if path.name.lower()==name.lower()),None)
+            assert path is not None,('C++ recording not written',name)
+            got=decode_recording(path.read_bytes());want=decode_recording((native/recording['file']).read_bytes())
+            assert len(got)==len(want),('recording frame count',len(got),len(want))
+            for index,(observed,original_frame)in enumerate(zip(got,want)):
+                for field in original_frame:
+                    if observed[field]!=original_frame[field]:
+                        mismatches=[(i,x,y)for i,(x,y)in enumerate(zip(observed[field],original_frame[field]))if x!=y]
+                        raise AssertionError(('recording frame',index,field,len(observed[field]),len(original_frame[field]),mismatches[:2]))
     verified=['player','actors','shared RNG','radio','camera','horizon']
     if 'trail_events' in expected:verified.append('smoke samples')
+    if expected.get('recordings'):verified.append('recorded model queues')
     verified += [field for field in ('speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]
     print(f'Mission {a.mission}, {a.flight_model}, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
     if a.strict_pixels:assert not different_frames,('whole-frame pixels',different_frames[:20],differences)

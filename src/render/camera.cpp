@@ -50,7 +50,9 @@ camera aircraft_camera(vec3f const &position, math::attitude const &orientation)
 
 camera orbit_camera(vec3<math::angle> const &angles, int32_t const distance, vec2d const &projection_origin) {
   auto const position{math::orbit_offset_q16({angles.x,angles.y},distance)};
-  return original_camera(position,math::view_rotation_words(angles),projection_origin);
+  auto result{original_camera(position,math::view_rotation_words(angles),projection_origin)};
+  result.view_angles = vec3<math::angle>{angles};
+  return result;
 }
 
 camera original_camera(vec3<int32_t> const &position_q16, mat3<int32_t> const &matrix, vec2d const &projection_origin, aperture const opening) {
@@ -63,6 +65,7 @@ camera original_camera(vec3<int32_t> const &position_q16, mat3<int32_t> const &m
     .focal_distance{static_cast<double>(projection_focal_length(opening))},
     .projection{projection_mode::original_model},
     .opening{opening},
+    .world_anchor{position_q16.x >> 16,position_q16.y >> 16,position_q16.z >> 16},
   };
 }
 

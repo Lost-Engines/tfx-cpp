@@ -12,10 +12,7 @@ namespace tfx::recording {
 unsigned int constexpr header_bytes{10}, native_resource_limit{1000};
 enum class model_kind : uint8_t { unrotated = 40, rotated = 44, ground_shadow = 48 };
 
-struct order_entry {
-  int16_t priority{0};
-  uint16_t slot{0};
-};
+using order_entry = render::model_queue_entry;
 struct model {
   model_kind kind{model_kind::unrotated};
   uint8_t initial_state{0};
@@ -37,6 +34,10 @@ struct frame {
 struct resource {
   uint16_t handle{0};
   std::string name;
+};
+struct scene_frame {
+  frame data;
+  std::vector<std::string> model_names;
 };
 struct file {
   std::vector<frame> frames;
