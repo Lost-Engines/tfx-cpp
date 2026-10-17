@@ -14,6 +14,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--data-dir',type=Path,required=True)
 p.add_argument('--rom-dir',type=Path)
+p.add_argument('--mission',help='check direct flight music instead of the opening presentation')
 p.add_argument('--music',choices=('roland-lapc','soundblaster-fm','roland-scc1a','roland-sc55'),default='roland-lapc')
 a=p.parse_args()
 if a.music!='soundblaster-fm' and not a.rom_dir:p.error('Roland playback requires --rom-dir')
@@ -33,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-music-window-') as temporary:
   pcm=directory/'music.f32';log=directory/'game.log'
   with pcm.open('wb') as recording,log.open('w') as output:
    capture=subprocess.Popen(['parec','--device='+sink+'.monitor','--format=float32le','--rate=48000','--channels=2'],stdout=recording,stderr=subprocess.DEVNULL,env=env)
-   game=subprocess.Popen([str((a.build/'tfx').resolve()),'--data-dir',str(install),'--music',a.music,'--scale','2',*(['--rom-dir',str(a.rom_dir.resolve())] if a.rom_dir else [])],stdout=output,stderr=subprocess.STDOUT,env=env)
+   game=subprocess.Popen([str((a.build/'tfx').resolve()),'--data-dir',str(install),'--music',a.music,'--scale','2',*(['--rom-dir',str(a.rom_dir.resolve())] if a.rom_dir else []),*(['--mission',a.mission] if a.mission else [])],stdout=output,stderr=subprocess.STDOUT,env=env)
    # Route this process immediately after its initially silent device opens,
    # before the first presentation requests any music. Do not change defaults.
    routed=False;deadline=time.monotonic()+30
@@ -57,7 +58,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-music-window-') as temporary:
    else:assert all(values[index]==values[index+1] for index in range(0,len(values),2)),'FM dual mono changed'
    run('xdotool','keydown','Shift_L');run('xdotool','keydown','q');time.sleep(.2);run('xdotool','keyup','q');run('xdotool','keyup','Shift_L');game.wait(timeout=10)
    assert game.returncode==0 and 'ERROR:' not in log.read_text() and 'unavailable' not in log.read_text(),log.read_text()
-   print('Private Pulse/X11 '+a.music+' music passed: original presentation requests, live PCM and clean shutdown')
+   print('Private Pulse/X11 '+a.music+' music passed: '+('live flight bank' if a.mission else 'original presentation requests')+', live PCM and clean shutdown')
  finally:
   for process in (game,capture,display):
    if process is not None and process.poll() is None:

@@ -93,8 +93,8 @@ else:
     im.intercept(0xb6e48,'Supply initialised SSD custom port words; native selection and beacon placement execute',port)
     im.intercept(0xb6e88,'Supply the carrier SSD destroyed bit independently of its actor retirement flags',lambda image:(image.cpu.reg_write(r.UC_X86_REG_EAX,ports[image.cpu.reg_read(r.UC_X86_REG_EAX)&65535][4]),image.return_from()))
     im.intercept(0x81198,'Observe exact original ILS selection radio requests',lambda image:(messages.append(image.cpu.reg_read(r.UC_X86_REG_EAX)-image.data),image.return_from()))
-    im.intercept(0xa4edc,'Observe NAV stop-tone request at the pending audio boundary',lambda image:(stops.append(image.cpu.reg_read(r.UC_X86_REG_EAX)),image.return_from()))
-    im.intercept(0xa5a9c,'Observe the damage-dependent ILS voice request at the audio boundary',lambda image:(voices.append(image.cpu.reg_read(r.UC_X86_REG_EAX)),image.return_from()))
+    im.intercept(0xa4edc,'Observe the normal-priority afterburner-stop sample at the audio boundary',lambda image:(stops.append(image.cpu.reg_read(r.UC_X86_REG_EAX)),image.return_from()))
+    im.intercept(0xa5a9c,'Observe the damage-dependent ILS music-cue request at the audio boundary',lambda image:(voices.append(image.cpu.reg_read(r.UC_X86_REG_EAX)),image.return_from()))
     cases=[]
     for index in range(1536):
         values=initial(index);values[0]=int(index%11==0)

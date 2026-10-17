@@ -42,7 +42,7 @@ landing_selection landing_system::toggle(landing_input const &input, std::span<v
   if(input.inhibited || input.crashed || input.ejected) return result;
   if(state.enabled) { state.enabled = false;return result; }
   result.navigation = true;
-  result.stop_tone = true;
+  result.afterburner_stop_sample = true;
   result.controls.emplace(landing_controls{
     .configuration{1},
     .response{input.aircraft == player_aircraft::nighthawk ? 1.0 : .5},
@@ -55,7 +55,7 @@ landing_selection landing_system::toggle(landing_input const &input, std::span<v
   result.messages = std::move(selected.messages);
   if(!state.enabled) return result;
   result.messages.push_back(landing_radio::engaged);
-  result.voice = input.damaged ? 8u : 7u;
+  result.music_cue = input.damaged ? 8u : 7u;
   result.controls.emplace(landing_controls{
     .configuration{3},
     .response{.8},

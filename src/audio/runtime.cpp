@@ -15,6 +15,10 @@ bool runtime::music_enabled() const { return music && music->is_enabled(); }
 void runtime::enable_music(bool const value) { if(music) music->enable(value); }
 void runtime::select_music(int16_t const index) { if(music) music->select(index); }
 void runtime::stop_music() { if(music) music->stop(); }
+void runtime::begin_flight(flight_audio_state const &state) { if(music) music->begin_flight(state); }
+void runtime::end_flight() { if(music) music->end_flight(); }
+void runtime::update_flight(flight_audio_state const &state) { if(music) music->update_flight(state); }
+void runtime::music_cue(uint8_t const cue) { if(music) music->cue(cue); }
 bool runtime::sound_enabled() const { return enabled; }
 void runtime::enable_sound(bool const value) { enabled = available && value;effects.enable(enabled); }
 void runtime::advance(simulation::timer_ticks const elapsed) { effects.advance(elapsed); }

@@ -71,17 +71,61 @@ std::vector<float> exercise(tfx::audio::music_player &player, bool const fragmen
   return result;
 }
 
+std::vector<float> exercise_flight(tfx::audio::music_player &player, bool const fragmented, bool const check_pcm) {
+  std::vector<float> result;
+  tfx::audio::flight_audio_state state{
+    .throttle{.8f},
+    .engines_running{true}
+  };
+  player.select(12);
+  player.begin_flight(state);
+  unsigned int chunk{0};
+  for(unsigned int frame{0}; frame != 1000; ++frame) {
+    if(frame == 100) player.cue(9);
+    if(frame == 150) player.cue(10);
+    if(frame == 250) player.enable(false);
+    if(frame == 350) state.throttle = 1;
+    if(frame == 450) state.engines_running = false;
+    if(frame == 550) { state.engines_running = true;state.throttle = .6f; }
+    if(frame == 600) player.enable(true);
+    if(frame == 700) player.cue(6);
+    if(frame == 800) player.end_flight();
+    if(frame == 810) player.select(1);
+    if(frame == 900) player.begin_flight(state);
+    player.update_flight(state);
+    unsigned int constexpr frame_samples{rate / 100};
+    std::array<float,frame_samples * 2> output;
+    unsigned int done{0};
+    while(done != frame_samples) {
+      auto const count{fragmented ? std::min(chunks[chunk++ % chunks.size()],frame_samples - done) : frame_samples - done};
+      player.render(std::span{output}.subspan(done * 2,count * 2));done += count;
+    }
+    if(check_pcm) {
+      for(auto const value : output) if(!std::isfinite(value)) throw std::runtime_error{"flight music produced nonfinite PCM"};
+      result.insert(result.end(),output.begin(),output.end());
+    }
+  }
+  player.end_flight();
+  return result;
+}
+
 } // namespace
 
 int main(int const argc, char const *const argv[]) try {
   if(argc < 3 || argc > 5) throw std::runtime_error{"expected START.EXE DID.DAT [ROM_DIRECTORY [sc55|scc1a]]; omission selects FM"};
   auto const launcher{tfx::resources::read_file(argv[1])};
   tfx::resources::archive const game{std::filesystem::path{argv[2]}};
+  auto const executable{tfx::resources::read_file(std::filesystem::path{argv[2]}.parent_path() / "TFX.DAT")};
+  tfx::audio::lapc_order_profiles profiles;
+  for(unsigned int profile{0}; profile != profiles.size(); ++profile) std::ranges::copy(tfx::resources::binary_view{executable}.slice(973476 + 0xa38c + profile * 12,12),profiles[profile].begin());
+  auto const configure{[&](tfx::audio::music_player &player, tfx::audio::music_mode const mode) { player.configure(mode,3,profiles); }};
   auto const record{[&](bool const fragmented) {
     auto receiver{std::make_unique<recording_receiver>()};
     auto *recording{receiver.get()};
     tfx::audio::music_player player{game,launcher,(argc == 5 ? tfx::audio::make_scc_music_device(launcher,std::move(receiver)) : tfx::audio::make_la_music_device(launcher,std::move(receiver))),rate};
+    configure(player,argc == 5 ? tfx::audio::music_mode::sound_canvas : tfx::audio::music_mode::lapc);
     exercise(player,fragmented,false);
+    exercise_flight(player,fragmented,false);
     return std::move(recording->events);
   }};
   auto const a{record(false)}, b{record(true)};
@@ -97,14 +141,22 @@ int main(int const argc, char const *const argv[]) try {
   if(argc == 5) {
     auto const model{std::string_view{argv[4]} == "scc1a" ? tfx::audio::sound_canvas_model::scc1a : tfx::audio::sound_canvas_model::sc55};
     tfx::audio::music_player player{game,launcher,tfx::audio::make_scc_music_device(launcher,std::make_unique<tfx::audio::sc55_synth>(argv[3],rate,model)),rate};
+    configure(player,argc == 5 ? tfx::audio::music_mode::sound_canvas : tfx::audio::music_mode::lapc);
     exercise(player,true,true);
+    exercise_flight(player,true,true);
   } else if(argc == 4) {
     tfx::audio::music_player player{game,launcher,argv[3],rate};
+    configure(player,argc == 5 ? tfx::audio::music_mode::sound_canvas : tfx::audio::music_mode::lapc);
     exercise(player,true,true);
+    exercise_flight(player,true,true);
   } else {
     auto const render{[&](bool const fragmented) {
       tfx::audio::music_player player{game,launcher,tfx::audio::make_fm_music_device(launcher,rate),rate};
-      return exercise(player,fragmented,true);
+      configure(player,tfx::audio::music_mode::fm);
+      auto result{exercise(player,fragmented,true)};
+      auto const flight{exercise_flight(player,fragmented,true)};
+      result.insert(result.end(),flight.begin(),flight.end());
+      return result;
     }};
     auto const whole{render(false)}, segmented{render(true)};
     if(whole != segmented) throw std::runtime_error{"FM PCM changed across callback boundaries"};

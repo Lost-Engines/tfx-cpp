@@ -6,7 +6,7 @@
 namespace tfx::flight {
 
 enum class ejection_stage : uint8_t { cockpit, requested, pilot };
-enum class ejection_event_kind { player_model, camera, voice, sample };
+enum class ejection_event_kind { player_model, camera, music_cue, sample };
 struct ejection_event {
   ejection_event_kind kind;
   unsigned int argument;

@@ -103,6 +103,7 @@ void play_game(resources::archive const &game, resources::executable_tables cons
         glfwSetKeyCallback(window->get(),nullptr);
         glfwSetWindowUserPointer(window->get(),nullptr);
         auto const completed{fly_mission(game,tables,flight,campaign,window)};
+        if(options.sound) options.sound->end_flight();
         glfwSetWindowUserPointer(window->get(),&controls);
         glfwSetKeyCallback(window->get(),frontend_keys::key);
         controls.input = {};

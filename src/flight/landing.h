@@ -49,8 +49,8 @@ struct landing_input {
 };
 struct landing_selection {
   bool navigation{false};
-  bool stop_tone{false};
-  std::optional<unsigned int> voice{};
+  bool afterburner_stop_sample{false};
+  std::optional<uint8_t> music_cue{};
   std::optional<landing_controls> controls{};
   std::optional<unsigned int> waypoint{};
   std::vector<landing_radio> messages{};

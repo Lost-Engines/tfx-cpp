@@ -105,7 +105,7 @@ auto main(int const argc, char const *const argv[])->int try {
     else if(key == "--music") {
       auto const selected{value()};
       if(selected == "none") music_override = 0;
-      else if(selected == "soundblaster-fm") music_override = 1;
+      else if(selected == "soundblaster-fm") music_override = 3;
       else if(selected == "roland-lapc") music_override = 2;
       else if(selected == "roland-scc1a") { music_override = 4;canvas_model = tfx::audio::sound_canvas_model::scc1a; }
       else if(selected == "roland-sc55") { music_override = 4;canvas_model = tfx::audio::sound_canvas_model::sc55; }
@@ -201,6 +201,7 @@ auto main(int const argc, char const *const argv[])->int try {
         std::cerr << ".\n";
       }
     }
+    if(music) music->configure(static_cast<tfx::audio::music_mode>(preferences.music),preferences.sound_effects,tables.music_orders);
     if(preferences.sound_effects || music) {
       try {
         sound = std::make_unique<tfx::audio::runtime>(tables.samples,game,tfx::platform::audio_output::sample_rate,preferences.sound_effects != 0,std::move(music));

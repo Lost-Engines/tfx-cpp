@@ -23,7 +23,7 @@ escape_result ejection_sequence::escape(vec3<int32_t> const &position, vec3<math
   state.escape_presses = 0;
   result.disable_refuelling = true;
   // Native 0x84e60 requests entry 11, then 0x83ee4 requests it a second time.
-  unsigned int constexpr seat_entry{11}, ejection_camera{21}, ejection_voice{6}, seat_sample{20};
+  unsigned int constexpr seat_entry{11}, ejection_camera{21}, ejection_music_cue{6}, seat_sample{20};
   result.events = {
     {
       .kind{ejection_event_kind::player_model},
@@ -38,8 +38,8 @@ escape_result ejection_sequence::escape(vec3<int32_t> const &position, vec3<math
       .argument{ejection_camera},
     },
     {
-      .kind{ejection_event_kind::voice},
-      .argument{ejection_voice},
+      .kind{ejection_event_kind::music_cue},
+      .argument{ejection_music_cue},
     },
     {
       .kind{ejection_event_kind::sample},

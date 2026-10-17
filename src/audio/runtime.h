@@ -36,6 +36,10 @@ public:
   void enable_music(bool enabled);
   void select_music(int16_t index);
   void stop_music();
+  void begin_flight(flight_audio_state const &state);
+  void end_flight();
+  void update_flight(flight_audio_state const &state);
+  void music_cue(uint8_t cue);
   void enable_sound(bool enabled);
   void advance(simulation::timer_ticks elapsed);
   void sample(sample_priority priority, unsigned int id);
