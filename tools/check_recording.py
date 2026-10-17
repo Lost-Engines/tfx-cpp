@@ -90,7 +90,7 @@ for case in range(a.cases):
             sparse = count > 127 or case % 4 == 0
             parameters = [rng.randrange(1, 256) if not sparse or rng.randrange(20) == 0 else 0 for _ in range(8)]
             models.append([
-                (40, 44, 48)[index % 3], 0 if case % 3 == 0 else rng.randrange(256),
+                (40, 44, 56)[index % 3], 0 if case % 3 == 0 else rng.randrange(256),
                 rng.randrange(16), 1 if index < 256 else (0, 2, 127, 255)[index % 4],
                 resources[rng.randrange(len(resources))][0],
                 *[rng.choice((0, 0, 65535, rng.randrange(65536))) for _ in range(3)],

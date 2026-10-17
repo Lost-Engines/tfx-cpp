@@ -18,7 +18,7 @@ Alt+V recording and automatic post-flight WNN/replay are connected. The original
 
 The wider retail-session sweep found and corrected launch fuel ordering: physical initialisation consumes the previous pylon inventory before new stores are fitted. Mission 604 now matches sixteen complete original frames in all four flight models, and a landed tank-equipped launch matches its first-frame refill. A successful recorded training flight also verifies inventory retention into the next mission. Rotated/near-clipped model lines now have 1,024 complete original-program comparisons.
 
-The immediate work is to resolve the cannon command and later drawing differences exposed by longer controlled combat traces, then continue outcome and campaign paths. Remaining audio paths and older sprite-backed drawing retain explicit verification gates. No interactive checkpoint is required for these analytical and automated checks. Commands and detailed evidence are in [implementation.md](implementation.md) and [recording.md](recording.md).
+The cannon command/held-key integration and missing firing sample are fixed, with exact 32/96-frame original comparisons in development and ASan/UBSan. The immediate work is the shadow-recording dispatch value and later drawing differences exposed by longer controlled combat traces, then further outcome and campaign paths. Remaining audio paths and older sprite-backed drawing retain explicit verification gates. No interactive checkpoint is required for these analytical and automated checks. Commands and detailed evidence are in [implementation.md](implementation.md) and [recording.md](recording.md).
 
 The numbered sections below retain the implementation sequence and its verification boundaries.
 
