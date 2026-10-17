@@ -3,6 +3,7 @@
 #include <utility>
 #include "audio/osl_la_driver.h"
 #include "audio/osl_fm_driver.h"
+#include "audio/osl_scc_driver.h"
 #include <memory>
 #include "audio/osl_sequencer.h"
 
@@ -41,6 +42,7 @@ int main(int const argc, char const *const argv[]) try {
   auto source{tfx::resources::read_file(argv[2])};
   std::unique_ptr<tfx::audio::osl_device_driver> driver;
   if(source.at(7) == std::to_underlying(tfx::audio::osl_device::fm)) driver = std::make_unique<tfx::audio::osl_fm_driver>(launcher,[&](tfx::audio::opl_write const command) { events.push_back(command.address);events.push_back(command.value); });
+  else if(source.at(7) == std::to_underlying(tfx::audio::osl_device::sound_canvas)) driver = std::make_unique<tfx::audio::osl_scc_driver>(launcher,[&](uint8_t const byte) { events.push_back(byte); });
   else driver = std::make_unique<tfx::audio::osl_la_driver>(launcher,[&](uint8_t const byte) { events.push_back(byte); });
   tfx::audio::osl_sequencer sequencer;
   sequencer.register_device(*driver);

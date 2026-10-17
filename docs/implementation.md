@@ -1870,3 +1870,46 @@ Output is dual mono, with continuous resampling phase at 48 kHz. The private
 X11/Pulse test verifies the ordinary introduction reaches the live device and
 shuts down cleanly, including under ASan/UBSan. There are now 101 asset-free
 regressions. In-flight selection and remaining audio consumers are still open.
+
+
+### Sound Canvas synthesis and device effects
+
+The SCC driver now joins the same live player. Its own instrument mapping,
+rhythm-part selection, GS setup/checksums, note/controller handling and extended
+GS/NRPN effects are translated; its generic OSL reverb callback deliberately
+returns unchanged. `MUSIC=4` selects SCC-1A/CM-300 v1.30 emulation by default.
+Explicit `--music=roland-scc1a` and `--music=roland-sc55` choices distinguish this
+from SC-55 v1.21 and from the original SCC-1, whose complete matching ROM set is
+unavailable. No General MIDI replacement bank or arrangement repair is used.
+
+The pinned Nuked Sound Canvas hardware backend follows Darker's adapter, with
+full short-message and SysEx delivery. Firmware startup and queued GS reset run
+before the first song timeline. Its native PCM clock/resampling phase survives
+callback boundaries. ROM identification is content-based within the selected
+external directory. Driver state and the synthesiser share one owning device;
+the player retains independent resource and timer ownership.
+
+`tools/check_osl_scc.py` compares **4,347 complete callbacks, 46,744 MIDI bytes,
+all 251 original instrument uploads and the 29 supported GS/NRPN commands**.
+The full original shared-IRQ comparison covers all **23 SCC resources,
+156,789 ticks and 700,595 MIDI bytes**, including complete channel/slot state.
+The live controller test independently agrees on **1,498 MIDI messages and
+exact sample timestamps** across callback sizes, mute/resume, retained selection,
+replacement and restart. Firmware PCM remains finite and audible through those
+transitions for both available ROM models. The private-window check verifies
+stereo presentation playback and clean shutdown for SCC-1A and SC-55.
+
+One unused native extension is explicitly unsupported: command 29 calls the
+reset routine with DS still pointing at MEDIT, so its SysEx templates come from
+shared playback memory instead of device data. No pattern in the 23 stored SCC
+resources uses it. The translation reports that missing caller context instead
+of inventing portable garbage bytes or pretending the command sends valid GS.
+Other extension commands retain original details, including command 16 reusing
+chorus address `0x38` and NRPN's fixed final fine-data value 17.
+
+All 101 asset-free regressions pass in development, Release and ASan/UBSan;
+complete resource/callback and live firmware comparisons are exercised separately.
+The remaining audio work is the high-level flight music/effect controller,
+its lifecycle/caller bindings, other sampled triggers and complete-session
+comparison. Original `MUSIC=1` is the hybrid SB/CD option: its synthesised
+presentation path must not be confused with CD playback during flight.

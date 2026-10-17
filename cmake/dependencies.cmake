@@ -37,3 +37,10 @@ FetchContent_Declare(dosbox_opl
   SOURCE_SUBDIR unused_upstream_build
 )
 FetchContent_MakeAvailable(dosbox_opl)
+
+FetchContent_Declare(nuked_sc55
+  URL https://codeload.github.com/jcmoyer/Nuked-SC55/tar.gz/f3464753f64a7da5f5fd3a96fd72197628369589
+  URL_HASH SHA256=241cf3ebc1022ce5a519d42b6c318e3c8a8359994e7598227d5e4af050542a76
+  SOURCE_SUBDIR unused_upstream_build
+)
+FetchContent_MakeAvailable(nuked_sc55)

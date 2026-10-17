@@ -6,6 +6,7 @@ endif()
 include(CTest)
 include(cmake/dependencies.cmake)
 include(cmake/dbopl.cmake)
+include(cmake/sc55.cmake)
 
 function(configure_first_party target)
   target_compile_features(${target} PUBLIC cxx_std_26)
@@ -25,10 +26,12 @@ add_library(tfx_audio
   src/audio/osl_resource.cpp src/audio/osl_resource.h
   src/audio/osl_channel.h src/audio/osl_device.h
   src/audio/osl_la_driver.cpp src/audio/osl_la_driver.h
+  src/audio/osl_scc_driver.cpp src/audio/osl_scc_driver.h
+  src/audio/sc55_synth.cpp src/audio/sc55_synth.h
   src/audio/osl_fm_driver.cpp src/audio/osl_fm_driver.h
   src/audio/fm_synth.cpp src/audio/fm_synth.h
   src/audio/osl_sequencer.cpp src/audio/osl_sequencer.h
-  src/audio/midi_receiver.h src/audio/midi_stream.cpp src/audio/midi_stream.h
+  src/audio/midi_receiver.h src/audio/midi_byte_sink.h src/audio/midi_stream.cpp src/audio/midi_stream.h
   src/audio/la_synth.cpp src/audio/la_synth.h
   src/audio/music_catalogue.cpp src/audio/music_catalogue.h
   src/audio/music_device.cpp src/audio/music_device.h
@@ -353,7 +356,7 @@ add_library(tfx_core
 target_compile_definitions(tfx_core PUBLIC VECTORSTORM_NO_BOOST)
 configure_first_party(tfx_core)
 
-target_link_libraries(tfx_audio PUBLIC tfx_core PRIVATE MT32Emu::mt32emu PRIVATE dosbox_opl_core)
+target_link_libraries(tfx_audio PUBLIC tfx_core PRIVATE MT32Emu::mt32emu PRIVATE dosbox_opl_core PRIVATE sc55_backend)
 
 if(APPLE)
   set_source_files_properties(src/platform/miniaudio_implementation.c PROPERTIES LANGUAGE OBJC)
@@ -599,6 +602,9 @@ if(BUILD_TESTING)
   target_link_libraries(osl_parameters_test PRIVATE tfx_audio)
   configure_first_party(osl_parameters_test)
   add_test(NAME audio.native_osl_parameter_alias COMMAND osl_parameters_test)
+  add_executable(osl_scc_probe tests/osl_scc_probe.cpp)
+  target_link_libraries(osl_scc_probe PRIVATE tfx_audio)
+  configure_first_party(osl_scc_probe)
   add_executable(osl_fm_probe tests/osl_fm_probe.cpp)
   target_link_libraries(osl_fm_probe PRIVATE tfx_audio)
   configure_first_party(osl_fm_probe)

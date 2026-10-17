@@ -22,7 +22,7 @@ p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--name',help='limit to one resource name/identifier')
 p.add_argument('--volume',type=int,default=75)
-p.add_argument('--mode',choices=('rld','adl'),default='rld')
+p.add_argument('--mode',choices=('rld','adl','scc'),default='rld')
 p.add_argument('--probe',type=Path,help='override the sequencer probe executable')
 p.add_argument('--host-irq',action='store_true',help='execute the actual shared game IRQ, including through zero clock requests')
 a=p.parse_args();launcher=a.research/'installs/cd_1994_09/TFX/START.EXE'

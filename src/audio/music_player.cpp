@@ -15,7 +15,7 @@ music_player::music_player(resources::archive const &game, std::span<uint8_t con
   this->device->driver().initialise();
   // Let the reset settle before the first musical timeline. Uploading patches
   // later does not reset the chip, its reverb or the persistent UART stream.
-  std::vector<float> settling(output_rate / 10u * 2u);
+  std::vector<float> settling(this->device->reset_settling_frames(output_rate) * 2u);
   this->device->render(settling);
 }
 void music_player::stop_locked() {
