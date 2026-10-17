@@ -896,6 +896,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto const update_sensor_inputs{[&] {
     refresh_ground_contacts();
     if(mobile_designation) designated_point = tfx::sensors::mobile_target_point(surface_actors[surface_index(mobile_designation->slot)].state.pose.position,mobile_designation->offset);
+    // Native 932C4 retries ARM acquisition while its target pointer is empty.
+    if(!ground_designation && !armament.guns && !player.collision && !player_disabled) {
+      auto const *weapon{selected_weapon()};
+      if(weapon == &tables.weapons[std::to_underlying(tfx::weapons::weapon_id::harm)] || weapon == &tables.weapons[std::to_underlying(tfx::weapons::weapon_id::sidearm)]) cycle_target();
+    }
   }};
   auto const update_designator{[&] {
     if(designator_view) {
@@ -1678,7 +1683,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .load{simple_player.displayed_g_load},
         .throttle{player.throttle},
         .position{vec3<int32_t>{player.integer_position}},
-        .air_brake{player.air_brake},
+        // Native 7EB7C reads retained deployment, independently of the switch.
+        .air_brake{physical_player.manual.air_brake_fraction != 0},
         .brake_chute{player.brake_chute},
         .offset{vec2<int16_t>{offset}},
       },
@@ -2277,6 +2283,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
             .recovery_available{preferences.effects.recovery != 0},
           })};
           if(events.notice) radio.show(tables.instruments().pilot_notices[std::to_underlying(*events.notice)]);
+          if(events.external_status == tfx::flight::autopilot_external_status::on) {
+            // Native 860CA selects the left controls MFD on engagement.
+            uint16_t constexpr controls_page{8};
+            display_selection.left = controls_page;
+          }
           if(events.recovery.change == flight::aerodynamic_recovery_change::engaged) sample(audio::sample_priority::urgent,audio::sample_id::recovery);
           for(auto const event : events.recovery.afterburner) {
             reheat_sound(event);
@@ -2523,18 +2534,23 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           if(!player.arrestor_hook) player.arrested = false;
         }
         if(pressed(GLFW_KEY_W) && player.landed) player.wheel_brake = !player.wheel_brake;
-        if(pressed(GLFW_KEY_B)) {
+        if(pressed(GLFW_KEY_B) && !player.collision && !player_disabled && automatic_landing.phase == tfx::flight::automatic_landing_phase::inactive) {
           if(down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT)) {
             if(player.aircraft != tfx::flight::player_aircraft::raptor && !player.brake_chute_cut_away && player.fixed_speed >= 20) { player.brake_chute = true;scene.actor_event(player_visual,15); }
           } else if(down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)) {
             if(player.aircraft != tfx::flight::player_aircraft::raptor && player.brake_chute) { player.brake_chute = false;player.brake_chute_cut_away = true;scene.actor_event(player_visual,16); }
           } else {
             auto &condition{player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::air_brake)]};
-            if(condition != tfx::flight::system_condition::failed) {
-              player.air_brake = !player.air_brake;
-              condition = player.air_brake ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
+            if(physical_player.aircraft.surfaces.air_brake_drag != 0 && condition != tfx::flight::system_condition::failed) {
+              // Native 84F68 toggles the retained fraction, then only the
+              // normal/active switch states. Fault conditions remain faults.
+              physical_player.manual.air_brake_fraction = static_cast<double>(1.0L - physical_player.manual.air_brake_fraction);
+              if(condition == tfx::flight::system_condition::normal) condition = tfx::flight::system_condition::active;
+              else if(condition == tfx::flight::system_condition::active) condition = tfx::flight::system_condition::normal;
+              player.air_brake = condition == tfx::flight::system_condition::active;
             }
           }
+          sample(audio::sample_priority::normal,audio::sample_id::air_brake);
         }
       }
       timer_fraction += real_elapsed * tfx::simulation::timer_hz;

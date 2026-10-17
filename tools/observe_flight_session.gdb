@@ -115,6 +115,15 @@ silent
 set $hud = this
 continue
 end
+break tfx::cockpit::hud::draw
+commands
+silent
+python
+selection=gdb.parse_and_eval('selection')
+print('CPP_COCKPIT_DISPLAYS '+json.dumps({'frame':flight_frame,'selection':[int(selection[field])for field in ('left','centre','right','horizontal_range','bvr_range')]}))
+end
+continue
+end
 break tfx::weapons::fire_cannon
 commands
 silent
@@ -240,6 +249,9 @@ class FrameReturn(gdb.FinishBreakpoint):
 
   import struct
   physical=player['physical']
+  targets=physical['manual']['controls']['autopilot']
+  print('CPP_AUTOPILOT_TARGETS '+json.dumps([int(targets[field])for field in ('enabled','mode','heading')]+[struct.unpack('<Q',struct.pack('<d',float(targets[field])))[0]for field in ('down_metres','metres_per_second')]))
+  print('CPP_AIR_BRAKE '+json.dumps([struct.unpack('<Q',struct.pack('<d',float(physical['manual']['air_brake_fraction'])))[0],int(physical['manual']['air_brake_condition'])]))
   print('CPP_SPEED_FACTOR '+json.dumps(struct.unpack('<I',struct.pack('<f',float(player['basic']['flight']['speed_mach'])))[0]))
   gains=physical['input_gains']
   print('CPP_CONTROL_CONFIGURATION '+json.dumps([int(physical['autopilot']['recovery']['configuration']),*[struct.unpack('<Q',struct.pack('<d',float(gains[field])))[0]for field in ('joystick','pitch','roll','rudder')]]))
