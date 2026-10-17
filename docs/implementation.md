@@ -2941,9 +2941,9 @@ Native flight now loads the root `coltab.dat` (4,096 bytes: sixteen rows of
 256 palette indices), preserving the original identity fallback when absent.
 This is distinct from the smaller `dat/coltab.dat` selector resource. Retail
 frame setup uses fade shift nine; signed camera-depth high words select a
-clamped row from zero to fifteen. Scenery and moving SSD assemblies share
-their assembly-origin row across all parts, while direct sky models use the
-integer-coordinate submission path. UI artwork and inspection cameras retain
+clamped row from zero to fifteen. Unanchored SSD parts share their
+assembly-origin row; anchored parts use the cache selected by their own
+integer or fixed query. Direct sky models use integer-coordinate submission. UI artwork and inspection cameras retain
 their separate colour paths.
 
 Flat surfaces, lines and circles remap their ink once. Gouraud and texture
@@ -3018,3 +3018,67 @@ and sanitizers each repeat 256 complete original screen/near/model-program
 comparisons. All **128 retail scenes** advance 64 steps. Private development
 and sanitized windows retain weapon, missile-camera, MFD, designator, pause
 and combat-to-FINISH coverage; storm/cockpit composition also still passes.
+
+
+### Native model range, detail representations and SSD placement
+
+Live flight now computes original cached model metrics before interpreting
+a shape: the wrapped dword estimate `largest absolute axis + (other axes)/4`,
+its signed high-word range, signed depth-plus-bias priority and distance
+remap row. Shape headers retain their signed minimum range and seven detail
+slots separately from the priority word. Exact signed threshold comparisons
+select the authored polygon entry, two-pixel block or single pixel. The
+reserved detail kind retains the original converter's unsupported status.
+Inspection can still select polygon levels independently.
+
+SSD draw data retains three distinct origins: admitted fixed assembly cache,
+integer anchor query and fixed anchor query. Anchors use the original word
+quarter-turn placement, independently of the part's full visual Euler
+rotation. Normal anchored draws and damaged overlays use the fixed-query
+variant; the rotated/special anchor variants use the integer query. Each
+part consequently receives its own appropriate detail range and remap row.
+The actual SSD bounding sphere now admits native assemblies and anchors
+before their drawing program/part submission. This does not yet establish
+exact animation-update eligibility or the complete queue lifecycle/order.
+
+Distant representations use the original signed division and clipped anchor.
+Their two-pixel callback can write past a viewport edge and wrap the physical
+right edge to the next VGA row. Unlike model polygons, both distant-point
+handlers retain their normal shift even in missile-nose view. These quirks
+are retained independently of the host's polygon projection and far plane.
+Original IDIV-overflow inputs have no defined native pixel result and are
+excluded from the pixel comparison; the host declines those inputs safely.
+
+`tools/check_model_metrics.py` compares **8,192 complete synthetic native
+submissions** through conversion, queue insertion, range/header selection,
+priority and remap. Its corpus mode compares **13,663 header selections
+across all 1,012 models**, including threshold neighbours and wrapped axes.
+Corpus capture executes the original header-conversion stage, declaring
+polygon instruction conversion and the separate missing-body diagnostic as
+boundaries; selected polygon/point drawing is observed rather than executed
+in that selector-only comparison.
+
+`tools/check_model_placements.py` executes **8,192 complete part constructions
+across all six normal constructors**, retaining integer/fixed queries,
+all quarter turns, signed words, camera fractions, normal/wide bounds and
+native sphere admission. Only SSD handle resolution, geometry submission
+and the subsequent notification callback are supplied boundaries. All
+**703 SSD definitions / 19,589 persistent states** additionally retain the
+constructor's placement type, including damaged overlays.
+
+`tools/check_model_points.py` compares **933 complete original VGA frames**
+across the defined distant-point domain. `tools/check_model_lod.py` adds
+**1,024 complete queued multi-level model frames**: original resource
+conversion, queue construction, metric/header choice, polygon constructor,
+model bytecode, projection/near clipping and both distant-point painters
+execute, with no intercepted model or raster helper. The sole intercepted
+callee resolves the supplied model handle. Model bytes, identity view
+matrix, raw camera cache, viewport and identity remaps are declared inputs.
+
+All **146 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizers repeat all 8,192 six-constructor placement cases and 256
+complete queued-model VGA frames, alongside the range/header and distant
+point comparisons. All **128 retail scenes** advance 64 steps without preview
+warnings. All 1,012 models / 2,042 detail-state interpretations remain equal
+to the independent research VM. Private development/sanitized controls,
+real factory effects and storm/cockpit composition still pass.

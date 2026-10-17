@@ -68,6 +68,8 @@ void instance::apply_contact_damage(uint16_t const damage) {
   if(math::signed_word(health) <= 0) destroyed = true;
 }
 
+int16_t instance::bounding_radius() const { return source.bounding_radius; }
+
 int16_t instance::type() const {
   // Native 0xb7a3c distinguishes an untyped SSD from type zero.
   return source.flags & 2 ? static_cast<int16_t>((source.flags & 255) >> 2) : -1;
@@ -189,10 +191,12 @@ void instance::interpret(unsigned int at, instance_context &context, instance_re
           .slot{a(0)},
           .anchor{anchored ? vec3d{source.anchors.at(a(1))} : vec3d{}},
           .kind{opcode == instruction::draw_ground_shadow ? part_draw_kind::ground_shadow : part_draw_kind::model},
+          .placement{!anchored ? part_position::assembly_origin : opcode == instruction::draw_anchor || opcode == instruction::draw_damage_overlay ? part_position::fixed_anchor : part_position::integer_anchor},
         });
         if(opcode == instruction::draw_damage_overlay && parts.at(a(0)).parameters[7]) result.draws.push_back({
           .slot{a(2)},
           .anchor{vec3d{source.anchors.at(a(1))}},
+          .placement{part_position::fixed_anchor},
         });
       }
       break;

@@ -20,10 +20,12 @@ struct shape_instruction {
   uint16_t opcode;
   std::vector<uint16_t> operands;
 };
+enum class detail_kind : uint16_t { polygon, reserved, pixel_block, pixel };
 struct shape_detail {
   unsigned int distance;
-  unsigned int kind;
+  detail_kind kind;
   unsigned int offset;
+  uint8_t colour;
 };
 struct shape {
   std::map<unsigned int, shape_instruction> instructions;
@@ -31,7 +33,9 @@ struct shape {
   std::vector<shape_detail> details;
   std::string texture_name;
   int16_t sort_depth_bias;
+  int16_t minimum_draw_distance;
   shape(std::span<uint8_t const> source);
+  shape_detail const *detail_for_distance(int16_t distance) const;
 };
 
 enum class primitive_kind : uint32_t { polygon, line, point };
@@ -67,6 +71,7 @@ struct shape_context {
   uint16_t status{0};
   int16_t distance{0};
   unsigned int level{0};
+  std::optional<unsigned int> entry_address{};
   uint8_t initial_state{0};
   double reference_scale{1};
   bool facing{true};

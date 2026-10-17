@@ -38,6 +38,9 @@ std::optional<vec2<int16_t>> point_projection::integer(vec3<int32_t> const &poin
   return project(camera_integer(point));
 }
 bool point_projection::sphere_visible(vec3<int32_t> const &point, int16_t const radius) const {
+  return camera_sphere_visible(camera_integer(point),radius);
+}
+bool point_projection::camera_sphere_visible(vec3<int32_t> const &camera, int16_t const radius) const {
   // Native 0xcbef0 / 0xb9c00: viewport setup patches these aperture limits
   // into the code. Word ABS/subtraction quirks are retained.
   int16_t constexpr near_depth{16}, far_depth{16384};
@@ -45,7 +48,7 @@ bool point_projection::sphere_visible(vec3<int32_t> const &point, int16_t const 
   auto const absolute{[&](int16_t const value) { return value < 0 ? word(-static_cast<int32_t>(value)) : value; }};
   int16_t const horizontal_limit{word(maximum.x - origin.x)};
   int16_t const vertical_limit{word(std::max(static_cast<int32_t>(maximum.y) - origin.y,static_cast<int32_t>(origin.y)))};
-  auto const camera{camera_integer(point)};
+
   int16_t const extent{absolute(radius)};
   int16_t depth{word(camera.z >> 16)};
   if(depth < 0) {

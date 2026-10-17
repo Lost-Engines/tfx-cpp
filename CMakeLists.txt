@@ -338,6 +338,10 @@ add_library(tfx_core
   src/render/precipitation.cpp
   src/render/precipitation.h
   src/render/horizon.cpp src/render/horizon.h
+  src/render/model_point.cpp
+  src/render/model_point.h
+  src/render/model_metrics.cpp
+  src/render/model_metrics.h
   src/render/colour_remap.cpp
   src/render/colour_remap.h
   src/render/near_clip.cpp
@@ -361,6 +365,8 @@ add_library(tfx_core
   src/world/flak.cpp src/world/flak.h
   src/world/collision.cpp
   src/world/collision.h
+  src/world/model_placement.cpp
+  src/world/model_placement.h
   src/world/animation.cpp
   src/world/animation.h
   src/world/scene.cpp
@@ -554,6 +560,25 @@ if(BUILD_TESTING)
   target_link_libraries(defence_probe PRIVATE tfx_core)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
+
+  add_executable(model_lod_probe tests/model_lod_probe.cpp)
+  target_link_libraries(model_lod_probe PRIVATE tfx_core)
+  configure_first_party(model_lod_probe)
+  add_test(NAME render.native_complete_detail_models COMMAND model_lod_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_lod.txt)
+
+  add_executable(model_placement_probe tests/model_placement_probe.cpp)
+  target_link_libraries(model_placement_probe PRIVATE tfx_core)
+  configure_first_party(model_placement_probe)
+  add_test(NAME render.native_model_placements COMMAND model_placement_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_placements.txt)
+  add_executable(model_point_probe tests/model_point_probe.cpp)
+  target_link_libraries(model_point_probe PRIVATE tfx_core)
+  configure_first_party(model_point_probe)
+  add_test(NAME render.native_distant_points COMMAND model_point_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_points.txt)
+
+  add_executable(model_metrics_probe tests/model_metrics_probe.cpp)
+  target_link_libraries(model_metrics_probe PRIVATE tfx_core)
+  configure_first_party(model_metrics_probe)
+  add_test(NAME render.native_model_distance_and_details COMMAND model_metrics_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_metrics.txt)
 
   add_executable(gouraud_polygon_probe tests/gouraud_polygon_probe.cpp)
   target_link_libraries(gouraud_polygon_probe PRIVATE tfx_core)
