@@ -7,14 +7,15 @@
 #include "render/model_transform.h"
 #include "render/model_raster.h"
 
-std::vector<uint8_t> model(std::array<vec3<int16_t>,3> const &vertices, uint16_t const scale, bool const shaded, bool const effects) {
+std::vector<uint8_t> model(std::array<vec3<int16_t>,3> const &vertices, uint16_t const scale, bool const shaded, bool const effects, bool const line_only) {
   std::vector<uint8_t> source(50);
   auto const store{[&](unsigned int const at,uint16_t const value) { source.at(at) = static_cast<uint8_t>(value >> 8);source.at(at + 1) = static_cast<uint8_t>(value); }};
   auto const emit{[&](std::initializer_list<uint16_t> const words) { for(auto const value : words) { source.push_back(static_cast<uint8_t>(value >> 8));source.push_back(static_cast<uint8_t>(value)); } }};
   store(0,32768);store(2,32767);store(34,14);store(48,65535);emit({48,scale});
   for(unsigned int i{0}; i != vertices.size(); ++i) emit({98,static_cast<uint16_t>(i),static_cast<uint16_t>(vertices[i].x),static_cast<uint16_t>(vertices[i].y),static_cast<uint16_t>(vertices[i].z)});
   emit({97,3,0});
-  if(shaded) emit({76,0xc0cf,0xc700,77,0,1,2});
+  if(line_only) emit({1,203,0,2});
+  else if(shaded) emit({76,0xc0cf,0xc700,77,0,1,2});
   else emit({2,17,0,1,2});
   if(effects) emit({1,203,0,2,92,204,2,64,51,201,0,52,202,1});
   emit({0,65535});
@@ -22,13 +23,14 @@ std::vector<uint8_t> model(std::array<vec3<int16_t>,3> const &vertices, uint16_t
 }
 
 int main(int const argc, char const *const argv[]) try {
-  bool pixels{false},shadow{false},shaded{false},effects{false};std::ifstream fixture;
+  bool pixels{false},shadow{false},shaded{false},effects{false},line_only{false};std::ifstream fixture;
   for(int i{1}; i != argc; ++i) {
     std::string_view const option{argv[i]};
     if(option == "--pixels") pixels = true;
     else if(option == "--shadow") shadow = true;
     else if(option == "--shaded") shaded = true;
     else if(option == "--effects") effects = true;
+    else if(option == "--lines") line_only = true;
     else { if(fixture.is_open()) throw std::runtime_error{"expected [FILE] [--pixels] [--shadow]"};fixture.open(argv[i]);if(!fixture) throw std::runtime_error{"cannot open model fixture"}; }
   }
   auto &input{fixture.is_open() ? fixture : std::cin};
@@ -50,7 +52,7 @@ int main(int const argc, char const *const argv[]) try {
       });
       return result;
     }};
-    tfx::models::shape const shape{model(vertices,scale,shaded,effects)};
+    tfx::models::shape const shape{model(vertices,scale,shaded,effects,line_only)};
     tfx::models::shape_context context;
     context.camera.emplace(tfx::models::shape_camera{
       .basis{mat3<int32_t>{transform.matrix()}},

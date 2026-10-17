@@ -18,6 +18,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--immediate',action='store_true',help='execute original CBFEC directly rather than a deferred constructor/flush')
 p.add_argument('--gouraud',action='store_true',help='verify forced-flat shadows of authored Gouraud model faces')
 p.add_argument('--effects',action='store_true',help='include authored one/two-pixel lights and lines beside the polygon')
+p.add_argument('--lines',action='store_true',help='line-only programs, with directed near-plane and viewport crossings')
 p.add_argument('--shadow',action='store_true',help='exercise the original flattened black ground-shadow constructor')
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=1024);p.add_argument('--record',type=Path)
 a=p.parse_args();assert not a.gouraud or a.shadow;assert not a.immediate or not a.shadow;im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);code=lambda off:im.native(0x70aa4+off)
@@ -33,21 +34,28 @@ def model(vertices,scale):
  def emit(words):data.extend(struct.pack('>'+str(len(words))+'H',*[v&65535 for v in words]))
  put(0,32768);put(2,32767);put(34,14);put(48,65535);emit([48,scale])
  for i,v in enumerate(vertices):emit([98,i,*v])
- emit([97,3,0]);emit([76,0xc0cf,0xc700,77,0,1,2] if a.gouraud else [2,17,0,1,2])
+ emit([97,3,0]);emit([1,203,0,2] if a.lines else [76,0xc0cf,0xc700,77,0,1,2] if a.gouraud else [2,17,0,1,2])
  if a.effects:emit([1,203,0,2,92,204,2,64,51,201,0,52,202,1])
  emit([0,65535]);return bytes(data)
 rng=random.Random(0xb972a);rows=[]
 identity=[32767,0,0,0,32767,0,0,0,32767]
 for case in range(a.cases):
- wide=case%2;scale=(1,2,5,10,400)[case%5];angles=[rng.randrange(65536) for _ in range(3)]
+ wide=case%2;scale=(1,2,5,10,400)[case%5];draw_scale=(1,255,2,254,3,253,127,128)[case%8];angles=[rng.randrange(65536) for _ in range(3)]
  if case%7==0:angles=[0,0,0]
  if case%11==0:angles=[0,(case%4)*16384,0]
  matrix=identity if case<16 else [rng.randrange(-32768,32768) for _ in range(9)]
  origin=[rng.randrange(-1<<22,1<<22),rng.randrange(-1<<22,1<<22),rng.randrange(18<<16,1500<<16)]
  vertices=[[rng.randrange(-800,801) for _ in range(3)] for _ in range(3)]
+ if a.lines:
+  scale=draw_scale=1;matrix=identity
+  if case<256:angles=[0,0,0]
+  origin=[0,0,(0,16,17,18,32,100,1000)[case%7]<<16]
+  # Stay inside the original signed-word projection divisor's completed
+  # domain while crossing both the near plane and all viewport edges.
+  vertices=[[rng.randrange(-700,701),rng.randrange(-400,401),rng.choice((-100,-33,-32,-31,-1,0,1,31,32,33,100))] for _ in range(3)]
  if case%13==0:vertices[2]=list(vertices[1])
- rows.append([wide,scale,(1,255,2,254,3,253,127,128)[case%8],*angles,*matrix,*origin,*[v for point in vertices for v in point]])
-request=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode();command=[str((a.build/'model_transform_probe').resolve())]+(['--shadow'] if a.shadow else [])+(['--shaded'] if a.gouraud else [])+(['--effects'] if a.effects else [])
+ rows.append([wide,scale,draw_scale,*angles,*matrix,*origin,*[v for point in vertices for v in point]])
+request=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode();command=[str((a.build/'model_transform_probe').resolve())]+(['--shadow'] if a.shadow else [])+(['--shaded'] if a.gouraud else [])+(['--effects'] if a.effects else [])+(['--lines'] if a.lines else [])
 actual=subprocess.check_output(command,input=request).decode().splitlines();pixels=subprocess.check_output(command+['--pixels'],input=request);assert len(actual)==len(rows) and len(pixels)==len(rows)*64000
 fixtures=[];undefined=0;painted=0
 for case,(row,line) in enumerate(zip(rows,actual)):
@@ -63,6 +71,7 @@ for case,(row,line) in enumerate(zip(rows,actual)):
   im.call(0xcbfec if a.immediate else 0xcc238 if a.shadow else 0xcc164,stack=(draw_scale,0x300640,0x300600,0x300620,77),limit=3000000)
   if not a.immediate:im.call(0xc49d9,limit=3000000)
  except RuntimeError as error:
+  if a.lines:raise RuntimeError((case,row,hex(im.cpu.reg_read(r.UC_X86_REG_EIP)),str(error))) from error
   if str(error)!='undeclared native interrupt 0x0':raise
   undefined+=1;continue # Original word-IDIV overflow has no completed native frame.
  assert not line.endswith('overflow'),(case,'C++ declined a completed original frame',row)
