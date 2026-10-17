@@ -134,6 +134,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::missions::finish_program const mission_finish{selected.script};
   auto const initial_campaign{campaign};
   bool const campaign_flight{shared_window != nullptr};
+  bool const arcade_rules{!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0)};
+  // Native release 0x8bd8c keeps stores in Arcade, except the simulator graph.
+  bool const unlimited_stores{arcade_rules && (!campaign.contains("simulator") || campaign.at("simulator") == 0)};
   bool result_evaluated{false};
   for(auto const &target : mission_setup.targets) scene.prepare_terrain_cell(static_cast<unsigned int>(target.position.x / tfx::world::cell_units),static_cast<unsigned int>(target.position.z / tfx::world::cell_units));
   for(auto const &event : mission_setup.scenery_events) scene.prepare_terrain_cell(event.cell.x,event.cell.y);
@@ -189,6 +192,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     auto const &last_thumbnail{tables.arming_art().rows.back()};
     options.projection_origin = (last_thumbnail.minimum + last_thumbnail.maximum) / int16_t{2};
   }
+  armament.last_released = options.last_released_mount; // Native DATA 0x16e98 survives mission changes.
   auto const initial_stores{armament.pylons};
   tfx::sensors::air_contacts radar;
   auto &seeker{options.seeker};
@@ -1037,7 +1041,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           .speed{player.fixed_speed},
           .target{target},
           .inhibited{player.collision != 0 || refuelling.value().phase != 0},
-        },tables.store_mounts[std::to_underlying(player.aircraft) - 1],change,[&](auto const &shot) { projectiles.launch(shot); });
+          .unlimited{unlimited_stores},
+        },tables.store_mounts[std::to_underlying(player.aircraft) - 1],change,[&](auto const &shot) { projectiles.launch(shot);options.last_released_mount = shot.mount; });
         apply_selection(change);
       }
     }
@@ -2024,6 +2029,28 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         if(pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER)) select_weapon(tfx::weapons::weapon_role::air);
         if(pressed(GLFW_KEY_BACKSPACE) || pressed(GLFW_KEY_O)) select_weapon(tfx::weapons::weapon_role::ground);
         if(pressed(GLFW_KEY_F)) { armament.guns = true;aiming_mode = tfx::cockpit::aiming_mode::navigation; }
+        if(pressed(GLFW_KEY_J) && (down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT)) && !player.collision && !player_disabled) {
+          tfx::flight::capture_shared_player(physical_player,simple_player,player_damage,simple_body);
+          tfx::weapons::target_reference target{
+            .untargeted{!seeker.tracking},
+          };
+          if(seeker.tracking) target.actor = tfx::weapons::actor_identity{
+            .pool{tfx::weapons::actor_pool::aircraft},
+            .index{*seeker.tracking},
+          };
+          tfx::weapons::selection_change change;
+          armament.jettison({
+            .position{vec3<int32_t>{player.integer_position}},
+            .angles{vec3<tfx::math::angle>{player.angles}},
+            .speed{player.fixed_speed},
+            .target{target},
+            .unlimited{unlimited_stores},
+          },tables.store_mounts[std::to_underlying(player.aircraft) - 1],change,[&](auto const &shot) { projectiles.launch(shot);options.last_released_mount = shot.mount; });
+          apply_selection(change);
+          auto &powerplant{physical_player.powerplant};
+          if(powerplant.fuel > powerplant.fuel_capacity) powerplant.fuel = powerplant.fuel_capacity;
+          tfx::flight::publish_shared_player(simple_player,physical_player);
+        }
         bool const replay_key{pressed(GLFW_KEY_L)};
         bool const auto_land_key{replay_key && (down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT))};
         if(pressed(GLFW_KEY_I) || pressed(GLFW_KEY_BACKSLASH) || auto_land_key) {

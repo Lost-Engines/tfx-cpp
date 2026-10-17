@@ -30,6 +30,15 @@ void runtime::retire(pool_slot &slot) {
 
 projectile_id runtime::launch(release const &request) {
   if(request.weapon >= definitions.size()) throw std::runtime_error{"projectile weapon index exceeds the original table"};
+  std::span<stage const> program{};
+  if(request.jettisoned) {
+    // Original DATA 0x9170 replaces the stage pointer with DATA 0x92a8,
+    // the same immutable program already used by the external fuel tank.
+    auto const tank{std::to_underlying(weapon_id::fuel_tank)};
+    if(tank >= definitions.size()) throw std::runtime_error{"jettison requires the original dropped-store program"};
+    program = definitions[tank].stages;
+    if(program.empty()) throw std::runtime_error{"empty dropped-store program"};
+  }
   if(!next_id) throw std::runtime_error{"projectile identity space exhausted"};
   if(free.empty()) retire(*last);
   auto &slot{*free.back()};
@@ -43,7 +52,7 @@ projectile_id runtime::launch(release const &request) {
   } else if(request.owner.pool == actor_pool::player) mount = request.mount;
   slot.value = active_projectile{
     .id{id},
-    .state{weapons::launch(definitions[request.weapon],static_cast<uint8_t>(request.weapon),request.position,request.angles,request.speed)},
+    .state{weapons::launch(definitions[request.weapon],static_cast<uint8_t>(request.weapon),request.position,request.angles,request.speed,program)},
     .owner{request.owner},
     .target{request.target},
     .mount{mount},

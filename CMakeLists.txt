@@ -1310,6 +1310,11 @@ if(BUILD_TESTING)
   configure_first_party(loadout_probe)
   add_test(NAME weapons.native_pylons COMMAND loadout_probe --check ${PROJECT_SOURCE_DIR}/tests/reference/loadout.txt)
 
+  add_executable(jettison_probe tests/jettison_probe.cpp)
+  target_link_libraries(jettison_probe PRIVATE tfx_core)
+  configure_first_party(jettison_probe)
+  add_test(NAME weapons.native_stores_jettison COMMAND jettison_probe ${PROJECT_SOURCE_DIR}/tests/reference/jettison.txt)
+
   add_executable(cannon_probe tests/cannon_probe.cpp)
   target_link_libraries(cannon_probe PRIVATE tfx_core)
   configure_first_party(cannon_probe)

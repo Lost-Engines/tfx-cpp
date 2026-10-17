@@ -13,8 +13,8 @@ int main(int const argc, char const *const argv[]) try {
   while(std::cin >> frames >> elapsed >> dispenser >> capacity) {
     std::vector<int32_t> events;
     vec3<int32_t> designation{2000000,-200000,3000000};
-    bool const countermeasures{(dispenser >= 2 && dispenser <= 3) || dispenser >= 6};
-    auto const target_pool{dispenser >= 6 ? tfx::weapons::actor_pool::player : tfx::weapons::actor_pool::aircraft};
+    bool const countermeasures{(dispenser >= 2 && dispenser <= 3) || (dispenser >= 6 && dispenser <= 8)};
+    auto const target_pool{dispenser >= 6 && dispenser <= 8 ? tfx::weapons::actor_pool::player : tfx::weapons::actor_pool::aircraft};
     tfx::weapons::runtime state{tables.weapons,{
       .mount_state{[] { return tfx::weapons::launch_mount{.angles{0,12000,0},.selected{4}}; }},
       .actor_position{[](tfx::weapons::actor_identity) { return vec3<int32_t>{1000000,-300000,1000000}; }},
@@ -51,6 +51,7 @@ int main(int const argc, char const *const argv[]) try {
         .untargeted{dispenser == 4},
         .designated{dispenser == 5},
       },
+      .jettisoned{dispenser == 9},
     });
     for(unsigned int frame{0}; frame != frames; ++frame) {
       events.clear();

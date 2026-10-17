@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <span>
 #include <functional>
 #include "actors/program.h"
 #include "weapons/definition.h"
@@ -20,6 +21,7 @@ struct projectile {
   int32_t range;
   uint8_t weapon;
   bool secondary{false};
+  std::span<stage const> program{}; // Optional borrowed stage sequence, owned alongside the weapon definitions.
 };
 struct motion_context {
   uint16_t elapsed;
@@ -55,7 +57,7 @@ bool has_swept_contacts(flight_stage motion);
 // Post-motion trail gate; world/weapon/detail flags have separate owners.
 bool has_smoke_trail(flight_stage motion, int32_t player_distance);
 void next_stage(projectile &state, definition const &weapon);
-projectile launch(definition const &weapon, uint8_t index, vec3<int32_t> const &position, vec3<math::angle> const &angles, int32_t speed);
+projectile launch(definition const &weapon, uint8_t index, vec3<int32_t> const &position, vec3<math::angle> const &angles, int32_t speed, std::span<stage const> program = {});
 motion_result advance_motion(projectile &state, definition const &weapon, motion_context const &context, math::random_state &random, motion_hooks const &hooks = {});
 
 } // namespace tfx::weapons

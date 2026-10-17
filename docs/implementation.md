@@ -4169,3 +4169,51 @@ key/timing check passes in **all four flight models** (189 observed player
 callbacks across the eight airborne/runway sessions). The unchanged 32-frame
 Military-spec runway session still matches every original indexed pixel and
 observed player/actor/sensor/random/camera/radio/scenery state.
+
+
+### Stores jettison and a successful campaign engagement
+
+`Alt+J` now executes the original `0x85118` pylon walk: ground-role stores and
+external tanks release once per occupied slot in ascending order. Ordinary
+release/selection semantics, mutable cannon role, target clearing, unlimited-
+store behaviour and bay events remain intact. Launch sounds are suppressed,
+and fuel above the internal capacity is discarded even when no tank releases.
+The projectile constructor selects the native dropped-store stage program,
+which is already shared by the external tank and submunition definitions.
+Projectiles borrow that immutable sequence from the runtime's definition owner;
+their weapon identity, geometry, coefficients and original stage transitions
+remain separate. No replacement flight path is invented.
+
+`check_jettison.py` executes **4,096 complete original handler cases**, comparing
+guards, Alt eligibility, ordered transformed launch geometry/targets, inventory,
+visibility, selection, release mode and exact fuel bits. Projectile construction
+is its declared output boundary. `check_projectile_runtime.py --jettison-only`
+independently executes the original constructor, linked population, all motion
+stages, retirement and callback ordering for **644 frames**, at six timestep
+sizes, for all 27 weapon identities. Every retained field, output event and
+random state agrees. The existing **6,192 normal pylon/release cases** also agree.
+
+`check_training_engagement.py` now provides a complete successful flight check
+using ordinary window inputs on an isolated X11 display. Read-only GDB observes
+targeting and results: select AMRAAM, accelerate time, wait for acquisition and
+lock, fire, reach the real MiG loss/completion and execute FINISH. The direct
+run completes after 507 observed frames. `--campaign` additionally restores a
+disposable DOS-format pilot before Hop 1, uses the original DEFAULT/DONE arming
+controls, follows the successful debrief and enters Hop 2 with the actual kill,
+score and mission-count variables. That run completes the engagement after
+434 observed frames; its real timer means the count is not a golden constant.
+No damage, result, hit or mission-completion value is injected. FWS's original
+SPOS belongs to training graduation, so the check verifies the pre-hop pilot
+file remains unchanged instead of inventing a per-hop autosave.
+
+The complete input-driven comparison exposed a separate host omission: native
+store release retains its inventory when `arcade != 0 && simulator == 0`. That
+rule now reaches both ordinary release and jettison, independently of numerical
+flight-model selection. The native last-release mount also has application
+lifetime and starts at zero; standalone subsystem probes still supply their
+explicit initial sentinel. In the eight-frame mission-502 comparison, ordinary
+J is inert and Alt+J agrees on player/actor/random/camera/radio/scenery, complete
+seeker/radar state, selection/inventory/fuel and every captured projectile field.
+Projectile drawing differences remain under investigation; numerical agreement
+is not presented as whole-image equivalence. All **185 regressions** pass in
+development, Release and ASan/UBSan.

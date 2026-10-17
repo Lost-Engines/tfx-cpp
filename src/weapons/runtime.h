@@ -31,6 +31,7 @@ struct release {
   actor_identity owner;
   target_reference target;
   uint8_t mount{0};
+  bool jettisoned{false};
 };
 unsigned int constexpr projectile_capacity{98}; // The original 100-record pool reserves two list sentinels.
 struct active_projectile {
