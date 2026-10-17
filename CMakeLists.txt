@@ -21,6 +21,7 @@ add_library(tfx_audio
   src/audio/sample_bank.cpp src/audio/sample_bank.h
   src/audio/sample_voice.cpp src/audio/sample_voice.h
   src/audio/runtime.cpp src/audio/runtime.h
+  src/audio/osl_resource.cpp src/audio/osl_resource.h
 )
 configure_first_party(tfx_audio)
 
@@ -568,6 +569,13 @@ if(BUILD_TESTING)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
 
+  add_executable(osl_resource_probe tests/osl_resource_probe.cpp)
+  target_link_libraries(osl_resource_probe PRIVATE tfx_audio)
+  configure_first_party(osl_resource_probe)
+  add_executable(osl_pattern_test tests/osl_pattern_test.cpp)
+  target_link_libraries(osl_pattern_test PRIVATE tfx_audio)
+  configure_first_party(osl_pattern_test)
+  add_test(NAME audio.native_osl_patterns COMMAND osl_pattern_test "${PROJECT_SOURCE_DIR}/tests/fixtures/osl_patterns.txt")
   add_executable(sample_bank_probe tests/sample_bank_probe.cpp)
   target_link_libraries(sample_bank_probe PRIVATE tfx_audio)
   configure_first_party(sample_bank_probe)
