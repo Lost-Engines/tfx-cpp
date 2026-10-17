@@ -161,11 +161,14 @@ im.intercept(0xa6134,'Supply an explicit monotonically advancing launcher timer.
 # Original startup installs Watcom floating formatting and its x87 environment.
 im.call(0xde851);im.call(0xde547);im.call(0xde81e)
 # The presentation graph normally owns these inherited campaign declarations.
+# Match the C++ direct --mission runner: Arcade scoring/permission eligibility
+# is independent of the selected numerical flight model.
 program=next(p for p in json.loads((root/'analysis/presentations/programs.json').read_text()) if p['name']=='tfx')
+presentation_numbers={'mission':args.mission,'arcade':1}
 im.write(0x1afee,'<H',len(program['variables']))
 for index,variable in enumerate(program['variables']):
  name=variable['name'];im.write(0x1ad44+index,'<B',variable['string_value']);im.cpu.mem_write(im.data+0x1ad62+index*21,name.encode()+bytes(21-len(name)))
- value={'mission':args.mission,'rank':1,'lives':3}.get(name,0)
+ value=presentation_numbers.get(name,0)
  if variable['string_value']:
   value=0x402000+index*64;im.cpu.mem_write(value,b'NATIVE TEST\0')
  im.write(0x1a400+index*4,'<I',value)
@@ -208,6 +211,10 @@ def frame_boundary(current):
   current.cpu.emu_stop();return
  frames[0]+=1;clock[0]+=4
 im.intercept(0x72045,'Supply one four-tick external interval at each original frame boundary and stop after the requested complete frames.',frame_boundary)
+radio_events=[]
+def observe_radio(cpu,address,size,unused):
+ radio_events.append({'frame':frames[0],'message':string(cpu.reg_read(r.UC_X86_REG_EAX)),'persistent':address==im.native(0x81254)})
+for file in (0x81198,0x81254):im.cpu.hook_add(UC_HOOK_CODE,observe_radio,begin=im.native(file),end=im.native(file))
 terrain_passes=[]
 active_terrain=[None]
 def terrain_begin(cpu,address,size,unused):
@@ -259,8 +266,8 @@ except RuntimeError:
 else:raise RuntimeError('Original mission returned before completing the requested capture')
 assert parser_base<=im.read(0x1acfc,'<I')[0]<parser_base+0x100000,'presentation arena exhausted'
 record={
- 'mission':args.mission,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
- 'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
+ 'mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
+ 'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
  'dependencies':{hex(address):reason for address,reason in im.dependencies.items()},
  'host_services':['DPMI exception-vector transport','VGA planar memory and ports','fixed startup calendar','inherited presentation declarations'],
 }

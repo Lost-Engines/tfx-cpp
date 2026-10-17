@@ -5,7 +5,7 @@
 #include "aerodynamic_autopilot_snapshot.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 2) throw std::runtime_error{"expected TFX.DAT"};
+  if(argc != 2 && argc != 3) throw std::runtime_error{"expected TFX.DAT"};
   auto const source{tfx::resources::read_file(argv[1])};
   auto const profiles{tfx::flight::load_aerodynamic_airframes(source)};
   auto const wind{tfx::flight::load_aerodynamic_wind_parameters(source)};
@@ -45,7 +45,8 @@ int main(int const argc, char const *const argv[]) try {
       .low{static_cast<uint16_t>(low)},
       .high{static_cast<uint16_t>(high)},
     };
-    auto const state{tfx::flight::launch_aerodynamic_flight(profile,stores,context,wind[0],damage,random)};
+    auto state{tfx::flight::launch_aerodynamic_flight(profile,stores,context,wind[0],damage,random)};
+    if(argc == 2) tfx::flight::place_aerodynamic_start(state,context.ground_elevation_steps);
     for(auto const value : aerodynamic_snapshot(state,damage,random)) std::cout << value << ' ';
     for(auto const value : aerodynamic_autopilot_snapshot(state.autopilot)) std::cout << value << ' ';
     std::cout << state.cold_start << ' ' << static_cast<unsigned int>(state.autopilot.saved_air_brake) << '\n';

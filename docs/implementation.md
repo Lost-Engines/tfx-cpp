@@ -3956,3 +3956,28 @@ subtraction wrap and the original negative INT_MIN absolute-value result agree.
 Compact synthetic inputs/decisions run without game data. All **180 development
 CTests** pass; the complete Simple-flight comparison agrees on every indexed
 pixel and observed state for **64 frames**.
+
+
+### Landed startup and the first player callback
+
+Original `0x8c184`/`0x8c318` initialize flight before the first frame, but the
+runway setback or carrier offset belongs to `0x8f56c..0x8f686`, at the beginning
+of the first player callback. Startup and placement are now separate operations.
+The player owner consumes its pending cold start once before ordinary motion;
+subsystem probes can still check both boundaries explicitly. Player-SSD setup
+`0x7d736` separately seeds landed integer Y to -3, without changing float Y.
+Previously the eager placement made the initial retained pose disagree even
+though the first completed flight pose was correct.
+
+`check_aerodynamic_launch.py --all-models` and `--before-placement` each verify
+**1,536 complete original startups / all 316 observed flight/control fields**.
+The original **4,608 complete player callbacks / 48 warm model-changing scenes**
+also agree in all 324 observed fields. The complete F-117 mission-508 capture
+now matches its initial and subsequent player poses, actors, RNG and camera
+through 16 frames; remaining image differences are investigated separately.
+
+The complete direct-launch capture records its explicit inherited presentation
+numbers in JSON. Arcade scoring/permission eligibility matches the C++ direct
+`--mission` runner independently of the numerical flight model. Radio calls are
+now observed in the original JSON and read-only C++ GDB log, rather than being
+inferred from the displayed characters alone.

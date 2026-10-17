@@ -61,6 +61,9 @@ int main(int const argc, char const *const argv[]) try {
     tfx::flight::player_flight player;
     tfx::render::horizon_phase ground_phase;
     player.initialise(profile,stores,context,.65f,wind[0],damage,random);
+    // This subsystem sequence starts after the separately checked placement prefix.
+    tfx::flight::place_aerodynamic_start(player.physical,context.ground_elevation_steps);
+    tfx::flight::publish_shared_player(player.basic,player.physical);
     auto &state{player.physical};
     player.fuel = {
       .reading{9999},
