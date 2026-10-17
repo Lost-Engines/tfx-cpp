@@ -68,9 +68,30 @@ cockpit_motion cockpit_position::movement() const { return motion; }
 void cockpit_position::move_to(vec2<int16_t> const &position) { offset = vec2<int16_t>{position}; }
 void cockpit_position::raise() { motion = cockpit_motion::up; }
 void cockpit_position::lower() { motion = cockpit_motion::down; }
-void cockpit_position::advance(int16_t const viewport_bottom) {
+void cockpit_position::shake() {
+  // Native 0x7d7e0 restores an interrupted shake before restarting its sequence.
+  if(shake_origin.y != -1) offset = vec2<int16_t>{shake_origin};
+  else shake_origin = vec2<int16_t>{offset};
+  shake_step = 0;
+  motion = cockpit_motion::flak_shake;
+}
+void cockpit_position::advance(int16_t const viewport_bottom, bool const forward_cockpit) {
+  if(motion == cockpit_motion::flak_shake) {
+    int16_t constexpr end_of_shake{26};
+    if(!forward_cockpit || assets.cockpit_shake_steps.at(shake_step) == end_of_shake) {
+      motion = cockpit_motion::idle;
+      shake_step = 0;
+      // The original only restores X if Y changed; -1 is its saved-Y sentinel.
+      if(offset.y != shake_origin.y) offset = vec2<int16_t>{shake_origin};
+      shake_origin.y = -1;
+    } else {
+      offset.y = math::signed_word(static_cast<uint16_t>(offset.y - assets.cockpit_shake_steps.at(shake_step++)));
+    }
+    return;
+  }
   if(motion == cockpit_motion::idle || viewport_bottom >= render::screen_height - 1) return;
   offset.y = assets.cockpit_steps.at(step);
+  shake_origin = vec2<int16_t>{offset};
   if(motion == cockpit_motion::up) {
     if(offset.y > assets.cockpit_steps.front()) --step;
     else motion = cockpit_motion::idle;

@@ -49,7 +49,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flak-') as temporary:
    'printf "TFX_FLAK_DRAWN\\n"','disable 4','continue','end']
   if not a.night:
    script += ['break tfx::render::palette_lighting::flash if level == 40','commands','silent',
-    'printf "TFX_FLAK_FLASH\\n"','disable 5','continue','end']
+    'printf "TFX_FLAK_FLASH\\n"','disable 5','continue','end',
+    'break tfx::cockpit::cockpit_position::shake','commands','silent',
+    'printf "TFX_FLAK_SHAKEN\\n"','disable 6','continue','end']
   debugger=directory/'observe.gdb';debugger.write_text('\n'.join(script+['run'])+'\n');log=directory/'game.log'
   with log.open('w') as output:
    game=subprocess.Popen(['gdb','--quiet','--batch','-x',str(debugger),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',a.mission,'--scale','2'],env=env,stdout=output,stderr=subprocess.STDOUT)
@@ -66,10 +68,10 @@ with tempfile.TemporaryDirectory(prefix='tfx-flak-') as temporary:
     time.sleep(.05)
    if not window:raise RuntimeError(log.read_text()[-6000:])
    run('xdotool','windowfocus','--sync',window)
-   for label in (('SEEDED','SPAWNED','POSITIONED','DRAWN') if a.night else ('SEEDED','SPAWNED','POSITIONED','DRAWN','FLASH')):await_text(label)
+   for label in (('SEEDED','SPAWNED','POSITIONED','DRAWN') if a.night else ('SEEDED','SPAWNED','POSITIONED','DRAWN','FLASH','SHAKEN')):await_text(label)
    run('xdotool','keydown','Shift_L+q');time.sleep(.15);run('xdotool','keyup','Shift_L+q');game.wait(timeout=15)
    text=log.read_text();assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
-   print(('Private night flak' if a.night else 'Private day flak') + ' handoff passes: explicitly supplied region/height/RNG, real controller, correct model pool, word placement, scene drawing' + ('' if a.night else ', palette flash') + ' and clean exit')
+   print(('Private night flak' if a.night else 'Private day flak') + ' handoff passes: explicitly supplied region/height/RNG, real controller, correct model pool, word placement, scene drawing' + ('' if a.night else ', palette flash, cockpit shake') + ' and clean exit')
  finally:
   for process in (game,display):
    if process is not None and process.poll() is None:

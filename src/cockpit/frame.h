@@ -23,13 +23,15 @@ public:
   void paint(render::framebuffer &target, unsigned int view, vec2<int16_t> const &offset, render::framebuffer *coverage = nullptr) const;
 };
 
-enum class cockpit_motion { idle, up, down };
+enum class cockpit_motion { idle, up, down, flak_shake };
 class cockpit_position {
 private:
   instrument_assets const &assets;
   vec2<int16_t> offset;
   unsigned int step{0};
   cockpit_motion motion{cockpit_motion::idle};
+  vec2<int16_t> shake_origin{-1,-1};
+  unsigned int shake_step{0};
 
 public:
   cockpit_position(instrument_assets const &assets, vec2<int16_t> const &offset);
@@ -39,7 +41,8 @@ public:
   void move_to(vec2<int16_t> const &position);
   void raise();
   void lower();
-  void advance(int16_t viewport_bottom);
+  void shake();
+  void advance(int16_t viewport_bottom, bool forward_cockpit = true);
 };
 
 } // namespace tfx::cockpit

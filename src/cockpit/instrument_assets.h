@@ -113,6 +113,7 @@ struct instrument_assets {
   double engine_percent;
   std::array<viewport_layout,viewport_count> viewports;
   std::array<int16_t,22> cockpit_steps;
+  std::array<int16_t,6> cockpit_shake_steps;
   explicit instrument_assets(std::span<uint8_t const> executable);
 };
 
