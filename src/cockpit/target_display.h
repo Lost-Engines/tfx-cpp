@@ -24,12 +24,14 @@ struct target_display_state {
 class target_display {
 private:
   instrument_assets const &assets;
+  void direction_marker(render::software_renderer &renderer, vec3<int32_t> const &delta, target_display_state const &state, vec2<int> const &minimum, vec2<int> const &maximum, render::framebuffer *coverage) const;
 
 public:
   explicit target_display(instrument_assets const &assets);
   void heading(render::software_renderer &renderer, math::angle target, math::angle player, vec2<int16_t> const &offset, vec2<int> const &minimum, vec2<int> const &maximum, render::framebuffer *coverage = nullptr) const;
   void information(render::software_renderer &renderer, air_target_reading const &target, target_display_state const &state, render::framebuffer *coverage = nullptr) const;
   void direction(render::software_renderer &renderer, air_target_reading const &target, target_display_state const &state, vec2<int> const &minimum, vec2<int> const &maximum, render::framebuffer *coverage = nullptr) const;
+  void ground(render::software_renderer &renderer, vec3<int32_t> const &target, target_display_state const &state, vec2<int> const &minimum, vec2<int> const &maximum, render::framebuffer *coverage = nullptr) const;
   void edge_marker(render::software_renderer &renderer, target_display_state const &state, render::framebuffer *coverage = nullptr) const;
   void marker(render::software_renderer &renderer, target_sight sight, bool acquired, vec2<int> const &centre, render::framebuffer *coverage = nullptr) const;
 };

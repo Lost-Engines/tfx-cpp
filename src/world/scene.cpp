@@ -190,11 +190,13 @@ uint16_t scene::actor_impact_damage(scene_handle const handle) const {
   return actors.at(handle.value).state.impact_damage;
 }
 
-void scene::queue_actor(scene_handle const handle, vec3d const &position, vec3<math::angle> const &angles) {
+void scene::queue_actor(scene_handle const handle, vec3d const &position, vec3<math::angle> const &angles, vec3<int32_t> const *const distance_reference, submission_phase const phase) {
   submissions.push_back({
     .handle{handle},
     .position{vec3d{position}},
     .angles{vec3<math::angle>{angles}},
+    .distance_reference{distance_reference ? std::optional{vec3<int32_t>{*distance_reference}} : std::nullopt},
+    .phase{phase},
   });
 }
 
@@ -410,10 +412,11 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
     if(animation_eligible(policy,animate,true)) events.eject_player |= advance_instance(actor.state,position);
     auto const requests{[&](scene_request const &request) { emit_effect(request,position); }};
     auto const origin{word_position({std::floor(position.x),std::floor(position.y),std::floor(position.z)})};
+    auto const actor_reference{reference_words(view.position)};
     instance_context const context{
       .status{terrain.lighting.status},
-      .distance{instance_point_distance({0,0,0},origin,0,reference)},
-      .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,0,reference); }},
+      .distance{instance_point_distance({0,0,0},origin,0,actor_reference)},
+      .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,0,actor_reference); }},
       .request_output{requests},
     };
     auto const output{actor.state.execute(1,context)};
@@ -493,11 +496,30 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       warnings.insert(grid.variant(col,row) + ": " + error.what());
     }
   }
+  auto const submit_queued{[&](submission_phase const phase) {
+    struct restore_reference {
+      vec3<int32_t> const *&current;
+      vec3<int32_t> const *previous;
+      ~restore_reference() { current = previous; }
+    } const restore{
+      .current{query_reference},
+      .previous{query_reference},
+    };
+    for(auto const &submission : submissions) if(submission.phase == phase) {
+      // Native projectile drawing temporarily substitutes the current camera
+      // for the player's SSD query origin, including animation/effect requests.
+      query_reference = submission.distance_reference ? &*submission.distance_reference : restore.previous;
+      submit(actors.at(submission.handle.value),submission.position,submission.angles);
+    }
+  }};
+  // Native 0xa30cc submits weapons before 0x7572c submits moving actors.
+  // Equal-depth insertion and retained model-slot metadata observe this order.
+  submit_queued(submission_phase::before_actors);
   for(auto &[id, actor] : actors) if(actor.visible && (!player_model || player_model->handle.value != id)) submit(actor,actor.position,actor.angles);
   // Gather effects after world SSD execution so newly emitted/reused slots
   // join this frame with their current state, before the global depth sort.
   if(final_submissions) final_submissions();
-  for(auto const &submission : submissions) submit(actors.at(submission.handle.value),submission.position,submission.angles);
+  submit_queued(submission_phase::after_actors);
   submissions.clear();
   if(!native) std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
   auto const order{native ? native_queue.draw_order() : std::vector<render::model_slot>{}};

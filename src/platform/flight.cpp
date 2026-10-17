@@ -339,6 +339,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       scene.queue_actor(flak_visuals[slot].at(effect.model),vec3d{tfx::world::effect_position(effect.position,reference)},{0,0,0});
     }
     for(auto const slot : trails.active_slots()) scene.queue_actor(trail_visuals[slot],tfx::world::trail_position(trails.record(slot).position_q8,reference),{0,0,0});
+  }};
+  auto const clean_trails{[&] {
     auto const destroyed{[&](tfx::world::trail_slot const slot) { return scene.actor_destroyed(trail_visuals[slot]); }};
     trails.clean(player.integer_position,destroyed);
   }};
@@ -1342,8 +1344,13 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   }
   bool paused{false};
   tfx::render::framebuffer flight_frame;
-  auto const queue_projectiles{[&] {
-    for(auto const &[_,shot] : projectiles.projectiles()) if(!shot->spent) scene.queue_actor(weapon_visuals[shot->state.weapon][shot->state.secondary],vec3d{shot->state.position} / tfx::actors::position_unit,shot->state.angles);
+  auto const queue_projectiles{[&](vec3<int32_t> const &camera_anchor) {
+    int32_t constexpr maximum_projectile_draw_distance{10000};
+    // Native 0xa30cc walks newest first, including the final damaged frame.
+    for(auto const &[_,shot] : projectiles.projectiles() | std::views::reverse) {
+      if(tfx::math::distance_estimate(projectile_world_position(shot->state.position),camera_anchor) >= maximum_projectile_draw_distance) continue;
+      scene.queue_actor(weapon_visuals[shot->state.weapon][shot->state.secondary],vec3d{shot->state.position} / tfx::actors::position_unit,shot->state.angles,&camera_anchor,tfx::world::submission_phase::before_actors);
+    }
   }};
   auto const draw_instruments{[&](std::optional<std::string> const &radio_window) {
     std::array<std::vector<tfx::cockpit::radar_aircraft>,2> air_contacts;
@@ -1474,10 +1481,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           .maximum{vec2<int16_t>{request.maximum}},
           .origin_y{static_cast<int16_t>(camera.projection_origin.y)},
         });
-        queue_projectiles();
+        queue_projectiles(request.position);
         select_actor_draw_region(request.position);
         options.projection_origin = vec2<int16_t>{camera.projection_origin};
         auto const rendered{scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); },request.position.y,ground.height,tfx::world::scene_pass::instrument)};
+        clean_trails();
         if(rendered.eject_player) ejection.request();
         // The current world painter renders a whole software target; copy its viewport
         // into the instrument target. The original world raster's clipping is separate work.
@@ -1519,14 +1527,24 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     auto const offset{vec2<int16_t>{cockpit_position.value()}};
     unsigned int const weapon_index{armament.selected < 0 ? 0u : armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
     auto const &weapon{tables.weapons.at(weapon_index < tables.weapons.size() ? weapon_index : 0)};
+    // Native 0x801cd selects NAV from the gun/cannon flags; 0x7fc11 then
+    // selects the weapon layout from the current role, including automatic
+    // post-release and jettison selection changes.
+    auto const role{armament.selected_role()};
+    auto const mode{armament.guns && (armament.selected != tfx::weapons::cannon_pylon || aiming_mode == tfx::cockpit::aiming_mode::navigation)
+      ? tfx::cockpit::aiming_mode::navigation
+      : role == tfx::weapons::weapon_role::air ? tfx::cockpit::aiming_mode::air
+      : role == tfx::weapons::weapon_role::ground ? tfx::cockpit::aiming_mode::ground
+      : tfx::cockpit::aiming_mode::stores};
     tfx::cockpit::weapon_display_state state{
-      .mode{aiming_mode},
+      .mode{mode},
       .aircraft{player.aircraft},
       .weapon{weapon.label},
       .range{weapon.range},
       .category{weapon.category},
       .cannon{weapon_index == 0},
       .ammunition{cannon.ammunition},
+      .suppressed{seeker.too_close},
       .air_lock{seeker.guidance.has_value()},
       .ground_lock{ground_designation.has_value()},
       .limited{limited},
@@ -1592,6 +1610,19 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .position_q16{vec3<int32_t>{pose.position_q16}},
       .origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)},
     };
+    if(!mission_setup.targets.empty()) {
+      auto const &target{mission_setup.targets[ground_target_page].position};
+      auto const point{projection.integer({target.x,0,target.z})};
+      state.ground_target.emplace(tfx::cockpit::ground_target_cue{
+        .position{target.x,0,target.z},
+        .display{
+          .player{vec3<int32_t>{player.integer_position}},
+          .orientation{body_basis()},
+          .projected{point ? vec2<int16_t>{*point} : vec2<int16_t>{-1,-1}},
+          .offset{vec2<int16_t>{offset}},
+        },
+      });
+    }
     if(state.mode == tfx::cockpit::aiming_mode::navigation && landing.value().enabled) {
       state.landing.emplace(landing.advance(player.integer_position,false,[&](auto const &position) {
         if(auto const point{projection.integer(position)}) return tfx::flight::landing_projection{
@@ -1726,11 +1757,13 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .projection_shift{tfx::render::projection_shift(view.opening),tfx::render::projection_shift(view.opening)},
       });
     }
-    queue_projectiles();
+    vec3<int32_t> const draw_reference{inspect ? vec3<int32_t>{view.position} : designator_view ? vec3<int32_t>{designator.camera} : vec3<int32_t>{view_motion.last_pose().anchor}};
+    queue_projectiles(draw_reference);
     scene.set_query_reference(inspect ? nullptr : &player.integer_position);
-    if(!inspect) select_actor_draw_region(designator_view ? designator.camera : view_motion.last_pose().anchor);
+    if(!inspect) select_actor_draw_region(draw_reference);
     options.projection_origin = vec2<int16_t>{view.projection_origin};
     auto const rendered{scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},ground.height)};
+    clean_trails();
     if(rendered.eject_player) ejection.request();
     if(!inspect && !result_evaluated) {
       if(auto const count{tfx::render::precipitation_count({

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture a bounded complete original TFX 2.05 launch and neutral flight.
+"""Capture a bounded complete original TFX 2.05 launch and flight.
 
 Executes real renderer/EMM/configuration/environment/mission/arming/AI/flight
 initialization and the original frame loop. The host supplies silent DOS I/O,
@@ -11,6 +11,7 @@ Requires Unicorn and the independent did-unpack module in the research tree.
 from pathlib import Path
 import argparse,struct,sys,json,hashlib
 from native_reference import NativeReference,r
+from flight_inputs import FlightInputs,KEYS
 from native_vga import VgaCapture
 from unicorn import UC_HOOK_CODE,UC_HOOK_INSN,UC_HOOK_MEM_WRITE,UC_HOOK_MEM_READ
 
@@ -68,13 +69,19 @@ parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--mission',type=int,default=501)
 parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 parser.add_argument('--frames',type=int,default=4)
+parser.add_argument('--inputs',type=Path,help='declared per-frame keyboard events/held keys as JSON')
 args=parser.parse_args()
+inputs=FlightInputs.read(args.inputs)if args.inputs else FlightInputs([])
 if not 1 <= args.frames <= 256:parser.error('--frames must be between 1 and 256')
 root=args.research.resolve();directory=root/'installs/cd_1994_09/TFX'
 args.output.mkdir(parents=True,exist_ok=True)
 sys.path.insert(0,str(root/'did-unpack'))
 from did_unpack import Archive
 im=SessionReference(directory/'TFX.DAT',data_base=0x100000);video=SessionVideo(im,aperture=0xa0000)
+# Native 0x75940 clears its shot pointer with zero, then reads flat address
+# 0x4b. DOS permits that low-memory read; the cleared owner is unused before
+# the next source selection overwrites it. Preserve the original helper.
+im.cpu.mem_map(0,4096)
 im.cpu.mem_map(0x400000,0x4000000);heap=[0x410000]
 archive=Archive.read(directory/'DID.DAT');entries={x.identifier:x for x in archive.entries};loads=[]
 def string(address):
@@ -196,6 +203,32 @@ def sensor_snapshot(current):
  slots=current.read(current.read(0x76c8,'<I')[0]-current.data,'<20I')
  return [current.read(0x76d0,'<h')[0],identity(current.read(0x11108,'<I')[0]),*[identity(p) for p in slots],int(current.read(0x763e,'<H')[0]!=0),current.read(0x7774,'<h')[0],identity(current.read(0x135c8,'<I')[0]),identity(current.read(0x135d0,'<I')[0]),*current.read(0x135c0,'<2i'),*current.read(0x135cc,'<2h'),*current.read(0x135d4,'<2h'),int(current.read(0x8860,'<B')[0]!=0)]
 
+trail_events=[]
+def observe_trail(current):
+    stack=current.cpu.reg_read(r.UC_X86_REG_ESP)
+    z,y,x=struct.unpack('<3i',current.cpu.mem_read(stack+4,12))
+    trail_events.append([frames[0],x,y,z])
+im.intercept(0x7b6cc,'Observe original smoke sample transport; its producer, allocation and animation execute unchanged.',observe_trail)
+projectile_ids={}
+next_projectile_id=[0]
+def identify_projectile(cpu,address,size,unused):
+ next_projectile_id[0]+=1
+ projectile_ids[cpu.reg_read(r.UC_X86_REG_EAX)]=next_projectile_id[0]
+im.cpu.hook_add(UC_HOOK_CODE,identify_projectile,begin=im.native(0xa2d80),end=im.native(0xa2d80))
+def projectile_snapshot(current):
+ from check_projectiles import KINDS
+ head=current.read(0x16e80,'<I')[0];tail=current.read(0x16e7c,'<I')[0]
+ if not head:return []
+ pointer=struct.unpack('<I',current.cpu.mem_read(head+52,4))[0]
+ result=[]
+ while pointer!=tail:
+  if len(result)>=98:raise RuntimeError('native projectile list exceeds its declared pool')
+  body=bytes(current.cpu.mem_read(pointer,80));callback=struct.unpack_from('<I',body,60)[0]
+  function=callback-0x10000+0x70aa4 if callback else 0
+  result.append([projectile_ids[pointer],body[6],struct.unpack_from('<H',body,4)[0],KINDS[function],struct.unpack_from('<h',body,64)[0],*struct.unpack_from('<6i3Hihh',body,8),struct.unpack_from('<i',body,67)[0],body[66],body[79]])
+  pointer=struct.unpack_from('<I',body,52)[0]
+ return sorted(result)
+
 def frame_boundary(current):
  snapshots.append({
   'frame':frames[0],
@@ -214,6 +247,8 @@ def frame_boundary(current):
   'ground_phase':current.read(0xad7c,'<i')[0],
   'body_basis':current.read(0x1345e,'<9h'),
   'sensors':sensor_snapshot(current),
+  'projectiles':projectile_snapshot(current),
+  'armament':[current.read(0x93b0,'<h')[0],int(not current.read(0x7140,'<B')[0]),current.read(0x16e98,'<h')[0],current.read(0x809c+20,'<B')[0],*[v for slot in range(11)for v in current.read(0x13374+slot*2,'<2B')],current.read(0x14858,'<Q')[0]],
   'animation':[current.read(0xac90,'<B')[0],current.read(0xe74c,'<h')[0]],
   'pattern_seed':struct.unpack('<H',current.cpu.mem_read(current.native(0xe3a3f),2))[0],
   'timer':clock[0],
@@ -223,6 +258,10 @@ def frame_boundary(current):
  if frames[0]==args.frames:
   current.cpu.emu_stop();return
  frames[0]+=1;clock[0]+=4
+ input=inputs.at(frames[0]);raw=bytearray(128)
+ for name in input['held']:raw[KEYS[name][0]]=1
+ current.cpu.mem_write(current.read(0x1b23c,'<I')[0],bytes(raw))
+ current.cpu.mem_write(current.read(0x1b238,'<I')[0],bytes([KEYS[input['event']][0]if input['event'] else 0]))
 im.intercept(0x72045,'Supply one four-tick external interval at each original frame boundary and stop after the requested complete frames.',frame_boundary)
 preflight_projection=[]
 def observe_seeker_reset(cpu,address,size,unused):
@@ -283,16 +322,20 @@ try:
 except RuntimeError:
  # A bounded capture deliberately stops at the next real frame boundary;
  # it does not pretend that launch_game returned through a mission result.
- if len(snapshots)!=args.frames+1 or im.cpu.reg_read(r.UC_X86_REG_EIP)!=im.native(0x72045):raise
+ if len(snapshots)!=args.frames+1 or im.cpu.reg_read(r.UC_X86_REG_EIP)!=im.native(0x72045):
+  fault={'frame':frames[0],'snapshots':snapshots,'trace':[hex(f)for f in im.trace[-30:]],'registers':{name:im.cpu.reg_read(getattr(r,'UC_X86_REG_'+name))for name in ('EIP','ESP','EAX','EDX','EBX','ECX','ESI','EDI','EBP')},'loads':loads[-15:]}
+  (args.output/'failure.json').write_text(json.dumps(fault,indent=2)+'\n')
+  raise
 else:raise RuntimeError('Original mission returned before completing the requested capture')
 assert parser_base<=im.read(0x1acfc,'<I')[0]<parser_base+0x100000,'presentation arena exhausted'
 record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
+ 'inputs':inputs.rows(args.frames),
  'preflight_projection':preflight_projection,
- 'mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
+ 'trail_events':trail_events,'mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
  'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
  'dependencies':{hex(address):reason for address,reason in im.dependencies.items()},
- 'host_services':['DPMI exception-vector transport','VGA planar memory and ports','fixed startup calendar','inherited presentation declarations'],
+ 'host_services':['DPMI exception-vector transport','VGA planar memory and ports','fixed startup calendar','zeroed DOS low page for unused cleared-shot owner','inherited presentation declarations'],
 }
 (args.output/'session.json').write_text(json.dumps(record,indent=2)+'\n')
 print(f'Captured original mission {args.mission}: {args.frames} complete frames, {len(loads)} resource requests; {args.output}')

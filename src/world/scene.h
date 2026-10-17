@@ -20,6 +20,7 @@ struct scene_handle {
   bool operator==(scene_handle const&) const = default;
 };
 enum class scene_pass { primary, instrument };
+enum class submission_phase { before_actors, after_actors };
 struct scene_events {
   bool animated{false};
   bool eject_player{false};
@@ -49,6 +50,8 @@ private:
     scene_handle handle;
     vec3d position;
     vec3<math::angle> angles;
+    std::optional<vec3<int32_t>> distance_reference{};
+    submission_phase phase{submission_phase::after_actors};
   };
   std::vector<actor_submission> submissions;
   struct model_submission {
@@ -97,7 +100,8 @@ public:
   std::optional<flight::landing_port> actor_landing_port(scene_handle handle) const;
   std::vector<vec3<int16_t>> actor_damage_centres(scene_handle handle) const;
   uint16_t actor_impact_damage(scene_handle handle) const;
-  void queue_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
+  // An optional query reference is copied into the deferred submission.
+  void queue_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles, vec3<int32_t> const *distance_reference = nullptr, submission_phase phase = submission_phase::after_actors);
   void queue_model(std::string const &name, vec3d const &position);
   instance_result actor_event(scene_handle handle, unsigned int entry);
   void prepare_terrain_cell(unsigned int x, unsigned int z);

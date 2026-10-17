@@ -184,7 +184,9 @@ void weapon_display::draw(render::software_renderer &renderer, weapon_display_st
     if(state.air_target) targets.heading(renderer,state.air_target->reading.heading,state.attitude.angles.y,offset,point({89,2}),point({231,96}),coverage);
     return;
   }
+  if(state.mode != aiming_mode::ground) return; // Tank/other roles retain the common framing only.
   // Native 0x7e958: the ground sight differs for strafing and carried stores.
+  if(state.ground_target) targets.ground(renderer,state.ground_target->position,state.ground_target->display,{0,0},line_limit,coverage);
   if(state.cannon) {
     cannon_label(1);
     vec2<int> const position{point({150,0}).x,math::signed_word(static_cast<uint16_t>(state.attitude.projection_origin.y - 8))};

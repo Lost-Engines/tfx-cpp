@@ -4217,3 +4217,58 @@ seeker/radar state, selection/inventory/fuel and every captured projectile field
 Projectile drawing differences remain under investigation; numerical agreement
 is not presented as whole-image equivalence. All **185 regressions** pass in
 development, Release and ASan/UBSan.
+
+
+### Input-driven complete-frame comparisons
+
+`check_flight_session.py --inputs INPUT.json` now runs the actual window loop on
+an isolated X11 display. The shared input file declares per-frame key events
+and held keys; omitted frames are neutral. GDB supplies only external GLFW
+keyboard, timer, focus and mouse return values. The relocated original receives
+the same DOS key events and held-key array. No player, actor, random, weapon,
+mission outcome or game instruction is replaced. Resource hashes, inherited
+Arcade/simulator values, numerical model and four-tick intervals are checked
+before comparing captures. Reusable native captures must match these inputs.
+
+The observer also compares live pylon inventory, selection, last-release mount,
+mutable cannon role, exact fuel bits and the original linked projectile pool,
+in addition to the existing player, actors, shared random stream, body basis,
+sensors, camera, radio, animation and indexed frames. Smoke sample transport is
+observed on both sides without replacing its producer or pool. Any suppressed
+scene diagnostic fails the comparison. The original unused cleared-shot read
+at flat address `0x4b` is supplied by an explicitly zeroed DOS low page, matching
+the already declared terrain-credit harness boundary.
+
+This exposed several caller-order differences that isolated arithmetic checks
+could not reveal:
+
+- The HUD chooses NAV from the gun/cannon flags, then AA/AG from the **current**
+  selected role. Automatic release and jettison can change the role without a
+  selection key. Tank-only roles retain the common framing without an AA/AG
+  sight. Seeker suppression now reaches the live sight too.
+- The original ground HUD paints the mission target's projected cross when in
+  range, and always paints its six-line direction cue. This is separate from
+  laser designation and its rectangle. The full original marker is compared
+  alongside the other target displays in **1,920 pixel/coverage cases**; the
+  NAV/AA/AG/tank framing passes **1,024 composed original frames**.
+- Projectiles submit newest first, including their final spent frame, with a
+  strict 10,000-unit draw range and camera-relative SSD distance queries. They
+  enter the bounded model queue before other moving actors. Ordinary actor
+  queries continue to use the player; standalone inspection uses the camera.
+- Smoke cleanup follows the submitted SSD animation. Checking destroyed flags
+  while merely collecting deferred submissions retained an expired model for
+  another frame, producing conspicuous excess trails during accelerated time.
+
+The eight-frame mission-502 J/Alt+J comparison now agrees in **every captured
+state and every indexed pixel**. The 160-frame mission-501 accelerated AMRAAM
+run agrees on all captured state, projectile motion and emitted smoke samples;
+155 complete indexed frames agree exactly. Five launch frames currently differ
+by two HUD pixels each; the final frame agrees exactly. Those residual writes
+are being traced separately, rather than treating numerical agreement as
+whole-image equivalence.
+
+
+All **185 regressions** pass in development, Release and ASan/UBSan after these
+changes. The private-window training check also completes a natural AMRAAM kill,
+objective/FINISH, original debrief and the next training hop with the actual
+campaign score/kill counters; the pre-graduation pilot file remains unchanged.

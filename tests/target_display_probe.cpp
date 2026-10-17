@@ -22,6 +22,7 @@ int main(int const argc, char const *const argv[]) try {
     if(mode == 0) display.information(renderer,target,state,&coverage);
     else if(mode == 1) display.direction(renderer,target,state,minimum,maximum,&coverage);
     else if(mode == 2) display.edge_marker(renderer,state,&coverage);
+    else if(mode == 5) display.ground(renderer,target.position_q8,state,minimum,maximum,&coverage);
     else display.marker(renderer,state.sight,mode == 4,{state.projected.x,state.projected.y},&coverage);
     std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());
     std::cout.write(reinterpret_cast<char const*>(coverage.pixels.data()),coverage.pixels.size());

@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-training-engagement-') as temporary
    pilot.extend(str(value).encode().ljust(21,b'\0')if variable['string_value']else struct.pack('<I',value))
   pilot.extend(bytes((30-len(program['variables']))*4));pilot.extend(struct.pack('<3H',0,function,5))
   (install/'TFXSAV.0').write_bytes(pilot)
- observer=root/'timing.gdb' 
+ observer=root/'timing.gdb'
  observer.write_text('''set pagination off
 set confirm off
 set startup-with-shell off
