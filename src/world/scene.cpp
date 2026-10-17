@@ -251,8 +251,14 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     math::angle heading;
     double depth;
     double sort_key;
+    uint8_t colour_row;
   };
   std::vector<queued_part> queue;
+  auto const projection{view.projector()};
+  auto const assembly_colour{[&](vec3d const &position) {
+    vec3<int32_t> const fixed{vec3<uint32_t>{vec3<int64_t>{position * 65536}}};
+    return render::distance_colour_row(projection.camera_fixed(fixed).z);
+  }};
   // Native 0x7589a binds SSD range queries to the player, independently of the
   // camera. Standalone inspection scenes use their camera as the reference.
   auto const reference{reference_words(view.position)};
@@ -281,6 +287,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
           .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,tile.rotation,reference); }},
           .request_output{requests},
         };
+        uint8_t const colour_row{assembly_colour(centre)};
         auto const output{instance.execute(1,context)};
         for(auto const &draw : output.draws) {
           if(draw.kind == part_draw_kind::ground_shadow) continue;
@@ -297,6 +304,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
             .heading{tile.rotation},
             .depth{depth},
             .sort_key{depth + shape.sort_depth_bias},
+            .colour_row{colour_row},
           });
         }
       } catch(std::exception const &error) {
@@ -315,6 +323,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,0,reference); }},
       .request_output{requests},
     };
+    uint8_t const colour_row{assembly_colour(position)};
     auto const output{actor.state.execute(1,context)};
     for(auto const &draw : output.draws) {
       if(draw.kind == part_draw_kind::ground_shadow) continue;
@@ -333,6 +342,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
           .heading{0},
           .depth{depth},
           .sort_key{depth + shape.sort_depth_bias},
+          .colour_row{colour_row},
         });
       } catch(std::exception const &error) {
         warnings.insert(part.name + ": " + error.what());
@@ -356,6 +366,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       .heading{0},
       .depth{depth},
       .sort_key{depth + shape.sort_depth_bias},
+      .colour_row{render::distance_colour_row(projection.camera_integer(vec3<int32_t>{submission.position}).z)},
     });
   }
   std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
@@ -398,7 +409,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         });
         auto const texture{primitive.texture ? resources.texture(*primitive.texture) : std::span<uint8_t const>{}};
         if(primitive.texture && texture.empty()) warnings.insert("unresolved runtime texture: " + item.part->name);
-        renderer.primitive(primitive,vertices,view,texture);
+        renderer.primitive(primitive,vertices,view,texture,view.projection == render::projection_mode::original_model ? &resources.model_colours(item.colour_row) : nullptr);
         ++primitives_drawn;
       }
     } catch(std::exception const &error) {

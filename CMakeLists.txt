@@ -338,6 +338,8 @@ add_library(tfx_core
   src/render/precipitation.cpp
   src/render/precipitation.h
   src/render/horizon.cpp src/render/horizon.h
+  src/render/colour_remap.cpp
+  src/render/colour_remap.h
   src/render/near_clip.cpp
   src/render/near_clip.h
   src/render/integer_model_polygon.cpp
@@ -553,6 +555,14 @@ if(BUILD_TESTING)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
 
+  add_executable(remap_renderer_probe tests/remap_renderer_probe.cpp)
+  target_link_libraries(remap_renderer_probe PRIVATE tfx_core)
+  configure_first_party(remap_renderer_probe)
+  add_executable(colour_remap_probe tests/colour_remap_probe.cpp)
+  target_link_libraries(colour_remap_probe PRIVATE tfx_core)
+  configure_first_party(colour_remap_probe)
+  add_test(NAME render.native_placed_colour_rows COMMAND colour_remap_probe --placement ${PROJECT_SOURCE_DIR}/tests/reference/placed_colour_rows.txt)
+  add_test(NAME render.native_distance_colour_row COMMAND colour_remap_probe ${PROJECT_SOURCE_DIR}/tests/reference/colour_rows.txt)
   add_executable(model_program_probe tests/model_program_probe.cpp)
   target_link_libraries(model_program_probe PRIVATE tfx_core)
   configure_first_party(model_program_probe)

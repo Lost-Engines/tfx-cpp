@@ -2933,3 +2933,41 @@ independent inspection VM. All **128 retail scenes** run 64 steps. Private
 development/sanitizer controls still cover weapons, missile cameras, MFDs,
 designator, pause and combat-to-FINISH. Reproduce with
 `tools/check_model_facing.py` and `tools/check_model_programs.py`.
+
+
+### Original distance colour tables and submission binding
+
+Native flight now loads the root `coltab.dat` (4,096 bytes: sixteen rows of
+256 palette indices), preserving the original identity fallback when absent.
+This is distinct from the smaller `dat/coltab.dat` selector resource. Retail
+frame setup uses fade shift nine; signed camera-depth high words select a
+clamped row from zero to fifteen. Scenery and moving SSD assemblies share
+their assembly-origin row across all parts, while direct sky models use the
+integer-coordinate submission path. UI artwork and inspection cameras retain
+their separate colour paths.
+
+Flat surfaces, lines and circles remap their ink once. Gouraud and texture
+painters remap the interpolated or fetched index. Texture transparency is
+tested **after** the lookup, preserving both zero-to-visible and
+nonzero-to-transparent cases. These are discrete palette lookups, without
+RGB interpolation. Native camera and point queries now share one adapter for
+Q16 camera positions, Q15 matrix rows, aperture and viewport.
+
+`tools/check_colour_remaps.py` compares **16,384 original depth selections**
+and every byte produced by original `0xd7954` table initialization with the
+live C++ asset owner. `tools/check_placed_colour_rows.py` compares **8,192
+complete word/fixed position-to-submission paths**: original matrix/camera
+setters, sphere-query cache, `0xcc0bf`/`0xcc164` queue entries and sort insertion
+execute; supplied model-handle resolution is the sole intercepted boundary.
+
+`tools/check_remapped_renderer.py` compares **256 complete flat/circle frames**
+and **1,129,184 Gouraud/texture interior pixels** across every actual remap row,
+including the transparency-order cases. General shaded/textured edges, full
+world transforms and whole-scene ordering remain separate verification gates.
+The shared camera adapter also retains all 16,384 original point-projection
+comparisons.
+
+All **138 regressions** pass in development, Release and ASan/UBSan. The
+complete row/asset/submission and remapped-pixel comparisons repeat in all
+three builds. All **128 retail scenes** advance 64 steps, private development
+window controls still pass, and storm/cockpit composition remains correct.

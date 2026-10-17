@@ -3,6 +3,21 @@
 
 namespace tfx::render {
 
+point_projection camera::projector() const {
+  point_projection result{
+    .matrix{},
+    .position_q16{vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{position * 65536}}}},
+    .origin{static_cast<int16_t>(projection_origin.x),static_cast<int16_t>(projection_origin.y)},
+    .maximum{vec2<int16_t>{viewport_maximum}},
+    .opening{opening},
+  };
+  for(unsigned int row{0}; row != 3; ++row) {
+    auto const &axis{row == 0 ? right : row == 1 ? down : forward};
+    for(unsigned int column{0}; column != 3; ++column) result.matrix.data[row * 3 + column] = static_cast<int32_t>(axis[column] * math::matrix_unit);
+  }
+  return result;
+}
+
 vec3d camera::transform(vec3d const &world) const {
   auto const relative{world - position};
   return {relative.dot(right), relative.dot(down), relative.dot(forward)};

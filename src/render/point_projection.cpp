@@ -21,7 +21,7 @@ std::optional<vec2<int16_t>> point_projection::project(vec3<int32_t> const &came
   }};
   return vec2<int16_t>{coordinate(camera_point.x,origin.x),coordinate(camera_point.y,origin.y)};
 }
-vec3<int32_t> point_projection::transform_integer(vec3<int32_t> const &point) const {
+vec3<int32_t> point_projection::camera_integer(vec3<int32_t> const &point) const {
   // Native 0xb9c9c subtracts/stores words before extending them. Camera
   // fractional position and coordinate bits above bit 15 are deliberately lost.
   vec3<int16_t> delta;
@@ -35,7 +35,7 @@ vec3<int32_t> point_projection::transform_integer(vec3<int32_t> const &point) co
   return transformed;
 }
 std::optional<vec2<int16_t>> point_projection::integer(vec3<int32_t> const &point) const {
-  return project(transform_integer(point));
+  return project(camera_integer(point));
 }
 bool point_projection::sphere_visible(vec3<int32_t> const &point, int16_t const radius) const {
   // Native 0xcbef0 / 0xb9c00: viewport setup patches these aperture limits
@@ -45,7 +45,7 @@ bool point_projection::sphere_visible(vec3<int32_t> const &point, int16_t const 
   auto const absolute{[&](int16_t const value) { return value < 0 ? word(-static_cast<int32_t>(value)) : value; }};
   int16_t const horizontal_limit{word(maximum.x - origin.x)};
   int16_t const vertical_limit{word(std::max(static_cast<int32_t>(maximum.y) - origin.y,static_cast<int32_t>(origin.y)))};
-  auto const camera{transform_integer(point)};
+  auto const camera{camera_integer(point)};
   int16_t const extent{absolute(radius)};
   int16_t depth{word(camera.z >> 16)};
   if(depth < 0) {
@@ -62,7 +62,7 @@ bool point_projection::sphere_visible(vec3<int32_t> const &point, int16_t const 
   }};
   return !outside(camera.x,horizontal_limit) && !outside(camera.y,vertical_limit);
 }
-std::optional<vec2<int16_t>> point_projection::fixed(vec3<int32_t> const &point_q16) const {
+vec3<int32_t> point_projection::camera_fixed(vec3<int32_t> const &point_q16) const {
   // Native 0xb9c84/0xb9d14 keep the full Q16 subtraction. Each matrix product
   // contributes its signed high dword separately before the wrapped row sum.
   vec3<int32_t> delta;
@@ -76,7 +76,10 @@ std::optional<vec2<int16_t>> point_projection::fixed(vec3<int32_t> const &point_
     }
     transformed[row] = wrap(sum);
   }
-  return project(transformed);
+  return transformed;
+}
+std::optional<vec2<int16_t>> point_projection::fixed(vec3<int32_t> const &point_q16) const {
+  return project(camera_fixed(point_q16));
 }
 
 } // namespace tfx::render
