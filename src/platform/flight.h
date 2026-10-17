@@ -34,6 +34,7 @@ struct flight_options {
   vec3<int32_t> &ground_reference;
   int16_t &nearby_hostile_count;
   int16_t &last_released_mount;
+  bool &flight_information;
   render::precipitation &rain;
   math::random_state &session_random;
   audio::runtime *sound{nullptr};

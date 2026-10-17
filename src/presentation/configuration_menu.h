@@ -47,6 +47,7 @@ private:
 public:
   configuration_menu(configuration::settings &preferences, configuration_menu_assets const &assets, widget_font const &font, configuration_audio *audio = nullptr);
   configuration_page page() const;
+  void request_quit();
   std::span<configuration_button const> widgets() const;
   configuration_action select(unsigned int index);
   configuration_action click(vec2<int16_t> const &position);

@@ -12,6 +12,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -99,7 +100,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-effects-') as temporary:
     run('xdotool','keydown','space');time.sleep(.15);run('xdotool','keyup','space')
    for label in (('SEEDED','CLASSIFIED','SPAWNED','POSITIONED','DRAWN','RETIRED') if a.projectile else ('SEEDED','SPAWNED','POSITIONED','DRAWN')):await_text(label)
    run('xdotool','keydown','Shift_L+q')
-   try:game.wait(timeout=15)
+   try:confirm_flight_quit(env,window);game.wait(timeout=15)
    except subprocess.TimeoutExpired as error:raise RuntimeError('exit timed out:\n'+log.read_text()[-6000:]) from error
    finally:run('xdotool','keyup','Shift_L+q')
    text=log.read_text();assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]

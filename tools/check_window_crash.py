@@ -12,6 +12,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -95,7 +96,7 @@ for label,mission,collision in [('land','501',2),('water','504',1),('contact','6
     tap('p')
     if a.screenshot_dir:
      a.screenshot_dir.mkdir(parents=True,exist_ok=True);run('import','-window',window,str((a.screenshot_dir/(label+'.png')).resolve()))
-    tap('Shift_L+q');game.wait(timeout=15);text=log.read_text()
+    tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=15);text=log.read_text()
     assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
     print(f'Private {label} crash scenario passes: seeded contact, original model selection, authored effect placement, selected loss camera, rendered animation and clean exit',flush=True)
   finally:

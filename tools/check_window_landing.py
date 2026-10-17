@@ -12,6 +12,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 from PIL import Image
 from native_reference import NativeReference
 from native_configuration import read_configuration
@@ -82,7 +83,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-landing-') as temporary:
             tap('f');check('NAV')
             tap('backslash');check_landing()
             tap('i');check('NAV')
-            tap('Shift_L+q');game.wait(timeout=10)
+            tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
             print('Private X11 ILS controls passed: I/backslash, beacon heading, NAV forcing, AA/AG handoffs, pause and camera restoration')

@@ -11,6 +11,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -67,7 +68,14 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-configuration-') as temporary:
    for line in wanted:assert line in config.read_bytes().splitlines(),(line,config.read_bytes())
    assert output().count('TFX_WINDOW_TICK')>before,'simulation did not resume'
    tap('grave');await_title('Configuration');click(80,172);click(188,108);await_title('Configuration');click(152,172)
-   tap('Shift_L+q');game.wait(timeout=10)
+   tap('Shift_L+q');await_title('Quit')
+   stopped=output().count('TFX_WINDOW_TICK');time.sleep(.3)
+   assert output().count('TFX_WINDOW_TICK')==stopped,'simulation advanced while quit confirmation was open'
+   click(188,108) # NO returns straight to flight from the shortcut.
+   deadline=time.monotonic()+10
+   while time.monotonic()<deadline and output().count('TFX_WINDOW_TICK')==stopped:time.sleep(.05)
+   assert output().count('TFX_WINDOW_TICK')>stopped,'quit cancellation did not return directly to flight'
+   tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
    assert game.returncode==0 and 'exited normally' in output() and 'Program received signal' not in output(),output()[-5000:]
    print('Private X11 configuration passed: paused simulation, real mouse selections, live Military-spec callback, all realism controls, native preference save, quit cancellation, resume and clean exit')
  finally:

@@ -6,7 +6,7 @@ namespace tfx::platform {
 
 presentation::configuration_action configure_flight(window &window, resources::executable_tables const &tables,
     configuration::settings &preferences, std::filesystem::path const &directory,
-    render::framebuffer const &background, render::palette const &colours, audio::runtime *const sound) {
+    render::framebuffer const &background, render::palette const &colours, audio::runtime *const sound, bool const quit_prompt) {
   presentation::configuration_audio audio{
     .sound_available{sound && sound->sound_available()},
     .music_available{sound && sound->music_available()},
@@ -14,6 +14,7 @@ presentation::configuration_action configure_flight(window &window, resources::e
     .music_enabled{sound && sound->music_enabled()},
   };
   presentation::configuration_menu menu{preferences,tables.configuration_widgets(),tables.interface_font(),&audio};
+  if(quit_prompt) menu.request_quit();
   auto palette{colours};
   for(unsigned int shade{0}; shade != 16; ++shade) {
     auto const value{static_cast<uint8_t>((shade * 4u << 2) | (shade * 4u >> 4))};
@@ -29,21 +30,22 @@ presentation::configuration_action configure_flight(window &window, resources::e
     bool const escape{glfwGetKey(host,GLFW_KEY_ESCAPE) == GLFW_PRESS};
     if(escape && !escape_held) { result = presentation::configuration_action::resume;break; }
     escape_held = escape;
-    if((glfwGetKey(host,GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(host,GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) && glfwGetKey(host,GLFW_KEY_Q) == GLFW_PRESS) break;
+    if(!quit_prompt && (glfwGetKey(host,GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(host,GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) && glfwGetKey(host,GLFW_KEY_Q) == GLFW_PRESS) break;
     bool const mouse{glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS};
     if(mouse && !mouse_held) if(auto const pointer{window.cursor_position()}) {
       auto const action{menu.click(*pointer)};
+      if(quit_prompt && menu.page() != presentation::configuration_page::confirm_quit) { result = presentation::configuration_action::resume;break; }
       if(action != presentation::configuration_action::none) { result = action;break; }
     }
     mouse_held = mouse;
     if(sound) { sound->enable_sound(audio.sound_enabled);sound->enable_music(audio.music_enabled); }
     auto image{background};
     menu.draw(image);
-    window.title(menu.page() == presentation::configuration_page::realism ? "TFX C++ — Realism" : "TFX C++ — Configuration");
+    window.title(menu.page() == presentation::configuration_page::confirm_quit ? "TFX C++ — Quit" : menu.page() == presentation::configuration_page::realism ? "TFX C++ — Realism" : "TFX C++ — Configuration");
     window.present(image.colourise(palette));
     glfwWaitEventsTimeout(.01);
   }
-  if(!configuration::save_preferences(directory,preferences)) std::cerr << "Flight preferences could not be saved: TFX.CFG is missing, empty or too large.\n";
+  if(!quit_prompt && !configuration::save_preferences(directory,preferences)) std::cerr << "Flight preferences could not be saved: TFX.CFG is missing, empty or too large.\n";
   return result;
 }
 

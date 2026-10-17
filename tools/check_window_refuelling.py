@@ -13,6 +13,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 from PIL import Image
 from native_reference import NativeReference
 from native_configuration import read_configuration
@@ -71,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-refuel-') as temporary:
             tap('p');tap('apostrophe');tap('p');check('NAV')
             tap('apostrophe');check('AA')
             tap('F5',2);tap('F1',3);check('AA')
-            tap('Shift_L+q');game.wait(timeout=10)
+            tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
             print('Private X11 refuelling controls passed: hookup toggle, NAV forcing, retained AA/AG mode, pause and camera restoration')

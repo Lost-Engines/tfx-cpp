@@ -4328,3 +4328,54 @@ owner notification order and validity of retained pool records.
 
 All **187 regressions** pass in development, Release and ASan/UBSan after this
 increment. No CI or CD playback has been added.
+
+
+### Quit confirmation, external information and camera-relative tracking
+
+Shift+Q in flight now opens the original quit/enrol dialog rather than exiting
+immediately. No resumes flight directly, Yes exits and Enrol returns to pilot
+selection. Physics and flight timing remain paused while this dialog is open.
+The existing configuration dialog provides the authored widgets; shortcut
+confirmation does not rewrite TFX.CFG. The isolated original dialog comparison
+covers 200 complete pixel/state cases. A private-window check operates the
+actual shortcut, verifies the paused simulation and exercises No and Yes.
+Private-window tools now confirm the real dialog through shared input helpers.
+
+D toggles the original external altitude/speed/heading strip. Its disabled
+callback also leaves radio scrolling suspended, as in native 0x807b4. Shift+D
+restores the mission's default stores and fifteen of each countermeasure;
+it does not repair damage, add fuel or change the cannon navigation flag.
+A controlled mission-502 restoration sequence agrees on captured state
+and all pixels across 8 frames.
+
+Air-lock projection now runs after the actual camera is selected, matching
+0x92144 followed by 0x93328, instead of always using the forward-flight matrix.
+Contacts are enumerated after refuelling has positioned the tanker too. An
+8-frame F5/D sequence agrees on all captured state and every image pixel.
+A 160-frame controlled mission-501 engagement also retains exact captured
+state, smoke samples, procedural seeds, radio requests and every image pixel.
+Player-model bindings are observed separately from their animation parameters.
+
+The complete native capture formerly supplied an empty DID root. Original
+0xc7424 adds its SPR subdirectory only when that root is nonempty, so that
+host setup accidentally made all global texture pages unavailable. Captures
+now supply an explicit virtual TFX root and normalize it at the hosted archive
+boundary. The original loader, page allocation, binding and texture raster
+execute normally; flight entry asserts all four retained global pages loaded.
+The session comparator rejects caches made before this correction. The F5/D
+and 160-frame engagement comparisons above use the corrected capture. Older
+untextured frame comparisons do not establish original texture visibility.
+
+The remaining keyboard audit identified a separate integration gap: native
+Enter, Backspace/O and F/Ctrl change aerodynamic control configuration and
+response gains as well as weapon/HUD state. Complete-session captures now
+observe these configuration words and all four stored double bit patterns;
+connecting those callers is the next control increment.
+
+
+All 187 regressions pass in development, Release and ASan/UBSan. A private-window
+training engagement completes normally after 507 real frames, including target
+lock, AMRAAM release, enemy loss, objective credit and successful FINISH. The
+older screenshot controls check expected Arcade to consume missile inventory;
+that assertion is corrected to the original retained quantities, while its F8
+camera step independently requires an actual launched store.

@@ -9,6 +9,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -56,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-music-window-') as temporary:
    assert values and max(map(abs,values))>.001,('presentation music was silent',log.read_text())
    if a.music!='soundblaster-fm':assert any(abs(values[index]-values[index+1])>1e-5 for index in range(0,len(values),2)),'LA stereo output was lost'
    else:assert all(values[index]==values[index+1] for index in range(0,len(values),2)),'FM dual mono changed'
-   run('xdotool','keydown','Shift_L');run('xdotool','keydown','q');time.sleep(.2);run('xdotool','keyup','q');run('xdotool','keyup','Shift_L');game.wait(timeout=10)
+   run('xdotool','keydown','Shift_L');run('xdotool','keydown','q');time.sleep(.2);run('xdotool','keyup','q');run('xdotool','keyup','Shift_L');confirm_flight_quit(env,window);game.wait(timeout=10)
    assert game.returncode==0 and 'ERROR:' not in log.read_text() and 'unavailable' not in log.read_text(),log.read_text()
    print('Private Pulse/X11 '+a.music+' music passed: '+('live flight bank' if a.mission else 'original presentation requests')+', live PCM and clean shutdown')
  finally:
