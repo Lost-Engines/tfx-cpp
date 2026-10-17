@@ -3366,3 +3366,58 @@ cover firing, MFDs, designation, pause, combat results, camera switching and
 the authored seat-release/parachute/recovery sequence. These comparisons close
 the represented constructor and viewport scheduling rules; complete renderer
 phase order and full original-session equivalence remain separate gates.
+
+### Native articulated model geometry and carried stores
+
+Live model interpretation now retains the original Q15 camera/component basis
+and wrapped dword vertex products. Rotated helper calls compose and quantise
+the current camera basis before generating their vertices. Anchor helpers and
+carried models use the already projected camera-space anchor, with native
+translation/basis restoration and shared vertex slots. This replaces the
+previous continuous local-matrix approximation; the independent inspection
+path retains its continuous geometry.
+
+Absolute, delta and jittered vertices now enter the same integer camera path.
+Model camera-scale instructions retain their separate multiply/divide rules
+and wrapped cached translations. The original component/view basis helper is
+shared with the outer model transform. Existing queued, immediate and flattened
+shadow consumers retain their own outer basis construction.
+
+The live renderer also receives the original global carried-model table from
+the current loadout. Presence follows the model's visible flag independently
+of ammunition count, preserving the JP233 dispenser after its contents are
+released. The table is shared by model interpretation as in the original,
+rather than attaching a separate guessed loadout to every actor.
+
+`tools/check_model_articulation.py` executes **1,022 complete original frames**
+with two nested anchor/rotated helpers, carried-store entry, parent restoration,
+absolute/delta vertices and multiply/divide/negative camera scales. All 27
+submitted camera-coordinate dwords and all 64,000 VGA pixels agree per frame;
+419 frames paint pixels. Two original IDIV faults have no completed frame and
+are explicitly excluded, with a fresh capture CPU after each trapped input.
+The original model converter generates the helper matrices from the disk
+angles, and the actual queue, outer component generator, helper VM, projection,
+clipping and raster execute. View/body bases, model/cache bytes and poses are
+supplied inputs; resolving the two symbolic model handles is the only replaced
+consumer. Compact original fixtures run without game files.
+
+The existing outer-transform probe now uses this same camera-space interpreter
+instead of applying an outer transform afterward. Another 256 ordinary frames
+and 256 forced-flat Gouraud shadow frames agree with original pixels/bases.
+All 158 development regressions pass, and all 128 retail missions compose
+64 frames without warnings. Private-window controls still pass weapons, MFDs,
+cameras, designation, pause and real combat results. A separate GDB observer
+(`tools/check_window_carried_models.py`) confirms the normal training loadout
+actually enters carried-weapon model execution in chase view without changing
+world, inventory or result state.
+
+These checks establish the represented helper/attachment arithmetic and live
+binding, not all authored drawing opcodes, material-state sharing, complete
+arming 3D-frame equivalence or full world/session scheduling. Rounded and
+textured boundaries remain separate renderer work.
+
+The articulated-model comparisons also pass for 256 complete frames each in
+Release and ASan/UBSan, and all 158 regressions pass in both builds. The live
+carried-model observer passes Eurofighter, F-22 and F-117 retail loadouts.
+The independent inspection comparison still agrees on all 1,012 models /
+2,042 detail/state cases / 253,334 vertices.

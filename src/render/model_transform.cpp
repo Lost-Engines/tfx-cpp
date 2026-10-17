@@ -31,12 +31,7 @@ model_transform::model_transform(mat3<int32_t> const &view, vec3<math::angle> co
       body.data[column * 3 + 2] = math::signed_word(static_cast<uint16_t>((body.data[column * 3 + 2] * 32767) >> math::matrix_fraction_bits));
     }
   }
-  for(unsigned int row{0}; row != 3; ++row) for(unsigned int column{0}; column != 3; ++column) {
-    uint32_t sum{0};
-    for(unsigned int axis{0}; axis != 3; ++axis) sum += static_cast<uint32_t>(view.data[row * 3 + axis]) * static_cast<uint32_t>(body.data[column * 3 + axis]);
-    // B972A wraps each dword dot product before storing its signed Q15 word.
-    basis.data[row * 3 + column] = math::signed_word(static_cast<uint16_t>(std::bit_cast<int32_t>(sum) >> math::matrix_fraction_bits));
-  }
+  basis = math::compose_model_basis(view,body);
 }
 mat3<int32_t> const &model_transform::matrix() const { return basis; }
 vec3d model_transform::point(vec3d const &position, double const projection_scale) const {

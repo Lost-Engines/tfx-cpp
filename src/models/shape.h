@@ -66,6 +66,13 @@ struct primitive {
 };
 enum class facing_test { branch, polygon };
 
+// Native interpretation emits camera vertices directly. Inspection instead
+// retains continuous local geometry for its separate interactive transform.
+struct shape_camera {
+  mat3<int32_t> basis;
+  vec3<int32_t> origin;
+};
+
 struct shape_context {
   std::array<uint8_t, 256> parameters{0};
   uint16_t status{0};
@@ -75,6 +82,7 @@ struct shape_context {
   uint8_t initial_state{0};
   double reference_scale{1};
   bool facing{true};
+  std::optional<shape_camera> camera{};
   std::function<vec2d(vec3d const&, double)> project{};
   std::function<std::optional<bool>(std::span<model_vertex const>,facing_test)> face_visibility{};
   math::jitter_state *jitter{nullptr};

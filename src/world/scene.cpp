@@ -70,6 +70,7 @@ unsigned int wrapped_cell(int const value, unsigned int const dimension) {
 
 void scene::set_effect_sink(std::function<void(effect_record const&)> sink) { effect_sink = std::move(sink); }
 void scene::set_query_reference(vec3<int32_t> const *const position) { query_reference = position; }
+void scene::set_carried_models(std::span<models::shape const *const> const models) { carried_models.assign(models.begin(),models.end()); }
 vec3<int16_t> scene::reference_words(vec3d const &fallback) const {
   if(query_reference) return word_position(vec3d{*query_reference});
   return word_position({std::floor(fallback.x),std::floor(fallback.y),std::floor(fallback.z)});
@@ -293,16 +294,21 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       render::model_transform const transform{projection.matrix,path == render::model_render_path::unrotated ? vec3<math::angle>{0,0,0} : vec3<math::angle>{item.angles},item.camera_origin,shadow ? render::model_surface::ground_shadow : render::model_surface::body};
       auto const camera_point{[&](vec3d const &position, double const scale) { if(native) return transform.point(position,scale);auto point{placed(position)};if(shadow) point.y = item.origin.y;return view.transform(point); }};
       models::shape_context context;
+      if(native) context.camera.emplace(models::shape_camera{
+        .basis{mat3<int32_t>{transform.matrix()}},
+        .origin{vec3<int32_t>{item.camera_origin}},
+      });
       auto const &parameters{native ? model_parameters : item.parameters};
       std::copy(parameters.begin(),parameters.end(),context.parameters.begin());
       // Native 0xcc001 queues parameter 0; 0xbac16 seeds the shape condition from it.
       context.initial_state = item.parameters.front();
+      context.attachments = carried_models;
       context.status = terrain.lighting.status;
       context.jitter = &jitter.state();
       context.distance = native ? item.metrics.distance : static_cast<int16_t>(std::clamp(item.depth,-32768.0,32767.0));
       if(detail) context.entry_address = detail->offset + 2;
-      context.project = [&view, &camera_point](vec3d const &v, double const scale){
-        auto point{camera_point(v,scale)};
+      context.project = [&view, &camera_point, native](vec3d const &v, double const scale){
+        auto point{native ? vec3d{v} : camera_point(v,scale)};
         if(std::abs(point.z) < view.near_distance * scale) point.z = std::copysign(view.near_distance * scale,point.z);
         return view.project(point,scale);
       };
@@ -310,7 +316,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
         std::vector<models::model_vertex> camera;
         camera.reserve(vertices.size());
         for(auto const &vertex : vertices) camera.push_back({
-          .position{camera_point(vertex.position,vertex.projection_scale)},
+          .position{vec3d{vertex.position}},
           .uv{0,0},
           .projection_scale{vertex.projection_scale},
         });
@@ -323,7 +329,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
         std::vector<models::model_vertex> vertices;
         vertices.reserve(primitive.vertices.size());
         for(auto const &vertex : primitive.vertices) vertices.push_back({
-          .position{camera_point(vertex.position,vertex.projection_scale)},
+          .position{native ? vec3d{vertex.position} : camera_point(vertex.position,vertex.projection_scale)},
           .uv{vec2d{vertex.uv}},
           .shade{shadow ? -1 : vertex.shade},
           .projection_scale{vertex.projection_scale},

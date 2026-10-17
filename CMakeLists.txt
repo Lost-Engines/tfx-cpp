@@ -567,6 +567,11 @@ if(BUILD_TESTING)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
 
+  add_executable(model_articulation_probe tests/model_articulation_probe.cpp)
+  target_link_libraries(model_articulation_probe PRIVATE tfx_core)
+  configure_first_party(model_articulation_probe)
+  add_test(NAME render.native_model_articulation COMMAND model_articulation_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_articulation.txt)
+
   add_executable(model_jitter_probe tests/model_jitter_probe.cpp)
   target_link_libraries(model_jitter_probe PRIVATE tfx_core)
   configure_first_party(model_jitter_probe)
