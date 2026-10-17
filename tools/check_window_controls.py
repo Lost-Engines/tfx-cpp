@@ -99,12 +99,10 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             tap('Prior')
             for _ in range(7):tap('1')
             tap('o');tap('z')
-            zoom_a=directory/'zoom-a.png';zoom_b=directory/'zoom-b.png'
-            run('import','-window',window,str(zoom_a),check=True);tap('period')
-            run('import','-window',window,str(zoom_b),check=True)
-            def zoom_readout(path):
-                with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((100,160,150,167)).tobytes()
-            if zoom_readout(zoom_a)==zoom_readout(zoom_b):raise RuntimeError('laser-designator zoom controls did not reach the live view')
+            # The original designator has a projected sprite and T/L labels,
+            # not the former temporary ZOOM text. The live camera/display
+            # arguments are observed separately by check_window_designator.py.
+            tap('period');tap('comma')
             tap('Right');tap('z')
             run('import','-window',window,str(store_before),check=True);tap('space')
             run('import','-window',window,str(store_after),check=True)

@@ -3722,3 +3722,52 @@ scheduling or the older sprite-backed model path. Native lines remain next.
 
 The complete retail scene corpus also passes 16 sanitizer frames per mission
 without warnings after the particle dispatch change.
+
+### Original laser-designator camera and overlay
+
+The laser designator no longer uses the continuous inspection camera or
+placeholder crosshairs/ZOOM text. It selects viewport 19, with the original
+159/99 projection origin, full-height bounds and normal aperture. Search and
+tracking use the original integer camera cache and Q15 view matrix. The cache
+rotates each full position dword by sixteen bits; a plain left shift would
+lose its retained fractional bits above the world-word boundary.
+
+The authored `targcros.spr` marker follows the actual projected ground point.
+Original T/L labels use ink 16 and independent two-draw search/tracking phases:
+search flashes T and retains L, while tracking retains T and flashes L.
+Sprite arguments zero-extend the projected words; label offsets sign-extend
+their resulting words. A failed (-1,-1) projection consequently hides the
+sprite, rather than clipping a stray marker into the upper-left corner.
+The first designation frame retains its search presentation; subsequent
+tracking follows the selected point. Native view selection, joystick view
+buttons, automatic landing and ejection/loss transitions leave the designator.
+
+`tools/check_designator.py` compares **1,024 complete original search/tracking
+controller updates**, with 595 nonempty overlays. Original gimbals, zoom,
+integer camera setter, view matrix setter, reciprocal target projection,
+sprite painter, glyph painter, blink stores and redraw flag execute. Supplied
+inputs include keyboard states, inherited gimbal/zoom state, player pose,
+designated Q8 points and projection origins. Each complete 64,000-pixel image,
+coverage image and retained camera/indicator state agrees.
+
+Only world/horizon drawing, VGA batching and resource lookup are external
+boundaries: the capture supplies a uniform previously drawn background and
+the exact original marker bank. Horizon pitch/roll/height arguments are
+observed, not replaced with C++ values; the horizon painter has its separate
+native comparisons. These are complete controller/overlay comparisons, not
+complete original world frames or acquisition/session captures. Ninety-five
+compact camera/projection fixtures are asset-free and run in the regular suite.
+
+All **175 regressions** pass in development and Release. Release additionally
+compares 256 complete original designator updates. Every retail mission
+composes 64 development frames without warnings. A private silent window
+observes actual search/zoom camera and search/tracking display calls using
+normal keys, then verifies unlock, F1 cockpit return, pause and clean exit;
+no target, controller or outcome state is injected. Broader private-window
+checks retain MFDs, weapon/cannon views, ground release and real FINISH handoff.
+
+The **175-test** suite also passes ASan/UBSan, with another 256 complete original
+designator controller/overlay comparisons. All 128 retail missions pass 16
+sanitizer frames without warnings. The live observer additionally enters the
+designator again and ejects through normal Escape input, confirming that the
+real ejection camera replaces it; both development and sanitizer builds pass.
