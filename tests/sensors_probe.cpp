@@ -35,6 +35,20 @@ int main(int const argc, char const *const argv[]) try {
       for(auto const &slot : radar.slots) values.push_back(slot ? static_cast<int>(*slot) : -1);
       values.push_back(radar.hostile_nearby);
       if(announcements) values.insert(values.end(),{radar.nearby_hostile_count,report.more_hostiles,report.announced_actor ? static_cast<int>(*report.announced_actor) : -1});
+    } else if(command == 'B') {
+      vec2<int16_t> centre, projected;int16_t lock, acquisition;bool close;
+      input >> centre.x >> centre.y >> projected.x >> projected.y >> lock >> acquisition >> close;
+      tfx::sensors::air_lock state{
+        .tracking{7},
+        .guidance{7},
+        .reticle{-12345,67890},
+        .projected{vec2<int16_t>{projected}},
+        .lock_ticks{lock},
+        .acquisition_ticks{acquisition},
+        .too_close{close},
+      };
+      state.begin_mission(centre);
+      values = {state.tracking.has_value(),state.guidance.has_value(),state.reticle.x,state.reticle.y,state.projected.x,state.projected.y,state.lock_ticks,state.acquisition_ticks,state.too_close};
     } else if(command == 'L') {
       unsigned int flags{0},category{0},role{0},target_class{0},ticks{0},pitch{0},heading{0},target_heading{0};
       int minimum{0},range{0},lock_ticks{0},acquisition_ticks{0},project_x{0},project_y{0}; int32_t px{0},py{0},pz{0},x{0},y{0},z{0},ret_x{0},ret_y{0};

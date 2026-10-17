@@ -63,6 +63,21 @@ for index in range(100):
  values.extend(int(x) for x in (flight['acceleration'],flight['input_ticks'],actor['wait_seconds'],actor['actions'],pose['flags'],pose['leader'],pose['formation'],actor['scan_cursor'],actor['player_shots']))
  actors.append(values)
 print('CPP_WORLD '+json.dumps({'random':[int(air['random']['low']),int(air['random']['high'])],'actors':actors}))
+player=gdb.parse_and_eval('$player').dereference()
+body=player['physical']['view']['orientation']
+print('CPP_BODY '+json.dumps([int(body[axis][component]) for component in ('x','y','z') for axis in ('right','down','forward')]))
+frame=gdb.newest_frame()
+while frame:
+ try:radar=frame.read_var('radar');seeker=frame.read_var('seeker');break
+ except (gdb.error,ValueError):frame=frame.older()
+if frame is None:raise RuntimeError('No actual flight sensors in observed call stack')
+def identity(value):
+ return int(value['_M_payload']['_M_payload']['_M_value']) if bool(value['_M_payload']['_M_engaged']) else -1
+values=[int(radar['cursor']),identity(radar['selected']),*[identity(radar['slots']['_M_elems'][i]) for i in range(20)],int(radar['hostile_nearby']),int(radar['nearby_hostile_count']),identity(seeker['guidance']),identity(seeker['tracking'])]
+values += [int(seeker[name][axis]) for name in ('reticle','projected') for axis in ('x','y')]
+values += [int(seeker[name]) for name in ('lock_ticks','acquisition_ticks','too_close')]
+print('CPP_SENSORS '+json.dumps(values))
+
 renderer=current_renderer()
 image=renderer['output']['pixels']['_M_elems']
 raw=bytes(gdb.selected_inferior().read_memory(int(image.address),64000))
@@ -87,6 +102,15 @@ class AnimationAdvance(gdb.Breakpoint):
   AnimationReturn()
   return False
 AnimationAdvance('tfx::world::scene::advance',internal=True)
+end
+break tfx::sensors::air_lock::begin_mission
+commands
+silent
+python
+origin=gdb.parse_and_eval('projection_origin')
+print('CPP_PREFLIGHT '+json.dumps([int(origin[axis]) for axis in ('x','y')]))
+end
+continue
 end
 break tfx::cockpit::radio_ticker::show
 commands

@@ -176,6 +176,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   }
   for(unsigned int index{0}; index != cockpit_steps.size(); ++index) cockpit_steps[index] = source.signed_le16(data + 0x6018 + index * 2);
   for(unsigned int index{0}; index != cockpit_shake_steps.size(); ++index) cockpit_shake_steps[index] = source.signed_le16(data + 0x6044 + index * 2);
+  for(unsigned int index{0}; index != cockpit_bump_stop.size(); ++index) cockpit_bump_stop[index] = source.signed_le16(data + 0x6050 + index * 2);
 }
 
 } // namespace tfx::cockpit

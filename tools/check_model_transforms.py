@@ -17,6 +17,7 @@ from native_vga import VgaCapture
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--immediate',action='store_true',help='execute original CBFEC directly rather than a deferred constructor/flush')
 p.add_argument('--gouraud',action='store_true',help='verify forced-flat shadows of authored Gouraud model faces')
+p.add_argument('--effects',action='store_true',help='include authored one/two-pixel lights and lines beside the polygon')
 p.add_argument('--shadow',action='store_true',help='exercise the original flattened black ground-shadow constructor')
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=1024);p.add_argument('--record',type=Path)
 a=p.parse_args();assert not a.gouraud or a.shadow;assert not a.immediate or not a.shadow;im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);code=lambda off:im.native(0x70aa4+off)
@@ -32,7 +33,9 @@ def model(vertices,scale):
  def emit(words):data.extend(struct.pack('>'+str(len(words))+'H',*[v&65535 for v in words]))
  put(0,32768);put(2,32767);put(34,14);put(48,65535);emit([48,scale])
  for i,v in enumerate(vertices):emit([98,i,*v])
- emit([97,3,0]);emit([76,0xc0cf,0xc700,77,0,1,2,0,65535] if a.gouraud else [2,17,0,1,2,0,65535]);return bytes(data)
+ emit([97,3,0]);emit([76,0xc0cf,0xc700,77,0,1,2] if a.gouraud else [2,17,0,1,2])
+ if a.effects:emit([1,203,0,2,92,204,2,64,51,201,0,52,202,1])
+ emit([0,65535]);return bytes(data)
 rng=random.Random(0xb972a);rows=[]
 identity=[32767,0,0,0,32767,0,0,0,32767]
 for case in range(a.cases):
@@ -44,7 +47,7 @@ for case in range(a.cases):
  vertices=[[rng.randrange(-800,801) for _ in range(3)] for _ in range(3)]
  if case%13==0:vertices[2]=list(vertices[1])
  rows.append([wide,scale,(1,255,2,254,3,253,127,128)[case%8],*angles,*matrix,*origin,*[v for point in vertices for v in point]])
-request=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode();command=[str((a.build/'model_transform_probe').resolve())]+(['--shadow'] if a.shadow else [])+(['--shaded'] if a.gouraud else [])
+request=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode();command=[str((a.build/'model_transform_probe').resolve())]+(['--shadow'] if a.shadow else [])+(['--shaded'] if a.gouraud else [])+(['--effects'] if a.effects else [])
 actual=subprocess.check_output(command,input=request).decode().splitlines();pixels=subprocess.check_output(command+['--pixels'],input=request);assert len(actual)==len(rows) and len(pixels)==len(rows)*64000
 fixtures=[];undefined=0;painted=0
 for case,(row,line) in enumerate(zip(rows,actual)):

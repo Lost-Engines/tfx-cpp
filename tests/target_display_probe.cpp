@@ -12,7 +12,7 @@ int main(int const argc, char const *const argv[]) try {
   unsigned int mode{0},sight{0},name{0};tfx::cockpit::target_display_state state;tfx::cockpit::air_target_reading target;
   vec2<int> minimum{0,0},maximum{319,199};
   while(std::cin >> mode >> sight >> name >> state.player.x >> state.player.y >> state.player.z >> target.position_q8.x >> target.position_q8.y >> target.position_q8.z >> target.heading >> target.speed_q16 >> state.projected.x >> state.projected.y >> state.tracking_q8.x >> state.tracking_q8.y >> state.offset.x >> state.offset.y) {
-    for(auto *axis : {&state.orientation.right,&state.orientation.down,&state.orientation.forward}) for(auto &coordinate : *axis) std::cin >> coordinate;
+    for(unsigned int row{0}; row != 3; ++row) for(auto *axis : {&state.orientation.right,&state.orientation.down,&state.orientation.forward}) std::cin >> (*axis)[row];
     std::cin >> minimum.x >> minimum.y >> maximum.x >> maximum.y;
     state.sight = static_cast<tfx::cockpit::target_sight>(sight);
     std::array<std::string_view,7> constexpr names{"MiG-29 Fulcrum","F-117","Efa Eurofighter","AIR AEW","C-130 tanker","SAM site","E3D"};

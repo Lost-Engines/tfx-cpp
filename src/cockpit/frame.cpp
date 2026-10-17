@@ -75,9 +75,22 @@ void cockpit_position::shake() {
   shake_step = 0;
   motion = cockpit_motion::flak_shake;
 }
+void cockpit_position::bump() { motion = cockpit_motion::ground_bump; }
 void cockpit_position::advance(int16_t const viewport_bottom, bool const forward_cockpit) {
+  int16_t constexpr end_of_shake{26};
+  if(motion == cockpit_motion::ground_bump) {
+    // Native 0x7d9d4 shares the flak cursor but tests DATA 0x6050 while
+    // subtracting DATA 0x6044. Normally this gives +4, -4, then termination.
+    // The following stop words overlap the live cursor and saved offsets.
+    std::array<int16_t,6> const stop{
+      assets.cockpit_bump_stop[0],assets.cockpit_bump_stop[1],assets.cockpit_bump_stop[2],
+      static_cast<int16_t>(shake_step),shake_origin.x,shake_origin.y,
+    };
+    if(stop.at(shake_step) == end_of_shake) { motion = cockpit_motion::idle;shake_step = 0; }
+    else offset.y = math::signed_word(static_cast<uint16_t>(offset.y - assets.cockpit_shake_steps.at(shake_step++)));
+    return;
+  }
   if(motion == cockpit_motion::flak_shake) {
-    int16_t constexpr end_of_shake{26};
     if(!forward_cockpit || assets.cockpit_shake_steps.at(shake_step) == end_of_shake) {
       motion = cockpit_motion::idle;
       shake_step = 0;

@@ -40,6 +40,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     assert expected['mission']==a.mission and expected['flight_model']==a.flight_model and expected['ticks_per_frame']==4,'native capture configuration differs'
     assert expected['presentation_numbers']=={'mission':a.mission,'arcade':1},'native capture inherited campaign state differs'
     assert len(expected['snapshots'])>a.frames,'native capture is shorter than the requested session'
+    if 'reference' in expected:
+        for name,key in (('TFX.DAT','executable_sha256'),('DID.DAT','archive_sha256')):
+            assert hashlib.sha256((original/name).read_bytes()).hexdigest()==expected['reference'][key],('native capture resource differs',name)
     env=dict(os.environ)
     # LSan cannot inspect a process under ptrace; ordinary sanitizer tests keep it enabled.
     env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
@@ -62,6 +65,13 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     radio=records('CPP_RADIO ')
     wanted_radio=[event for event in expected['radio_events'] if event['frame']<=a.frames]
     assert radio==wanted_radio,('radio requests',radio,wanted_radio)
+    for field,prefix in (('body_basis','CPP_BODY '),('sensors','CPP_SENSORS ')):
+        if field in expected['snapshots'][1]:
+            actual_records=records(prefix)
+            wanted_records=[snapshot[field] for snapshot in expected['snapshots'][1:a.frames+1]]
+            assert actual_records==wanted_records,(field,[(i,got,want) for i,(got,want) in enumerate(zip(actual_records,wanted_records),1) if got!=want][:4])
+    if 'preflight_projection' in expected:
+        assert records('CPP_PREFLIGHT ')==[expected['preflight_projection']],('preflight projection',records('CPP_PREFLIGHT '),expected['preflight_projection'])
     if 'animation' in expected['snapshots'][1]:
         animation=records('CPP_ANIMATION ')
         assert animation==[snapshot['animation'] for snapshot in expected['snapshots'][1:a.frames+1]],('animation',animation,[snapshot['animation'] for snapshot in expected['snapshots'][1:a.frames+1]])
@@ -77,5 +87,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     actual=(root/'cpp.indices').read_bytes();image=(native/f'frame-{a.frames}.indices').read_bytes()
     assert len(actual)==len(image)==64000
     differences=sum(x!=y for x,y in zip(actual,image))
-    print(f'Mission {a.mission}, {a.flight_model}, {a.frames} complete frames: player, actors, shared RNG, radio, camera and horizon state agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
+    verified=['player','actors','shared RNG','radio','camera','horizon']
+    verified += [field for field in ('body_basis','sensors','animation') if field in expected['snapshots'][1]]
+    print(f'Mission {a.mission}, {a.flight_model}, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
     if a.strict_pixels:assert not different_frames,('whole-frame pixels',different_frames[:20],differences)

@@ -182,9 +182,15 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   if(campaign_flight && !inspect && !mission_setup.default_weapons) {
     if(!arm_mission(*shared_window,game,tables,armament,mission_setup.aircraft,mission_setup.weapons)) return flight_result::quit;
   }
+  if(!mission_setup.default_weapons) {
+    // Original arming leaves the last weapon thumbnail's aperture installed.
+    // Direct launches reproduce DEFAULT/DONE's renderer handoff too.
+    auto const &last_thumbnail{tables.arming_art().rows.back()};
+    options.projection_origin = (last_thumbnail.minimum + last_thumbnail.maximum) / int16_t{2};
+  }
   auto const initial_stores{armament.pylons};
   tfx::sensors::air_contacts radar;
-  tfx::sensors::air_lock seeker;
+  auto &seeker{options.seeker};
   std::vector<tfx::sensors::air_contact> radar_actors;
   tfx::sensors::designator designator;
   bool designator_view{false},designator_tracking_frame{false};
@@ -907,7 +913,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     impact_aircraft.reset();
     radar = {};
     radar.nearby_hostile_count = options.nearby_hostile_count;
-    seeker = {};
+    seeker.begin_mission(options.projection_origin);
     designator = {};
     designator_view = designator_tracking_frame = false;
     views = tfx::cockpit::view_control{};
@@ -972,11 +978,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     // Native 0x7205c gates animation before the player obtains this frame's time.
     auto const scene_update{scene.advance(previous_animation_ticks)};
     previous_animation_ticks = elapsed;
-    // Native 0x720b8 advances the previous cockpit callback before flight/flak.
-    cockpit_position.advance(tables.instruments().viewports[view_index()].bottom,!designator_view && views.value().current == tfx::cockpit::view_mode::cockpit);
-    for(auto const index : mission_time.begin_frame()) {
-      radio.show(mission_setup.messages[index].text);
-    }
     launch_elapsed = elapsed;
     if(sound) { sound->advance(elapsed);sound->update_flight(flight_audio()); }
     auto const previous{vec3<int32_t>{player.integer_position}};
@@ -1089,6 +1090,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .aircraft_disabled{player_disabled},
       .water_world{environment.lighting.water_world},
     })};
+    if(update.aerodynamic.ground.cockpit_bump) cockpit_position.bump();
     if(preferences.effects.g_force != tfx::configuration::g_effects::none) tfx::render::advance_g_effects(g_effects,simple_player.displayed_g_load,preferences.effects.g_force,elapsed);
     else g_effects = {};
     if(update.horizon_motion) ground_phase.advance(*update.horizon_motion);
@@ -1131,6 +1133,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     // Native 0x86898 fires the held Space key after its player-physics callback, before other actors update.
     // Original nonzero checks read FLP and COM slots, despite their unrelated display names.
     fire_gun(fire);
+    // Native 0x720b8 follows player physics/cannon, then 0x71b40 sends timed
+    // messages. Suspension bumps apply now; later flak starts next frame.
+    cockpit_position.advance(tables.instruments().viewports[view_index()].bottom,!designator_view && views.value().current == tfx::cockpit::view_mode::cockpit);
+    for(auto const index : mission_time.begin_frame()) radio.show(mission_setup.messages[index].text);
     std::vector<tfx::missions::target_life> targets;
     for(auto const &target : mission_setup.targets) targets.push_back(scene.terrain_intact(static_cast<unsigned int>(target.position.x / tfx::world::cell_units),static_cast<unsigned int>(target.position.z / tfx::world::cell_units)) ? tfx::missions::target_life::alive : tfx::missions::target_life::dead);
     for(auto const &event : mission_progress.begin_frame({
@@ -1453,6 +1459,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         });
         queue_projectiles();
         select_actor_draw_region(request.position);
+        options.projection_origin = vec2<int16_t>{camera.projection_origin};
         auto const rendered{scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); },request.position.y,ground.height,tfx::world::scene_pass::instrument)};
         if(rendered.eject_player) ejection.request();
         // The current world painter renders a whole software target; copy its viewport
@@ -1539,7 +1546,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           .heading{actor.angles.y},
           .speed_q16{actor.speed},
         },
-        .orientation{player.orientation},
+        .orientation{body_basis()},
         .projected{vec2<int16_t>{seeker.projected}},
         .tracking_q8{vec2<int32_t>{seeker.reticle}},
         .acquiring{seeker.tracking.has_value()},
@@ -1556,7 +1563,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           .heading{actor.angles.y},
           .speed_q16{actor.speed},
         },
-        .orientation{player.orientation},
+        .orientation{body_basis()},
         // The original refuelling HUD precedes acquisition and shares its
         // retained projected point, independently of the selected actor data.
         .projected{vec2<int16_t>{seeker.projected}},
@@ -1705,6 +1712,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     queue_projectiles();
     scene.set_query_reference(inspect ? nullptr : &player.integer_position);
     if(!inspect) select_actor_draw_region(designator_view ? designator.camera : view_motion.last_pose().anchor);
+    options.projection_origin = vec2<int16_t>{view.projection_origin};
     auto const rendered{scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},ground.height)};
     if(rendered.eject_player) ejection.request();
     if(!inspect && !result_evaluated) {

@@ -6,6 +6,8 @@
 namespace tfx::sensors {
 namespace {
 
+int16_t constexpr initial_lock_ticks{500};
+
 int32_t subtract(int32_t const a, int32_t const b) { return std::bit_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }
 int32_t magnitude(int32_t const value) { return value < 0 ? subtract(0,value) : value; }
 int16_t word(int32_t const value) { return math::signed_word(static_cast<uint16_t>(value)); }
@@ -71,6 +73,14 @@ unsigned int air_contacts::count() const {
   return static_cast<unsigned int>(std::ranges::count_if(slots,[](auto const &slot) { return slot.has_value(); }));
 }
 
+void air_lock::begin_mission(vec2<int16_t> const &projection_origin) {
+  // Native 0x930d4 leaves the projected target and too-close flag alone.
+  // Its reticle starts at the renderer's inherited preflight aperture centre.
+  tracking.reset();guidance.reset();
+  reticle = {static_cast<int32_t>(projection_origin.x) * 256,static_cast<int32_t>(projection_origin.y) * 256};
+  lock_ticks = initial_lock_ticks;acquisition_ticks = 0;
+}
+
 void air_lock::clear(vec2<int16_t> const &centre) {
   guidance.reset(); tracking.reset();
   reticle = {static_cast<int32_t>(centre.x) * 256,static_cast<int32_t>(centre.y) * 256};
@@ -109,7 +119,7 @@ void advance_air_lock(air_lock &state, air_contacts &radar, std::span<air_contac
   auto const difference{vec2<int32_t>{static_cast<int32_t>(state.projected.x) - (state.reticle.x >> 8),static_cast<int32_t>(state.projected.y) - (state.reticle.y >> 8)}};
   uint32_t const square{static_cast<uint32_t>(difference.x) * static_cast<uint32_t>(difference.x) + static_cast<uint32_t>(difference.y) * static_cast<uint32_t>(difference.y)};
   uint16_t const distance{static_cast<uint16_t>(std::sqrt(static_cast<double>(square)))};
-  state.lock_ticks = 500;
+  state.lock_ticks = initial_lock_ticks;
   int32_t const movement{static_cast<int32_t>(context.elapsed) * 15 * 256 / 50};
   if(static_cast<int32_t>(distance) * 256 <= movement) { state.guidance = found->actor; return; }
   for(unsigned int axis{0}; axis != 2; ++axis) {
