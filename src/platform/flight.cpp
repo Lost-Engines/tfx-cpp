@@ -585,7 +585,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       bool const released{tfx::weapons::has_swept_contacts(shot.state.motion)};
       // Native player dispatch precedes the source-destroyed test and has no ejection gate.
       if(released && !options.cheat.value().enabled && shot.owner.pool != tfx::weapons::actor_pool::player) scene.collide_actor(player_visual,previous,current,damage,response,damage_player);
-      if(!scene.actor_destroyed(source) && released && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::chaff) && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::flare)) {
+      // Native A384F tests this before actor contacts, then still performs
+      // the terrain/effect tail when one of those contacts destroys the shot.
+      bool const contact_source_alive{!scene.actor_destroyed(source)};
+      if(contact_source_alive && released && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::chaff) && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::flare)) {
         int32_t const broad_phase{std::bit_cast<int32_t>(static_cast<uint32_t>(shot.state.speed) * ticks * 20u)};
         for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) {
           auto const &actor{air_simulation.aircraft()[index]};
@@ -624,7 +627,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         }
         for(auto const handle : fixed_scenery) scene.collide_actor(handle,previous,current,damage,response);
       }
-      if(!scene.actor_destroyed(source)) {
+      if(contact_source_alive) {
         bool const terrain_destroyed{scene.terrain_destroyed(current)};
         scene.collide_terrain(previous,current,damage,false,response);
         if(!terrain_destroyed && scene.terrain_destroyed(current)) {
@@ -646,7 +649,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           if(shot.state.weapon == std::to_underlying(tfx::weapons::weapon_id::cbu55)) spawn_effect({current.x,0,current.z},tfx::world::effect_kind::boom);
         }
         // Every retail TFX environment sets native environment bit 1, enabling
-        // clatter after a terrain query destroys the shot (0xa3a7c).
+        // clatter after either actor or terrain contacts destroy the shot.
         if(scene.actor_destroyed(source)) spawn_effect(current,tfx::world::effect_kind::clatter);
       }
       if(scene.actor_destroyed(source)) {
@@ -1474,7 +1477,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       });
     }
     std::vector<tfx::cockpit::radar_projectile> radar_projectiles;
-    for(auto const &[_,shot] : projectiles.projectiles()) if(!shot->spent) radar_projectiles.push_back({
+    // Native 82FBE walks the intrusive list newest first. Overlapping player
+    // and enemy missile markers retain that order, independently of identity.
+    for(auto const &[_,shot] : projectiles.projectiles() | std::views::reverse) if(!shot->spent) radar_projectiles.push_back({
       .position_q8{vec3<int32_t>{shot->state.position}},
       .weapon{static_cast<tfx::weapons::weapon_id>(shot->state.weapon)},
       .player_owned{shot->owner.pool == tfx::weapons::actor_pool::player},
