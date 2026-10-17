@@ -24,21 +24,30 @@ void progress::reset() {
   outcome = session_outcome::normal; status = session_status::normal;
 }
 
-bool progress::observe_player_loss(bool const fatal, bool const collision, simulation::timer_ticks const elapsed, bool const invulnerable) {
+player_loss_effects progress::observe_player_loss(player_loss_context const &context) {
   // Native 0x7d270: loss/ejection and impact are separate stages; the post-impact exit waits strictly past zero.
-  bool first_ejection{false};
-  if((!invulnerable || player_ejected) && (fatal || collision)) {
-    first_ejection = !player_ejected;
+  player_loss_effects effects;
+  if((!context.invulnerable || player_ejected) && (context.fatal || context.collision)) {
+    effects.first_loss = !player_ejected;
     player_ejected = true;
     outcome = session_outcome::aircraft_lost;
     status = session_status::aircraft_lost;
+    if(effects.first_loss && !context.collision) {
+      int32_t constexpr mayday_height{-200};
+      effects.explosion = true;
+      effects.mayday = context.height < mayday_height;
+    }
   }
-  if(collision && !impact_started) { impact_started = true; death_ticks = 200; }
+  if(context.collision && !impact_started) {
+    impact_started = true;
+    death_ticks = 200;
+    effects.explosion = true;
+  }
   if(impact_started) {
-    death_ticks = word(death_ticks - elapsed);
+    death_ticks = word(death_ticks - context.elapsed);
     if(death_ticks < 0) ended = true;
   }
-  return first_ejection;
+  return effects;
 }
 
 loss_effects progress::record_air_loss(bool const enemy_pool, int16_t const type, bool const player_owned, bool const authorised, math::random_state &random) {

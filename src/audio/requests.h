@@ -28,6 +28,7 @@ enum class sample_id : unsigned int {
   landing_stopped = 49,
   recovery = 62,
   fill_up = 69,
+  mayday = 72,
   afterburner = 75,
 };
 
