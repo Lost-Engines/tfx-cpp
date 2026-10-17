@@ -82,6 +82,8 @@ struct instrument_assets {
   double autopilot_height_scale;
   std::string radar_bank;
   std::string radar_format;
+  std::string nearby_fighters_message;
+  std::string cleared_for_takeoff_message;
   std::array<radar_scale,4> horizontal_scales;
   std::array<radar_scale,3> bvr_scales;
   std::array<vec2<int16_t>,40> bvr_envelope;

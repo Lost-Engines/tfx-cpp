@@ -26,6 +26,7 @@ void runtime::advance(simulation::timer_ticks const elapsed) { effects.advance(e
 void runtime::sample(sample_priority const priority, unsigned int const id) { effects.submit(priority,{&id,1}); }
 void runtime::sample(sample_priority const priority, sample_id const id) { sample(priority,std::to_underlying(id)); }
 void runtime::sequence(sample_priority const priority, std::initializer_list<unsigned int> const ids) { effects.submit(priority,ids); }
+void runtime::sequence(sample_priority const priority, std::span<unsigned int const> const ids) { effects.submit(priority,ids); }
 void runtime::render(std::span<float> const stereo) noexcept {
   std::ranges::fill(stereo,0);
   // Device callbacks must not propagate exceptions into the platform backend.

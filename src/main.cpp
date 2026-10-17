@@ -227,6 +227,7 @@ auto main(int const argc, char const *const argv[])->int try {
   vec3<int32_t> ground_reference{0,0,0};
   tfx::render::precipitation rain;
   tfx::math::random_state session_random;
+  int16_t nearby_hostile_count{0};
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -245,6 +246,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .sky{sky_state},
     .ground_phase{ground_phase},
     .ground_reference{ground_reference},
+    .nearby_hostile_count{nearby_hostile_count},
     .rain{rain},
     .session_random{session_random},
     .sound{sound.get()},

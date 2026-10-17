@@ -3981,3 +3981,45 @@ numbers in JSON. Arcade scoring/permission eligibility matches the C++ direct
 `--mission` runner independently of the numerical flight model. Radio calls are
 now observed in the original JSON and read-only C++ GDB log, rather than being
 inferred from the displayed characters alone.
+
+
+### AWACS contact reports and launch radio
+
+The working forward HUD's radar scan (`0x836ac`) now retains the original
+nearby-enemy count and reports increases within 25 miles, separately from its
+50-mile contact admission. It selects the original farthest qualifying aircraft,
+delivers the idle-only ticker notice, queues urgent spoken bearing/altitude and
+requests flight music cue 2. The count survives mission changes as DATA 0x7774
+does; it is not a new-mission reset. Landed starts also issue the original
+`CLEARED FOR TAKEOFF` call from `0x7df30`. Radio advancement follows the scan,
+so an announcement participates in the current frame rather than one frame late.
+
+`check_sensors.py --announcements` compares 1,024 persistent original radar
+frames and 4,096 seeker states, including announcement count, eligibility and
+chosen actor. `check_radar_voice.py` additionally executes the complete native
+`0xa4e80` numeric builders: **4,096 sample sequences agree**, covering guards,
+zero, teens/tens, hundreds, lookup-table tail and urgent submission. Its compact
+fixture contains sample-slot numbers, not recordings. The original overlapping
+number lookup is preserved; inputs that index beyond its defined storage are
+not presented as verified behaviour.
+
+Whole-session comparison now checks actual ordered radio requests, including
+calls before frame 1, as well as every retained state and image. The F-22's
+mission-601 Arcade run agrees on all observed state, radio and every indexed
+pixel through 16 frames. Mission 501's 256-frame run agrees on player, AI,
+random, camera and radio state; remaining image differences are investigated
+independently. `--native-capture DIRECTORY` reuses a matching immutable original
+capture for C++ reruns after checking mission, flight model, inherited campaign
+state and duration; fresh original capture remains the default.
+
+### Sky submission and scenery ties
+
+The original sun/lightning model enters the bounded drawing queue before
+terrain and moving objects. Previously it was submitted at the end. Even an
+offscreen sun affects quicksort's equal-priority order, causing visible ground
+polygons to cover one another differently. A complete native/C++ submission
+trace identified the displaced entry; the production scene now submits queued
+sky models first. This removes the persistent 13-pixel runway-edge discrepancy
+in the landed F-117 capture without changing polygon rasterisation. Through
+16 frames, 14 F-117 images now agree exactly; two retain small animated-scenery
+differences under investigation.

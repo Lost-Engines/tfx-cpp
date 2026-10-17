@@ -5,9 +5,10 @@
 #include "sensors/air.h"
 
 int main(int const argc, char const *const argv[]) try {
-  bool const check{argc == 2};
+  bool const announcements{argc > 1 && std::string_view{argv[1]} == "--announcements"};
+  bool const check{argc == (announcements ? 3 : 2)};
   std::ifstream fixture;
-  if(check) fixture.open(argv[1]);
+  if(check) fixture.open(argv[announcements ? 2 : 1]);
   std::istream &input{check ? fixture : std::cin};
   if(!input) throw std::runtime_error{"cannot read sensor fixture"};
   tfx::sensors::air_contacts radar;
@@ -28,11 +29,12 @@ int main(int const argc, char const *const argv[]) try {
           .enemy_pool{enemy != 0},
         });
       }
-      radar.update({px,py,pz},contacts);
+      auto const report{radar.update({px,py,pz},contacts)};
       if(cycle) radar.next();
       values.insert(values.end(),{radar.cursor,radar.selected ? static_cast<int>(*radar.selected) : -1});
       for(auto const &slot : radar.slots) values.push_back(slot ? static_cast<int>(*slot) : -1);
       values.push_back(radar.hostile_nearby);
+      if(announcements) values.insert(values.end(),{radar.nearby_hostile_count,report.more_hostiles,report.announced_actor ? static_cast<int>(*report.announced_actor) : -1});
     } else if(command == 'L') {
       unsigned int flags{0},category{0},role{0},target_class{0},ticks{0},pitch{0},heading{0},target_heading{0};
       int minimum{0},range{0},lock_ticks{0},acquisition_ticks{0},project_x{0},project_y{0}; int32_t px{0},py{0},pz{0},x{0},y{0},z{0},ret_x{0},ret_y{0};

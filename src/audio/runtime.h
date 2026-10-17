@@ -34,6 +34,7 @@ public:
   void sample(sample_priority priority, unsigned int id);
   void sample(sample_priority priority, sample_id id);
   void sequence(sample_priority priority, std::initializer_list<unsigned int> ids);
+  void sequence(sample_priority priority, std::span<unsigned int const> ids);
   void render(std::span<float> stereo) noexcept;
 };
 

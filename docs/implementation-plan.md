@@ -332,3 +332,14 @@ zoom, camera caches/matrices, projection, pixels, coverage and blink state;
 normal private-window input reaches each live consumer and returns to flight.
 Complete world/session scheduling and acquisition context remain independent
 gates, alongside native line precision and legacy sprite-backed models.
+
+
+Complete native-session capture now executes real launch, DEFAULT/DONE arming,
+player/AI updates, camera, world/HUD composition and frame-tail events. Every
+frame is checked, with radio requests and procedural state observed separately.
+Arcade mission 501 agrees on its observed state through 256 frames; Simple
+through 64, and both advanced flight models through 32. The F-22 also agrees on
+every pixel through 16 frames. Landed F-117 startup, AWACS speech/ticker,
+advanced HUD readouts, actor admission and original sky submission are now
+connected. Remaining whole-frame differences and broader controlled-input /
+combat / campaign sessions remain explicit gates.
