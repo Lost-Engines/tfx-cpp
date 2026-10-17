@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed a private day/night flak region and observe its live consumers.
+"""Seed private flak or sunlight-glare inputs and observe their live consumers.
 
 This explicitly supplies a height, small region and local flak RNG state in the
 private process. The complete controller/pool has separate native comparisons;
@@ -18,6 +18,7 @@ p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--data-dir',type=Path,required=True)
 p.add_argument('--mission')
 p.add_argument('--night',action='store_true')
+p.add_argument('--sun',action='store_true',help='supply a centred sun-facing projection instead of a flak region')
 a=p.parse_args();a.mission=a.mission or ('508' if a.night else '503')
 with tempfile.TemporaryDirectory(prefix='tfx-flak-') as temporary:
  directory=Path(temporary);install=directory/'TFX';install.mkdir()
@@ -48,10 +49,28 @@ with tempfile.TemporaryDirectory(prefix='tfx-flak-') as temporary:
    'break tfx::world::scene::draw if $spawned','commands','silent',
    'printf "TFX_FLAK_DRAWN\\n"','disable 4','continue','end']
   if not a.night:
-   script += ['break tfx::render::palette_lighting::flash if level == 40','commands','silent',
+   script += ['break tfx::render::palette_lighting::flash if level == 40 && $spawned','commands','silent',
     'printf "TFX_FLAK_FLASH\\n"','disable 5','continue','end',
     'break tfx::cockpit::cockpit_position::shake','commands','silent',
     'printf "TFX_FLAK_SHAKEN\\n"','disable 6','continue','end']
+  if a.sun:
+   script=['set pagination off','set confirm off','set startup-with-shell off','set print thread-events off','set $flashed = 0',
+    'break tfx::render::glare_level','commands','silent',
+    'set context.camera_anchor.x = 0','set context.camera_anchor.y = 0','set context.camera_anchor.z = 0',
+    'set context.cloud_layer = false','set context.flak_flash = false',
+    'set context.view = tfx::cockpit::view_mode::cockpit',
+    'set projection.position_q16.x = 0','set projection.position_q16.y = 0','set projection.position_q16.z = 0']
+   for index,value in enumerate((32767,0,0,0,-32767,32767,0,-32767,-32767)):
+    script.append(f'set projection.matrix.data[{index}] = {value}')
+   script += ['printf "TFX_FLAK_SEEDED\\n"','disable 1','continue','end',
+    'break tfx::render::palette_lighting::flash if level == 1','commands','silent',
+    'set $flashed = 1','printf "TFX_FLAK_FLASH\\n"','disable 2','continue','end',
+    'break tfx::render::palette_lighting::advance if $flashed','commands','silent',
+    'printf "TFX_FLAK_PAINTED\\n"','disable 3','continue','end',
+    'break tfx::world::scene::draw if $flashed','commands','silent',
+    'printf "TFX_FLAK_DRAWN\\n"','disable 4','continue','end',
+    'break tfx::weapons::runtime::advance','commands','silent',
+    'printf "TFX_FLAK_READY\\n"','disable 5','continue','end']
   debugger=directory/'observe.gdb';debugger.write_text('\n'.join(script+['run'])+'\n');log=directory/'game.log'
   with log.open('w') as output:
    game=subprocess.Popen(['gdb','--quiet','--batch','-x',str(debugger),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',a.mission,'--scale','2'],env=env,stdout=output,stderr=subprocess.STDOUT)
@@ -68,10 +87,16 @@ with tempfile.TemporaryDirectory(prefix='tfx-flak-') as temporary:
     time.sleep(.05)
    if not window:raise RuntimeError(log.read_text()[-6000:])
    run('xdotool','windowfocus','--sync',window)
-   for label in (('SEEDED','SPAWNED','POSITIONED','DRAWN') if a.night else ('SEEDED','SPAWNED','POSITIONED','DRAWN','FLASH','SHAKEN')):await_text(label)
-   run('xdotool','keydown','Shift_L+q');time.sleep(.15);run('xdotool','keyup','Shift_L+q');game.wait(timeout=15)
+   labels=('SEEDED','FLASH','PAINTED','DRAWN') if a.sun else ('SEEDED','SPAWNED','POSITIONED','DRAWN') if a.night else ('SEEDED','SPAWNED','POSITIONED','DRAWN','FLASH','SHAKEN')
+   for label in labels:await_text(label)
+   if a.sun:await_text('READY')
+   run('xdotool','keydown','Shift_L+q')
+   try:game.wait(timeout=15)
+   except subprocess.TimeoutExpired as error:raise RuntimeError('exit timed out:\n'+log.read_text()[-6000:]) from error
+   finally:run('xdotool','keyup','Shift_L+q')
    text=log.read_text();assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
-   print(('Private night flak' if a.night else 'Private day flak') + ' handoff passes: explicitly supplied region/height/RNG, real controller, correct model pool, word placement, scene drawing' + ('' if a.night else ', palette flash, cockpit shake') + ' and clean exit')
+   if a.sun:print('Private sunlight-glare handoff passes: explicitly supplied centred projection, real selector, strongest glare level, palette painter, world drawing and clean exit')
+   else:print(('Private night flak' if a.night else 'Private day flak') + ' handoff passes: explicitly supplied region/height/RNG, real controller, correct model pool, word placement, scene drawing' + ('' if a.night else ', palette flash, cockpit shake') + ' and clean exit')
  finally:
   for process in (game,display):
    if process is not None and process.poll() is None:

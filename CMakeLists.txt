@@ -153,6 +153,7 @@ add_library(tfx_core
   src/cockpit/hud_alerts.cpp
   src/cockpit/hud_alerts.h
   src/render/palette_lighting.cpp
+  src/render/glare.cpp
   src/render/palette_lighting.h
   src/render/palette_selection.cpp
   src/render/palette_selection.h
@@ -915,6 +916,11 @@ if(BUILD_TESTING)
   target_link_libraries(dac_probe PRIVATE tfx_core)
   configure_first_party(dac_probe)
   add_test(NAME render.native_vga_dac COMMAND dac_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/dac.txt")
+  add_executable(glare_probe tests/glare_probe.cpp)
+  target_link_libraries(glare_probe PRIVATE tfx_core)
+  configure_first_party(glare_probe)
+  add_test(NAME render.native_sunlight_glare COMMAND glare_probe ${PROJECT_SOURCE_DIR}/tests/reference/glare.txt)
+
   add_executable(palette_lighting_probe tests/palette_lighting_probe.cpp)
   target_link_libraries(palette_lighting_probe PRIVATE tfx_core)
   configure_first_party(palette_lighting_probe)

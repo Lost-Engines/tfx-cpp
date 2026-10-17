@@ -2506,3 +2506,37 @@ comparisons pass in development, Release and ASan/UBSan. The private daytime
 flak test observes the live shake request, burst model and palette flash in
 development and sanitizers, then exits cleanly. Its region/height/random inputs
 remain explicitly controlled rather than a naturally reached flak encounter.
+
+
+### Sunlight glare and the complete flash selector
+
+The live day-mode palette now uses the complete native `0x73838` producer.
+Pending flak has priority and requests level 40. Otherwise a fixed world
+direction is projected relative to the integer camera anchor, retaining word
+source coordinates and the native reciprocal point projector. Clouds conceal
+the sun below their layer; target view excludes ordinary glare. Inclusive
+viewport bounds and the original signed-word max-plus-half-min distance select
+all 50 white-tint levels. Night environments leave this producer disabled.
+The inverse night/day-glare binding is verified for all 33 native environment
+parses, including twilight.
+
+Current camera projection is prepared before palette selection and shared with
+impact classification. The panel viewport supplies its current bounds and
+projection centre. This restores the glare effect through the existing
+altitude/protected-colour/white-tint painter; the separately authored sun model,
+full sky renderer and whole-frame equivalence remain outstanding.
+
+`check_glare.py` compares **8,192 complete original producer cases**, including
+all **50 output levels**, real matrix/translation/viewport setup and original
+point projection, cloud-height equality, target-view suppression, viewport
+edges, pending-flak precedence and signed-distance/word-wrap quirks. Nothing
+is intercepted. Synthetic camera and gate state are supplied explicitly. A
+compact asset-free fixture runs in CTest.
+
+All **116 regressions** and the full glare cases pass in development, Release
+and ASan/UBSan. A private controlled sun-facing projection reaches the real
+selector, strongest glare level, palette painter and world draw in development
+and sanitizers. The window observer now waits for flight-input readiness and
+holds quit until consumed, avoiding a short key tap being missed during
+startup. This is a supplied-input handoff check, not full sunlight/scene pixel
+equivalence.
