@@ -8,6 +8,8 @@ import hashlib
 import json
 from pathlib import Path
 renderer_pointer=None
+player_model_pointer=None
+player_model_key=None
 rendered_frames=0
 flight_frame=0
 import os
@@ -38,6 +40,20 @@ set $radar = 0
 set $projectiles = 0
 set $armament = 0
 set $scene = 0
+set $aiming = 0
+set $player_model_handle = -1
+break tfx::cockpit::weapon_display::reset_tracking
+commands
+silent
+set $aiming = this
+continue
+end
+break tfx::world::scene::set_player_rendering
+commands
+silent
+set $player_model_handle = handle.value
+continue
+end
 break tfx::world::scene::draw
 commands
 silent
@@ -80,69 +96,89 @@ end
 printf "CPP_PRE %d %d %d %u %u %u %d\n", this->basic.flight.integer_position.x, this->basic.flight.integer_position.y, this->basic.flight.integer_position.z, this->basic.flight.angles.x, this->basic.flight.angles.y, this->basic.flight.angles.z, this->basic.flight.fixed_speed
 continue
 end
-break tfx::missions::progress::finish_frame
+python
+class FrameReturn(gdb.FinishBreakpoint):
+ def __init__(self):
+  super().__init__(internal=True)
+ def stop(self):
+  global rendered_frames,player_model_pointer,player_model_key
+  gdb.execute('printf "CPP_POST %d %d %d %u %u %u %d\\n", $player->basic.flight.integer_position.x, $player->basic.flight.integer_position.y, $player->basic.flight.integer_position.z, $player->basic.flight.angles.x, $player->basic.flight.angles.y, $player->basic.flight.angles.z, $player->basic.flight.fixed_speed')
+  import json
+  air=gdb.parse_and_eval('$air').dereference()
+  actors=[]
+  for index in range(100):
+   slot=air['actors']['_M_elems'][index]
+   if not bool(slot['_M_payload']['_M_engaged']):continue
+   actor=slot['_M_payload']['_M_payload']['_M_value']
+   flight=actor['flight'];pose=flight['pose']
+   values=[index]
+   for field in ('position','angles'):
+    for axis in ('x','y','z'):values.append(int(pose[field][axis]))
+   values.append(int(pose['speed']))
+   for axis in ('x','y','z'):values.append(int(flight['angular_rate'][axis]))
+   values.extend(int(x) for x in (flight['acceleration'],flight['input_ticks'],actor['wait_seconds'],actor['actions'],pose['flags'],pose['leader'],pose['formation'],actor['scan_cursor'],actor['player_shots']))
+   actors.append(values)
+  print('CPP_WORLD '+json.dumps({'random':[int(air['random']['low']),int(air['random']['high'])],'actors':actors}))
+  player=gdb.parse_and_eval('$player').dereference()
+  body=player['physical']['view']['orientation']
+  print('CPP_LAUNCH_NOTICE '+json.dumps(int(gdb.parse_and_eval('$aiming').dereference()['tracking']['launch_frames'])))
+  print('CPP_BODY '+json.dumps([int(body[axis][component]) for component in ('x','y','z') for axis in ('right','down','forward')]))
+  radar=gdb.parse_and_eval('$radar').dereference()
+  seeker=gdb.parse_and_eval('$seeker').dereference()
+  def identity(value):
+   return int(value['_M_payload']['_M_payload']['_M_value']) if bool(value['_M_payload']['_M_engaged']) else -1
+  values=[int(radar['cursor']),identity(radar['selected']),*[identity(radar['slots']['_M_elems'][i]) for i in range(20)],int(radar['hostile_nearby']),int(radar['nearby_hostile_count']),identity(seeker['guidance']),identity(seeker['tracking'])]
+  values += [int(seeker[name][axis]) for name in ('reticle','projected') for axis in ('x','y')]
+  values += [int(seeker[name]) for name in ('lock_ticks','acquisition_ticks','too_close')]
+  print('CPP_SENSORS '+json.dumps(values))
+
+  import struct
+  armament=gdb.parse_and_eval('$armament').dereference()
+  values=[int(armament[name]) for name in ('selected','guns','last_released','cannon_role')]
+  values += [int(armament['pylons']['_M_elems'][i][name])for i in range(11)for name in ('weapon','count')]
+  values += [struct.unpack('<Q',struct.pack('<d',float(player['physical']['powerplant']['fuel'])))[0]]
+  print('CPP_ARMAMENT '+json.dumps(values))
+  projectiles=gdb.parse_and_eval('$projectiles').dereference()
+  printer=gdb.default_visualizer(projectiles['active'])
+  if printer is None:raise RuntimeError('GNU std::map printer required for read-only projectile observation')
+  children=list(printer.children());bodies=[]
+  for i in range(0,len(children),2):
+   shot=children[i+1][1].dereference();body=shot['state']
+   values=[int(shot['id']),int(body['weapon']),int(body['next_stage']),int(body['motion']),int(body['ticks'])]
+   values += [int(body[name][axis])for name in ('position','previous','angles')for axis in ('x','y','z')]
+   values += [int(body[name])for name in ('speed','fall_speed','acceleration','range')]
+   values += [int(shot[name])for name in ('spent','mount')]
+   bodies.append(values)
+  print('CPP_PROJECTILES '+json.dumps(bodies))
+  scene=gdb.parse_and_eval('$scene').dereference()
+  handle=int(gdb.parse_and_eval('$player_model_handle'))
+  key=(int(scene.address),handle)
+  if key!=player_model_key:
+   children=list(gdb.default_visualizer(scene['actors']).children())
+   player_model_pointer=next(children[i+1][1].address for i in range(0,len(children),2)if int(children[i][1])==handle)
+   player_model_key=key
+  model=player_model_pointer.dereference()
+  parts=model['state']['parts'];begin=parts['_M_impl']['_M_start'];end=parts['_M_impl']['_M_finish']
+  print('CPP_PLAYER_PARTS '+json.dumps([[int(begin[i]['parameters']['_M_elems'][p])for p in range(8)]for i in range(int(end-begin))]))
+  scene=gdb.parse_and_eval('$scene').dereference()
+  printer=gdb.default_visualizer(scene['warnings'])
+  if printer is None:raise RuntimeError('GNU std::set printer required for renderer diagnostics')
+  notes=[value['_M_dataplus']['_M_p'].string()for _,value in printer.children()]
+  if notes:print('CPP_WARNINGS '+json.dumps(notes))
+
+  renderer=current_renderer()
+  image=renderer['output']['pixels']['_M_elems']
+  raw=bytes(gdb.selected_inferior().read_memory(int(image.address),64000))
+  rendered_frames+=1
+  Path(f'cpp-frame-{rendered_frames}.indices').write_bytes(raw)
+  print('CPP_RENDER '+json.dumps({'sha256':hashlib.sha256(raw).hexdigest(),'pattern_seed':int(renderer['procedural_seed'])}))
+  return False
+end
+break tfx::weapons::runtime::finish_frame
 commands
 silent
-printf "CPP_POST %d %d %d %u %u %u %d\n", $player->basic.flight.integer_position.x, $player->basic.flight.integer_position.y, $player->basic.flight.integer_position.z, $player->basic.flight.angles.x, $player->basic.flight.angles.y, $player->basic.flight.angles.z, $player->basic.flight.fixed_speed
 python
-import json
-air=gdb.parse_and_eval('$air').dereference()
-actors=[]
-for index in range(100):
- slot=air['actors']['_M_elems'][index]
- if not bool(slot['_M_payload']['_M_engaged']):continue
- actor=slot['_M_payload']['_M_payload']['_M_value']
- flight=actor['flight'];pose=flight['pose']
- values=[index]
- for field in ('position','angles'):
-  for axis in ('x','y','z'):values.append(int(pose[field][axis]))
- values.append(int(pose['speed']))
- for axis in ('x','y','z'):values.append(int(flight['angular_rate'][axis]))
- values.extend(int(x) for x in (flight['acceleration'],flight['input_ticks'],actor['wait_seconds'],actor['actions'],pose['flags'],pose['leader'],pose['formation'],actor['scan_cursor'],actor['player_shots']))
- actors.append(values)
-print('CPP_WORLD '+json.dumps({'random':[int(air['random']['low']),int(air['random']['high'])],'actors':actors}))
-player=gdb.parse_and_eval('$player').dereference()
-body=player['physical']['view']['orientation']
-print('CPP_BODY '+json.dumps([int(body[axis][component]) for component in ('x','y','z') for axis in ('right','down','forward')]))
-radar=gdb.parse_and_eval('$radar').dereference()
-seeker=gdb.parse_and_eval('$seeker').dereference()
-def identity(value):
- return int(value['_M_payload']['_M_payload']['_M_value']) if bool(value['_M_payload']['_M_engaged']) else -1
-values=[int(radar['cursor']),identity(radar['selected']),*[identity(radar['slots']['_M_elems'][i]) for i in range(20)],int(radar['hostile_nearby']),int(radar['nearby_hostile_count']),identity(seeker['guidance']),identity(seeker['tracking'])]
-values += [int(seeker[name][axis]) for name in ('reticle','projected') for axis in ('x','y')]
-values += [int(seeker[name]) for name in ('lock_ticks','acquisition_ticks','too_close')]
-print('CPP_SENSORS '+json.dumps(values))
-
-import struct
-armament=gdb.parse_and_eval('$armament').dereference()
-values=[int(armament[name]) for name in ('selected','guns','last_released','cannon_role')]
-values += [int(armament['pylons']['_M_elems'][i][name])for i in range(11)for name in ('weapon','count')]
-values += [struct.unpack('<Q',struct.pack('<d',float(player['physical']['powerplant']['fuel'])))[0]]
-print('CPP_ARMAMENT '+json.dumps(values))
-projectiles=gdb.parse_and_eval('$projectiles').dereference()
-printer=gdb.default_visualizer(projectiles['active'])
-if printer is None:raise RuntimeError('GNU std::map printer required for read-only projectile observation')
-children=list(printer.children());bodies=[]
-for i in range(0,len(children),2):
- shot=children[i+1][1].dereference();body=shot['state']
- values=[int(shot['id']),int(body['weapon']),int(body['next_stage']),int(body['motion']),int(body['ticks'])]
- values += [int(body[name][axis])for name in ('position','previous','angles')for axis in ('x','y','z')]
- values += [int(body[name])for name in ('speed','fall_speed','acceleration','range')]
- values += [int(shot[name])for name in ('spent','mount')]
- bodies.append(values)
-print('CPP_PROJECTILES '+json.dumps(bodies))
-scene=gdb.parse_and_eval('$scene').dereference()
-printer=gdb.default_visualizer(scene['warnings'])
-if printer is None:raise RuntimeError('GNU std::set printer required for renderer diagnostics')
-notes=[value['_M_dataplus']['_M_p'].string()for _,value in printer.children()]
-if notes:print('CPP_WARNINGS '+json.dumps(notes))
-
-renderer=current_renderer()
-image=renderer['output']['pixels']['_M_elems']
-raw=bytes(gdb.selected_inferior().read_memory(int(image.address),64000))
-rendered_frames+=1
-Path(f'cpp-frame-{rendered_frames}.indices').write_bytes(raw)
-print('CPP_RENDER '+json.dumps({'sha256':hashlib.sha256(raw).hexdigest(),'pattern_seed':int(renderer['procedural_seed'])}))
+FrameReturn()
 end
 continue
 end

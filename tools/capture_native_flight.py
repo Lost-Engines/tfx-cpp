@@ -229,6 +229,15 @@ def projectile_snapshot(current):
   pointer=struct.unpack_from('<I',body,52)[0]
  return sorted(result)
 
+def player_parts_snapshot(current):
+ handle=current.read(0xe76c,'<H')[0]
+ table=current.read(0x21800,'<I')[0]
+ instance=struct.unpack('<I',current.cpu.mem_read(table+(handle-1)*4,4))[0]
+ definition=struct.unpack('<H',current.cpu.mem_read(instance,2))[0]&511
+ source=current.read(0x1b250+definition*4,'<I')[0]
+ count=current.cpu.mem_read(source+1,1)[0]
+ return [list(current.cpu.mem_read(instance+16+29*part,8))for part in range(count)]
+
 def frame_boundary(current):
  snapshots.append({
   'frame':frames[0],
@@ -246,6 +255,8 @@ def frame_boundary(current):
   'stores':[current.read(0x13374+i*2,'<2B') for i in range(11)],
   'ground_phase':current.read(0xad7c,'<i')[0],
   'body_basis':current.read(0x1345e,'<9h'),
+  'player_parts':player_parts_snapshot(current),
+  'launch_notice':current.read(0x6c41,'<B')[0],
   'sensors':sensor_snapshot(current),
   'projectiles':projectile_snapshot(current),
   'armament':[current.read(0x93b0,'<h')[0],int(not current.read(0x7140,'<B')[0]),current.read(0x16e98,'<h')[0],current.read(0x809c+20,'<B')[0],*[v for slot in range(11)for v in current.read(0x13374+slot*2,'<2B')],current.read(0x14858,'<Q')[0]],

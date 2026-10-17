@@ -20,6 +20,7 @@ parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--landing',action='store_true',help='include original ILS guidance in the NAV layout')
 parser.add_argument('--navigation',action='store_true',help='include the separate refuelling/navigation contact consumer')
+parser.add_argument('--launch',action='store_true',help='include retained five-AA-paint launch notices')
 parser.add_argument('--alerts',action='store_true',help='include BINGO/PULL UP requests and retained warning timer')
 args=parser.parse_args();directory=args.research/'installs/cd_1994_09/TFX'
 sys.path.insert(0,str(args.research/'did-unpack'));from did_unpack import Archive
@@ -73,17 +74,20 @@ if args.navigation:
     for index,row in enumerate(cases):row.extend([index%3!=0,*[value+10000 for value in row[18:21]],(index*503)%65536,200*65536])
 if args.landing:
     for index,row in enumerate(cases):row.extend([index%4!=0,index%3==0,index%2,index%200,(index*3)%200,-500,700,(index*503)%65536,10000,20000,700,800,2,-3,1000,index%3])
+if args.launch:
+    for index,row in enumerate(cases):row.append(index%11==0)
 landing_fields=[(0x8f82,'B'),(0x8f8b,'B'),(0x8f8c,'B'),(0x14984,'h'),(0x14986,'h'),(0x8f84,'h'),(0x8f86,'h'),(0x8f88,'H'),(0x1497c,'i'),(0x14978,'i'),(0x14938,'H'),(0x1493a,'H'),(0x14980,'h'),(0x14982,'h'),(0x14974,'i'),(0x8f8a,'B')]
 im.write(0x7612,'<B',0)
 command=[str((args.build/'target_tracking_probe').resolve()),str(directory)]
 if args.alerts:command.append('--alerts')
 if args.navigation:command.append('--navigation')
 if args.landing:command.append('--landing')
+if args.launch:command.append('--launch')
 output=subprocess.check_output(command,input=('\n'.join(' '.join(str(int(v)) for v in row) for row in cases)+'\n').encode())
-header_bytes=(24 if args.alerts else 16)+(64 if args.landing else 0);stride=128000+header_bytes;assert len(output)==len(cases)*stride
+header_bytes=(24 if args.alerts else 16)+(64 if args.landing else 0)+(4 if args.launch else 0);stride=128000+header_bytes;assert len(output)==len(cases)*stride
 for index,row in enumerate(cases):
     reset,mode,aircraft,weapon,limited,suppressed,locked,designated,present,acquiring,leader,x,y,tx,ty=row[:15];player=row[15:18];position=row[18:21];heading,speed=row[21:23];basis=row[23:32];ground_valid,gx,gy,dx,dy=row[32:37];ground[:]=[gx,gy]
-    if reset:im.write(0x7141,'<B',0);im.write(0x7144,'<I',0);im.call(0x7ded8)
+    if reset:im.write(0x7141,'<B',0);im.write(0x7144,'<I',0);im.write(0x6c41,'<B',0);im.call(0x7ded8)
     im.write(0x11b2a,'<H',aircraft);im.write(0x86c8,'<3H',0,0,0);im.write(0x16e9a,'<h',1760)
     slot=10 if weapon==0 else 0;im.write(0x93b0,'<h',slot);im.write(0x13374+slot*2,'<2B',weapon,1);im.write(0x809c+20,'<B',mode==2)
     im.write(0x7140,'<B',mode!=0 and weapon!=0);im.write(0x7148,'<B',mode==0);im.write(0x8860,'<B',suppressed)
@@ -102,6 +106,7 @@ for index,row in enumerate(cases):
     if args.landing:
         start=(40 if args.alerts else 37)+(6 if args.navigation else 0)
         for (field,fmt),value in zip(landing_fields,row[start:start+16]):im.write(field,'<'+fmt,value)
+    if args.launch and row[-1]:im.write(0x6c41,'<B',5)
     video.reset();events.clear()
     for plane in video.planes:plane[:]=bytes([99])*16000
     try:im.call(0x800f4,eax=limited,limit=4000000)
@@ -110,6 +115,7 @@ for index,row in enumerate(cases):
     header=[im.read(0x7141,'<B')[0],bool(im.read(0x7144,'<I')[0]),im.read(0x12c10,'<I')[0]==im.data+0x6da6,bool(events)]
     if args.alerts:header.extend([int(im.read(0x12c0c,'<I')[0]==im.data+0x6f12),im.read(0x12c1c,'<h')[0]])
     if args.landing:header.extend(im.read(field,'<'+fmt)[0] for field,fmt in landing_fields)
+    if args.launch:header.append(im.read(0x6c41,'<B')[0])
     want=struct.pack('<'+'i'*len(header),*header)+bytes(video.pixels())+bytes(video.coverage());got=output[index*stride:(index+1)*stride]
     assert got==want,(row,header,[(i,(i-header_bytes)%64000%320,(i-header_bytes)%64000//320,a,b) for i,(a,b) in enumerate(zip(got,want)) if a!=b][:30])
-print(f'Forward target composition agrees in {len(cases)} native pixel/coverage/animation/event frames'+(' including BINGO/PULL UP request, paint order and timer' if args.alerts else '')+(' and refuelling contact information/direction/marker' if args.navigation else '')+(' and ILS guidance/state' if args.landing else '')+' with declared sensor, projection and audio boundaries')
+print(f'Forward target composition agrees in {len(cases)} native pixel/coverage/animation/event frames'+(' including BINGO/PULL UP request, paint order and timer' if args.alerts else '')+(' and refuelling contact information/direction/marker' if args.navigation else '')+(' and ILS guidance/state' if args.landing else '')+(' and launch notice/countdown' if args.launch else '')+' with declared sensor, projection and audio boundaries')

@@ -14,11 +14,12 @@ from native_reference import NativeReference
 from check_projectiles import KINDS
 
 
-def original(data_dir,frames,elapsed,dispenser,capacity):
+def original(data_dir,frames,elapsed,dispenser,capacity,frame_tail=False):
     image=NativeReference(data_dir/'TFX.DAT');cpu=image.cpu
     cpu.mem_map(0x300000,0x40000);cpu.mem_map(0x400000,0xa0000)
     head,tail=0x320000,0x320100
     cpu.mem_write(head+52,struct.pack('<I',tail));cpu.mem_write(tail+56,struct.pack('<I',head))
+    frame_index=[0]
     count=capacity
     for index in range(count):cpu.mem_write(0x400000+index*80+52,struct.pack('<I',0x400000+(index+1)*80 if index+1<count else 0))
     image.write(0x16e74,'<I',0x400000);image.write(0x16e78,'<I',head)
@@ -51,9 +52,11 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
         pointer=struct.unpack('<I',cpu.mem_read(head+52,4))[0]
         while pointer!=tail:
             events.extend((3,identities[pointer],image.read(0x13476,'<H')[0]))
+            if frame_tail and (frame_index[0]+identities[pointer])%7==0:cpu.mem_write(pointer+66,b'\x01')
             pointer=struct.unpack('<I',cpu.mem_read(pointer+52,4))[0]
         im.return_from()
     image.intercept(0xa373c,'Capture the independently verified world-contact phase and list traversal order.',contacts)
+    image.intercept(0x75030,'Exclude the legacy non-TFX effect output: every retail TFX world disables this helper with environment flag 0x0001; synthetic zero flags suppress the other world consumers.',lambda im:im.return_from())
     image.intercept(0x8b984,'Supply the test-authored store anchor.',lambda im:(im.cpu.reg_write(r.UC_X86_REG_EAX,0x310200),im.return_from()))
     def anchor(im):
         sp=im.cpu.reg_read(r.UC_X86_REG_ESP);pointer=struct.unpack('<I',im.cpu.mem_read(sp+4,4))[0]
@@ -65,6 +68,7 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
     image.write(0x9170,'<H',0)
     result=[];warning=0
     for frame in range(frames):
+        frame_index[0]=frame
         events.clear()
         if dispenser==5:cpu.mem_write(0x310000,struct.pack('<3i',2000000+frame*10000,-200000,3000000-frame*7000))
         if (2<=dispenser<=3 or 6<=dispenser<=8) and frame==2:
@@ -72,6 +76,7 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
             image.call(0xa353c if dispenser in (2,6) else 0xa3588,eax=target,edx=64 if dispenser<6 else {6:60,7:40,8:5}[dispenser])
             image.write(0xe774,'<B',0)
         image.call(0x71fd4,eax=elapsed,limit=10000000)
+        if frame_tail:image.call(0xa31a0)
         values=[];pointer=struct.unpack('<I',cpu.mem_read(head+52,4))[0];bodies=[]
         while pointer!=tail:
             body=bytes(cpu.mem_read(pointer,80));callback=struct.unpack_from('<I',body,60)[0]
@@ -93,14 +98,15 @@ def main():
     parser=argparse.ArgumentParser(__doc__)
     parser.add_argument('--data-dir',type=Path,default=Path('../tfx-reverse/installs/cd_1994_09/TFX'))
     parser.add_argument('--build',type=Path,default=Path('build'))
+    parser.add_argument('--frame-tail',action='store_true',help='supply deterministic swept-contact losses and execute original post-flip retirement')
     parser.add_argument('--jettison-only',action='store_true')
     args=parser.parse_args();total=0
     for dispenser in ([9] if args.jettison_only else range(10)):
         for elapsed in (0,1,4,10,18,55):
             frames=128 if elapsed else 4
             capacity=98
-            expected=original(args.data_dir,frames,elapsed,dispenser,capacity)
-            result=subprocess.run([str(args.build/'projectile_runtime_probe'),str(args.data_dir)],input=f'{frames} {elapsed} {dispenser} {capacity}\n',text=True,capture_output=True,check=True)
+            expected=original(args.data_dir,frames,elapsed,dispenser,capacity,args.frame_tail)
+            result=subprocess.run([str(args.build/'projectile_runtime_probe'),str(args.data_dir),*(['--frame-tail']if args.frame_tail else [])],input=f'{frames} {elapsed} {dispenser} {capacity}\n',text=True,capture_output=True,check=True)
             observed=[int(v) for v in result.stdout.split()]
             assert len(observed)==len(expected)
             for frame,(a,b) in enumerate(zip(observed,expected)):assert a==b,(dispenser,elapsed,frame,a,b)

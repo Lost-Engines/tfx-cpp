@@ -4263,12 +4263,68 @@ The eight-frame mission-502 J/Alt+J comparison now agrees in **every captured
 state and every indexed pixel**. The 160-frame mission-501 accelerated AMRAAM
 run agrees on all captured state, projectile motion and emitted smoke samples;
 155 complete indexed frames agree exactly. Five launch frames currently differ
-by two HUD pixels each; the final frame agrees exactly. Those residual writes
-are being traced separately, rather than treating numerical agreement as
-whole-image equivalence.
+by two HUD pixels each; the final frame agrees exactly. Those residual writes were subsequently identified as the launch notice
+described below; numerical agreement alone was not treated as whole-image
+equivalence.
 
 
 All **185 regressions** pass in development, Release and ASan/UBSan after these
 changes. The private-window training check also completes a natural AMRAAM kill,
 objective/FINISH, original debrief and the next training hop with the actual
 campaign score/kill counters; the pre-graduation pilot file remains unchanged.
+
+
+### Release feedback, launch notices and final-frame retirement
+
+The remaining launch-frame discrepancy above was the original **LNCH** notice,
+not a raster error: `0x84052` arms five **AA HUD paints**. `0x7e8fa` consumes
+one per AA layout, replacing LOCK/ARM; NAV, AG, failed HUD and external views
+retain the counter. The message comes from executable DATA `0x16fc`. Trigger
+eligibility sets it independently of whether the release primitive ultimately
+accepts a shot. The composed targeting check now exercises this retained
+counter alongside alerts, refuelling and ILS in **1,024 complete original
+pixel/coverage/state frames**. All **160 indexed frames** of the controlled
+mission-501 accelerated AMRAAM session now agree exactly, together with every
+previously captured numerical field and smoke sample.
+
+Ordinary store release now delivers the original normal-priority two-sample
+sequence before the bay event and projectile construction: slot 11 (`fx16`),
+then slot 64 (`bombs`) for categories 3/5/7/9, otherwise slot 73 (`missile`).
+The non-Eurofighter player receives SSD entry 5, including during silent
+jettison. `check_store_feedback.py` executes **3,072 complete original caller
+cases** across every category byte, all aircraft, jettison and inhibition;
+a compact reference fixture checks the sample selection without game assets.
+Optional external-control-device output is still outside that playback path.
+
+Refuelling saves/restores native `0x7140`, the weapon/gun flag, rather than the
+three-way HUD layout enum. The cannon NAV preference (`0x7148`) stays separate.
+The complete eight-frame AG-selection/refuelling-on/off session agrees on all
+captured state and every indexed pixel.
+
+The full observer now also reads player SSD parameter bytes and observes the
+frame **after** native `0xa31a0` / C++ `runtime::finish_frame`. Two further
+caller omissions were exposed:
+
+- Landed startup installs SSD entry 25 before the loss/reset pair 21/0 at
+  `0x7d720..0x7d7b8`. The gear stream then reaches its authored state at the
+  normal animation gate, even while the cockpit hides the external model.
+- Spent projectiles survive their final drawing pass, then retire after the
+  flip. Waiting until the next motion update left stale target references
+  visible to the intervening input/AI stage. A zero stage timer alone still
+  waits for the next motion pass; it does not qualify for frame-tail removal.
+
+Complete eight-frame F-117 (mission 508) and F-22 (mission 504) J/Alt+J sessions
+now agree on every captured state, every player model parameter and every
+indexed pixel, including a store that hits the ground in its release frame.
+`check_projectile_runtime.py --frame-tail` adds **6,440 complete original
+population frames**, with declared deterministic contact losses, all ten
+population scenarios, child births, decoys, multiple substeps, retirement,
+shared RNG and borrowed warning records. The legacy `0x75030` visual output
+is an explicit boundary in that synthetic zero-world-flags test; all retail
+TFX environments disable it with flag `0x0001`. A separate asset-free
+lifecycle regression checks the final drawing window, delayed stage expiry,
+owner notification order and validity of retained pool records.
+
+
+All **187 regressions** pass in development, Release and ASan/UBSan after this
+increment. No CI or CD playback has been added.

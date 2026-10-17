@@ -7,11 +7,13 @@
 #include "weapons/runtime.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 2) throw std::runtime_error{"projectile_runtime_probe DATA_DIRECTORY"};
+  if(argc < 2 || argc > 3) throw std::runtime_error{"projectile_runtime_probe DATA_DIRECTORY [--frame-tail]"};
+  bool const frame_tail{argc == 3 && std::string_view{argv[2]} == "--frame-tail"};
   tfx::resources::executable_tables const tables{std::filesystem::path{argv[1]} / "TFX.DAT"};
   unsigned int frames{0},elapsed{0},dispenser{0},capacity{0};
   while(std::cin >> frames >> elapsed >> dispenser >> capacity) {
     std::vector<int32_t> events;
+    unsigned int frame_index{0};
     vec3<int32_t> designation{2000000,-200000,3000000};
     bool const countermeasures{(dispenser >= 2 && dispenser <= 3) || (dispenser >= 6 && dispenser <= 8)};
     auto const target_pool{dispenser >= 6 && dispenser <= 8 ? tfx::weapons::actor_pool::player : tfx::weapons::actor_pool::aircraft};
@@ -33,7 +35,10 @@ int main(int const argc, char const *const argv[]) try {
       .reset_visual{[&](unsigned int const weapon, bool const secondary) { events.insert(events.end(),{0,static_cast<int32_t>(weapon),secondary}); }},
       .launched{[&](tfx::weapons::active_projectile const &shot) { events.insert(events.end(),{1,static_cast<int32_t>(shot.id)}); }},
       .target_cleared{[&](tfx::weapons::active_projectile const &shot) { events.insert(events.end(),{2,static_cast<int32_t>(shot.id)}); }},
-      .contacts{[&](tfx::weapons::active_projectile &shot,uint16_t const ticks) { events.insert(events.end(),{3,static_cast<int32_t>(shot.id),ticks}); }},
+      .contacts{[&](tfx::weapons::active_projectile &shot,uint16_t const ticks) {
+        events.insert(events.end(),{3,static_cast<int32_t>(shot.id),ticks});
+        if(frame_tail && (frame_index + shot.id) % 7 == 0) shot.spent = true;
+      }},
     },capacity};
     tfx::math::random_state random;
     tfx::weapons::active_projectile const *warning{nullptr};
@@ -54,10 +59,12 @@ int main(int const argc, char const *const argv[]) try {
       .jettisoned{dispenser == 9},
     });
     for(unsigned int frame{0}; frame != frames; ++frame) {
+      frame_index = frame;
       events.clear();
       if(dispenser == 5) designation = vec3<int32_t>{2000000 + static_cast<int32_t>(frame) * 10000,-200000,3000000 - static_cast<int32_t>(frame) * 7000};
       if(countermeasures && frame == 2) state.countermeasure({.pool{target_pool}},{1000000,-300000,1000000},dispenser == 2 || dispenser == 6,dispenser < 6 ? 64 : dispenser == 6 ? 60 : dispenser == 7 ? 40 : 5,random);
       state.advance(static_cast<uint16_t>(elapsed),random,false);
+      if(frame_tail) state.finish_frame();
       uint64_t digest{14695981039346656037ULL};
       auto const word{[&](auto const value) {
         for(unsigned int shift{0}; shift != 32; shift += 8) digest = (digest ^ ((static_cast<uint32_t>(value) >> shift) & 255)) * 1099511628211ULL;
