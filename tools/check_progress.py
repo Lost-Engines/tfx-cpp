@@ -26,7 +26,15 @@ def main():
         assert key in (0x200,0x208,0x210,0x218),hex(key)
         im.cpu.reg_write(r.UC_X86_REG_EAX,0x300800+(key-0x200)//2);im.return_from()
     image.intercept(0xb1334,'Supply score/outcome/status/Arcade parser variables; their writes are captured.',config)
-    for file in (0xa5a9c,0xa4dfc):image.intercept(file,'Completion music/sound notifications have no rule or timer side effect.',lambda im:im.return_from())
+    completion_audio=[]
+    def music(im):
+        cue=im.cpu.reg_read(r.UC_X86_REG_EAX);assert cue==3,cue
+        completion_audio.append(cue);notices.extend([4,0]);im.return_from()
+    def sound(im):
+        sample=im.cpu.reg_read(r.UC_X86_REG_EAX);assert sample==41 and completion_audio==[3],(sample,completion_audio)
+        completion_audio.clear();im.return_from()
+    image.intercept(0xa5a9c,'Observe the original completion cue in event order.',music)
+    image.intercept(0xa4dfc,'Verify completion cue/sample pairing and urgent sample 41.',sound)
     notices=[]
     def message(im):
         pointer=im.cpu.reg_read(r.UC_X86_REG_EAX)
@@ -51,11 +59,12 @@ def main():
             row=[time,elapsed,landed,speed,arcade,enemy,allied,mobile,mask];control_rows.append(row)
             image.write(0x7618,'<I',time);image.write(0x13476,'<H',elapsed);image.write(0x8d3a,'<h',landed);image.write(0x13444,'<i',speed);image.write(0x5c24,'<i',enemy);image.write(0x5c28,'<i',allied);image.write(0x5c2c,'<i',mobile);image.cpu.mem_write(0x30080c,struct.pack('<I',arcade))
             for index in range(count):image.cpu.mem_write(0x300202+index*32,bytes([16 if mask&(1<<index) else 0]))
-            notices.clear();image.call(0x7188c)
+            notices.clear();completion_audio.clear();image.call(0x7188c)
             if not image.read(0x593e,'<B')[0]:image.call(0x719a4)
             image.call(0x71a9c)
             if image.read(0x5940,'<h')[0]:image.call(0x71b90)
             if image.read(0xe708,'<i')[0]!=-1:image.call(0x70d74)
+            assert not completion_audio
             values=[image.read(0x5c20,'<i')[0],image.read(0x11b26,'<h')[0],image.read(0x5d44,'<h')[0],image.read(0xe708,'<i')[0],image.read(0x5c30,'<i')[0],image.read(0x5940,'<h')[0],image.read(0x593e,'<B')[0],image.read(0x593a,'<h')[0],*struct.unpack('<2i',image.cpu.mem_read(0x300804,8)),struct.unpack('<i',image.cpu.mem_read(0x300800,4))[0],len(notices)//2,*notices]
             native_rows.append(values);time=(time+elapsed)&0xffffffff
             if image.read(0x593a,'<h')[0]:break
@@ -71,7 +80,7 @@ def main():
     for i,(a,b) in enumerate(zip(actual,expected)):assert a==b,(i,a,b)
     if args.save_fixture:
         args.save_fixture.write_text('\n'.join(fixtures)+'\n');subprocess.run([str(args.build/'progress_probe'),str(args.save_fixture)],check=True)
-    print(len(expected),'native mission-progress frames agree across 512 sequences: target credit, all rule kinds, strict timers, landing and termination')
+    print(len(expected),'native mission-progress frames agree across 512 sequences: target credit, all rule kinds, strict timers, landing, termination and ordered completion cue/sample events')
 
 
 if __name__=='__main__':main()

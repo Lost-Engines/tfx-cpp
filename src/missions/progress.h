@@ -1,5 +1,6 @@
 #pragma once
 
+#include <variant>
 #include "missions/initialisation.h"
 #include "missions/rules.h"
 #include "missions/timeline.h"
@@ -13,8 +14,11 @@ struct progress_notice {
   notice_kind kind;
   unsigned int target{0};
 };
+struct mission_completed_event {};
+using progress_event = std::variant<progress_notice,mission_completed_event>;
+
 struct loss_effects {
-  std::optional<unsigned int> radio{};
+  std::optional<unsigned int> acknowledgement_sample{};
   bool friendly_target{false};
 };
 struct progress_context {
@@ -51,7 +55,7 @@ public:
   bool observe_player_loss(bool fatal, bool collision, simulation::timer_ticks elapsed, bool invulnerable = false);
   loss_effects record_air_loss(bool enemy_pool, int16_t type, bool player_owned, bool authorised, math::random_state &random);
   loss_effects record_surface_loss(bool hostile, int16_t type);
-  std::vector<progress_notice> begin_frame(progress_context const &context);
+  std::vector<progress_event> begin_frame(progress_context const &context);
   bool finish_frame(simulation::timer_ticks elapsed);
 };
 

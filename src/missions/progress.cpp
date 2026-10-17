@@ -46,7 +46,7 @@ loss_effects progress::record_air_loss(bool const enemy_pool, int16_t const type
   bool const matches{initialisation.aircraft_type_filter == -1 || type == initialisation.aircraft_type_filter};
   if(enemy_pool) {
     // 0x782f8 acknowledges a player hit before fatal-aircraft handling consumes its ejection random value.
-    if(player_owned) effects.radio = random.next() & 1 ? 0x46u : 0x22u;
+    if(player_owned) effects.acknowledgement_sample = random.next() & 1 ? 0x46u : 0x22u;
     if(authorised) results.personal_air_score = add(results.personal_air_score,1000);
     else violations = word(violations + 1);
     results.credited_air_kills = add(results.credited_air_kills,1);
@@ -72,17 +72,20 @@ void progress::set_termination(bool const arcade) {
   ended = true;
 }
 
-std::vector<progress_notice> progress::begin_frame(progress_context const &context) {
+std::vector<progress_event> progress::begin_frame(progress_context const &context) {
   if(context.targets.size() != reported.size()) throw std::runtime_error{"mission target observations differ from the authored targets"};
   results.targets.assign(context.targets.begin(),context.targets.end());
-  std::vector<progress_notice> notices;
+  std::vector<progress_event> notices;
   // Native 0x7188c records each authored target once, in script order, independently of the killer.
   for(unsigned int index{0}; index != reported.size(); ++index) {
     if(results.targets[index] != target_life::dead || reported[index]) continue;
     reported[index] = 1;
     results.targets_destroyed = add(results.targets_destroyed,1);
     results.credited_targets = word(results.credited_targets + 1);
-    if(initialisation.targets[index].text) notices.push_back({.kind{notice_kind::target_destroyed},.target{index}});
+    if(initialisation.targets[index].text) notices.emplace_back(progress_notice{
+      .kind{notice_kind::target_destroyed},
+      .target{index}
+    });
     if(initialisation.targets[index].time_limit != -1) remaining_timer = initialisation.targets[index].time_limit;
     target_cursor = word(target_cursor + 1);
     if(target_cursor >= static_cast<int>(reported.size())) target_cursor = 0;
@@ -100,13 +103,18 @@ std::vector<progress_notice> progress::begin_frame(progress_context const &conte
     if(completed) {
       resolved = true;
       results.completed = 1;
-      if(rule.text && rule.kind != completion_kind::protect) notices.push_back({.kind{notice_kind::completion}});
+      notices.emplace_back(mission_completed_event{});
+      if(rule.text && rule.kind != completion_kind::protect) notices.emplace_back(progress_notice{
+        .kind{notice_kind::completion}
+      });
       // Airborne starts return after ten native seconds; landed starts must return and stop.
       if(!initialisation.start.landed) exit_ticks = 540;
     } else if(rule.kind == completion_kind::protect && results.friendly_aircraft_down) {
       resolved = true;
       exit_ticks = 1620;
-      if(rule.text) notices.push_back({.kind{notice_kind::protection_failed}});
+      if(rule.text) notices.emplace_back(progress_notice{
+        .kind{notice_kind::protection_failed}
+      });
     }
   }
   // 0x71a9c: landing after completion or an orders violation awards the authored return-to-base score.

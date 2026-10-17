@@ -106,7 +106,10 @@ for frame in range(1000):
  if frame==450:engines=False
  if frame==550:engines=True;throttle=.6
  if frame==600:im.write(0x8866,'<B',1);im.call(0xa5c4c)
+ if frame==650:im.call(0xa5a9c,eax=10)
  if frame==700:im.call(0xa5a9c,eax=6)
+ if frame==730:im.call(0xa5a9c,eax=1)
+ if frame==750:im.call(0xa5a9c,eax=3)
  if frame==800:im.call(0xa5f34);flight=False
  if frame==810:im.call(0xa5d68,eax=1);im.call(0xa5b64,eax=0)
  if frame==900:plane();begin();flight=True

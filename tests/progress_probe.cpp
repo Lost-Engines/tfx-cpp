@@ -42,7 +42,10 @@ int main(int const argc, char const *const argv[]) try {
       })};
       bool const timer_notice{state.finish_frame(static_cast<uint16_t>(elapsed))};
       std::vector<int64_t> values{state.results.targets_destroyed,state.results.credited_targets,state.target_cursor,state.remaining_timer,state.results.completed,state.exit_ticks,state.resolved,state.ended,std::to_underlying(state.outcome),std::to_underlying(state.status),state.return_score,static_cast<int64_t>(notices.size()) + timer_notice};
-      for(auto const &notice : notices) values.insert(values.end(),{std::to_underlying(notice.kind),notice.target});
+      for(auto const &event : notices) {
+        if(auto const *notice{std::get_if<tfx::missions::progress_notice>(&event)}) values.insert(values.end(),{std::to_underlying(notice->kind),notice->target});
+        else values.insert(values.end(),{4,0});
+      }
       if(timer_notice) values.insert(values.end(),{std::to_underlying(tfx::missions::notice_kind::timer_expired),0});
       if(check) for(auto const val : values) for(unsigned int shift{0}; shift != 32; shift += 8) digest = (digest ^ ((static_cast<uint32_t>(val) >> shift) & 255)) * 1099511628211ULL;
       else { for(auto const val : values) std::cout << val << ' ';std::cout << '\n'; }

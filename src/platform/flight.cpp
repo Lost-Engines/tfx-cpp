@@ -366,7 +366,13 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           scene.collide_actor(visual,previous,current,damage,response);
           if(scene.actor_destroyed(visual)) {
             auto const effects{mission_progress.record_air_loss(index < tfx::actors::aircraft_per_side,scene.actor_type(visual),shot.owner.pool == tfx::weapons::actor_pool::player,true,air_simulation.random_stream())};
-            if(effects.radio) { radar.selected.reset(); seeker.tracking.reset(); seeker.guidance.reset(); }
+            if(effects.acknowledgement_sample) {
+              if(sound) {
+                sound->music_cue(audio::music_cue_id::player_aircraft_kill);
+                sound->sequence(audio::sample_priority::normal,{std::to_underlying(audio::sample_id::aircraft_explosion),*effects.acknowledgement_sample});
+              }
+              radar.selected.reset(); seeker.tracking.reset(); seeker.guidance.reset();
+            }
             fatal_aircraft(index);
             ++(pose.side == tfx::actors::allegiance::allied ? allied_aircraft_lost : enemy_aircraft_lost);
           }
@@ -886,7 +892,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     fire_gun(fire);
     std::vector<tfx::missions::target_life> targets;
     for(auto const &target : mission_setup.targets) targets.push_back(scene.terrain_intact(static_cast<unsigned int>(target.position.x / tfx::world::cell_units),static_cast<unsigned int>(target.position.z / tfx::world::cell_units)) ? tfx::missions::target_life::alive : tfx::missions::target_life::dead);
-    for(auto const &notice : mission_progress.begin_frame({
+    for(auto const &event : mission_progress.begin_frame({
       .mission_time{mission_time.elapsed()},
       .elapsed{elapsed},
       .targets{targets},
@@ -894,7 +900,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .speed{player.fixed_speed},
       .arcade{!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0)},
     })) {
-      radio.show(notice.kind == tfx::missions::notice_kind::target_destroyed ? *mission_setup.targets[notice.target].text : *mission_setup.completion->text);
+      if(auto const *notice{std::get_if<missions::progress_notice>(&event)}) radio.show(notice->kind == missions::notice_kind::target_destroyed ? *mission_setup.targets[notice->target].text : *mission_setup.completion->text);
+      else {
+        if(sound) sound->music_cue(audio::music_cue_id::mission_complete);
+        sample(audio::sample_priority::urgent,audio::sample_id::mission_complete);
+      }
     }
     air_world.player = tfx::actors::air_contact{
       .position{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
@@ -920,7 +930,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       auto const region{tfx::actors::nearby_surface_region(previous,player.integer_position)};
       for(auto const &actor : surface_actors) if(!(actor.state.pose.flags & std::to_underlying(tfx::actors::surface_flag::retired)) && region.contains(actor.state.pose.position)) collect(scene.collide_actor(actor.visual,previous,player.integer_position,0,response,damage_player,true));
     }
-    if(!ejected() && mission_progress.observe_player_loss(scene.actor_destroyed(player_visual),player.collision != 0,elapsed)) scene.actor_event(player_visual,21);
+    if(!ejected() && mission_progress.observe_player_loss(scene.actor_destroyed(player_visual),player.collision != 0,elapsed)) {
+      if(sound) sound->music_cue(audio::music_cue_id::aircraft_lost);
+      scene.actor_event(player_visual,21);
+    }
     projectiles.advance(elapsed,air_simulation.random_stream());
     if(scene.advance(elapsed).eject_player) ejection.request();
     cockpit_position.advance(tables.instruments().viewports[view_index()].bottom);
