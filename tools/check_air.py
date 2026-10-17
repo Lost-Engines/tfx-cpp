@@ -15,7 +15,7 @@ def dataset(path):
     return json.loads(text[text.index('=')+1:].strip().removesuffix(';'))
 
 
-def original(data_dir,raw,profiles,ticks,intact,formation=None,combat=None,manoeuvres=(),damage_tick=0):
+def original(data_dir,raw,profiles,ticks,intact,formation=None,combat=None,manoeuvres=(),damage_tick=0,warning_log=None):
     image=NativeReference(data_dir/'TFX.DAT')
     image.cpu.mem_map(0x300000,0x50000)
     image.cpu.mem_write(0x300000,raw)
@@ -90,9 +90,13 @@ def original(data_dir,raw,profiles,ticks,intact,formation=None,combat=None,manoe
     if combat is not None:
         for address,kind in ((0x763fc,0),(0x76398,1)):
             def warning(im,kind=kind):
-                if im.cpu.reg_read(r.UC_X86_REG_EAX)==im.data+0x10f28:requests.append([identity(im),5,100,kind])
+                target=im.cpu.reg_read(r.UC_X86_REG_EAX)
+                if target==im.data+0x10f28 or kind==1:
+                    identity_target=100 if target==im.data+0x10f28 else registry[target]
+                    requests.append([identity(im),5,identity_target,kind])
+                    if warning_log is not None:warning_log.append((identity_target,kind))
                 im.return_from()
-            image.intercept(address,'Record warning notification; presentation and sound have no control feedback.',warning)
+            image.intercept(address,'Record warning notification; permission/audio delivery is checked separately from actor movement.',warning)
         for address,kind in ((0xa3588,0),(0xa353c,1)):
             def countermeasure(im,kind=kind):
                 strength=struct.unpack('<h',struct.pack('<H',im.cpu.reg_read(r.UC_X86_REG_EDX)&65535))[0]

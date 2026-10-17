@@ -34,6 +34,7 @@
 #include "flight/mouse_input.h"
 #include "flight/damage.h"
 #include "flight/defence.h"
+#include "missions/engagement.h"
 #include "world/impact.h"
 #include "flight/ejection_sequence.h"
 #include "flight/simple.h"
@@ -295,6 +296,17 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     tfx::flight::apply_damage(player_damage,percentage,air_simulation.random_stream(),false,[&] { scene.actor_event(player_visual,13); });
     display_selection.right = static_cast<uint16_t>(player_damage.right_display_selection);
   }};
+  tfx::missions::engagement_state engagement;
+  tfx::weapons::active_projectile const *launch_warning{nullptr};
+  auto const permission_context{[&] {
+    return tfx::missions::engagement_context{
+      .aircraft{player.aircraft},
+      // Direct diagnostic launches retain their existing Arcade rules exemption; campaign mode comes from the parser.
+      .arcade{!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0)},
+      .training{campaign.contains("training") && campaign.at("training") != 0},
+      .inhibited{ejected()},
+    };
+  }};
   std::array<std::optional<tfx::weapons::projectile_id>,tfx::actors::player_air_target> incoming;
   std::array<std::optional<tfx::actors::air_threat>,tfx::actors::player_air_target> threats;
   auto const actor_position{[&](tfx::weapons::actor_identity const identity) {
@@ -396,7 +408,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           if(scene.actor_destroyed(visual)) continue;
           scene.collide_actor(visual,previous,current,damage,response);
           if(scene.actor_destroyed(visual)) {
-            auto const effects{mission_progress.record_air_loss(index < tfx::actors::aircraft_per_side,scene.actor_type(visual),shot.owner.pool == tfx::weapons::actor_pool::player,true,air_simulation.random_stream())};
+            auto const effects{mission_progress.record_air_loss(index < tfx::actors::aircraft_per_side,scene.actor_type(visual),shot.owner.pool == tfx::weapons::actor_pool::player,engagement.authorised(permission_context()),air_simulation.random_stream())};
             if(effects.acknowledgement_sample) {
               if(sound) {
                 sound->music_cue(audio::music_cue_id::player_aircraft_kill);
@@ -404,6 +416,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
               }
               radar.selected.reset(); seeker.tracking.reset(); seeker.guidance.reset();
             }
+            if(effects.orders_violated) radio.show(tables.orders_violation_message,true);
             fatal_aircraft(index);
             ++(pose.side == tfx::actors::allegiance::allied ? allied_aircraft_lost : enemy_aircraft_lost);
           }
@@ -458,6 +471,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           .index{request.actor},
         };
         projectiles.countermeasure(owner,actor_position(owner),data.kind == tfx::actors::air_countermeasure_kind::radar,data.strength,air_simulation.random_stream());
+      } else if constexpr(std::is_same_v<data_type,tfx::actors::air_warning>) {
+        auto const kind{data.kind == tfx::actors::air_warning_kind::tracking ? tfx::missions::engagement_warning::tracking : tfx::missions::engagement_warning::firing};
+        for(auto const &event : engagement.observe(kind,data.target == tfx::actors::player_air_target,permission_context())) {
+          if(auto const request{std::get_if<tfx::missions::engagement_sample>(&event)}) sample(request->urgent ? audio::sample_priority::urgent : audio::sample_priority::normal,request->sample);
+          else radio.show(tables.fire_permission_message);
+        }
       } else if constexpr(std::is_same_v<data_type,tfx::actors::air_radio>) {
         radio.show(data.text);
       }
@@ -685,6 +704,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     mouse_control = {};
     mission_time.reset();
     mission_progress.reset();
+    engagement = {};
+    launch_warning = nullptr;
     result_evaluated = false;
     campaign = initial_campaign;
     for(auto const name : {"a2akills","a2gkills","num_miss","num_hours","miss_val","score","fmobile_down"}) campaign.try_emplace(name,0);
@@ -1084,6 +1105,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     });
     tfx::cockpit::hud_state state;
     state.threat = radar.hostile_nearby;
+    state.fire_permission_notice = engagement.notice_frames != 0;
+    if(launch_warning) state.tracked_weapon_category = tables.weapons[launch_warning->state.weapon].category;
     auto &readings{state.instruments};
     readings.aircraft = player.aircraft;
     readings.offset = cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value());
@@ -1392,6 +1415,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         renderer.text(100,160,std::format("ZOOM {}",designator.zoom),hud_colour);
       }
       if(paused) renderer.text(140,80,"PAUSED",hud_colour);
+      engagement.finish_frame();
+      launch_warning = projectiles.first_targeting_player();
       flight_frame = renderer.output;
       if(!designator_view && views.value().ready) {
         views.consume();

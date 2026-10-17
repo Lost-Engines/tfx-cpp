@@ -46,12 +46,19 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
     for(unsigned int channel{0}; channel != 3; ++channel) fixed_flight_palette[colour * 3 + channel] = view.byte(entry + 1 + channel);
   }
   hud_green = view.byte(data_file + 0xa4ec);
-  for(unsigned int index{0}; index != 512; ++index) {
-    auto const character{view.byte(data_file + 0xa8 + index)};
-    if(!character) break;
-    timer_expired_message.push_back(static_cast<char>(character));
-    if(index == 511) throw std::runtime_error{"unterminated native timer message"};
-  }
+  auto const native_message{[&](unsigned int const offset) {
+    unsigned int constexpr maximum_message_length{512};
+    std::string result;
+    for(unsigned int index{0}; index != maximum_message_length; ++index) {
+      auto const character{view.byte(data_file + offset + index)};
+      if(!character) return result;
+      result.push_back(static_cast<char>(character));
+    }
+    throw std::runtime_error{"unterminated native gameplay message"};
+  }};
+  timer_expired_message = native_message(0xa8);
+  fire_permission_message = native_message(0x1850); // Both native permission-notice strings have identical text.
+  orders_violation_message = native_message(0x678);
   for(unsigned int index{0}; index != 64; ++index) {
     auto const type{view.signed_le16(data_file + 0x884c + index * 2)};
     if(type == -1) break;

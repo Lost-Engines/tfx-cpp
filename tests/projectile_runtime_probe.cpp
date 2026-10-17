@@ -36,6 +36,7 @@ int main(int const argc, char const *const argv[]) try {
       .contacts{[&](tfx::weapons::active_projectile &shot,uint16_t const ticks) { events.insert(events.end(),{3,static_cast<int32_t>(shot.id),ticks}); }},
     },capacity};
     tfx::math::random_state random;
+    tfx::weapons::active_projectile const *warning{nullptr};
     for(unsigned int index{0}; index != (dispenser == 1 ? 3u : 27u); ++index) state.launch({
       .weapon{dispenser == 1 ? index == 0 ? 15u : index == 1 ? 16u : 0u : index},
       .position{1000000,-300000,1000000},
@@ -69,6 +70,10 @@ int main(int const argc, char const *const argv[]) try {
         word(body.speed); word(body.fall_speed); word(body.acceleration); word(body.range); word(body.secondary); word(shot->spent); word(shot->mount);
       }
       word(random.low);word(random.high);
+      // The HUD consumes the prior draw's borrowed record, even after retirement/recycling.
+      word(warning ? warning->state.weapon : -1);
+      warning = state.first_targeting_player();
+      word(warning ? warning->id : 0);
       word(events.size());
       for(auto const value : events) word(value);
       std::cout << digest << '\n';

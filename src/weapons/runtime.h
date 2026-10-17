@@ -89,6 +89,8 @@ public:
   projectile_id launch(release const &request);
   projectile_id countermeasure(actor_identity owner, vec3<int32_t> const &position, bool radar, int16_t strength, math::random_state &random);
   std::map<projectile_id,active_projectile const*> const &projectiles() const;
+  // Borrowed stable pool record: retirement leaves its address valid until this runtime is destroyed.
+  active_projectile const *first_targeting_player() const;
   warning_state const &player_warnings() const;
   void advance(simulation::timer_ticks elapsed, math::random_state &random, bool ground_effects = true);
 };
