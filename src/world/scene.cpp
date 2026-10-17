@@ -1,6 +1,8 @@
 #include "scene.h"
 #include "world/sky.h"
 #include "world/model_placement.h"
+#include "world/model_orientation.h"
+#include "render/model_transform.h"
 #include "render/model_metrics.h"
 #include "render/model_queue.h"
 #include "render/model_point.h"
@@ -21,7 +23,7 @@ scene_handle scene::create_actor(std::string const &name, vec3d const &position,
   actors.emplace(id,moving_instance{
     .state{source},
     .position{vec3d{position}},
-    .rotation{math::rotation(angles)},
+    .angles{vec3<math::angle>{angles}},
   });
   return {.value{id}};
 }
@@ -29,7 +31,7 @@ scene_handle scene::create_actor(std::string const &name, vec3d const &position,
 void scene::place_actor(scene_handle const handle, vec3d const &position, vec3<math::angle> const &angles) {
   auto &actor{actors.at(handle.value)};
   actor.position = position;
-  actor.rotation = math::rotation(angles);
+  actor.angles = angles;
 }
 
 void scene::show_actor(scene_handle const handle, bool const visible) {
@@ -189,7 +191,7 @@ void scene::queue_actor(scene_handle const handle, vec3d const &position, vec3<m
   submissions.push_back({
     .handle{handle},
     .position{vec3d{position}},
-    .rotation{math::rotation(angles)},
+    .angles{vec3<math::angle>{angles}},
   });
 }
 
@@ -254,6 +256,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     vec3d origin;
     mat3d rotation;
     math::angle heading;
+    vec3<math::angle> angles;
     double depth;
     double sort_key;
     vec3<int32_t> camera_origin;
@@ -264,8 +267,10 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
   auto const projection{view.projector()};
   bool const native{view.projection == render::projection_mode::original_model};
   auto const fixed_position{[](vec3d const &position) { return vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{position * 65536}}}; }};
-  auto const queue_part{[&](models::shape const &shape, model_part const &part, vec3d const &origin, mat3d const &rotation, math::angle const heading, vec3<int32_t> const &camera_origin) {
-    auto const metrics{render::measure_model(camera_origin,shape.sort_depth_bias)};
+  auto const queue_part{[&](models::shape const &shape, model_part const &part, vec3d const &origin, mat3d const &rotation, math::angle const heading, vec3<math::angle> const &angles, vec3<int32_t> const &camera_origin) {
+    auto metrics{render::measure_model(camera_origin,shape.sort_depth_bias)};
+    auto const model_origin{render::scale_model_cache(camera_origin,part.rotation_mode)};
+    metrics.distance = render::measure_model(model_origin,shape.sort_depth_bias).distance;
     double const depth{view.transform(origin).z};
     queued_part item{
       .shape{&shape},
@@ -274,9 +279,10 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       .origin{vec3d{origin}},
       .rotation{mat3d{rotation}},
       .heading{heading},
+      .angles{vec3<math::angle>{angles}},
       .depth{depth},
       .sort_key{native ? metrics.order : depth + shape.sort_depth_bias},
-      .camera_origin{vec3<int32_t>{camera_origin}},
+      .camera_origin{vec3<int32_t>{model_origin}},
       .metrics{metrics},
     };
     if(native) {
@@ -324,14 +330,15 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
           auto const placement{place_model_part(projection,assembly,word_position(draw.anchor),tile.rotation,draw.placement,instance.bounding_radius())};
           if(native && !placement.visible) continue;
           auto const origin{native && draw.placement != part_position::assembly_origin ? vec3d{effect_position(placement.position,vec3<int32_t>{centre})} : centre + math::rotate_tile(draw.anchor,tile.rotation)};
-          queue_part(shape,part,origin,math::rotation(part.rotation),tile.rotation,placement.camera_origin);
+          queue_part(shape,part,origin,math::rotation(part.rotation),tile.rotation,model_orientation({0,0,0},part,tile.rotation,draw.orientation),placement.camera_origin);
         }
       } catch(std::exception const &error) {
         warnings.insert(grid.variant(col,row) + ": " + error.what());
       }
     }
   }
-  auto const submit{[&](moving_instance &actor, vec3d const &position, mat3d const &rotation) {
+  auto const submit{[&](moving_instance &actor, vec3d const &position, vec3<math::angle> const &angles) {
+    auto const rotation{math::rotation(angles)};
     // Native moving SSD effect placement retains quarter-turn zero; its full
     // visual Euler transform is separate from the request callback.
     auto const assembly{fixed_position(position)};
@@ -356,22 +363,22 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         auto const origin{native && draw.placement != part_position::assembly_origin ? vec3d{effect_position(placement.position,vec3<int32_t>{position})} : position + rotation * draw.anchor};
         double const depth{view.transform(origin).z};
         if(!native && (depth < -cell_units || depth > view.far_distance + cell_units)) continue;
-        queue_part(shape,part,origin,rotation * math::rotation(part.rotation),0,placement.camera_origin);
+        queue_part(shape,part,origin,rotation * math::rotation(part.rotation),0,model_orientation(angles,part),placement.camera_origin);
       } catch(std::exception const &error) {
         warnings.insert(part.name + ": " + error.what());
       }
     }
   }};
-  for(auto &[_, actor] : actors) if(actor.visible) submit(actor,actor.position,actor.rotation);
+  for(auto &[_, actor] : actors) if(actor.visible) submit(actor,actor.position,actor.angles);
   // Gather effects after world SSD execution so newly emitted/reused slots
   // join this frame with their current state, before the global depth sort.
   if(final_submissions) final_submissions();
-  for(auto const &submission : submissions) submit(actors.at(submission.handle.value),submission.position,submission.rotation);
+  for(auto const &submission : submissions) submit(actors.at(submission.handle.value),submission.position,submission.angles);
   submissions.clear();
   for(auto const &submission : model_submissions) {
     auto const &shape{resources.shape(submission.part.name)};
     mat3d const identity{1.,0.,0.,0.,1.,0.,0.,0.,1.};
-    queue_part(shape,submission.part,submission.position,identity,0,projection.camera_integer(vec3<int32_t>{submission.position}));
+    queue_part(shape,submission.part,submission.position,identity,0,{0,0,0},projection.camera_integer(vec3<int32_t>{submission.position}));
   }
   if(!native) std::stable_sort(queue.begin(),queue.end(),[](auto const &a, auto const &b){ return a.sort_key > b.sort_key; });
   auto const order{native ? native_queue.draw_order() : std::vector<render::model_slot>{}};
@@ -387,6 +394,8 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         continue;
       }
       auto const placed{[&item](vec3d const &vertex){ return item.origin + math::rotate_tile(item.rotation * vertex,item.heading); }};
+      render::model_transform const transform{projection.matrix,item.angles,item.camera_origin};
+      auto const camera_point{[&](vec3d const &position, double const scale) { return native ? transform.point(position,scale) : view.transform(placed(position)); }};
       models::shape_context context;
       std::copy(item.parameters.begin(),item.parameters.end(),context.parameters.begin());
       // Native 0xcc001 queues parameter 0; 0xbac16 seeds the shape condition from it.
@@ -395,16 +404,16 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       context.jitter = &working_jitter;
       context.distance = native ? item.metrics.distance : static_cast<int16_t>(std::clamp(item.depth,-32768.0,32767.0));
       if(detail) context.entry_address = detail->offset + 2;
-      context.project = [&view, &placed](vec3d const &v, double const scale){
-        auto point{view.transform(placed(v))};
+      context.project = [&view, &camera_point](vec3d const &v, double const scale){
+        auto point{camera_point(v,scale)};
         if(std::abs(point.z) < view.near_distance * scale) point.z = std::copysign(view.near_distance * scale,point.z);
         return view.project(point,scale);
       };
-      if(view.projection == render::projection_mode::original_model) context.face_visibility = [&view,&placed](std::span<models::model_vertex const> const vertices, models::facing_test const purpose) {
+      if(view.projection == render::projection_mode::original_model) context.face_visibility = [&view,&camera_point](std::span<models::model_vertex const> const vertices, models::facing_test const purpose) {
         std::vector<models::model_vertex> camera;
         camera.reserve(vertices.size());
         for(auto const &vertex : vertices) camera.push_back({
-          .position{view.transform(placed(vertex.position))},
+          .position{camera_point(vertex.position,vertex.projection_scale)},
           .uv{0,0},
           .projection_scale{vertex.projection_scale},
         });
@@ -417,7 +426,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         std::vector<models::model_vertex> vertices;
         vertices.reserve(primitive.vertices.size());
         for(auto const &vertex : primitive.vertices) vertices.push_back({
-          .position{view.transform(placed(vertex.position))},
+          .position{camera_point(vertex.position,vertex.projection_scale)},
           .uv{vec2d{vertex.uv}},
           .shade{vertex.shade},
           .projection_scale{vertex.projection_scale},

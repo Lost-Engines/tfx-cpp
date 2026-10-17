@@ -19,12 +19,14 @@ struct model_part {
   uint8_t rotation_mode{0};
 };
 enum class part_position { assembly_origin, integer_anchor, fixed_anchor };
+enum class part_orientation { world_axes, terrain_axes };
 enum class part_draw_kind { model, ground_shadow };
 struct part_draw {
   unsigned int slot;
   vec3d anchor;
   part_draw_kind kind{part_draw_kind::model};
   part_position placement{part_position::assembly_origin};
+  part_orientation orientation{part_orientation::terrain_axes};
 };
 struct parameter_stream {
   unsigned int part;

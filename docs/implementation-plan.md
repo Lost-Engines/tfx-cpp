@@ -241,3 +241,11 @@ and edge table. All nine pattern/logical modes agree through complete VGA
 frames and procedural states, including their sparse endpoint/phase rules
 and the original narrow-span line-stipple quirk. Rounded/textured edges,
 full actor transforms, shadows and complete scene scheduling remain open.
+
+
+Outer model transforms now retain native Euler addition, normal/special SSD
+orientation rules, signed cache scaling, Q15 view/body matrix stores and the
+actual submitted camera cache. All six constructors have angle/size captures;
+complete converted absolute-vertex programs agree in basis words and VGA
+frames. Model-local articulation/matrix stacks, shadows, immediate delivery
+and complete scene scheduling remain independent gates.
