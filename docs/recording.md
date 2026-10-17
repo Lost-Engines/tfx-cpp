@@ -48,7 +48,7 @@ original 348 model slots.
 | Model count | u16 |
 | Queue priorities | N signed words |
 | Queue payload slots | N u16 words |
-| Drawing path | N bytes: 40 unrotated, 44 rotated, 48 ground shadow |
+| Drawing path | N bytes: 40 unrotated, 44 rotated, 56 ground shadow |
 | Initial shape state | N bytes, compressed with fill byte 0 |
 | Colour-remap row | N bytes |
 | Retained scale | N bytes, compressed with fill byte 1 |

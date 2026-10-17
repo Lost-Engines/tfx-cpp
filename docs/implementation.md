@@ -4880,3 +4880,20 @@ python3 tools/check_combat_sessions.py --case held-cannon --output build/cannon-
 python3 tools/check_combat_sessions.py --case ground-designation --output build/ground-session
 python3 tools/check_window_audio.py --build build-rel --data-dir /path/to/TFX --cannon
 ```
+
+### Shadow recording dispatch
+
+The longer intercept's actual recording exposed an incorrect format value:
+original constructor `0xcc238` stores drawing-path offset **56**, not 48.
+Its dispatch entry `0xbacb1` installs the captured parameter bank and scale
+before the ground-shadow renderer. Offset 48 enters a lower-level path that
+skips those steps. The recorder and reader now use 56 for queued shadows;
+original recordings containing them no longer fail as an unknown drawing path.
+
+The original writer/reader comparison still agrees byte for byte across 48
+complete files and 96 synthetic frames, now including the actual shadow value.
+A real 60-frame original recording spanning the intercept and impact plays in
+both implementations with every replay pixel and the infrared palette equal.
+All 195 regressions pass in development, Release and ASan/UBSan. Live recording
+queue comparison has additionally identified a missing collision effect, which
+is being investigated separately from this format correction.

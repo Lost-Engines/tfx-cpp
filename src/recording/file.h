@@ -13,7 +13,9 @@ unsigned int constexpr header_bytes{10}, native_resource_limit{1000};
 unsigned int constexpr compression_buffer_bytes{2048};
 // Six compressed fields, each with a word length, plus the fixed/raw arrays.
 unsigned int constexpr maximum_frame_bytes{16 + render::model_queue_capacity * 20 + 6 * (2 + compression_buffer_bytes)};
-enum class model_kind : uint8_t { unrotated = 40, rotated = 44, ground_shadow = 48 };
+// Original queued constructors CC0BF/CC164/CC238 store these dispatch offsets.
+// Shadow path 56 includes parameter and scale setup; 48 skips both steps.
+enum class model_kind : uint8_t { unrotated = 40, rotated = 44, ground_shadow = 56 };
 
 using order_entry = render::model_queue_entry;
 struct model {
