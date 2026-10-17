@@ -554,6 +554,7 @@ if(BUILD_TESTING)
   target_link_libraries(projectile_impact_probe PRIVATE tfx_core)
   configure_first_party(projectile_impact_probe)
   add_test(NAME world.native_projectile_impact_outputs COMMAND projectile_impact_probe ${PROJECT_SOURCE_DIR}/tests/reference/projectile_impact.txt)
+  add_test(NAME weapons.native_player_projectile_contact_gates COMMAND projectile_impact_probe --player-contacts ${PROJECT_SOURCE_DIR}/tests/reference/player_projectile_contacts.txt)
 
   add_executable(impact_probe tests/impact_probe.cpp)
   target_link_libraries(impact_probe PRIVATE tfx_core)

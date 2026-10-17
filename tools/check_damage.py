@@ -27,6 +27,7 @@ def main():
         conditions=[rng.choice((0,1,2,11,14,255)) for _ in range(12)];repair=[rng.choice((0,1,1079,1080,1081,32767,65535)) for _ in range(12)]
         rows.append([severity,invulnerable,elapsed,low,high,accumulated,display_selection,*conditions,*repair])
         image.write(0x13250,'<H',invulnerable);image.write(0x8e18,'<Q',accumulated);image.write(0x713e,'<h',display_selection);image.write(0x7d70,'<12B',*conditions);image.write(0x1328c,'<12H',*repair);image.write(0x13476,'<H',elapsed)
+        image.write(0xabe9,'<B',(case>>2)&1);image.write(0xe784,'<B',(case>>3)%8)
         image.cpu.mem_write(image.native(0xc9894),struct.pack('<2H',low,high));notifications.clear()
         image.call(0x8f460,eax=severity&0xffffffff);image.call(0x871d4)
         expected.append([*struct.unpack('<2H',image.cpu.mem_read(image.native(0xc9894),4)),image.read(0x8e18,'<Q')[0],image.read(0x713e,'<H')[0],len(notifications),*image.read(0x7d70,'<12B'),*image.read(0x1328c,'<12H')])
@@ -41,7 +42,7 @@ def main():
                 for byte in struct.pack('<Q',value):digest=((digest^byte)*1099511628211)&0xffffffffffffffff
             lines.append(' '.join(map(str,row+[digest]))+'\n')
         args.save_fixture.write_text(''.join(lines));subprocess.run([str(args.build/'damage_probe'),str(args.save_fixture)],check=True)
-    print('8192 native damage/repair cases agree: all system slots, shared random state, signed damage, stored double bits and repair-clock wrapping')
+    print('8192 native damage/repair cases agree: all system slots, shared random state, signed damage, stored double bits, repair-clock wrapping and independent ejection/pilot phases')
 
 
 if __name__=='__main__':main()

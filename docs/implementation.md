@@ -2411,15 +2411,15 @@ includes its signed absolute-value edge case.
 Close daytime bursts request the original normal-priority sample and climb
 warning, with radio delivery gated by the ticker's idle flag (`0x7612`). Their
 white palette flash uses level 40 for the pending frame, restoring level 50
-afterward. The separate native fog/range-lighting pulse (`0x7d7e0`/`0x7d94c`)
+afterward. The separate native cockpit-position shake (`0x7d7e0`/`0x7d94c`)
 and the ordinary sun-glare producer remain unbound; this increment does not
-claim complete flak illumination or full renderer equivalence. No combat
+claim complete flak feedback or full renderer equivalence. No combat
 damage was added to this visual pool.
 
 `check_flak.py` compares **8,192 complete original frames** over 16 persistent
 day/night sequences: **2,871 spawns and 85 flash requests** agree in state,
 random consumption, gates, placement, output ordering, pool reuse and draw
-queues. Resource, SSD, sample, radio, pulse setup and final drawing are observed
+queues. Resource, SSD, sample, radio, shake setup and final drawing are observed
 boundaries; the controller, random generator, integer rotation, allocator and
 draw gate execute unchanged. The compact fixture runs without game assets.
 
@@ -2436,3 +2436,40 @@ plus the daytime palette flash. They explicitly supply a small region, player
 height and flak seeds; they are integration checks, not naturally reached
 encounters or complete pixel comparisons. The private day/night checks pass in
 both development and ASan/UBSan.
+
+
+### Projectile contacts after seat release
+
+The original projectile parent (`0xa373c`) excludes exactly three motion
+callbacks before querying the player: attached, falling and accelerating. Its
+accelerating alias remains eligible. Player-owned stores are excluded, and
+helper `0xa3504` applies the invulnerability gate. Ejection state and pilot
+phase do not add immunity; source-destroyed filtering occurs after this player
+query. The live callback now follows those conditions rather than skipping
+ejected players or already-destroyed querying projectiles.
+
+Player system-damage delivery (`0x8f460`) likewise remains active after seat
+release, retaining SSD damage events and shared random consumption. This does
+not invent a collision volume for the pilot: each current model's original SSD
+program still decides whether contact actually occurs.
+
+**11,232 original dispatch cases** agree across every weapon and motion
+callback and all combinations of ownership, invulnerability, ejection, pilot
+phase and source-destroyed state. Original query setup and parent/helper gates
+execute; source-handle lookup and final collision geometry are declared
+boundaries, and capture stops before later actor/terrain phases. A 416-case
+fixture runs without game assets. The existing **8,192 exact damage/repair
+cases** now also vary the original ejection and pilot globals, confirming
+unchanged faults, accumulated damage, notifications and RNG.
+
+The flak investigation also identified its remaining callback more precisely:
+`0x10be6`/`0x10be8` are cockpit screen offsets. Its short pulse shakes the panel
+and projection, rather than changing fog or range lighting. The earlier
+provisional lighting label has been corrected; restoring that shake remains a
+separate increment.
+
+All **115 regressions**, the 11,232 contact gates and 8,192 damage/repair
+cases pass in development, Release and ASan/UBSan. The private silent ejection
+check also completes ordinary double-Escape, authored seat release, parachute
+and recovery/FINISH after the correction; it is not a post-ejection projectile
+hit reproduction.

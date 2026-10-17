@@ -346,7 +346,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
   }};
   auto const damage_player{[&](int const percentage) {
-    if(ejected()) return;
+    // Native 0x8f460 keeps damage reports and their RNG consumption after seat release.
     tfx::flight::apply_damage(player_damage,percentage,air_simulation.random_stream(),false,[&] { scene.actor_event(player_visual,13); });
     display_selection.right = static_cast<uint16_t>(player_damage.right_display_selection);
   }};
@@ -461,9 +461,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       auto const previous{projectile_world_position(shot.state.previous)}, current{projectile_world_position(shot.state.position)};
       auto const response{[&](uint16_t const damage) { scene.apply_actor_contact_damage(source,damage); }};
       uint16_t const damage{scene.actor_impact_damage(source)};
-      using tfx::weapons::flight_stage;
-      bool const released{shot.state.motion != flight_stage::attached && shot.state.motion != flight_stage::falling && shot.state.motion != flight_stage::accelerating};
-      if(!ejected() && !scene.actor_destroyed(source) && released && shot.owner.pool != tfx::weapons::actor_pool::player) scene.collide_actor(player_visual,previous,current,damage,response,damage_player);
+      bool const released{tfx::weapons::has_swept_contacts(shot.state.motion)};
+      // Native player dispatch precedes the source-destroyed test and has no ejection gate.
+      if(released && shot.owner.pool != tfx::weapons::actor_pool::player) scene.collide_actor(player_visual,previous,current,damage,response,damage_player);
       if(!scene.actor_destroyed(source) && released && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::chaff) && shot.state.weapon != std::to_underlying(tfx::weapons::weapon_id::flare)) {
         int32_t const broad_phase{std::bit_cast<int32_t>(static_cast<uint32_t>(shot.state.speed) * ticks * 20u)};
         for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) {

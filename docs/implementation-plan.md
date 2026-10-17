@@ -133,5 +133,5 @@ Authored area flak now has 8,192 complete original frame comparisons across 16
 persistent day/night scenarios, including its dedicated random generator,
 height/cloud/region gates, 20-slot pool and drawing range. Live daytime bursts,
 nighttime models, audio/radio and the white palette flash are connected; the
-separate native fog/range-lighting pulse remains a renderer task. All 33
+separate native cockpit shake remains an integration task. All 33
 environments retain their original cloud-layer height, offset and grid name.
