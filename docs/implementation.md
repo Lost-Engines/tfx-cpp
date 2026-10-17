@@ -4464,3 +4464,41 @@ increment. The private-window map check also passes under the sanitizer build;
 the ordinary configuration dialog still passes its live interaction check.
 The retained 160-frame controlled engagement continues to match every captured
 state and all indexed pixels.
+
+
+### Original screenshots and remaining powerplant/cockpit shortcuts
+
+The original 4 key now saves the displayed 320×200 image as a numbered
+GRAB_00.LBM in the selected installation. Existing captures are preserved;
+write failures are reported without terminating flight. The file retains
+palette indices, eight bitplanes, ByteRun128 row compression, six-bit VGA DAC
+colours shifted by two, and the original 5:6 pixel aspect. Infrared captures
+use the displayed infrared bank. The developer PPM option remains separate.
+
+`check_screenshot.py` runs complete original 0xdfe64 through hosted in-memory
+DOS file operations and supplied displayed pixels. Twelve synthetic full files
+match byte for byte, including header patching, compression fallback and all
+palette entries. An independent IFF reader also checks their decoded pixels.
+The asset-free capture regression covers headers/aspect, VGA masking, compressed
+row boundaries and complete indexed-image round trips. The private-window check
+presses 4 in paused normal and infrared flight, compares every saved pixel with
+the displayed image and proves existing captures and CFG remain unchanged.
+
+Slash now applies original 0x84de4/0x84e20's afterburner-off action, including
+sound and SSD stop notification. Keypad 9/3 aliases Page Up/Down. The complete
+key comparison exposed that keypad +/- also feeds the continuously sampled
+throttle flags in 0x86458; the previously omitted keypad flags changed fuel
+consumption and eventually speed after a reheat reduction. Those aliases are
+restored. The engine-off path now delivers its afterburner-stop sample too.
+Complete 24-frame Arcade and Realistic sequences agree on every captured field
+and every indexed pixel, including reheat, fuel, trajectory, model parameters
+and cockpit offsets.
+
+Capture numbering uses ordinary decimal names beyond 99 and finds the first
+unused name in the installation. The DOS implementation instead increments
+its two filename bytes in place; its post-99 punctuation and process-local
+filename cursor are not reproduced. This host-file convention has no effect
+on gameplay or the encoded image.
+
+All 189 regressions pass in development, Release and ASan/UBSan after this
+increment. No CI or CD playback has been added.
