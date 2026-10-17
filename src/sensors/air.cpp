@@ -17,6 +17,7 @@ void air_contacts::update(vec3<int32_t> const &player, std::span<air_contact con
   // Native 0x836ac/0x8296c preserves slots across successive scans; new contacts fill the remaining holes.
   auto const previous{slots};
   slots.fill({});
+  hostile_nearby = false;
   std::vector<unsigned int> added;
   for(auto const &contact : contacts) {
     if(contact.flags & std::to_underlying(actors::air_flag::retired)) continue;
@@ -25,6 +26,7 @@ void air_contacts::update(vec3<int32_t> const &player, std::span<air_contact con
     auto const x{word(magnitude(word(subtract(position.x,player.x) / world_units_per_mile)))};
     auto const z{word(magnitude(word(subtract(player.z,position.z) / world_units_per_mile)))};
     if(std::max(x,z) >= radar_miles) continue;
+    if(contact.enemy_pool) hostile_nearby = true;
     auto const found{std::ranges::find(previous,contact.actor)};
     if(found != previous.end()) slots[static_cast<unsigned int>(found - previous.begin())] = contact.actor;
     else added.push_back(contact.actor);

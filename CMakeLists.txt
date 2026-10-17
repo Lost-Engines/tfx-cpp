@@ -288,6 +288,7 @@ add_library(tfx_core
   src/weapons/cannon.h
   src/weapons/runtime.cpp
   src/weapons/runtime.h
+  src/weapons/warnings.cpp src/weapons/warnings.h
   src/weapons/projectile.cpp
   src/weapons/projectile.h
   src/weapons/definition.cpp
@@ -1020,6 +1021,11 @@ if(BUILD_TESTING)
   target_link_libraries(anchor_probe PRIVATE tfx_core)
   configure_first_party(anchor_probe)
   add_test(NAME weapons.native_anchor_transform COMMAND anchor_probe ${PROJECT_SOURCE_DIR}/tests/reference/anchor.txt)
+
+  add_executable(projectile_warnings_probe tests/projectile_warnings_probe.cpp)
+  target_link_libraries(projectile_warnings_probe PRIVATE tfx_core)
+  configure_first_party(projectile_warnings_probe)
+  add_test(NAME weapons.native_incoming_warning_state COMMAND projectile_warnings_probe ${PROJECT_SOURCE_DIR}/tests/reference/projectile_warnings.txt)
 
   add_executable(projectile_runtime_probe tests/projectile_runtime_probe.cpp)
   target_link_libraries(projectile_runtime_probe PRIVATE tfx_core)

@@ -96,6 +96,8 @@ std::map<projectile_id,active_projectile const*> const &runtime::projectiles() c
   return active;
 }
 
+warning_state const &runtime::player_warnings() const { return warnings; }
+
 void runtime::advance(simulation::timer_ticks const elapsed, math::random_state &random, bool const ground_effects) {
   struct substep_guard {
     std::optional<simulation::timer_ticks> &value;
@@ -106,6 +108,7 @@ void runtime::advance(simulation::timer_ticks const elapsed, math::random_state 
   simulation::projectile_clock clock{elapsed};
   while(auto const ticks{clock.next()}) {
     substep = *ticks;
+    begin_warning_step(warnings,*ticks);
     auto *slot{first};
     unsigned int budget{static_cast<unsigned int>(slots.size()) * 4096u};
     while(slot) {
@@ -138,6 +141,10 @@ void runtime::advance(simulation::timer_ticks const elapsed, math::random_state 
           .current_definition{[&](uint8_t const weapon)->definition const& { return definitions[weapon]; }},
         })};
         if(result.reset_visual && callbacks.reset_visual) callbacks.reset_visual(shot.state.weapon,shot.state.secondary);
+        if(ground_effects && definitions[shot.state.weapon].player_proximity && callbacks.player_distance) {
+          auto const warning{observe_player_threat(warnings,callbacks.player_distance(shot),shot.target.actor && shot.target.actor->pool == actor_pool::player,context.player_ejected,random)};
+          if(warning && callbacks.warning) callbacks.warning(*warning);
+        }
         if(ground_effects && shot.state.position.y >= 0) {
           if(callbacks.ground_impact) callbacks.ground_impact(shot);
           shot.spent = true;
@@ -145,6 +152,7 @@ void runtime::advance(simulation::timer_ticks const elapsed, math::random_state 
       }
       slot = next;
     }
+    if(auto const warning{finish_warning_step(warnings)}; warning && callbacks.warning) callbacks.warning(*warning);
     // Contact traversal starts afresh, so births participate even before their ordinary first motion update.
     if(callbacks.contacts) for(auto *contact{first}; contact; contact = contact->next) callbacks.contacts(contact->value,*ticks);
   }

@@ -40,14 +40,14 @@ def main():
                 actor=pool*8+i;dx=rng.choice((-33659,-33000,-32999,-16499,0,16499,32999,33000,33659)) if frame%3==0 else rng.randrange(-40000,40001)
                 dz=rng.randrange(-35000,35001);flags=256 if rng.randrange(7)==0 else rng.choice((0,1,8,128))
                 pos=[(player[0]+dx)*256,-256000,(player[2]+dz)*256]
-                actors.append([actor,*pos,flags]);address=0x301000+actor*128
+                actors.append([actor,*pos,flags,int(pool==0)]);address=0x301000+actor*128
                 image.cpu.mem_write(address,struct.pack('<3i',*pos));image.cpu.mem_write(address+66,struct.pack('<H',flags))
         for addr,val in zip((0x13424,0x13430,0x1343c),player):image.write(addr,'<i',val)
         cycle=int(frame%11==0);image.call(0x836ac)
         if cycle:image.call(0x828b0)
         slots=image.read(image.read(0x76c8,'<I')[0]-image.data,'<20I');selected=image.read(0x11108,'<I')[0]
         rows.append(['R',*player,len(actors),cycle,*[v for actor in actors for v in actor]])
-        expected.append([image.read(0x76d0,'<h')[0],ptr_to_id.get(selected,-1),*[ptr_to_id.get(p,-1) for p in slots]])
+        expected.append([image.read(0x76d0,'<h')[0],ptr_to_id.get(selected,-1),*[ptr_to_id.get(p,-1) for p in slots],int(image.read(0x763e,'<H')[0]!=0)])
     for case in range(4096):
         flags=3 if case%3 else rng.randrange(128);category=rng.choice((0,1,2,4,5,6,9,10,14));role=rng.choice((0,1,6));klass=rng.randrange(4);ticks=rng.choice((0,1,4,10,55,30000,65535))
         minimum=rng.choice((0,100,1000));distance=rng.choice((3000,20000,65535,100000));position=[rng.randrange(-30000,30001),rng.randrange(-4000,0),rng.randrange(-30000,30001)];angles=[rng.randrange(65536),rng.randrange(65536)]

@@ -4,6 +4,7 @@
 #include <map>
 #include "simulation/timing.h"
 #include "weapons/projectile.h"
+#include "weapons/warnings.h"
 
 namespace tfx::weapons {
 
@@ -50,6 +51,8 @@ struct runtime_callbacks {
   std::function<vec3<int32_t>(actor_identity)> actor_position{};
   std::function<vec3<int32_t>()> designation_position{};
   std::function<motion_context(active_projectile const&,uint16_t)> motion_inputs{};
+  std::function<int32_t(active_projectile const&)> player_distance{};
+  std::function<void(projectile_warning const&)> warning{};
   std::function<void(unsigned int,bool)> reset_visual{};
   std::function<void(active_projectile const&)> launched{};
   std::function<void(active_projectile const&)> target_cleared{};
@@ -75,6 +78,7 @@ private:
   projectile_id next_id{1};
   vec3<int32_t> untargeted_point{0,0,0};
   std::optional<simulation::timer_ticks> substep{};
+  warning_state warnings{};
 
 public:
   runtime(std::span<definition const> definitions, runtime_callbacks callbacks, unsigned int capacity = projectile_capacity);
@@ -85,6 +89,7 @@ public:
   projectile_id launch(release const &request);
   projectile_id countermeasure(actor_identity owner, vec3<int32_t> const &position, bool radar, int16_t strength, math::random_state &random);
   std::map<projectile_id,active_projectile const*> const &projectiles() const;
+  warning_state const &player_warnings() const;
   void advance(simulation::timer_ticks elapsed, math::random_state &random, bool ground_effects = true);
 };
 
