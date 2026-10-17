@@ -20,6 +20,15 @@ if 'TFX_FLIGHT_INPUTS' in os.environ:
  sys.path.insert(0,os.environ['TFX_TOOLS_DIRECTORY'])
  from virtual_flight_inputs import install
  virtual_devices=install(lambda:flight_frame)
+class RadarInput(gdb.Breakpoint):
+ def stop(self):
+  if int(gdb.parse_and_eval('mode'))!=0:return False
+  state=gdb.parse_and_eval('state')
+  span=state['projectiles'];count=int(span['_M_extent']['_M_extent_value']);begin=span['_M_ptr']
+  shots=[{'weapon':int(begin[i]['weapon']),'position':[int(begin[i]['position_q8'][axis])for axis in ('x','y','z')],'player_owned':bool(begin[i]['player_owned'])}for i in range(count)]
+  print('CPP_RADAR_INPUT '+json.dumps({'frame':flight_frame,'pulse_before':bool(gdb.parse_and_eval('this').dereference()['pulse']),'player':[int(state['player'][axis])for axis in ('x','y','z')],'heading':int(state['heading']),'range':int(gdb.parse_and_eval('range')),'offset':[int(state['offset'][axis])for axis in ('x','y')],'projectiles':shots}))
+  return False
+if 'TFX_OBSERVE_RADAR_CONTEXT' in os.environ:RadarInput('tfx::cockpit::radar::draw',internal=True)
 def current_renderer():
  global renderer_pointer
  if renderer_pointer is None:

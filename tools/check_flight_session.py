@@ -51,6 +51,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     env=dict(os.environ)
     # LSan cannot inspect a process under ptrace; ordinary sanitizer tests keep it enabled.
     env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
+    if (native/'radar.json').exists():env['TFX_OBSERVE_RADAR_CONTEXT']='1'
     # GDB reads sourced files incrementally. Retain the exact observer beside
     # the capture so ongoing development cannot change a running comparison.
     observer=root/'observe.gdb';observer.write_bytes((tools/'observe_flight_session.gdb').read_bytes())
@@ -84,6 +85,11 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     lines=result.stdout.splitlines()
     def integers(prefix):return [[int(value) for value in line[len(prefix):].split()] for line in lines if line.startswith(prefix)]
     def records(prefix):return [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
+    if (native/'radar.json').exists():
+        events=json.loads((native/'radar.json').read_text())
+        wanted=[{**event,'projectiles':[{key:value for key,value in shot.items()if key!='previous'}for shot in event['projectiles']]}for event in events if event['frame']<=a.frames]
+        actual=records('CPP_RADAR_INPUT ')
+        assert actual==wanted,('live radar inputs',[(got,want)for got,want in zip(actual,wanted)if got!=want][:3],len(actual),len(wanted))
     before=integers('CPP_PRE ');after=integers('CPP_POST ');world=records('CPP_WORLD ')
     assert len(before)==len(after)==len(world)==a.frames,(len(before),len(after),len(world),a.frames)
     for index,(cpp_pre,cpp_post,cpp_world) in enumerate(zip(before,after,world)):
@@ -149,6 +155,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
                         mismatches=[(i,x,y)for i,(x,y)in enumerate(zip(observed[field],original_frame[field]))if x!=y]
                         raise AssertionError(('recording frame',index,field,len(observed[field]),len(original_frame[field]),mismatches[:2]))
     verified=['player','actors','shared RNG','radio','camera','horizon']
+    if (native/'radar.json').exists():verified.append('ordered radar inputs')
     if 'trail_events' in expected:verified.append('smoke samples')
     if expected.get('recordings'):verified.append('recorded model queues')
     verified += [field for field in ('mission_progress','cannon','radar_pulse','speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]

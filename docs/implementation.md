@@ -4867,8 +4867,8 @@ The session observer now compares the real ten score/result counters, target
 credit and cursor, violations, completion latch, exit countdown, timer and
 termination flags. The 220-frame intercept reaches an actual missile kill
 (frame 206), score/kill credit and objective completion (207), with all those
-captured gameplay fields agreeing. Later indexed-image differences remain
-under investigation; this longer trace is not claimed as pixel exact.
+captured gameplay fields agreeing. The initial run exposed later drawing
+differences; the ordering corrections below resolve those as well.
 
 Projectile observation assigns identities at the real pool allocator's return
 (`0xa2d79`), rather than at the shared constructor. HUD-only cannon predictions
@@ -4895,5 +4895,30 @@ complete files and 96 synthetic frames, now including the actual shadow value.
 A real 60-frame original recording spanning the intercept and impact plays in
 both implementations with every replay pixel and the infrared palette equal.
 All 195 regressions pass in development, Release and ASan/UBSan. Live recording
-queue comparison has additionally identified a missing collision effect, which
-is being investigated separately from this format correction.
+queue comparison also identified the contact-tail correction below.
+
+### Intercept contact tail and overlapping radar markers
+
+Original `0xa384f` tests projectile-model life before actor contacts. Once that
+gate passes, the terrain/effect tail still executes if an aircraft or surface
+contact destroys the projectile. The host incorrectly tested life again after
+the actor pass, omitting the resulting `clatter` effect. It now retains the
+original pre-contact decision. This also preserves the authored effect's place
+in the full 348-entry drawing queue; omitting it changes which distant scenery
+survives the queue limit.
+
+Horizontal radar `0x82fbe` traverses projectiles newest first. The host supplied
+them in increasing identity order, giving overlapping enemy markers precedence
+over the older player missile. The supplied span now follows native list order.
+`tools/capture_radar_context.py` observes actual radar-entry inputs and phase
+through the full original flight loop. The session comparator checks those
+ordered inputs when `radar.json` is present, independently of sorted logical
+identities used for general projectile-state comparisons.
+
+The 220-frame controlled intercept now agrees in every captured state, all
+ordered radar inputs and every indexed pixel in development and ASan/UBSan.
+The 225-frame recorded variant additionally agrees on all sixty actual recorded
+model queues and every live pixel, including the real missile hit, kill/score
+credit and objective countdown. All 195 regressions pass in development,
+Release and ASan/UBSan. These are complete flight-loop comparisons; full normal
+mission return and broader campaign paths retain separate verification gates.
