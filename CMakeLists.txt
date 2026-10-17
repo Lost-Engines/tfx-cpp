@@ -25,6 +25,11 @@ add_library(tfx_audio
   src/audio/osl_channel.h src/audio/osl_device.h
   src/audio/osl_la_driver.cpp src/audio/osl_la_driver.h
   src/audio/osl_sequencer.cpp src/audio/osl_sequencer.h
+  src/audio/midi_receiver.h src/audio/midi_stream.cpp src/audio/midi_stream.h
+  src/audio/la_synth.cpp src/audio/la_synth.h
+  src/audio/music_catalogue.cpp src/audio/music_catalogue.h
+  src/audio/music_device.cpp src/audio/music_device.h
+  src/audio/music_clock.h src/audio/music_player.cpp src/audio/music_player.h
 )
 configure_first_party(tfx_audio)
 
@@ -345,7 +350,7 @@ add_library(tfx_core
 target_compile_definitions(tfx_core PUBLIC VECTORSTORM_NO_BOOST)
 configure_first_party(tfx_core)
 
-target_link_libraries(tfx_audio PUBLIC tfx_core)
+target_link_libraries(tfx_audio PUBLIC tfx_core PRIVATE MT32Emu::mt32emu)
 
 if(APPLE)
   set_source_files_properties(src/platform/miniaudio_implementation.c PROPERTIES LANGUAGE OBJC)
@@ -572,6 +577,21 @@ if(BUILD_TESTING)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
 
+  add_executable(resource_files_test tests/resource_files_test.cpp)
+  target_link_libraries(resource_files_test PRIVATE tfx_core)
+  configure_first_party(resource_files_test)
+  add_test(NAME resources.archive_then_loose_dos_files COMMAND resource_files_test)
+  add_executable(music_player_probe tests/music_player_probe.cpp)
+  target_link_libraries(music_player_probe PRIVATE tfx_audio)
+  configure_first_party(music_player_probe)
+  add_executable(music_clock_test tests/music_clock_test.cpp)
+  target_link_libraries(music_clock_test PRIVATE tfx_audio)
+  configure_first_party(music_clock_test)
+  add_test(NAME audio.shared_music_irq_phase COMMAND music_clock_test)
+  add_executable(midi_stream_test tests/midi_stream_test.cpp)
+  target_link_libraries(midi_stream_test PRIVATE tfx_audio)
+  configure_first_party(midi_stream_test)
+  add_test(NAME audio.midi_uart_message_assembly COMMAND midi_stream_test)
   add_executable(osl_la_probe tests/osl_la_probe.cpp)
   target_link_libraries(osl_la_probe PRIVATE tfx_audio)
   configure_first_party(osl_la_probe)

@@ -1786,3 +1786,53 @@ The native OSL playback controller and LA device callbacks are now translated. T
 `tools/check_osl_la.py` compares 4,938 complete original device callbacks and 400,272 MIDI bytes, including 842 actual patch uploads. `tools/check_osl_sequencer.py` compares all 31 LA resources over 170,635 complete original ticks and 872,811 MIDI bytes at game volume 75, retaining every slot/channel field and pattern cursor. Both comparisons pass in development, Release and ASan/UBSan. A second full corpus comparison at audition volume 127 agrees on 875,157 MIDI bytes.
 
 The joined comparison retains details that isolated patch tests cannot establish: six-byte parameter headers, signed wrapped portamento intervals, both native modulation-scaling stages and secondary chord notes accompanying retriggers. These are comparisons through the first native traversal/capture boundary, rather than complete gameplay sessions; shared timer integration, repeated resource changes and hardware PCM remain separate gates.
+
+
+### Live LAPC-I music and the shared timer
+
+The presentation interpreter now dispatches its original synthesised start/stop
+requests to the live OSL player, retaining high-index preselection and native
+volume 75. Munt receives the translated driver's MIDI and SysEx immediately;
+CM-32L ROMs are preferred, with compatible MT-32 pairs also accepted. ROMs remain
+external. No Darker conversion bank, arrangement correction or percussion
+workaround is applied. The music switch sends the original zero/restored volume
+and gates subsequent sequencer ticks while the synthesiser continues rendering
+its existing voices and reverb. One PCM device mixes this with sampled effects.
+
+The game does **not** run the sequencer at the standalone auditions' requested
+50 Hz. Its launcher supplies `BX=0xffff` when initialising MEDIT, disabling that
+library's private PIT programming. The shared game IRQ at master offset `0x1e03`
+calls the music tick while enabled, with PIT divisor `0x5555` (21,845), about
+54.62 Hz. Requested clock changes, including zero, do not reprogram or stop this
+shared IRQ. `tools/check_osl_sequencer.py --host-irq` executes the complete
+original shared handler and verifies both PIT writes and its game counter:
+**31 LA resources, 175,459 complete ticks and 891,656 MIDI bytes** agree. This
+extends the isolated comparison through the zero-clock request in `air.rld`.
+The retained research FLACs remain explicitly labelled standalone auditions.
+
+Music timing retains the shared clock phase across track changes and mute/resume.
+Its rational sample clock has callback-boundary tests at 8, 44.1, 48 and 96 kHz.
+`music_player_probe` additionally compares complete MIDI messages and their exact
+sample timestamps across varied callback sizes, mute/resume, retained selection,
+resource replacement and restart. Hardware output is checked for finite, audible
+PCM separately: Munt's pitch jitter uses a shared random generator, so changing
+voice-processing chunks need not produce bit-identical chip output. The MIDI
+stream assembler separately covers running status, real-time interruptions,
+truncated messages and preserved complete SysEx/checksum errors.
+
+The original LAPC intro filename has a trailing space. Its archive hash misses;
+the native loader then falls back to the DOS loose-file path. Archive lookup now
+has that same precedence and fallback, with case-insensitive DOS components and
+trailing space/dot handling. Loose files also pass through RA decompression.
+The asset-free loader fixture checks archive precedence, the padded intro path,
+compressed loose data and rejection of parent/absolute paths. This does not
+change the archive hash or silently rewrite the original filename list.
+
+`tools/check_window_music.py` runs the actual introduction with a disposable
+installation and private X11/Pulse sink. It verifies audible stereo output,
+loose intro lookup/decompression and clean shutdown without routing test music
+to the user's speakers. All 100 asset-free regressions and the 1,309-message/sample-timestamp player
+comparison pass in development, Release and ASan/UBSan. The private-window
+music and sampled-audio checks also pass under sanitizers. Other OSL devices,
+auxiliary banks, in-flight selection, serial byte-level latency and complete-session
+audio comparison remain open.

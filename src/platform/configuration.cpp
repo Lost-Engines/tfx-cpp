@@ -8,8 +8,10 @@ presentation::configuration_action configure_flight(window &window, resources::e
     configuration::settings &preferences, std::filesystem::path const &directory,
     render::framebuffer const &background, render::palette const &colours, audio::runtime *const sound) {
   presentation::configuration_audio audio{
-    .sound_available{sound != nullptr},
+    .sound_available{sound && sound->sound_available()},
+    .music_available{sound && sound->music_available()},
     .sound_enabled{sound && sound->sound_enabled()},
+    .music_enabled{sound && sound->music_enabled()},
   };
   presentation::configuration_menu menu{preferences,tables.configuration_widgets(),tables.interface_font(),&audio};
   auto palette{colours};
@@ -34,7 +36,7 @@ presentation::configuration_action configure_flight(window &window, resources::e
       if(action != presentation::configuration_action::none) { result = action;break; }
     }
     mouse_held = mouse;
-    if(sound) sound->enable_sound(audio.sound_enabled);
+    if(sound) { sound->enable_sound(audio.sound_enabled);sound->enable_music(audio.music_enabled); }
     auto image{background};
     menu.draw(image);
     window.title(menu.page() == presentation::configuration_page::realism ? "TFX C++ — Realism" : "TFX C++ — Configuration");

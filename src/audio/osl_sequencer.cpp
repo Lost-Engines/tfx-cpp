@@ -8,7 +8,10 @@ namespace tfx::audio {
 osl_sequencer::osl_sequencer() {
   // Unallocated native channels are zero-filled. Allocation assigns the two
   // 255 output-cache sentinels and the initial 255 instrument cell separately.
-  for(auto &channel : channels) channel.sent_volume = channel.sent_instrument = 0;
+  for(auto &channel : channels) channel = {
+    .sent_volume{0},
+    .sent_instrument{0}
+  };
 }
 void osl_sequencer::register_device(osl_device_driver &driver) {
   if(device(driver.device_type())) throw std::invalid_argument{"OSL device is already registered"};
@@ -80,6 +83,16 @@ void osl_sequencer::stop(osl_playing_id const id) {
     channel.allocation = 0;
   }
 }
+void osl_sequencer::volume(osl_playing_id const id, uint8_t const value) {
+  auto &voice{songs.at(id)};
+  if(!(voice.state.flags & 1)) return;
+  voice.state.volume = value;
+  auto *const driver{device(resources[voice.state.resource]->device())};
+  if(driver) for(unsigned int logical{0}; logical != voice.state.channel_count; ++logical) {
+    auto const physical{voice.state.channel_slots[logical]};
+    send_volume(voice,channels[physical],physical,*driver);
+  }
+}
 uint8_t osl_sequencer::transpose(playing const &voice, osl_channel const &channel) const {
   auto const &resource{*resources[voice.state.resource]};
   uint8_t value{song(voice).transpose()};
@@ -148,7 +161,7 @@ void osl_sequencer::retrigger(playing &voice, osl_channel &channel, unsigned int
     channel.cell.notes[0] = 0;
   }
   if((channel.arpeggio_counter & 15) > 1) { --channel.arpeggio_counter;return; }
-  channel.arpeggio_counter |= channel.arpeggio_counter >> 4;
+  channel.arpeggio_counter = static_cast<uint8_t>(channel.arpeggio_counter | (channel.arpeggio_counter >> 4));
   if(channel.arpeggio_note) driver.note(channel,physical,static_cast<uint8_t>(channel.arpeggio_note + transpose(voice,channel)),127);
 }
 void osl_sequencer::row_effect(playing &voice, osl_channel &channel, unsigned int const physical, osl_device_driver &driver, bool &jump, bool &stop) {

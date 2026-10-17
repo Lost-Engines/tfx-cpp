@@ -77,6 +77,7 @@ public:
   void release(osl_resource_id resource);
   osl_playing_id play(osl_resource_id resource, unsigned int song = 0, uint8_t order = 0, uint16_t row = 0, uint8_t volume = 75);
   void stop(osl_playing_id id);
+  void volume(osl_playing_id id, uint8_t value);
   void tick();
   uint16_t clock_rate() const;
   unsigned int pattern_offset(osl_playing_id id) const;

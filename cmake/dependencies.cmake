@@ -21,3 +21,12 @@ FetchContent_Declare(miniaudio
   SOURCE_SUBDIR unused_upstream_build
 )
 FetchContent_MakeAvailable(miniaudio)
+
+set(libmt32emu_SHARED OFF CACHE BOOL "Link Munt into the game")
+FetchContent_Declare(munt
+  URL https://codeload.github.com/munt/munt/tar.gz/5ee078a761d35cdd3d27000b551c12d11df6a60b
+  URL_HASH SHA256=f2c0885a6a9b40329019424afddf800d53b4a85b2f8d23658a246d2883201b0c
+  SOURCE_SUBDIR mt32emu
+  EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(munt)

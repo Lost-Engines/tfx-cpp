@@ -10,5 +10,5 @@ void play_game(resources::archive const &game, resources::executable_tables cons
   flight_options const &options);
 void play_presentation(resources::archive const &game, resources::executable_tables const &tables,
   std::string const &name, std::string_view function, std::string const &language,
-  unsigned int scale, unsigned int frame_limit, std::optional<std::filesystem::path> const &screenshot);
+  unsigned int scale, unsigned int frame_limit, std::optional<std::filesystem::path> const &screenshot, audio::runtime *sound = nullptr);
 } // namespace tfx::platform

@@ -22,7 +22,7 @@ Startup reads the original `TFX.CFG`; `--flight-model` overrides its model selec
 
 Joystick buttons follow the original mapping: fire, select ground weapons, select air weapons and cycle targets on buttons 1–4. Stick sensitivity uses the original `JOYSCALE` setting.
 
-Press **backtick** in flight for the original configuration and realism menus. Changes take effect when you return to the game, and preferences are saved to the installation’s `TFX.CFG`. The dialogs include flight model, controls, joystick sensitivity, world detail, recovery and realism settings. The sound switch controls the original sampled effects and speech; synthesised music is still being connected.
+Press **backtick** in flight for the original configuration and realism menus. Changes take effect when you return to the game, and preferences are saved to the installation’s `TFX.CFG`. The dialogs include flight model, controls, joystick sensitivity, world detail, recovery and realism settings. The sound switch controls the original sampled effects and speech. Roland LAPC-I music also plays through the original presentation requests: use `--music=roland-lapc --rom-dir=/path/to/roms` with compatible CM-32L/MT-32 control and PCM ROMs. `--music=none` disables music. Other synthesised devices and in-flight music/effect selection are still being connected.
 
 `A` toggles autopilot. `7` selects waypoint following, `8` heading/altitude hold, `9` aircraft tracking and `0` speed hold. Arrow keys adjust applicable autopilot targets; `=`/`-` adjust target speed. `6` restores cruise speed, `5` toggles automatic stick pressure and Tab requests recovery. Alt+L requests automatic landing at the selected runway or carrier. Cockpit control displays show the live autopilot, flaps and F-22 thrust-vectoring state.
 
@@ -34,7 +34,7 @@ Apostrophe toggles aerial refuelling: the nearest allied tanker supplies the ori
 
 The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
 
-This is still an integration build. Complete sensor displays and crash/result artwork, aircraft-to-aircraft contacts, area flak, the remaining HUD cues, complete campaign progression and synthesised music remain unfinished. The numerical flight backend currently requires x87 support; it preserves the original startup precision within flight calculations. See [implementation status](docs/implementation.md) for precise verification boundaries.
+This is still an integration build. Complete sensor displays and crash/result artwork, aircraft-to-aircraft contacts, area flak, the remaining HUD cues, complete campaign progression and the remaining music devices/triggers remain unfinished. The numerical flight backend currently requires x87 support; it preserves the original startup precision within flight calculations. See [implementation status](docs/implementation.md) for precise verification boundaries.
 
 RelWithDebInfo retains the developer scene inspector and headless captures:
 
@@ -46,7 +46,7 @@ RelWithDebInfo retains the developer scene inspector and headless captures:
 ./build/tfx --data-dir /path/to/TFX --flight-steps=100 --screenshot=/tmp/tfx.ppm
 ```
 
-The presentation player runs original images, delta animations, captions and palette fades; Space finishes a caption or advances a scene, Escape skips the sequence, and Shift+Q exits. Original menu scripts can also run independently with `--menu`, including the animated main menu (`mastopts`). Other presentation graphs include `cdcolint`, `cdsomint`, `cdfwsint`, `cdyugint` and `cdyugmid`; `--language` selects briefing text. Audio remains deferred.
+The presentation player runs original images, delta animations, captions and palette fades; Space finishes a caption or advances a scene, Escape skips the sequence, and Shift+Q exits. Original menu scripts can also run independently with `--menu`, including the animated main menu (`mastopts`). Other presentation graphs include `cdcolint`, `cdsomint`, `cdfwsint`, `cdyugint` and `cdyugmid`; `--language` selects briefing text. Presentations retain their synthesised music requests; CD playback remains deferred.
 
 In the inspector, WASD moves, R/F rises/descends, arrows or right-drag look around and Shift moves faster. Release builds omit the developer options. No CI or automatic release process is configured.
 
