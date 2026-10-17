@@ -334,6 +334,8 @@ add_library(tfx_core
   src/resources/executable_tables.h
   src/render/framebuffer.cpp
   src/render/framebuffer.h
+  src/render/ilbm.cpp
+  src/render/ilbm.h
   src/render/aperture.h
   src/render/camera.cpp
   src/render/camera.h
@@ -424,6 +426,8 @@ add_executable(tfx
   src/main.cpp
   src/platform/tactical_map.cpp
   src/platform/tactical_map.h
+  src/platform/screenshot.cpp
+  src/platform/screenshot.h
   src/platform/configuration.cpp
   src/platform/configuration.h
   src/platform/arming.cpp
@@ -454,6 +458,15 @@ if(BUILD_TESTING)
   add_executable(hud_font_probe tests/hud_font_probe.cpp)
   target_link_libraries(hud_font_probe PRIVATE tfx_core)
   configure_first_party(hud_font_probe)
+
+  add_executable(screenshot_probe tests/screenshot_probe.cpp)
+  target_link_libraries(screenshot_probe PRIVATE tfx_core)
+  configure_first_party(screenshot_probe)
+
+  add_executable(screenshot_tests tests/screenshot_test.cpp)
+  target_link_libraries(screenshot_tests PRIVATE tfx_core)
+  configure_first_party(screenshot_tests)
+  add_test(NAME render.original_ilbm_capture COMMAND screenshot_tests)
 
   add_executable(widget_font_probe tests/widget_font_probe.cpp)
   target_link_libraries(widget_font_probe PRIVATE tfx_core)

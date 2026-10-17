@@ -61,6 +61,7 @@
 #include "platform/flight.h"
 #include "platform/configuration.h"
 #include "platform/tactical_map.h"
+#include "platform/screenshot.h"
 #include "render/camera.h"
 #include "render/point_projection.h"
 #include "render/palette_selection.h"
@@ -121,7 +122,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::render::palette_lighting palette_lighting{altitude_palettes,environment.lighting.palette_altitudes,tables.fixed_flight_palette};
   tfx::render::g_effects_state g_effects;
   auto colours{tfx::render::expand_dac_palette(palette_lighting.colours())};
-  auto const infrared_colours{tfx::render::decode_palette(game.read("colours/" + environment.lighting.infrared_palette_name + ".col"))};
+  auto const infrared_bytes{game.read("colours/" + environment.lighting.infrared_palette_name + ".col")};
+  auto const infrared_colours{tfx::render::decode_palette(infrared_bytes)};
+  tfx::render::dac_palette infrared_dac;
+  std::ranges::copy(infrared_bytes,infrared_dac.begin());
   auto const *frame_colours{&colours};
   tfx::render::palette_selection palette_selection;
   bool night_vision{false};
@@ -1937,6 +1941,14 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     bool const quit_prompt{(down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)) && quit_key};
     if((inspect || result_evaluated) && quit_prompt) break;
     if(result_evaluated && (pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER))) break;
+    if(!inspect && pressed(GLFW_KEY_4)) {
+      try {
+        auto const path{save_screenshot(options.data_directory,renderer.output,palette_selection.value().infrared ? infrared_dac : palette_lighting.colours())};
+        std::cout << "Screenshot: " << path << '\n';
+      } catch(std::exception const &error) {
+        std::cerr << "Cannot save screenshot: " << error.what() << '\n';
+      }
+    }
     bool const map_key{pressed(GLFW_KEY_M)};
     bool const map_prompt{map_key && !down(GLFW_KEY_LEFT_SHIFT) && !down(GLFW_KEY_RIGHT_SHIFT)};
     if(!inspect && !result_evaluated && map_key && !map_prompt && mission_setup.completion && mission_setup.completion->text) radio.show(*mission_setup.completion->text);
@@ -2311,19 +2323,23 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       };
       if(pressed(GLFW_KEY_SPACE)) store_trigger = true;
       if(!player.collision && !player_disabled && !ejected()) {
-        if(pressed(GLFW_KEY_PAGE_UP)) cockpit_position.raise();
-        if(pressed(GLFW_KEY_PAGE_DOWN)) cockpit_position.lower();
+        bool const raise_cockpit{pressed(GLFW_KEY_PAGE_UP)}, raise_keypad{pressed(GLFW_KEY_KP_9)};
+        bool const lower_cockpit{pressed(GLFW_KEY_PAGE_DOWN)}, lower_keypad{pressed(GLFW_KEY_KP_3)};
+        if(raise_cockpit || raise_keypad) cockpit_position.raise();
+        if(lower_cockpit || lower_keypad) cockpit_position.lower();
         if(pressed(GLFW_KEY_LEFT_BRACKET)) player.left_engine = !player.left_engine;
         if(pressed(GLFW_KEY_RIGHT_BRACKET)) player.right_engine = !player.right_engine;
         if(!player.left_engine && !player.right_engine && player.afterburner) {
           physical_player.powerplant.stop_afterburner();
           player.afterburner = 0;
+          reheat_sound(tfx::flight::afterburner_change::stopped);
           scene.actor_event(player_visual,10);
         }
         if(automatic_landing.phase == tfx::flight::automatic_landing_phase::inactive && !physical_player.manual.controls.autopilot.enabled) {
           auto change{tfx::flight::afterburner_change::none};
           if(pressed(GLFW_KEY_KP_MULTIPLY)) change = down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT) ? physical_player.powerplant.decrease_afterburner() : physical_player.powerplant.increase_afterburner(physical_player.aircraft.powerplant.afterburner_stages);
           if(pressed(GLFW_KEY_MINUS) || pressed(GLFW_KEY_KP_SUBTRACT)) change = physical_player.powerplant.decrease_afterburner();
+          if(pressed(GLFW_KEY_SLASH) && physical_player.powerplant.stop_afterburner()) change = tfx::flight::afterburner_change::stopped;
           player.afterburner = physical_player.powerplant.afterburner;
           player.throttle = physical_player.powerplant.throttle;
           reheat_sound(change);
@@ -2403,8 +2419,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         tfx::flight::flight_controls const controls{
           .pitch_delta{input_word(pitch_input)},
           .roll_delta{input_word(roll_input)},
-          .accelerate{down(GLFW_KEY_EQUAL)},
-          .decelerate{down(GLFW_KEY_MINUS)},
+          .accelerate{down(GLFW_KEY_EQUAL) || down(GLFW_KEY_KP_ADD)},
+          .decelerate{down(GLFW_KEY_MINUS) || down(GLFW_KEY_KP_SUBTRACT)},
           .mouse_buttons{static_cast<uint8_t>((glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS ? 1 : 0) | (glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS ? 2 : 0))},
         };
         pitch_input -= controls.pitch_delta;

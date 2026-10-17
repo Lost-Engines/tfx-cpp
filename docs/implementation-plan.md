@@ -31,7 +31,12 @@ original frames. Private-window input checks cover pause preservation,
 consumed dismissal keys and the infrared return. Both maps now bind the ILS
 runway marker; surface contact enumeration excludes destroyed, retired and
 neutral actors as the original does. Remaining flight shortcuts and recording
-are the next input integration work.
+are the next input integration work. The 4-key ILBM capture, slash afterburner
+stop, keypad cockpit-height controls and held keypad throttle controls are
+also connected. Twelve complete screenshot files match the original encoder
+byte for byte; 24-frame Arcade and Realistic shortcut sequences match every
+captured state and pixel. Flight recording and the original cheat dispatcher
+remain separate work.
 
 Extend the relocated-original-code harness from isolated calls to reproducible initialisation/update sequences. Where complete DOS context is necessary, instrument scripted runs of the original through DOSBox. Original runs should use disposable writable installations so they do not alter the user's configuration or pilots.
 
