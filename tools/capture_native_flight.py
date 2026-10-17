@@ -66,6 +66,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--mission',type=int,default=501)
+parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 parser.add_argument('--frames',type=int,default=4)
 args=parser.parse_args()
 if not 1 <= args.frames <= 256:parser.error('--frames must be between 1 and 256')
@@ -81,7 +82,9 @@ def string(address):
  return bytes(im.cpu.mem_read(address,256)).split(bytes(1))[0].decode('cp437')
 def read(name):
  name=name.replace('\\','/').lstrip('/').lower()
- if name=='tfx.cfg':return b'CONTROL=0\r\nMODEL=0\r\nSOUNDFX=0\r\nMUSIC=0\r\nREALISM=0,0,1,1,0,0,0\r\n'
+ if name=='tfx.cfg':
+  model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[args.flight_model]
+  return f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX=0\r\nMUSIC=0\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode()
  identifier=archive.hash_name(name)
  if identifier not in entries:raise RuntimeError('missing asset '+name)
  return archive.unpack(entries[identifier])
@@ -196,6 +199,7 @@ def frame_boundary(current):
   'selected':current.read(0x93b0,'<h')[0],
   'stores':[current.read(0x13374+i*2,'<2B') for i in range(11)],
   'ground_phase':current.read(0xad7c,'<i')[0],
+  'pattern_seed':struct.unpack('<H',current.cpu.mem_read(current.native(0xe3a3f),2))[0],
   'timer':clock[0],
   'random':struct.unpack('<2H',current.cpu.mem_read(current.native(0xc9894),4)),
   'actors':actors_snapshot(current),
@@ -255,7 +259,7 @@ except RuntimeError:
 else:raise RuntimeError('Original mission returned before completing the requested capture')
 assert parser_base<=im.read(0x1acfc,'<I')[0]<parser_base+0x100000,'presentation arena exhausted'
 record={
- 'mission':args.mission,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
+ 'mission':args.mission,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
  'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
  'dependencies':{hex(address):reason for address,reason in im.dependencies.items()},
  'host_services':['DPMI exception-vector transport','VGA planar memory and ports','fixed startup calendar','inherited presentation declarations'],

@@ -796,7 +796,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .enemy_pool{pool == 0},
       });
     }
-    radar.update(player.integer_position,radar_actors);
     refresh_ground_contacts();
     if(mobile_designation) designated_point = tfx::sensors::mobile_target_point(surface_actors[surface_index(mobile_designation->slot)].state.pose.position,mobile_designation->offset);
     if(designator_view) {
@@ -1237,10 +1236,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       scene.actor_event(flak_visuals[slot].at(event->model),0);
     }
     refresh_sensors(elapsed);
+    mission_time.advance_clock(elapsed);
   }};
   auto const finish_world{[&](tfx::simulation::timer_ticks const elapsed) {
     if(result_evaluated) return;
-    for(auto const index : mission_time.finish_frame(elapsed)) {
+    for(auto const index : mission_time.finish_frame()) {
       auto const &event{mission_setup.scenery_events[index]};
       scene.terrain_event(event.cell.x,event.cell.y,event.entry);
     }
@@ -1447,6 +1447,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     aiming.check_fuel(player.fuel);
     auto const fault{player_damage.condition(tfx::flight::aircraft_system::hud)};
     if(fault == tfx::flight::system_condition::failed || (fault == tfx::flight::system_condition::intermittent && (air_simulation.random_stream().next() & 1))) return;
+    // Original 0x8015b scans after the seeker update (0x7213f), only while
+    // drawing a working forward HUD. Newly found contacts are acquired next frame.
+    radar.update(player.integer_position,radar_actors);
     auto const offset{vec2<int16_t>{cockpit_position.value()}};
     unsigned int const weapon_index{armament.selected < 0 ? 0u : armament.pylons[static_cast<unsigned int>(armament.selected)].weapon};
     auto const &weapon{tables.weapons.at(weapon_index < tables.weapons.size() ? weapon_index : 0)};
@@ -1472,8 +1475,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .height{player.position.y},
         .speed{player.fixed_speed},
         .mach{player.unrounded_speed_mach},
-        // The current Arcade pose handoff clears native DATA 0x133f4 to zero.
-        .load{0},
+        .load{simple_player.displayed_g_load},
         .throttle{player.throttle},
         .position{vec3<int32_t>{player.integer_position}},
         .air_brake{player.air_brake},

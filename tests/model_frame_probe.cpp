@@ -32,7 +32,7 @@ int main(int const argc, char const *const argv[]) try {
     for(auto &value : basis.data) input >> value;
     input >> origin.x >> origin.y >> origin.z;
     for(unsigned int i{0}; i != 8; ++i) { unsigned int value;input >> value;context.parameters[i] = static_cast<uint8_t>(value); }
-    auto view{tfx::render::original_camera({0,0,0},mat3<int32_t>{},{160,100},wide ? tfx::render::aperture::missile_nose : tfx::render::aperture::normal)};view.far_distance = 1e10;
+    auto view{tfx::render::original_camera({0,0,0},mat3<int32_t>{},{160,100},wide ? tfx::render::aperture::missile_nose : tfx::render::aperture::normal)};
     if(viewport) input >> view.projection_origin.x >> view.projection_origin.y >> view.viewport_minimum.x >> view.viewport_minimum.y >> view.viewport_maximum.x >> view.viewport_maximum.y;
     std::string hex;input >> hex;
     tfx::models::shape const shape{decode_hex(hex)};

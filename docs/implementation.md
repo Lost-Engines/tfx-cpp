@@ -4,18 +4,23 @@ Reference: TFX 2.05, September 1994 CD. Native offsets refer to `TFX.DAT`, SHA-2
 
 ## Current integrated reference check
 
-The actual C++ game and the original `launch_game`/flight loop now agree over
+The actual C++ game and the original `launch_game`/flight loop agree over
 256 neutral four-tick frames of mission 501 (20.48 seconds): player position,
 angles and speed; every retained aircraft controller field observed by the
-session probe; shared RNG; and the complete camera/horizon handoff. The final
-indexed frames differ at **34 of 64,000 pixels**, so this is not a claim of
-whole-image or complete-game equivalence. The original presentation variables,
-DOS devices, external timer, silent audio and host memory remain explicit
-capture inputs. The original mission/environment/renderer/arming/AI code runs.
+session probe; shared RNG; and the complete camera/horizon handoff. The newer
+every-frame image check also matches **all 32 Arcade frames pixel for pixel**.
+Simple and advanced models expose additional drawing differences and remain
+under investigation; this does not establish complete-game equivalence.
 
-All **178 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+The original presentation variables, DOS devices, external timer, silent audio
+and host memory remain explicit capture inputs. The original mission,
+environment, renderer, arming and AI code executes. `--flight-model` selects
+any of the four models, and `--output` retains the private frames and observer
+log. `--strict-pixels` requires every captured image to match, not just the last.
+
+All **179 CTests** pass in development, Release and ASan/UBSan. All 128 retail
 missions also compose 64 development frames and 16 sanitizer frames without
-preview warnings. Real private-window controls still exercise firing, MFDs,
+preview warnings. Real private-window controls exercise firing, MFDs,
 missile cameras, designator use, ejection and an automatic FINISH handoff.
 
 The sections below record successive implementation stages. Their early
@@ -3850,7 +3855,7 @@ run inside bounded host storage; only the external Watcom allocation boundary
 is replaced. Inherited presentation declarations and DOS I/O are documented
 inputs in the capture's JSON dependency record. Capture images remain outside
 the repository. `--strict-pixels` additionally requires zero image differences;
-it currently exposes the remaining drawing discrepancy rather than hiding it.
+it checks every captured frame rather than only the final screenshot.
 
 The full launch exposed sequencing that isolated component tests did not:
 
@@ -3880,3 +3885,35 @@ its terrain metadata comparison; runtime SSD behaviour remains checked against
 original execution by `check_instances.py`. After the variant correction,
 **4,800 complete original terrain collision queries** still agree, including
 seams and all quarter turns. Private-window control and designator checks pass.
+
+
+### Authored model lines and HUD frame order
+
+Model opcode 1 now uses the original Q16 projection, near-plane intersection,
+signed-word screen coordinates and clipped integer line painter. It no longer
+falls through to the inspector's floating projection and general clipping.
+`check_model_materials.py --lines --cases 2048` compares complete original
+models, including ordinary and wide apertures, coincident endpoints, near and
+viewport clipping, fixed/distance ink and mode changes: **2,048 cases agree**,
+including 546 visible lines, every VGA pixel and procedural seed. Compact
+synthetic captures form an asset-free regression. The material probe now
+retains its normal inspection far distance, so the existing admitted-face
+regression actually detects the removed per-vertex cutoff; 256 complete
+original far-face cases still agree.
+
+The every-frame session check exposed two host ordering errors. Original
+`0x72324` advances mission time before the HUD, while `0x70e44` dispatches
+scenery events afterwards. The timeline now separates these operations; its
+4,096 native boundary cases still cover equality, ordering and unsigned wrap.
+Previously the cockpit clock lagged at each second boundary. Original
+`0x7213f` also updates the seeker before the working forward HUD scans contacts
+at `0x8015b`: a new contact becomes available to acquisition on the following
+frame. Scanning now happens at that drawing boundary, preserving HUD failure
+and external-view eligibility. Simple/physical G-load readings are supplied
+from their retained flight state instead of an Arcade-only zero.
+
+```sh
+python3 tools/check_flight_session.py --build build --frames 32 --strict-pixels
+python3 tools/check_flight_session.py --build build --flight-model simple --frames 32
+python3 tools/check_model_materials.py --build build --lines --cases 2048
+```

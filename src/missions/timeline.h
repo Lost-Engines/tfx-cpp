@@ -18,7 +18,8 @@ public:
   explicit timeline(setup const &source);
   void reset(mission_tick elapsed = 0);
   std::vector<unsigned int> begin_frame();
-  std::vector<unsigned int> finish_frame(simulation::timer_ticks elapsed);
+  void advance_clock(simulation::timer_ticks elapsed);
+  std::vector<unsigned int> finish_frame();
   mission_tick elapsed() const;
   mission_tick time_of_day() const;
 };

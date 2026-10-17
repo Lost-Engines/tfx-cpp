@@ -603,6 +603,7 @@ if(BUILD_TESTING)
   add_test(NAME render.native_far_model_faces COMMAND model_frame_probe "${PROJECT_SOURCE_DIR}/tests/reference/model_far_materials.txt")
   add_test(NAME render.native_inert_model_instructions COMMAND model_frame_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_inert_ops.txt)
   add_test(NAME render.native_rounded_model_programs COMMAND model_frame_probe ${PROJECT_SOURCE_DIR}/tests/reference/rounded_model_programs.txt)
+  add_test(NAME render.native_authored_model_lines COMMAND model_frame_probe --viewport ${PROJECT_SOURCE_DIR}/tests/reference/model_lines.txt)
   add_test(NAME render.native_authored_model_dots COMMAND model_frame_probe --viewport ${PROJECT_SOURCE_DIR}/tests/reference/model_dots.txt)
   add_test(NAME render.native_authored_model_discs COMMAND model_frame_probe --viewport ${PROJECT_SOURCE_DIR}/tests/reference/model_discs.txt)
 

@@ -4,7 +4,24 @@ set confirm off
 set startup-with-shell off
 set print thread-events off
 python
+import hashlib
 import json
+from pathlib import Path
+renderer_pointer=None
+rendered_frames=0
+def current_renderer():
+ global renderer_pointer
+ if renderer_pointer is None:
+  frame=gdb.newest_frame()
+  while frame:
+   try:
+    value=frame.read_var('renderer')
+    if value.type.code in (gdb.TYPE_CODE_REF,gdb.TYPE_CODE_RVALUE_REF):value=value.referenced_value()
+    renderer_pointer=value.address
+    break
+   except (ValueError,gdb.error):frame=frame.older()
+  if renderer_pointer is None:raise RuntimeError('No actual flight renderer in observed call stack')
+ return renderer_pointer.dereference()
 end
 set $player = 0
 set $air = 0
@@ -42,6 +59,12 @@ for index in range(100):
  values.extend(int(x) for x in (flight['acceleration'],flight['input_ticks'],actor['wait_seconds'],actor['actions'],pose['flags'],pose['leader'],pose['formation'],actor['scan_cursor'],actor['player_shots']))
  actors.append(values)
 print('CPP_WORLD '+json.dumps({'random':[int(air['random']['low']),int(air['random']['high'])],'actors':actors}))
+renderer=current_renderer()
+image=renderer['output']['pixels']['_M_elems']
+raw=bytes(gdb.selected_inferior().read_memory(int(image.address),64000))
+rendered_frames+=1
+Path(f'cpp-frame-{rendered_frames}.indices').write_bytes(raw)
+print('CPP_RENDER '+json.dumps({'sha256':hashlib.sha256(raw).hexdigest(),'pattern_seed':int(renderer['procedural_seed'])}))
 end
 continue
 end
