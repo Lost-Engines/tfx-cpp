@@ -220,7 +220,9 @@ next_projectile_id=[0]
 def identify_projectile(cpu,address,size,unused):
  next_projectile_id[0]+=1
  projectile_ids[cpu.reg_read(r.UC_X86_REG_EAX)]=next_projectile_id[0]
-im.cpu.hook_add(UC_HOOK_CODE,identify_projectile,begin=im.native(0xa2d80),end=im.native(0xa2d80))
+# Assign identities only when the live pool allocator has linked a record.
+# The shared constructor also builds temporary HUD prediction projectiles.
+im.cpu.hook_add(UC_HOOK_CODE,identify_projectile,begin=im.native(0xa2d79),end=im.native(0xa2d79))
 def projectile_snapshot(current):
  from check_projectiles import KINDS
  head=current.read(0x16e80,'<I')[0];tail=current.read(0x16e7c,'<I')[0]
@@ -252,6 +254,17 @@ def player_parts_snapshot(current,bindings=False):
 def frame_boundary(current):
  snapshots.append({
   'frame':frames[0],
+  'mission_progress':{
+   'results':[current.read(at,'<i')[0]for at in (0x5c14,0x5c18,0x5c1c,0x5c24,0x5c28,0x5c30,0x5c20,0x5c2c,0x5c34,0x5c38)],
+   'credited_targets':current.read(0x11b26,'<h')[0],
+   'target_cursor':current.read(0x5d44,'<h')[0],
+   'violations':current.read(0xe75c,'<h')[0],
+   'exit_ticks':current.read(0x5940,'<h')[0],
+   'remaining_timer':current.read(0xe708,'<i')[0],
+   'resolved':bool(current.read(0x593e,'<B')[0]),
+   'ended':bool(current.read(0x593a,'<h')[0]),
+   'critical_loss':bool(current.read(0xe77c,'<B')[0]),
+  },
   'position':[current.read(at,'<i')[0] for at in (0x13424,0x13430,0x1343c)],
   'angles':current.read(0x86c8,'<3H'),
   'speed':current.read(0x13444,'<i')[0],
@@ -275,6 +288,8 @@ def frame_boundary(current):
   'sensors':sensor_snapshot(current),
   'projectiles':projectile_snapshot(current),
   'armament':[current.read(0x93b0,'<h')[0],int(not current.read(0x7140,'<B')[0]),current.read(0x16e98,'<h')[0],current.read(0x809c+20,'<B')[0],*[v for slot in range(11)for v in current.read(0x13374+slot*2,'<2B')],current.read(0x14858,'<Q')[0]],
+  'cannon':[current.read(0x16e9a,'<h')[0],current.read(0x16e96,'<H')[0]],
+  'radar_pulse':bool(current.read(0x7772,'<B')[0]),
   'animation':[current.read(0xac90,'<B')[0],current.read(0xe74c,'<h')[0]],
   'pattern_seed':struct.unpack('<H',current.cpu.mem_read(current.native(0xe3a3f),2))[0],
   'timer':clock[0],

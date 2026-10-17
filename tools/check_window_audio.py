@@ -19,6 +19,7 @@ from window_input import confirm_flight_quit
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--data-dir',type=Path,required=True)
+p.add_argument('--cannon',action='store_true',help='also exercise firing in the airborne training mission')
 a=p.parse_args()
 with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
  directory=Path(temporary);install=directory/'TFX';install.mkdir()
@@ -41,7 +42,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
   def run(*args):return subprocess.run(args,env=env,check=True,capture_output=True,text=True,timeout=5)
   with pcm.open('wb') as recording, log.open('w') as output:
    capture=subprocess.Popen(['parec','--device='+sink+'.monitor','--format=float32le','--rate=48000','--channels=2'],stdout=recording,stderr=subprocess.DEVNULL,env=env)
-   game=subprocess.Popen([str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission','513','--music','none','--scale','2'],stdout=output,stderr=subprocess.STDOUT,env=env)
+   game=subprocess.Popen([str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission','501'if a.cannon else '513','--music','none','--scale','2'],stdout=output,stderr=subprocess.STDOUT,env=env)
    deadline=time.monotonic()+30;window=None
    while time.monotonic()<deadline and game.poll() is None:
     windows=subprocess.run(['xdotool','search','--onlyvisible','--name','TFX C'],env=env,capture_output=True,text=True).stdout.splitlines()
@@ -64,6 +65,10 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
     return values
    time.sleep(1);start=pcm.stat().st_size;tap('g');time.sleep(2.8)
    first=samples(start);assert max(map(abs,first))>.1,'gear sound did not reach the PCM device'
+   if a.cannon:
+    tap('f');time.sleep(.5)
+    start=pcm.stat().st_size;tap('space');time.sleep(1)
+    fired=samples(start);assert max(map(abs,fired))>.1,'cannon sound did not reach the PCM device'
    tap('grave');click(104,124);click(152,172);time.sleep(2.5)
    start=pcm.stat().st_size;tap('g');time.sleep(2.5)
    muted=samples(start);assert max(map(abs,muted))<1e-7,'sound-off still played a new request'
@@ -73,7 +78,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
    tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
    assert game.returncode==0 and 'ERROR:' not in log.read_text(),log.read_text()
    assert b'SOUNDFX=1\r\nMUSIC=1' in (install/'TFX.CFG').read_bytes()
-   print('Private Pulse/X11 audio passed: live gear requests, continuous stereo output, sound off/on, original config retained and clean device shutdown')
+   print('Private Pulse/X11 audio passed: live gear'+('/cannon'if a.cannon else '')+' requests, continuous stereo output, sound off/on, original config retained and clean device shutdown')
  finally:
   for process in (game,capture,display):
    if process is not None and process.poll() is None:

@@ -69,7 +69,28 @@ set $projectiles = 0
 set $armament = 0
 set $scene = 0
 set $aiming = 0
+set $progress = 0
+set $cannon = 0
+set $hud = 0
 set $player_model_handle = -1
+break tfx::cockpit::hud::hud
+commands
+silent
+set $hud = this
+continue
+end
+break tfx::weapons::fire_cannon
+commands
+silent
+set $cannon = &state
+continue
+end
+break tfx::missions::progress::begin_frame
+commands
+silent
+set $progress = this
+continue
+end
 break tfx::cockpit::weapon_display::reset_tracking
 commands
 silent
@@ -157,6 +178,15 @@ class FrameReturn(gdb.FinishBreakpoint):
    values.extend(int(x) for x in (flight['acceleration'],flight['input_ticks'],actor['wait_seconds'],actor['actions'],pose['flags'],pose['leader'],pose['formation'],actor['scan_cursor'],actor['player_shots']))
    actors.append(values)
   print('CPP_WORLD '+json.dumps({'random':[int(air['random']['low']),int(air['random']['high'])],'actors':actors}))
+  progress=gdb.parse_and_eval('$progress').dereference()
+  values={field:int(progress[field])for field in ('target_cursor','violations','exit_ticks','remaining_timer')}
+  values.update({field:bool(progress[field])for field in ('resolved','ended','critical_loss')})
+  values['credited_targets']=int(progress['results']['credited_targets'])
+  values['results']=[int(progress['results'][field])for field in ('personal_air_score','enemy_air_score','friendly_air_score','enemy_aircraft_down','friendly_aircraft_down','completed','targets_destroyed','enemy_mobile_down','credited_air_kills','credited_ground_kills')]
+  print('CPP_MISSION_PROGRESS '+json.dumps(values))
+  cannon=gdb.parse_and_eval('$cannon').dereference()
+  print('CPP_CANNON '+json.dumps([int(cannon['ammunition']),int(cannon['barrel'])]))
+  print('CPP_RADAR_PULSE '+json.dumps(bool(gdb.parse_and_eval('$hud').dereference()['radar_display']['pulse'])))
   player=gdb.parse_and_eval('$player').dereference()
   body=player['physical']['view']['orientation']
   print('CPP_LAUNCH_NOTICE '+json.dumps(int(gdb.parse_and_eval('$aiming').dereference()['tracking']['launch_frames'])))
