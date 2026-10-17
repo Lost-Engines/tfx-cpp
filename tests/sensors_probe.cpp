@@ -19,18 +19,20 @@ int main(int const argc, char const *const argv[]) try {
       input >> px >> py >> pz >> count >> cycle;
       std::vector<tfx::sensors::air_contact> contacts;
       for(unsigned int index{0}; index != count; ++index) {
-        unsigned int actor{0},flags{0}; int32_t x{0},y{0},z{0}; input >> actor >> x >> y >> z >> flags;
+        unsigned int actor{0},flags{0},enemy{0}; int32_t x{0},y{0},z{0}; input >> actor >> x >> y >> z >> flags >> enemy;
         contacts.push_back({
           .actor{actor},
           .position{x,y,z},
           .heading{0},
           .flags{static_cast<uint16_t>(flags)},
+          .enemy_pool{enemy != 0},
         });
       }
       radar.update({px,py,pz},contacts);
       if(cycle) radar.next();
       values.insert(values.end(),{radar.cursor,radar.selected ? static_cast<int>(*radar.selected) : -1});
       for(auto const &slot : radar.slots) values.push_back(slot ? static_cast<int>(*slot) : -1);
+      values.push_back(radar.hostile_nearby);
     } else if(command == 'L') {
       unsigned int flags{0},category{0},role{0},target_class{0},ticks{0},pitch{0},heading{0},target_heading{0};
       int minimum{0},range{0},lock_ticks{0},acquisition_ticks{0},project_x{0},project_y{0}; int32_t px{0},py{0},pz{0},x{0},y{0},z{0},ret_x{0},ret_y{0};

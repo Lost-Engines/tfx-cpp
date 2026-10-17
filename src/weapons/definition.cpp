@@ -52,6 +52,7 @@ std::vector<definition> load_definitions(std::span<uint8_t const> const executab
       .range{std::bit_cast<int32_t>(source.le32(at + 35))},
       .minimum_range{source.signed_le16(at + 33)},
       .launch_speed{source.signed_le16(at + 41)},
+      .player_proximity{source.byte(at + 43) != 0},
       .drag{std::bit_cast<float>(source.le32(at + 44))},
       .stages{},
     };

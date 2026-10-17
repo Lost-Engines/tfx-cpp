@@ -12,7 +12,8 @@ enum class music_cue_id : uint8_t {
   ejection = 6,
   landing_approach,
   damaged_landing_approach,
-  player_aircraft_kill = 10,
+  incoming_projectile,
+  player_aircraft_kill,
   engines = 12,
 };
 enum class sample_id : unsigned int {

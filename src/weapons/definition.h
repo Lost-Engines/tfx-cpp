@@ -30,6 +30,7 @@ struct definition {
   int32_t range{0};
   int16_t minimum_range{0};
   int16_t launch_speed{0};
+  bool player_proximity{false}; // Original byte 43 enables nearby-player warnings and trail emission.
   float drag{0};
   std::vector<stage> stages{};
 };

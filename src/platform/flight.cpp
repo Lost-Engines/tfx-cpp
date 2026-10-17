@@ -296,6 +296,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(radar.selected == index) { radar.selected.reset(); seeker.guidance.reset(); }
     for(auto const &request : air_simulation.fatal_damage(index)) if(auto const event{std::get_if<tfx::actors::air_scenery_event>(&request.data)}) scene.actor_event(*air_visuals[index],event->entry);
   }};
+  auto const projectile_world_position{[](vec3<int32_t> const &position) {
+    return vec3<int32_t>{position.x >> tfx::actors::position_fraction_bits,position.y >> tfx::actors::position_fraction_bits,position.z >> tfx::actors::position_fraction_bits};
+  }};
   unsigned int enemy_aircraft_lost{0}, allied_aircraft_lost{0};
   tfx::weapons::runtime projectiles{tables.weapons,{
     .mount_state{[&] { return tfx::weapons::launch_mount{.angles{vec3<tfx::math::angle>{player.angles}},.selected{static_cast<uint8_t>(armament.selected)}}; }},
@@ -314,7 +317,17 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .player_speed{player.fixed_speed},
         .target_is_player{shot.target.actor && shot.target.actor->pool == tfx::weapons::actor_pool::player},
         .player_ejected{ejected()},
+        .player_distance{tfx::math::distance_estimate(player.integer_position,projectile_world_position(shot.state.position))},
       };
+    }},
+    .player_distance{[&](tfx::weapons::active_projectile const &shot) {
+      return tfx::math::distance_estimate(player.integer_position,projectile_world_position(shot.state.position));
+    }},
+    .warning{[&](tfx::weapons::projectile_warning const &warning) {
+      if(sound) {
+        if(warning.music) sound->music_cue(audio::music_cue_id::incoming_projectile);
+        sound->sample(audio::sample_priority::urgent,warning.sample);
+      }
     }},
     .reset_visual{[&](unsigned int const weapon,bool const secondary) { scene.actor_event(weapon_visuals[weapon][secondary],0); }},
     .launched{[&](tfx::weapons::active_projectile const &shot) {
@@ -346,8 +359,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }},
     .contacts{[&](tfx::weapons::active_projectile &shot,uint16_t const ticks) {
       auto const source{weapon_visuals[shot.state.weapon][shot.state.secondary]};
-      auto const world_position{[](vec3<int32_t> const &position) { return vec3<int32_t>{position.x >> tfx::actors::position_fraction_bits,position.y >> tfx::actors::position_fraction_bits,position.z >> tfx::actors::position_fraction_bits}; }};
-      auto const previous{world_position(shot.state.previous)}, current{world_position(shot.state.position)};
+      auto const previous{projectile_world_position(shot.state.previous)}, current{projectile_world_position(shot.state.position)};
       auto const response{[&](uint16_t const damage) { scene.apply_actor_contact_damage(source,damage); }};
       uint16_t const damage{scene.actor_impact_damage(source)};
       using tfx::weapons::flight_stage;
@@ -603,6 +615,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .heading{pose.angles.y},
         .flags{pose.flags},
         .side{profile->side},
+        .enemy_pool{pool == 0},
       });
     }
     radar.update(player.integer_position,radar_actors);
@@ -1022,6 +1035,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .player_owned{shot->owner.pool == tfx::weapons::actor_pool::player},
     });
     tfx::cockpit::hud_state state;
+    state.threat = radar.hostile_nearby;
     auto &readings{state.instruments};
     readings.aircraft = player.aircraft;
     readings.offset = cockpit_frame.clamp(tfx::cockpit::forward_cockpit,cockpit_position.value());

@@ -2028,3 +2028,39 @@ boundaries rather than claiming a complete simulated mission.
 The extended progress/credit/loss and all three joined audio comparisons pass in
 development, Release and ASan/UBSan, as do all 103 asset-free regressions. FM's
 2,832,000-sample callback comparison remains exact after adding these cues.
+
+
+### Incoming-projectile warnings and the hostile-aircraft lamp
+
+The projectile population now decodes weapon-definition byte 43 and runs the
+original nearby-player warning pass after each motion callback. Its signed-word
+cooldown advances and its count resets on each native projectile substep. A
+player-targeted projectile strictly within 2,000 integer world units requests
+music cue 9 and one of urgent samples 17/28/23, selected from the shared game RNG;
+the 500-tick cooldown prevents competing close missiles from consuming more
+randomness. The broader 8,000-unit count has a separate end-of-pass branch:
+exactly two missiles request sample 38, more than two request sample 39, and both
+branches clear the count. These requests retain the original sample scheduler's
+priority and retrigger handling.
+
+The cockpit threat lamp has a different source: native `0x836ac` sets `0x763e`
+when the enemy aircraft registry contributes an in-range radar contact. The live
+radar scan now retains that state and forwards it to the existing lamp painter
+and one-shot sample-43 latch. It does not substitute the missile counter for the
+lamp flag. Actor registry membership remains separate from model classification.
+
+`check_projectile_warnings.py` executes the complete original `0xa31cc` pass:
+**8,192 cases** agree on cooldown/count, shared RNG and ordered music/sample
+requests. Another **10,757 frames across 512 persistent populations** execute
+its original `0x71fd4` clock wrapper and compare the live C++ runtime, including
+cooldown expiry and zero-tick updates. Motion and player distance are supplied;
+nearby projectile-trail emission and world contacts are declared output
+boundaries. The comparison does not establish those effects or complete combat
+sessions. A compact 256-case fixture runs without original assets.
+
+The extended sensor comparison retains all prior slot/selection and seeker
+checks and additionally compares the native hostile-scan flag over **1,024
+persistent radar frames**. The existing **4,096 seeker states** and **3,864
+projectile population frames** still agree. All **104 asset-free regressions**
+and the warning/sensor original-code comparisons pass in development, Release
+and ASan/UBSan builds.
