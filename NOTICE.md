@@ -7,3 +7,9 @@ The RA version 2 decompressor is a C++ adaptation of our GPL-3.0-or-later [did-u
 The archive lookup/hash and game formats were reconstructed from TFX. Game binaries, archives, extracted resources and audiovisual assets are not included.
 
 Vectorstorm is the bundled Armchair Software shared mathematics component, included without project-specific modifications. Canonical source: https://github.com/Armchair-Software/vectorstorm.
+
+The pinned DOSBox DBOPL hardware core is copyright the DOSBox Team and licensed
+under GPL-2.0-or-later. Its source and licence headers are retained in the build;
+the small standalone adapter follows our Darker implementation. Munt's MT-32
+emulator is linked under its LGPL-2.1-or-later licence, with upstream sources and
+licence files retained by CMake's dependency fetch.

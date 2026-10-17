@@ -63,7 +63,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --flight-model NAME   arcade, simple, military-spec or realistic; overrides TFX.CFG\n"
                    "  --control NAME        keyboard, mouse or joystick; overrides TFX.CFG\n"
                    "  --joystick N          Select joystick 0..15 (default: first available); enables joystick input\n"
-                   "  --music NAME          none or roland-lapc; overrides the original MUSIC setting\n"
+                   "  --music NAME          none, soundblaster-fm or roland-lapc; overrides MUSIC\n"
                    "  --rom-dir DIRECTORY   Roland control/PCM ROMs (default: game directory)\n"
                    "  --scale N             Window scale; 0 selects the largest fitting scale (default)\n"
                    "\nFlight: hold left/right mouse or =/- for thrust.\n"
@@ -103,8 +103,9 @@ auto main(int const argc, char const *const argv[])->int try {
     else if(key == "--music") {
       auto const selected{value()};
       if(selected == "none") music_override = 0;
+      else if(selected == "soundblaster-fm") music_override = 1;
       else if(selected == "roland-lapc") music_override = 2;
-      else throw std::runtime_error{"music must be none or roland-lapc"};
+      else throw std::runtime_error{"music must be none, soundblaster-fm or roland-lapc"};
     }
     else if(key == "--language") {
       language = value();
@@ -181,12 +182,17 @@ auto main(int const argc, char const *const argv[])->int try {
   std::unique_ptr<tfx::platform::audio_output> output;
   if(!screenshot && !inspect) {
     std::unique_ptr<tfx::audio::music_player> music;
-    if(preferences.music == 2) {
+    if(preferences.music >= 1 && preferences.music <= 3) {
       try {
-        music = std::make_unique<tfx::audio::music_player>(game,tfx::resources::read_file(archive_path.parent_path() / "START.EXE"),
+        auto const launcher{tfx::resources::read_file(archive_path.parent_path() / "START.EXE")};
+        if(preferences.music == 2) music = std::make_unique<tfx::audio::music_player>(game,launcher,
           rom_directory.value_or(archive_path.parent_path()),tfx::platform::audio_output::sample_rate);
+        else music = std::make_unique<tfx::audio::music_player>(game,launcher,
+          tfx::audio::make_fm_music_device(launcher,tfx::platform::audio_output::sample_rate),tfx::platform::audio_output::sample_rate);
       } catch(std::exception const &error) {
-        std::cerr << "Roland music unavailable: " << error.what() << "; use --rom-dir to select your Roland ROM directory.\n";
+        std::cerr << "Music unavailable: " << error.what();
+        if(preferences.music == 2) std::cerr << "; use --rom-dir to select your Roland ROM directory";
+        std::cerr << ".\n";
       }
     }
     if(preferences.sound_effects || music) {

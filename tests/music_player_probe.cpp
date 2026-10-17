@@ -38,7 +38,8 @@ public:
 unsigned int constexpr rate{48000};
 std::array<unsigned int,7> constexpr durations{rate * 5,rate * 3,rate * 2,rate / 2,rate * 3,rate * 3,rate * 3};
 std::array<unsigned int,7> constexpr chunks{1,17,128,511,1024,4096,37};
-void exercise(tfx::audio::music_player &player, bool const fragmented, bool const check_pcm) {
+std::vector<float> exercise(tfx::audio::music_player &player, bool const fragmented, bool const check_pcm) {
+  std::vector<float> result;
   for(unsigned int phase{0}; phase != durations.size(); ++phase) {
     switch(phase) {
     case 0: player.select(0);break;
@@ -57,6 +58,7 @@ void exercise(tfx::audio::music_player &player, bool const fragmented, bool cons
       done += count;
     }
     if(!check_pcm) continue;
+    result.insert(result.end(),output.begin(),output.end());
     float peak{0};
     for(auto const value : output) {
       if(!std::isfinite(value)) throw std::runtime_error{"music produced nonfinite PCM"};
@@ -65,12 +67,13 @@ void exercise(tfx::audio::music_player &player, bool const fragmented, bool cons
     if((phase == 0 || phase == 2 || phase == 4 || phase == 6) && peak < .001f) throw std::runtime_error{"music did not start/resume after phase " + std::to_string(phase)};
     std::cout << "phase " << phase << ": " << durations[phase] << " frames, peak " << peak << '\n';
   }
+  return result;
 }
 
 } // namespace
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 4) throw std::runtime_error{"expected START.EXE DID.DAT ROM_DIRECTORY"};
+  if(argc != 3 && argc != 4) throw std::runtime_error{"expected START.EXE DID.DAT [ROM_DIRECTORY]; omission selects FM"};
   auto const launcher{tfx::resources::read_file(argv[1])};
   tfx::resources::archive const game{std::filesystem::path{argv[2]}};
   auto const record{[&](bool const fragmented) {
@@ -90,7 +93,18 @@ int main(int const argc, char const *const argv[]) try {
   // Munt's pitch timer jitter consumes the host C random generator in voice
   // processing order. Test the sequencer's timestamps exactly above; do not
   // mistake chip-level random variation for a callback scheduling fault.
-  tfx::audio::music_player player{game,launcher,argv[3],rate};
-  exercise(player,true,true);
+  if(argc == 4) {
+    tfx::audio::music_player player{game,launcher,argv[3],rate};
+    exercise(player,true,true);
+  } else {
+    auto const render{[&](bool const fragmented) {
+      tfx::audio::music_player player{game,launcher,tfx::audio::make_fm_music_device(launcher,rate),rate};
+      return exercise(player,fragmented,true);
+    }};
+    auto const whole{render(false)}, segmented{render(true)};
+    if(whole != segmented) throw std::runtime_error{"FM PCM changed across callback boundaries"};
+    for(size_t index{0}; index != whole.size(); index += 2) if(whole[index] != whole[index + 1]) throw std::runtime_error{"FM dual mono changed"};
+    std::cout << whole.size() << " FM PCM samples agree exactly across callback sizes and control transitions\n";
+  }
   return 0;
 } catch(std::exception const &error) { std::cerr << error.what() << '\n';return 1; }

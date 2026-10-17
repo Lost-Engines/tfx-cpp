@@ -15,6 +15,7 @@ public:
   virtual void render(std::span<float> stereo) = 0;
 };
 
+std::unique_ptr<music_device> make_fm_music_device(std::span<uint8_t const> launcher, unsigned int sample_rate);
 std::unique_ptr<music_device> make_la_music_device(std::span<uint8_t const> launcher,
   std::unique_ptr<midi_receiver> receiver);
 
