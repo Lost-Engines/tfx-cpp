@@ -6,6 +6,7 @@
 #include <iostream>
 #include <iterator>
 #include <stdexcept>
+#include <string_view>
 #include "air_snapshot.h"
 #include "actors/air.h"
 
@@ -86,7 +87,10 @@ auto main(int const argc, char const *const argv[])->int try {
     for(unsigned int tick{0}; tick != ticks; ++tick) {
       std::vector<tfx::actors::air_request> requests;
       if(damage_tick && tick == damage_tick) for(unsigned int index{0}; index != state.aircraft().size(); ++index) if(state.aircraft()[index]) {
-        auto death{state.fatal_damage(index)};
+        bool const collision{argc == 3 && std::string_view{argv[2]} == "--collision"};
+        auto const random{state.random_stream()};
+        auto death{state.fatal_damage(index,collision ? tfx::actors::air_loss_cause::collision : tfx::actors::air_loss_cause::combat)};
+        if(collision && (random.low != state.random_stream().low || random.high != state.random_stream().high)) throw std::runtime_error{"collision loss consumed combat randomness"};
         requests.insert(requests.end(),std::make_move_iterator(death.begin()),std::make_move_iterator(death.end()));
       }
       auto updates{state.advance(context)};

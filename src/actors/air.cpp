@@ -128,7 +128,7 @@ math::random_state &air_runtime::random_stream() {
   return random;
 }
 
-std::vector<air_request> air_runtime::fatal_damage(unsigned int const index) {
+std::vector<air_request> air_runtime::fatal_damage(unsigned int const index, air_loss_cause const cause) {
   auto &actor{actors.at(index).value()};
   auto &state{actor.flight};
   canonicalise(state.pose);
@@ -136,7 +136,8 @@ std::vector<air_request> air_runtime::fatal_damage(unsigned int const index) {
   actor.wait_seconds = 5;
   state.input_ticks = 0;
   set_flag(actor,air_flag::crashed);
-  bool const eject{(random.next() & 7) < 3};
+  // Native 0x785ec forces a collision fall; 0x78274 additionally samples combat ejection.
+  bool const eject{cause == air_loss_cause::combat && (random.next() & 7) < 3};
   if(eject) {
     actor.actions = std::to_underlying(air_action::retire_ejected);
     state.input_ticks = air_control_horizon;

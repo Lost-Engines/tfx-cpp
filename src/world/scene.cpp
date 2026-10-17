@@ -64,6 +64,13 @@ instance &scene::terrain_instance(unsigned int const x, unsigned int const z) {
   return instances.try_emplace(z * map_width + x,source).first->second;
 }
 
+bool scene::terrain_destroyed(vec3<int32_t> const &position) {
+  int const cell_x{position.x >> cell_shift}, cell_z{position.z >> cell_shift};
+  auto const x{wrapped_cell(cell_x,map_width)};
+  auto const z{map_height - 1 - wrapped_cell(static_cast<int>(map_height) - 1 - cell_z,map_height)};
+  return terrain_instance(x,z).destroyed;
+}
+
 int16_t scene::terrain_type(vec3<int32_t> const &position) {
   int const cell_x{position.x >> 11}, cell_z{position.z >> 11};
   auto const x{wrapped_cell(cell_x,map_width)};

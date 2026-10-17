@@ -66,6 +66,8 @@ public:
   std::string timer_expired_message;
   std::string fire_permission_message;
   std::string orders_violation_message;
+  std::string ground_training_warning;
+  std::string ground_orders_violation;
   presentation::dac_palette text_palette;
   render::dac_palette fixed_flight_palette;
   uint8_t hud_green;

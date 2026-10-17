@@ -22,6 +22,19 @@ struct loss_effects {
   bool friendly_target{false};
   bool orders_violated{false};
 };
+enum class terrain_loss_notice { none, training_warning, violation };
+struct terrain_loss_context {
+  vec2<int32_t> cell;
+  bool player_owned;
+  uint8_t weapon;
+  bool arcade;
+  bool training;
+};
+struct terrain_loss_effects {
+  bool explosion{false};
+  bool unauthorised{false};
+  terrain_loss_notice notice{terrain_loss_notice::none};
+};
 struct player_loss_context {
   bool fatal;
   bool collision;
@@ -73,6 +86,7 @@ public:
   player_loss_effects observe_player_loss(player_loss_context const &context);
   loss_effects record_air_loss(bool enemy_pool, int16_t type, bool player_owned, bool authorised, math::random_state &random);
   loss_effects record_surface_loss(bool hostile, int16_t type);
+  terrain_loss_effects record_terrain_loss(terrain_loss_context const &context);
   std::vector<progress_event> begin_frame(progress_context const &context);
   bool finish_frame(simulation::timer_ticks elapsed);
 };

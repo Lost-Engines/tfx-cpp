@@ -11,12 +11,13 @@
 #include "resources/executable_tables.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc < 2 || argc > 6) throw std::runtime_error{"air_probe DATA_DIRECTORY [--verbose]"};
-  bool verbose{false},combat{false};
+  if(argc < 2 || argc > 7) throw std::runtime_error{"air_probe DATA_DIRECTORY [--verbose]"};
+  bool verbose{false},combat{false},collision{false};
   unsigned int damage_tick{0};
   for(int i{2}; i < argc; ++i) {
     if(std::string_view{argv[i]} == "--verbose") verbose = true;
     else if(std::string_view{argv[i]} == "--combat") combat = true;
+    else if(std::string_view{argv[i]} == "--collision") collision = true;
     else if(std::string_view{argv[i]} == "--damage" && i + 1 < argc) damage_tick = static_cast<unsigned int>(std::stoul(argv[++i]));
     else throw std::runtime_error{"unrecognised air probe option"};
   }
@@ -61,7 +62,7 @@ int main(int const argc, char const *const argv[]) try {
     for(unsigned int tick{0}; tick != ticks; ++tick) {
       std::vector<tfx::actors::air_request> requests;
       if(damage_tick && tick == damage_tick) for(unsigned int index{0}; index != state.aircraft().size(); ++index) if(state.aircraft()[index]) {
-        auto death{state.fatal_damage(index)};
+        auto death{state.fatal_damage(index,collision ? tfx::actors::air_loss_cause::collision : tfx::actors::air_loss_cause::combat)};
         requests.insert(requests.end(),std::make_move_iterator(death.begin()),std::make_move_iterator(death.end()));
       }
       auto updates{state.advance(context)};

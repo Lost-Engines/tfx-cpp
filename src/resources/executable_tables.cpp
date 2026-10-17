@@ -59,6 +59,8 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   timer_expired_message = native_message(0xa8);
   fire_permission_message = native_message(0x1850); // Both native permission-notice strings have identical text.
   orders_violation_message = native_message(0x678);
+  ground_training_warning = native_message(0x370c);
+  ground_orders_violation = native_message(0x3764);
   for(unsigned int index{0}; index != 64; ++index) {
     auto const type{view.signed_le16(data_file + 0x884c + index * 2)};
     if(type == -1) break;

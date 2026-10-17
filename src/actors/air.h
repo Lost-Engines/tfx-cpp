@@ -62,6 +62,7 @@ struct air_impact {
   vec3<int32_t> position;
   unsigned int kind;
 };
+enum class air_loss_cause { combat, collision };
 enum class air_warning_kind { tracking, firing };
 struct air_warning { unsigned int target; air_warning_kind kind; };
 enum class air_countermeasure_kind { infrared, radar };
@@ -109,7 +110,7 @@ private:
 public:
   air_runtime(program const &program, std::span<initial_actor const> initial, std::span<profile const> profiles, std::span<formation_offset const> formation, std::span<uint8_t const> envelope, math::random_state random = {}, std::span<manoeuvre const> manoeuvres = {});
   math::random_state &random_stream();
-  std::vector<air_request> fatal_damage(unsigned int index);
+  std::vector<air_request> fatal_damage(unsigned int index, air_loss_cause cause = air_loss_cause::combat);
   std::span<std::optional<air_actor> const> aircraft() const;
   void apply_refuelling_pose(unsigned int index, vec3<int32_t> const &position_q8, vec3<math::angle> const &angles);
   std::span<uint8_t const> program_bytes(unsigned int record) const;
