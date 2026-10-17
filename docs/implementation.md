@@ -3491,7 +3491,7 @@ and sanitizers repeat 256 complete original palette programs each. All 128
 retail scenes compose 64 frames without warnings. Controlled private-window
 land/water/contact crash scenarios still reach their selected models/cameras
 and exit cleanly. `tools/check_window_crash.py --observe-fixed-palette` also
-observes the actual fixed-colour branch in the land/contact effect painter;
+observes fixed-colour contact effects at the renderer boundary;
 these scenarios deliberately seed a contact and do not claim unmodified
 end-to-end original crash sessions. The preceding rounded-renderer sanitizer
 sweep finished all 128 retail missions × 16 frames without warnings.
@@ -3589,3 +3589,86 @@ narrow-triangle, crossed-quad and Gouraud failures found during this work.
 All 128 retail scenes compose 64 development frames and 16 sanitizer frames
 without warnings. Private-window checks retain all three MFDs, weapon release,
 missile/cannon views, designation, pause and actual combat/result handoff.
+
+### Native material state and complete rounded instructions
+
+Opcodes 86/87 now select raw constant ink and a drawing mode from the original
+parameter bank. Opcodes 88/89 restore their respective consumers. The loaded
+ink and the raw source used for later depth re-shading are separate: restoring
+normal loading does not retroactively replace the already loaded constant.
+Inline colour lookups used by rounded surfaces also retain their distinct
+source-ink behaviour. Line and sized-point colour loading now follows those
+separate native stores.
+
+Changing the base Gouraud/texture consumers is not always immediate. The
+original projector updates their current callbacks when a near vertex occurs;
+otherwise the existing consumers remain selected. The interpreter retains this
+distinction, including constant-flat drawing after the appropriate projection
+and ordinary shaded/textured drawing before it.
+
+`render::paint_model_polygon` is now the common native dispatch for both live
+world drawing and supplied-model frame checks. Plain rounded quads (opcode 56)
+previously reached the ordinary flat path; they now use their original curved
+consumer, like explicit-mode opcode 62. Standalone arc instructions 90/91 use
+fourteen points, while quad corners use eight. Both share the integer recurrence
+with its original constant and shifts. Rounded entry facing retains its mixed
+dword/word difference test; near corners omit the entire rounded surface.
+
+The complete programs exposed additional painter distinctions. Dense stipple
+and logical modes continue past an inverted pixel span within one VGA byte,
+but end on an inverted byte width. Sparse modes distinguish selected rows from
+skipped rows, including their initial special cases. The flat unrolled painter
+retains its separate first-negative-byte skip. Treating all these cases as an
+empty pixel span drops real curve-edge pixels. Explicit model fixtures retain
+the failures found at cases 25, 305 and 333.
+
+Original-executable evidence includes:
+
+- **512 complete synthetic material-model frames**, including constant ink,
+  parameter modes, restoration, reused ink, ordinary helpers, fixed palettes,
+  Gouraud/texture consumer selection and final procedural seeds.
+- **1,024 complete rounded-model programs**, exercising 56/62 and 90/91,
+  explicit/global modes, retained ink, both apertures, near omission and
+  overlapping primitives; 725 produce nonempty frames.
+- **4,096 direct supplied-span frames**, checking all ten represented flat,
+  stipple and logical consumers on uniform and patterned backgrounds. Factories,
+  stack consumption, hardware IO, VGA pixels and final seeds execute unchanged.
+- **128 frames of the retained `russ` model**, plus 64 each of the two retained
+  depth-shaded models. Their original resource bytes remain external; fixtures
+  contain synthetic programs only.
+- **1,024 varied-depth patterned frames** and 256 existing rounded-kernel frames
+  retain their original results.
+
+Only diagnostic texture-handle resolution is substituted in the complete-model
+harness. Camera state, parameters, model bytes, lookup rows, initial procedural
+state and atlas are declared inputs. These comparisons do not establish a
+complete original world/session capture, all factory modes outside the ten
+represented consumers, or the older sprite-backed model path.
+
+All **172 regressions** pass in development, Release and ASan/UBSan. Release
+adds 128 original material frames and 384 rounded programs; sanitizers add
+1,024 supplied-span frames and 384 rounded programs. All 128 retail scenes
+compose 64 development frames and 16 sanitizer frames without warnings.
+Private-window controls still pass MFDs, stores/cannon, designation, pause and
+actual combat/result handoff.
+
+The earlier independent JavaScript inspection comparison predates the newly
+executed opcode-118 helpers and retained-ink distinctions; it is not the oracle
+for these changes. Complete original VGA frames provide the stronger evidence
+here. Remaining world-renderer work includes point/line precision, older
+sprite-backed model drawing and complete phase/session scheduling.
+
+
+All three controlled live land/water/contact crash scenarios also pass. The
+fixed-palette observer now targets the actual renderer boundary and the contact
+model (`kapow`), whose program explicitly selects row zero. The land `crash`
+model does not contain opcode 84, so requiring that branch there was an invalid
+assertion. When observing this hot path, the contact scenario advances complete
+fixed-tick frames before opening its window; debugger latency cannot age the
+scenario's external real-time clock. These remain explicitly seeded integration
+checks, rather than captured original gameplay sessions.
+
+The controlled land/water/contact crash checks also pass under ASan/UBSan,
+and a live F-117 check still observes actual retail-atlas texels in the integer
+painter after dispatch extraction. Standalone verification scripts retain
+executable permissions consistently; imported helpers remain separate.

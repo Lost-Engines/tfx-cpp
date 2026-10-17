@@ -306,3 +306,12 @@ instead of being silently omitted. Complete original frame comparisons also
 establish the distinct flat/Gouraud rules for crossed projected edges; ordinary,
 varied-depth and texture paths retain separate regressions. Parameter-selected
 constant ink/mode controls and complete world/session scheduling remain next.
+
+Parameter-selected constant ink/modes and their separate restoration now execute
+through the live native model path, including projection-dependent shaded/texture
+consumer changes. Plain rounded quads and standalone rounded arcs reach their
+proper consumers. Complete original model programs and 4,096 supplied-span frames
+establish the distinct dense/sparse/logical edge rules. All 172 regressions and
+the full retail mission corpus pass in development and sanitizers. Point/line
+precision, older sprite-backed model drawing and full phase/session comparison
+remain separate gates.

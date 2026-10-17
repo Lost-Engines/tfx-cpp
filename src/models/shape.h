@@ -40,7 +40,7 @@ struct shape {
 
 enum class primitive_kind : uint32_t { polygon, line, point };
 enum class texture_source { global, model };
-enum class palette_source { distance, fixed, face_depth };
+enum class palette_source { distance, fixed, face_depth, direct };
 struct texture_binding {
   texture_source source;
   unsigned int slot;

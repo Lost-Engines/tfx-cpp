@@ -1,7 +1,6 @@
 #include "software_renderer.h"
-#include "integer_model_polygon.h"
-#include "integer_model_texture.h"
-#include "rounded_model_polygon.h"
+#include "model_polygon.h"
+#include "rounded_curve.h"
 #include "integer_polygon.h"
 #include "pattern_raster.h"
 #include <algorithm>
@@ -24,37 +23,7 @@ models::model_vertex interpolate(models::model_vertex const &a, models::model_ve
 } // anonymous namespace
 
 std::array<vec2<int32_t>, 8> rounded_corner(vec2<int32_t> const &previous, vec2<int32_t> const &corner, vec2<int32_t> const &next) {
-  /// Original integer quarter-arc recurrence at 2.05 file 0xdaf50, subdivision 2
-  auto const wrap{[](int64_t const value){ return std::bit_cast<int32_t>(static_cast<uint32_t>(value)); }};
-  struct curve_axis {
-    int32_t a;
-    int32_t b;
-    int32_t base;
-  };
-  std::array<curve_axis, 2> state;
-  for(unsigned int axis{0}; axis != 2; ++axis) {
-    auto &s{state[axis]};
-    s.a = wrap(static_cast<int64_t>(corner[axis] - next[axis]) * 65536);
-    s.b = wrap(static_cast<int64_t>(corner[axis] - previous[axis]) * 65536);
-    s.base = wrap(static_cast<int64_t>(previous[axis]) * 65536 - s.a + 32768);
-    auto delta{s.b >> 7};
-    s.b = wrap(static_cast<int64_t>(s.b) - delta);
-    delta >>= 8;
-    s.b = wrap(static_cast<int64_t>(s.b) - delta);
-    delta >>= 7;
-    s.b = wrap(static_cast<int64_t>(s.b) - delta + (s.a >> 3));
-  }
-  std::array<vec2<int32_t>, 8> result;
-  for(unsigned int step{0}; step != 7; ++step) {
-    for(unsigned int axis{0}; axis != 2; ++axis) {
-      auto &s{state[axis]};
-      result[step][axis] = wrap(static_cast<int64_t>(s.base) + s.a) >> 16;
-      s.b = wrap(static_cast<int64_t>(s.b) - (s.a >> 2));
-      s.a = wrap(static_cast<int64_t>(s.a) + (s.b >> 2));
-    }
-  }
-  result.back() = next;
-  return result;
+  return rounded_arc<2>(previous,corner,next);
 }
 
 software_renderer::software_renderer(resources::executable_tables const &source_tables, uint16_t const seed) : tables{source_tables}, procedural_seed{seed} {
@@ -182,25 +151,7 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   if(camera_vertices.empty()) return;
   uint8_t const source_index{static_cast<uint8_t>(source.colour)};
   uint8_t const ink_index{remap ? (*remap)[source_index] : source_index};
-  if(source.kind == models::primitive_kind::polygon && !source.rounded && !texture.empty()) {
-    static constexpr colour_map identity{[]{
-      colour_map result;for(unsigned int i{0}; i != result.size(); ++i) result[i] = static_cast<uint8_t>(i);
-      return result;
-    }()};
-    if(integer_model_texture(output,camera_vertices,view,texture,remap ? *remap : identity)) return;
-  }
-  if(source.kind == models::primitive_kind::polygon && source.rounded && texture.empty() && rounded_model_polygon(output,camera_vertices,view,ink_index,source.mode,procedural_seed)) return;
-  if(source.kind == models::primitive_kind::polygon && !source.rounded && texture.empty()) {
-    if(source.mode == -1) {
-      if(integer_model_polygon(output,camera_vertices,view,ink_index,remap)) return;
-    } else if(std::ranges::all_of(camera_vertices,[](auto const &vertex) { return vertex.shade < 0; })) {
-      if(auto const screen{project_model_face(camera_vertices,view)}) {
-        auto const spans{integer_polygon_spans(*screen,view.viewport_minimum,view.viewport_maximum)};
-        pattern_polygon(output,procedural_seed,spans,ink_index,source.mode);
-        return;
-      }
-    }
-  }
+  if(paint_model_polygon(output,source,camera_vertices,view,texture,remap,procedural_seed)) return;
   if(source.kind == models::primitive_kind::point) {
     auto const &v{camera_vertices[0].position};
     if(v.z <= view.near_distance * camera_vertices.front().projection_scale || v.z > view.far_distance) return;

@@ -7,6 +7,8 @@
 namespace tfx::models {
 namespace {
 
+enum class colour_load { polygon, inline_lookup };
+
 unsigned int operand_count(uint16_t const opcode, resources::binary_view const &source, size_t const at) {
   /// Original load converter layouts (2.05 file 0xba004), before pointer/vertex fixups
   if(opcode >= 23 && opcode <= 24) return 2;
@@ -137,10 +139,14 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
   auto camera_origin{context.camera ? vec3<int32_t>{context.camera->origin} : vec3<int32_t>{}};
   std::array<double, vertex_slots> vertex_scales{0};
   std::array<unsigned int, 3> jitter_shifts{14,14,14};
-  unsigned int cursor{0}, colour{112}, address{0};
+  unsigned int cursor{0}, address{0};
+  // The native loaded ink and its raw re-shading source are separate stores.
+  unsigned int colour{112}, source_colour{112};
   uint8_t state{context.initial_state};
   int16_t distance{context.distance}, colour_depth{0};
-  bool face_depth_palette{false};
+  bool face_depth_palette{false}, shaded_flat{false}, textured_flat{false};
+  std::optional<uint8_t> constant_ink;
+  int drawing_mode{-1};
   palette_source palette{palette_source::distance}, colour_palette{palette};
   double camera_scale{1};
   vec3d origin;
@@ -176,6 +182,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
   }};
   auto const project_range{[&](unsigned int const count, unsigned int const start){
     if(start > vertex_slots || count > vertex_slots - start) throw std::runtime_error{"shape projection range exceeds native table"};
+    bool near{false};
     for(unsigned int i{start}; i != start + count; ++i) {
       if(!local[i]) continue;
       auto const scale{context.reference_scale / camera_scale};
@@ -183,16 +190,22 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         vec3<int32_t> point;
         for(unsigned int axis{0}; axis != 3; ++axis) point[axis] = wrap((*local[i])[axis] + camera_origin[axis]);
         camera_vertices[i].emplace(point);
+        near |= point.z >> 16 <= 16;
         world[i] = vec3d{point} * (2 * std::abs(scale) / 65536);
       } else world[i] = *local[i] * scale + origin;
       vertex_scales[i] = scale;
     }
+    // B9434 changes the current shaded/texture consumers only when a near
+    // vertex occurs. Changing the base consumers with 86/88 is not immediate.
+    if(near) { shaded_flat = constant_ink.has_value();textured_flat = constant_ink.has_value(); }
     cursor = start + count;
   }};
-  auto const load_colour{[&](unsigned int const ink, std::span<uint16_t const> const indices, bool const depth_eligible = true) {
+  auto const load_colour{[&](unsigned int const ink, std::span<uint16_t const> const indices, colour_load const loader = colour_load::polygon) {
+    if(loader == colour_load::polygon) source_colour = ink & 255;
+    if(constant_ink) return;
     colour = ink & 255;
     colour_palette = palette;
-    if(!face_depth_palette || !depth_eligible || !context.camera || indices.empty()) return;
+    if(!face_depth_palette || loader == colour_load::inline_lookup || !context.camera || indices.empty()) return;
     int32_t sum{0};
     for(auto const index : indices) {
       if(index >= vertex_slots || !camera_vertices[index]) throw std::runtime_error{"face palette references an unavailable camera vertex"};
@@ -204,14 +217,16 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
     colour_palette = palette_source::face_depth;
   }};
   auto const surface{[&](std::span<uint16_t const> const indices, unsigned int const ink, int const mode, bool const textured, bool const shaded, bool const rounded = false){
+    bool const use_texture{textured && !textured_flat},use_shading{shaded && !shaded_flat};
+    bool const flat{!use_texture && !use_shading};
     primitive p{
       .kind{primitive_kind::polygon},
       .vertices{},
-      .colour{ink & 255},
-      .mode{mode},
-      .palette{textured || shaded ? palette : colour_palette},
+      .colour{flat ? colour : ink & 255},
+      .mode{flat ? (mode == -1 ? drawing_mode : mode) : -1},
+      .palette{flat ? colour_palette : palette},
       .palette_depth{colour_depth},
-      .texture{textured ? texture : std::nullopt},
+      .texture{use_texture ? texture : std::nullopt},
       .rounded{rounded},
       .source_address{address},
       .attachment_slot{attachment_slot},
@@ -225,11 +240,12 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       p.vertices.push_back({
         .position{vec3d{*world[index]}},
         .uv{i < texture_uvs.size() ? vec2d{texture_uvs[i]} : vec2d{}},
-        .shade{shaded && i < shade_colours.size() ? static_cast<double>(shade_colours[i]) : -1},
+        .shade{use_shading && i < shade_colours.size() ? static_cast<double>(shade_colours[i]) : -1},
         .projection_scale{2 * std::abs(vertex_scales[index])},
       });
     }
-    if(context.facing && p.vertices.size() >= 3 && !facing(p.vertices,facing_test::polygon)) return;
+    bool const rounded_native{context.camera && rounded};
+    if(context.facing && !rounded_native && p.vertices.size() >= 3 && !facing(p.vertices,facing_test::polygon)) return;
     result.primitives.push_back(std::move(p));
   }};
   auto const run{[&](auto const &self, shape const &active, unsigned int at, unsigned int const depth)->void {
@@ -291,6 +307,15 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       }
       if(opcode == 72) { state = context.parameters.at(a[0]); continue; }
       if(opcode == 84) { palette = palette_source::fixed;continue; }
+      if(opcode == 86) {
+        constant_ink = context.parameters[a[0] & 255];
+        colour = *constant_ink;
+        colour_palette = palette_source::direct;
+        continue;
+      }
+      if(opcode == 87) { drawing_mode = context.parameters[a[0] & 255];continue; }
+      if(opcode == 88) { constant_ink.reset();face_depth_palette = false;continue; }
+      if(opcode == 89) { drawing_mode = -1;continue; }
       if(opcode == 74) {
         if(a[0] >= vertex_slots || !camera_vertices[a[0]]) throw std::runtime_error{"distance selection references an unavailable camera vertex"};
         distance = static_cast<int16_t>((*camera_vertices[a[0]]).z >> 16);
@@ -379,8 +404,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         continue;
       }
       if(opcode == 1) {
-        colour = a[0] & 255;
-        colour_palette = palette;
+        unsigned int const line_colour{constant_ink ? *constant_ink : a[0] & 255u};
         if(a[1] < vertex_slots && a[2] < vertex_slots && world[a[1]] && world[a[2]]) {
           result.primitives.push_back({
             .kind{primitive_kind::line},
@@ -396,8 +420,8 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
                 .projection_scale{2 * std::abs(vertex_scales[a[2]])},
               },
             },
-            .colour{colour},
-            .palette{colour_palette},
+            .colour{line_colour},
+            .palette{constant_ink ? palette_source::direct : palette},
             .source_address{address},
             .attachment_slot{attachment_slot},
           });
@@ -428,6 +452,8 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
           unsigned int const offset{opcode == 93 || opcode == 96 ? 1u : 0u};
           auto const index{record[offset + 1]};
           if(index >= vertex_slots || !world[index]) { result.warnings.insert("unavailable point vertex"); continue; }
+          bool const loads_ink{opcode != 51 && opcode != 52};
+          if(loads_ink) load_colour(record[offset],record.subspan(offset + 1,1));
           result.primitives.push_back({
             .kind{primitive_kind::point},
             .vertices{{
@@ -435,9 +461,10 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
               .uv{0,0},
               .projection_scale{2 * std::abs(vertex_scales[index])},
             }},
-            .colour{static_cast<unsigned int>(record[offset] & 255)},
+            .colour{loads_ink ? colour : static_cast<unsigned int>(record[offset] & 255)},
             .mode{offset ? record[0] : -1},
-            .palette{palette},
+            .palette{loads_ink ? colour_palette : palette},
+            .palette_depth{colour_depth},
             .radius{record.size() > offset + 2 ? record[offset + 2] * std::abs(vertex_scales[index]) : 0},
             .pixel_size{opcode == 51 ? 1u : opcode == 52 ? 2u : 0u},
             .source_address{address},
@@ -446,15 +473,19 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         }
         continue;
       }
-      if(opcode == 2 || opcode == 3 || opcode == 56) { load_colour(a[0],a.subspan(1),opcode != 56); surface(a.subspan(1), colour, -1, false, false); continue; }
+      if(opcode == 2 || opcode == 3 || opcode == 56) {
+        load_colour(a[0],a.subspan(1),opcode == 56 ? colour_load::inline_lookup : colour_load::polygon);
+        surface(a.subspan(1),colour,-1,false,false,opcode == 56);
+        continue;
+      }
       if(opcode == 4) {
         if(face_depth_palette && context.camera) throw std::runtime_error{"depth-shaded variable polygon requires native count-word interpretation"};
         load_colour(a[0],a.subspan(2)); surface(a.subspan(2), colour, -1, false, false); continue;
       }
       if(opcode == 26 || opcode == 27 || opcode == 62 || opcode == 90 || opcode == 91) {
         unsigned int const offset{opcode == 90 ? 0u : 1u};
-        load_colour(a[offset],a.subspan(offset + 1),opcode == 26 || opcode == 27);
-        surface(a.subspan(offset + 1), colour, opcode == 26 || opcode == 27 || opcode == 62 ? a[0] : -1, false, false, opcode == 62);
+        load_colour(a[offset],a.subspan(offset + 1),opcode == 26 || opcode == 27 ? colour_load::polygon : colour_load::inline_lookup);
+        surface(a.subspan(offset + 1), colour, opcode == 26 || opcode == 27 || opcode == 62 || opcode == 91 ? a[0] : -1, false, false, opcode == 62 || opcode == 90 || opcode == 91);
         continue;
       }
       if(opcode == 77 || opcode == 79 || opcode == 50) {
@@ -462,11 +493,10 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         continue;
       }
       if(opcode == 113 || opcode == 114 || opcode == 115 || opcode == 80 || opcode == 47) {
-        if(face_depth_palette && opcode >= 113) load_colour(colour,opcode == 115 ? a.subspan(1) : a);
+        if(face_depth_palette && opcode >= 113) load_colour(source_colour,opcode == 115 ? a.subspan(1) : a);
         surface(opcode == 115 || opcode == 80 || opcode == 47 ? a.subspan(1) : a, opcode == 47 ? 112 : colour, -1, opcode == 47, false);
         continue;
       }
-      if(opcode == 86 || opcode == 87 || opcode == 88 || opcode == 89) continue;
       result.warnings.insert("shape opcode " + std::to_string(opcode) + " requires runtime context");
     }
   }};
