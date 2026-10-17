@@ -100,6 +100,26 @@ selection_change armament::select(weapon_role const requested, bool const differ
   return result;
 }
 
+unsigned int armament::jettison(store_context const &context, std::span<vec3<int16_t> const> const mounts, selection_change &selection, std::function<void(release const&)> const &emit) {
+  // Native Alt+J (0x85118) visits each ground/tank pylon once, in slot order.
+  if(context.inhibited || context.ejected || context.protected_player) return 0;
+  auto dropped{context};
+  dropped.jettisoned = true;
+  unsigned int count{0};
+  for(unsigned int slot{0}; slot != flight::store_slots; ++slot) {
+    auto const purpose{role(slot)};
+    if(!pylons[slot].count || (purpose != weapon_role::ground && purpose != weapon_role::external_tank)) continue;
+    selected = static_cast<int16_t>(slot);
+    selection_change change;
+    if(fire(dropped,mounts,change,emit)) ++count;
+    selection.clear_contact = selection.clear_contact || change.clear_contact;
+    selection.clear_tracking = selection.clear_tracking || change.clear_tracking;
+    // The post-release selector can discard the target before the next drop.
+    if(change.clear_tracking) dropped.target = {.untargeted{true}};
+  }
+  return count;
+}
+
 std::optional<release> armament::fire(store_context const &context, std::span<vec3<int16_t> const> const mounts, selection_change &selection, std::function<void(release const&)> const &emit) {
   // Native 0x8bd8c is a release primitive; its caller performs trigger, landing and target-lock checks.
   if(context.inhibited || context.ejected || context.protected_player || selected == no_pylon) return {};
@@ -117,6 +137,7 @@ std::optional<release> armament::fire(store_context const &context, std::span<ve
     },
     .target{context.target},
     .mount{static_cast<uint8_t>(slot)},
+    .jettisoned{context.jettisoned},
   };
   if(emit) emit(shot); // Construction observes the current pylon before post-release selection changes it.
   last_released = selected;

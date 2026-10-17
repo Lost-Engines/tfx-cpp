@@ -34,6 +34,7 @@ struct store_context {
   bool ejected{false};
   bool protected_player{false};
   bool unlimited{false};
+  bool jettisoned{false};
 };
 
 class armament {
@@ -56,6 +57,7 @@ public:
   void assign(unsigned int slot, std::optional<weapon_id> weapon);
   void fit_default(unsigned int index);
   selection_change select(weapon_role requested, bool different_type);
+  unsigned int jettison(store_context const &context, std::span<vec3<int16_t> const> mounts, selection_change &selection, std::function<void(release const&)> const &emit = {});
   std::optional<release> fire(store_context const &context, std::span<vec3<int16_t> const> mounts, selection_change &selection, std::function<void(release const&)> const &emit = {});
 };
 

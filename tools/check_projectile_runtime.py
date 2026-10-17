@@ -28,8 +28,8 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
     image.write(0x93b0,'<H',4)
     image.write(0x86c8,'<3H',0,12000,0);image.write(0x13444,'<i',400)
     image.write(0x13424,'<i',1000000>>8);image.write(0x13430,'<i',-300000>>8);image.write(0x1343c,'<i',1000000>>8)
-    target=image.data+0x10f28 if dispenser>=6 else 0x310000
-    if dispenser>=6:cpu.mem_write(target,struct.pack('<3i',1000000,-300000,1000000))
+    target=image.data+0x10f28 if 6<=dispenser<=8 else 0x310000
+    if 6<=dispenser<=8:cpu.mem_write(target,struct.pack('<3i',1000000,-300000,1000000))
     cpu.mem_write(0x310000,struct.pack('<3i',*((1000000,-300000,1000000) if dispenser in (2,3,4) else (2000000,-200000,3000000))))
     for index in range(27):image.write(0x809c+48*index+16,'<2H',100+index*2,101+index*2)
     identities={};next_id=0;events=[]
@@ -59,13 +59,15 @@ def original(data_dir,frames,elapsed,dispenser,capacity):
         sp=im.cpu.reg_read(r.UC_X86_REG_ESP);pointer=struct.unpack('<I',im.cpu.mem_read(sp+4,4))[0]
         im.cpu.mem_write(pointer,struct.pack('<3i',1001000,-300500,1002000));im.return_from()
     image.intercept(0xb81de,'Supply the transformed mounted-store anchor; the render transform is separate.',anchor)
+    image.write(0x9170,'<H',int(dispenser==9))
     for weapon in ((15,16,0) if dispenser==1 else range(27)):
         image.call(0xa2f84,eax=1000000,edx=(-300000)&0xffffffff,ebx=1000000,ecx=0,stack=(12000,0,400,weapon,0 if dispenser==4 else target,0x310100))
+    image.write(0x9170,'<H',0)
     result=[];warning=0
     for frame in range(frames):
         events.clear()
         if dispenser==5:cpu.mem_write(0x310000,struct.pack('<3i',2000000+frame*10000,-200000,3000000-frame*7000))
-        if (2<=dispenser<=3 or dispenser>=6) and frame==2:
+        if (2<=dispenser<=3 or 6<=dispenser<=8) and frame==2:
             image.write(0xe774,'<B',1)
             image.call(0xa353c if dispenser in (2,6) else 0xa3588,eax=target,edx=64 if dispenser<6 else {6:60,7:40,8:5}[dispenser])
             image.write(0xe774,'<B',0)
@@ -91,8 +93,9 @@ def main():
     parser=argparse.ArgumentParser(__doc__)
     parser.add_argument('--data-dir',type=Path,default=Path('../tfx-reverse/installs/cd_1994_09/TFX'))
     parser.add_argument('--build',type=Path,default=Path('build'))
+    parser.add_argument('--jettison-only',action='store_true')
     args=parser.parse_args();total=0
-    for dispenser in range(9):
+    for dispenser in ([9] if args.jettison_only else range(10)):
         for elapsed in (0,1,4,10,18,55):
             frames=128 if elapsed else 4
             capacity=98

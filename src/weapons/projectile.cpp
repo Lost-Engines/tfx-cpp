@@ -48,13 +48,14 @@ bool has_smoke_trail(flight_stage const motion, int32_t const player_distance) {
 }
 
 void next_stage(projectile &state, definition const &weapon) {
-  if(state.next_stage >= weapon.stages.size()) throw std::runtime_error{"projectile leaves its authored stage program"};
-  auto const &stage{weapon.stages[state.next_stage++]};
+  auto const program{state.program.empty() ? std::span<stage const>{weapon.stages} : state.program};
+  if(state.next_stage >= program.size()) throw std::runtime_error{"projectile leaves its authored stage program"};
+  auto const &stage{program[state.next_stage++]};
   state.motion = stage.motion;
   state.ticks = word(stage.ticks);
 }
 
-projectile launch(definition const &weapon, uint8_t const index, vec3<int32_t> const &position, vec3<math::angle> const &angles, int32_t const speed) {
+projectile launch(definition const &weapon, uint8_t const index, vec3<int32_t> const &position, vec3<math::angle> const &angles, int32_t const speed, std::span<stage const> const program) {
   projectile result{
     .position{vec3<int32_t>{position}},
     .previous{vec3<int32_t>{position}},
@@ -62,6 +63,7 @@ projectile launch(definition const &weapon, uint8_t const index, vec3<int32_t> c
     .speed{wrap(static_cast<int64_t>(speed) + weapon.launch_speed)},
     .range{weapon.range},
     .weapon{index},
+    .program{program},
   };
   next_stage(result,weapon);
   return result;
