@@ -11,6 +11,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   uint64_t checksum{14695981039346656037ull};
   for(auto const byte : source) checksum = (checksum ^ byte) * 1099511628211ull;
   if(source.size() != 1032503 || checksum != 0xcc1e305ba7e177f0ull) throw std::runtime_error{"this reconstruction currently requires the September 1994 TFX 2.05 executable (TFX.DAT)"};
+  samples = audio::load_sample_definitions(source);
   weapons = weapons::load_definitions(source);
   airframes = flight::load_airframes(source);
   aerodynamic_airframes = flight::load_aerodynamic_airframes(source);
