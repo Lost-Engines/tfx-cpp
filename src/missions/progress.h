@@ -86,6 +86,7 @@ public:
   bool beyond_airspace{false};
   bool resolved{false};
   bool ended{false};
+  bool force_landed_return{false}; // Native countdown return sets landed and reported speed zero before the final draw.
   bool critical_loss{false};
   bool player_ejected{false};
   bool impact_started{false};

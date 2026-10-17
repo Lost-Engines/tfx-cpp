@@ -14,6 +14,22 @@ import tempfile
 
 
 CASES = {
+    'training-result': (501, 'arcade', 256, [
+        {'frame': 1, 'event': 't'},
+        {'frame': 2, 'event': 'enter'},
+        {'frame': 70, 'event': 'space'},
+    ]),
+    'ejection-result': (501, 'arcade', 128, [
+        {'frame': 1, 'event': 'escape'},
+        {'frame': 3, 'event': 'escape'},
+        {'frame': 65, 'event': 'escape'},
+    ]),
+    'ejection-recording': (501, 'arcade', 68, [
+        {'frame': 1, 'event': 'v', 'held': ['alt', 'v']},
+        {'frame': 3, 'event': 'escape'},
+        {'frame': 5, 'event': 'escape'},
+        {'frame': 67, 'event': 'v', 'held': ['alt', 'v']},
+    ]),
     'training-intercept': (501, 'arcade', 220, [
         {'frame': 1, 'event': 't'},
         {'frame': 2, 'event': 'enter'},
@@ -75,10 +91,16 @@ def main():
                            '--output', str(root / name / 'native')]
             elif args.native_root:
                 command.extend(['--native-capture', str((args.native_root / name / 'native').resolve())])
+            if name.endswith('-result'):
+                command.append('--until-result')
             subprocess.run(command, check=True)
             native = args.native_root / name / 'native' if args.native_root else root / name / 'native'
-            snapshots = json.loads((native / 'session.json').read_text())['snapshots']
-            if name == 'training-intercept':
+            capture = json.loads((native / 'session.json').read_text())
+            snapshots = capture['snapshots']
+            if name.endswith('-result'):
+                assert capture['terminal']['returned'], 'original mission did not return through its result'
+                assert snapshots[-1]['mission_progress']['ended'], 'flight ended without the mission result gate'
+            if name in ('training-intercept', 'training-result'):
                 assert any(s['projectiles'] for s in snapshots), 'intercept never released a store'
                 assert any(s['mission_progress']['results'][3] for s in snapshots), 'intercept never downed the enemy'
                 assert any(s['mission_progress']['results'][5] for s in snapshots), 'intercept never completed its objective'

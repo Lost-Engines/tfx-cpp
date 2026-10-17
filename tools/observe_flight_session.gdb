@@ -29,6 +29,25 @@ class RadarInput(gdb.Breakpoint):
   print('CPP_RADAR_INPUT '+json.dumps({'frame':flight_frame,'pulse_before':bool(gdb.parse_and_eval('this').dereference()['pulse']),'player':[int(state['player'][axis])for axis in ('x','y','z')],'heading':int(state['heading']),'range':int(gdb.parse_and_eval('range')),'offset':[int(state['offset'][axis])for axis in ('x','y')],'projectiles':shots}))
   return False
 if 'TFX_OBSERVE_RADAR_CONTEXT' in os.environ:RadarInput('tfx::cockpit::radar::draw',internal=True)
+class FinishReturn(gdb.FinishBreakpoint):
+ def __init__(self):
+  super().__init__(internal=True)
+  value=gdb.parse_and_eval('campaign')
+  if value.type.code==gdb.TYPE_CODE_REF:value=value.referenced_value()
+  pointer=value.address
+  self.campaign=gdb.Value(int(pointer)).cast(pointer.type)
+ def stop(self):
+  printer=gdb.default_visualizer(self.campaign.dereference())
+  if printer is None:raise RuntimeError('GNU std::map printer required for FINISH observation')
+  children=list(printer.children())
+  values={children[i][1]['_M_dataplus']['_M_p'].string():int(children[i+1][1])for i in range(0,len(children),2)}
+  print('CPP_FINISH '+json.dumps(values))
+  return False
+class FinishEntry(gdb.Breakpoint):
+ def stop(self):
+  FinishReturn()
+  return False
+FinishEntry('tfx::missions::finish_program::execute',internal=True)
 def current_renderer():
  global renderer_pointer
  if renderer_pointer is None:
@@ -117,6 +136,8 @@ commands
 silent
 set $scene = this
 python
+view=gdb.parse_and_eval('view')
+print('CPP_WORLD_CAMERA '+json.dumps([round(float(view['position'][axis])*65536)for axis in ('x','y','z')]))
 # This observer launches a direct mission: its first scene draw targets the
 # actual flight framebuffer, before any MFD viewport. Capture the borrowed
 # renderer argument while it is live instead of depending on an optimised

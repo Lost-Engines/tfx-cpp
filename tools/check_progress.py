@@ -65,7 +65,7 @@ def main():
             if image.read(0x5940,'<h')[0]:image.call(0x71b90)
             if image.read(0xe708,'<i')[0]!=-1:image.call(0x70d74)
             assert not completion_audio
-            values=[image.read(0x5c20,'<i')[0],image.read(0x11b26,'<h')[0],image.read(0x5d44,'<h')[0],image.read(0xe708,'<i')[0],image.read(0x5c30,'<i')[0],image.read(0x5940,'<h')[0],image.read(0x593e,'<B')[0],image.read(0x593a,'<h')[0],*struct.unpack('<2i',image.cpu.mem_read(0x300804,8)),struct.unpack('<i',image.cpu.mem_read(0x300800,4))[0],len(notices)//2,*notices]
+            values=[image.read(0x5c20,'<i')[0],image.read(0x11b26,'<h')[0],image.read(0x5d44,'<h')[0],image.read(0xe708,'<i')[0],image.read(0x5c30,'<i')[0],image.read(0x5940,'<h')[0],image.read(0x593e,'<B')[0],image.read(0x593a,'<h')[0],*struct.unpack('<2i',image.cpu.mem_read(0x300804,8)),struct.unpack('<i',image.cpu.mem_read(0x300800,4))[0],image.read(0x8d3a,'<h')[0],image.read(0x13444,'<i')[0],len(notices)//2,*notices]
             native_rows.append(values);time=(time+elapsed)&0xffffffff
             if image.read(0x593a,'<h')[0]:break
         header=[len(control_rows),count,kind,value,landed_start,timer,violations,exit_ticks,critical]

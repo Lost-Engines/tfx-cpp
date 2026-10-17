@@ -21,7 +21,7 @@ struct scene_handle {
   bool operator==(scene_handle const&) const = default;
 };
 enum class scene_pass { primary, instrument };
-enum class submission_phase { before_actors, after_actors };
+enum class submission_phase { before_terrain, before_actors, after_actors };
 struct scene_events {
   bool animated{false};
   bool eject_player{false};
@@ -66,6 +66,7 @@ private:
   animation_clock local_clock;
   animation_clock &clock; // Optional application-owned gate survives mission changes.
   bool animation_pending{false};
+  bool player_animation_pending{false}; // The player stream advances after drawing, independently of viewport consumption.
   bool instrument_animation{false};
   render::model_jitter jitter;
   struct player_rendering {
