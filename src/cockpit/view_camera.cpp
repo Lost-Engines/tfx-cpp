@@ -147,6 +147,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
   int16_t const previous_projection_y{math::signed_word(static_cast<uint16_t>(pose.position_q16.y >> 16))};
   pose.horizon_angles.reset();
   pose.player_model_entry.reset();
+  pose.model_source = player_model_source::fixed;
   pose.ground_motion.reset();
   state.pan = context.pan;
   auto const tracking_angles{[&] {
@@ -352,6 +353,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     }
     set_angles({negative(state.smoothed_angles.x),negative(state.smoothed_angles.y),negative(state.smoothed_angles.z)});
     pose.player_model_entry = 21u + context.refuel_phase;
+    pose.model_source = player_model_source::integer;
     break;
   }
   case view_mode::missile_infrared:
@@ -397,6 +399,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     state.smoothed_angles.y = angles.y;
     set_angles({negative(angles.x),negative(angles.y),0});
     pose.player_model_entry = 21u + context.refuel_phase;
+    pose.model_source = player_model_source::integer;
     break;
   }
   case view_mode::target_tracking: {

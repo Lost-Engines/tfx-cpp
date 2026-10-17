@@ -11,6 +11,7 @@
 #include <cmath>
 #include <iterator>
 #include <vector>
+#include <utility>
 
 namespace tfx::world {
 
@@ -227,28 +228,32 @@ bool scene::advance_instance(instance &state, vec3d const &origin, math::angle c
 }
 
 scene_events scene::advance(timer_ticks const elapsed) {
-  /// Each static or moving instance owns independent streams; the native clock gate remains shared
-  bool const animate{clock.advance(elapsed)};
-  if(animate) saved_jitter = working_jitter;
-  else working_jitter = saved_jitter;
-  scene_events result;
-  if(!animate) return result;
-  result.animated = true;
-  for(auto &[index, instance] : instances) {
-    auto const x{index % map_width}, z{index / map_width};
-    result.eject_player |= advance_instance(instance,{(x + .5) * cell_units,0,(z + .5) * cell_units},terrain.tile(x,z).rotation);
-  }
-  if(upper_terrain) for(auto &[index, instance] : upper_instances) {
-    auto const x{index % map_width}, z{index / map_width};
-    int const height{select_terrain_layer(true,terrain.lighting.layer_y,terrain.lighting.layer_offset_y,terrain.lighting.layer_y).height};
-    result.eject_player |= advance_instance(instance,{(x + .5) * cell_units,static_cast<double>(height),(z + .5) * cell_units},upper_terrain->tile(x,z).rotation);
-  }
-  for(auto &[_, actor] : actors) result.eject_player |= advance_instance(actor.state,actor.position);
-  return result;
+  animation_pending = clock.advance(elapsed);
+  return {
+    .animated{animation_pending},
+  };
 }
 
-void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y, int16_t const shadow_ground_height) {
+bool scene::animate_player_model(scene_handle const handle) {
+  if(!animation_eligible(animation_policy::unconditional,animation_pending,true)) return false;
+  auto &actor{actors.at(handle.value)};
+  return advance_instance(actor.state,actor.position);
+}
+void scene::set_player_rendering(scene_handle const handle, vec3d const &position, vec3<math::angle> const &angles, animation_policy const policy) {
+  player_model.emplace(player_rendering{
+    .handle{handle},
+    .position{vec3d{position}},
+    .angles{vec3<math::angle>{angles}},
+    .animation{policy},
+  });
+}
+
+scene_events scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y, int16_t const shadow_ground_height, scene_pass const pass) {
   /// Native cached model metrics own detail, distance predicates, remap and signed sort priority
+  if(pass == scene_pass::primary) instrument_animation = std::exchange(animation_pending,false);
+  bool const animate{instrument_animation};
+  jitter.begin(animate);
+  scene_events events;
   struct queued_part {
     models::shape const *shape;
     std::string name;
@@ -293,7 +298,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       // Native 0xcc001 queues parameter 0; 0xbac16 seeds the shape condition from it.
       context.initial_state = item.parameters.front();
       context.status = terrain.lighting.status;
-      context.jitter = &working_jitter;
+      context.jitter = &jitter.state();
       context.distance = native ? item.metrics.distance : static_cast<int16_t>(std::clamp(item.depth,-32768.0,32767.0));
       if(detail) context.entry_address = detail->offset + 2;
       context.project = [&view, &camera_point](vec3d const &v, double const scale){
@@ -383,49 +388,13 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
   auto &states{layer.upper ? upper_instances : instances};
   parts_drawn = 0;
   primitives_drawn = 0;
-  for(int x{first_x}; x <= last_x; ++x) {
-    for(int z{first_z}; z <= last_z; ++z) {
-      auto const col{static_cast<unsigned int>(x)}, row{static_cast<unsigned int>(z)};
-      auto const &tile{grid.tile(col,row)};
-      vec3d const centre{(x + .5) * cell_units,static_cast<double>(layer.height),(z + .5) * cell_units};
-      auto const camera_centre{view.transform(centre)};
-      if(!native && (camera_centre.z < -cell_units || camera_centre.z > view.far_distance + cell_units)) continue;
-      try {
-        auto &instance{states.try_emplace(row * map_width + col,resources.object(grid.variant(col,row))).first->second};
-        auto const assembly{fixed_position(centre)};
-        if(native && !projection.camera_sphere_visible(projection.camera_fixed(assembly),instance.bounding_radius())) continue;
-        auto const requests{[&](scene_request const &request) { emit_effect(request,centre,tile.rotation); }};
-        auto const origin{word_position(centre)};
-        instance_context const context{
-          .status{terrain.lighting.status},
-          .distance{instance_point_distance({0,0,0},origin,tile.rotation,reference)},
-          .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,tile.rotation,reference); }},
-          .request_output{requests},
-        };
-        auto const output{instance.execute(1,context)};
-        for(auto const &draw : output.draws) {
-          bool const shadow{draw.kind == part_draw_kind::ground_shadow};
-          auto const shadow_placement{shadow ? place_model_shadow(projection,assembly,shadow_ground_height,instance.bounding_radius()) : std::optional<model_placement>{}};
-          if(shadow && (!shadow_placement || !shadow_placement->visible)) continue;
-          auto const &part{draw.part};
-          if(part.name.empty()) continue;
-          auto const &shape{resources.shape(part.name)};
-          auto const placement{shadow ? *shadow_placement : place_model_part(projection,assembly,word_position(draw.anchor),tile.rotation,draw.placement,instance.bounding_radius())};
-          if(native && !placement.visible) continue;
-          auto const origin{(shadow || (native && draw.placement != part_position::assembly_origin)) ? vec3d{effect_position(placement.position,vec3<int32_t>{centre})} : centre + math::rotate_tile(draw.anchor,tile.rotation)};
-          queue_part(shape,part,origin,math::rotation(part.rotation),tile.rotation,model_orientation({0,0,0},part,tile.rotation,draw.orientation),placement.camera_origin,shadow ? render::model_render_path::ground_shadow : render::model_render_path::scaled,draw.delivery);
-        }
-      } catch(std::exception const &error) {
-        warnings.insert(grid.variant(col,row) + ": " + error.what());
-      }
-    }
-  }
-  auto const submit{[&](moving_instance &actor, vec3d const &position, vec3<math::angle> const &angles) {
+  auto const submit{[&](moving_instance &actor, vec3d const &position, vec3<math::angle> const &angles, animation_policy const policy = animation_policy::when_visible) {
     auto const rotation{math::rotation(angles)};
     // Native moving SSD effect placement retains quarter-turn zero; its full
     // visual Euler transform is separate from the request callback.
     auto const assembly{fixed_position(position)};
     if(native && !projection.camera_sphere_visible(projection.camera_fixed(assembly),actor.state.bounding_radius())) return;
+    if(animation_eligible(policy,animate,true)) events.eject_player |= advance_instance(actor.state,position);
     auto const requests{[&](scene_request const &request) { emit_effect(request,position); }};
     auto const origin{word_position({std::floor(position.x),std::floor(position.y),std::floor(position.z)})};
     instance_context const context{
@@ -454,7 +423,51 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       }
     }
   }};
-  for(auto &[_, actor] : actors) if(actor.visible) submit(actor,actor.position,actor.angles);
+  // The main camera submits the player's model before the world. Instrument
+  // world passes do not invoke that separate player-model constructor.
+  if(pass == scene_pass::primary && player_model) {
+    auto &actor{actors.at(player_model->handle.value)};
+    if(actor.visible) submit(actor,player_model->position,player_model->angles,player_model->animation);
+  }
+  for(int x{first_x}; x <= last_x; ++x) {
+    for(int z{first_z}; z <= last_z; ++z) {
+      auto const col{static_cast<unsigned int>(x)}, row{static_cast<unsigned int>(z)};
+      auto const &tile{grid.tile(col,row)};
+      vec3d const centre{(x + .5) * cell_units,static_cast<double>(layer.height),(z + .5) * cell_units};
+      auto const camera_centre{view.transform(centre)};
+      if(!native && (camera_centre.z < -cell_units || camera_centre.z > view.far_distance + cell_units)) continue;
+      try {
+        auto &instance{states.try_emplace(row * map_width + col,resources.object(grid.variant(col,row))).first->second};
+        auto const assembly{fixed_position(centre)};
+        if(native && !projection.camera_sphere_visible(projection.camera_fixed(assembly),instance.bounding_radius())) continue;
+        if(animation_eligible(animation_policy::when_visible,animate,true)) events.eject_player |= advance_instance(instance,centre,tile.rotation);
+        auto const requests{[&](scene_request const &request) { emit_effect(request,centre,tile.rotation); }};
+        auto const origin{word_position(centre)};
+        instance_context const context{
+          .status{terrain.lighting.status},
+          .distance{instance_point_distance({0,0,0},origin,tile.rotation,reference)},
+          .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,tile.rotation,reference); }},
+          .request_output{requests},
+        };
+        auto const output{instance.execute(1,context)};
+        for(auto const &draw : output.draws) {
+          bool const shadow{draw.kind == part_draw_kind::ground_shadow};
+          auto const shadow_placement{shadow ? place_model_shadow(projection,assembly,shadow_ground_height,instance.bounding_radius()) : std::optional<model_placement>{}};
+          if(shadow && (!shadow_placement || !shadow_placement->visible)) continue;
+          auto const &part{draw.part};
+          if(part.name.empty()) continue;
+          auto const &shape{resources.shape(part.name)};
+          auto const placement{shadow ? *shadow_placement : place_model_part(projection,assembly,word_position(draw.anchor),tile.rotation,draw.placement,instance.bounding_radius())};
+          if(native && !placement.visible) continue;
+          auto const origin{(shadow || (native && draw.placement != part_position::assembly_origin)) ? vec3d{effect_position(placement.position,vec3<int32_t>{centre})} : centre + math::rotate_tile(draw.anchor,tile.rotation)};
+          queue_part(shape,part,origin,math::rotation(part.rotation),tile.rotation,model_orientation({0,0,0},part,tile.rotation,draw.orientation),placement.camera_origin,shadow ? render::model_render_path::ground_shadow : render::model_render_path::scaled,draw.delivery);
+        }
+      } catch(std::exception const &error) {
+        warnings.insert(grid.variant(col,row) + ": " + error.what());
+      }
+    }
+  }
+  for(auto &[id, actor] : actors) if(actor.visible && (!player_model || player_model->handle.value != id)) submit(actor,actor.position,actor.angles);
   // Gather effects after world SSD execution so newly emitted/reused slots
   // join this frame with their current state, before the global depth sort.
   if(final_submissions) final_submissions();
@@ -473,6 +486,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     paint_part(item,item.path);
   }
   model_submissions.clear();
+  return events;
 }
 
 } // namespace tfx::world

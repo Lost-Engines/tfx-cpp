@@ -1207,7 +1207,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     projectiles.advance(elapsed,air_simulation.random_stream());
     auto const scene_update{scene.advance(elapsed)};
     sky_animation = scene_update.animated;
-    if(scene_update.eject_player) ejection.request();
+    if(scene.animate_player_model(player_visual)) ejection.request();
     flak_flash = false;
     if(auto const event{tfx::world::advance_flak(flak_state,{
       .player{vec3<int32_t>{player.integer_position}},
@@ -1397,6 +1397,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       if(ground_designation) camera_state.tracked_position_q8.emplace(vec3<int32_t>{designated_point});
       if(!mission_setup.targets.empty()) camera_state.ground_target = vec3<int32_t>{mission_setup.targets[ground_target_page].position};
       scene_displays.draw(renderer,side,page,display.offset,camera_state,[&](tfx::cockpit::scene_camera_request const &request) {
+        if(request.minimum.y >= tfx::render::screen_height) return vec2<int16_t>{0,0};
         auto camera{request.view()};
         camera.far_distance = scene_radius * tfx::world::cell_units;
         tfx::render::paint_horizon(camera_renderer.output,{
@@ -1409,7 +1410,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           .origin_y{static_cast<int16_t>(camera.projection_origin.y)},
         });
         queue_projectiles();
-        scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); },request.position.y,ground.height);
+        auto const rendered{scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); },request.position.y,ground.height,tfx::world::scene_pass::instrument)};
+        if(rendered.eject_player) ejection.request();
         // The current world painter renders a whole software target; copy its viewport
         // into the instrument target. The original world raster's clipping is separate work.
         int const top{request.minimum.y + (request.maximum.y < tfx::render::screen_height ? 1 : 0)};
@@ -1543,13 +1545,18 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(!inspect && !designator_view) {
       if(!tables.instruments().viewports[view_index()].panel.empty()) cockpit_position.move_to(cockpit_frame.clamp(view_index(),cockpit_position.value()));
       views.offset(cockpit_position.value());
-      if(!view_motion.advance(views,camera_context())) throw std::runtime_error{"unimplemented flight camera"};
+      auto const context{camera_context()};
+      if(!view_motion.advance(views,context)) throw std::runtime_error{"unimplemented flight camera"};
       if(auto const movement{view_motion.last_pose().ground_motion}) ground_phase.advance(*movement);
       auto const entry{view_motion.last_pose().player_model_entry};
       scene.show_actor(player_visual,entry.has_value());
       if(entry) scene.actor_event(player_visual,*entry);
+      bool const integer_model{view_motion.last_pose().model_source == tfx::cockpit::player_model_source::integer};
+      auto const model_position{integer_model ? vec3d{context.position} : vec3d{context.position_q8} / tfx::actors::position_unit};
+      scene.set_player_rendering(player_visual,model_position,context.angles,integer_model ? tfx::world::animation_policy::when_visible : tfx::world::animation_policy::frozen);
     } else {
       scene.show_actor(player_visual,false);
+      scene.set_player_rendering(player_visual,vec3d{player.position},player.angles,tfx::world::animation_policy::frozen);
       if(!inspect && designator_view) {
         view_motion.advance_ground_reference(camera_context());
         if(auto const movement{view_motion.last_pose().ground_motion}) ground_phase.advance(*movement);
@@ -1631,7 +1638,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     queue_projectiles();
     scene.set_query_reference(inspect ? nullptr : &player.integer_position);
-    scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},ground.height);
+    auto const rendered{scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},ground.height)};
+    if(rendered.eject_player) ejection.request();
     if(!inspect && !result_evaluated) {
       if(auto const count{tfx::render::precipitation_count({
         .enabled{preferences.effects.precipitation != 0},

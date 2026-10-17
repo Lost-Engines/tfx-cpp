@@ -3324,3 +3324,45 @@ remain separate work.
 The private front-end check also passes edited enrolment names, Control
 qualification, DOS pilot save/reload, FWS briefing/custom arming/flight and
 Tour squadron selection/route review/flight after these ownership changes.
+
+### Visibility-gated animation and viewport jitter
+
+The main player stream update (`0xb4f44`) now runs independently of visibility.
+Ordinary SSD submissions (`0xb4ff0`) advance their streams only after their
+bounding sphere is admitted; fixed player-pose submission (`0xb518c`) never
+advances them. This also prevents hidden effect templates and previously seen,
+now offscreen scenery from advancing merely because their instances exist.
+
+The original animation gate remains enabled during instrument world passes.
+Consequently an admitted ordinary model can advance again in a second viewport
+within that frame. The reconstruction preserves this behavior, while consuming
+the primary frame gate so extra host redraws do not advance model streams.
+Queue reset (`0xc488d`) also saves/restores procedural jitter per viewport,
+rather than once per physics update. Its initial seed remains 0x3141/0x5926.
+
+The main camera's separate player submission precedes the world. Missile and
+impact-orbit modes use the integer-coordinate, visible/animated constructor;
+other external views use the Q8 fixed-pose, frozen constructor. Instrument
+world passes do not submit that separate player model. A fully lowered
+instrument viewport returns before resetting or drawing its scene.
+
+`tools/check_animation_policy.py` agrees with **8,192 original model calls**
+through all three real constructors, sphere queries and persistent stream
+interpreters, including primary/all-eight streams and byte wrapping.
+`tools/check_model_jitter.py` agrees with **16,384 original viewport resets**
+with intervening draw consumption. Declared inputs are synthetic stream/source
+bytes, initial state, camera/object poses, animation gates and working seeds;
+the single instance resolver and final notification are supplied boundaries.
+The separate vertex-jitter test still checks actual random consumption.
+`tools/check_view_cameras.py --model-submission --refuelling --horizon
+--projection --split-basis` agrees across **12,288 original camera updates**,
+including the selected player constructor alongside all prior pose, matrix,
+projection and horizon fields.
+
+All 157 development and Release regressions pass. All 128 retail missions
+compose 64 frames without warnings. The real factory collision/effect scene
+still matches 32 original animation/drawing passes. Private-window checks
+cover firing, MFDs, designation, pause, combat results, camera switching and
+the authored seat-release/parachute/recovery sequence. These comparisons close
+the represented constructor and viewport scheduling rules; complete renderer
+phase order and full original-session equivalence remain separate gates.
