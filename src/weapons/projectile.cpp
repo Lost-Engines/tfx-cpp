@@ -40,6 +40,13 @@ bool has_swept_contacts(flight_stage const motion) {
   return motion != flight_stage::attached && motion != flight_stage::falling && motion != flight_stage::accelerating;
 }
 
+bool has_smoke_trail(flight_stage const motion, int32_t const player_distance) {
+  int32_t constexpr maximum_emission_distance{4000};
+  // Native 0xa3378 excludes attached/falling callbacks, independently of the
+  // three-callback contact gate; accelerating stores can already leave smoke.
+  return motion != flight_stage::attached && motion != flight_stage::falling && player_distance < maximum_emission_distance;
+}
+
 void next_stage(projectile &state, definition const &weapon) {
   if(state.next_stage >= weapon.stages.size()) throw std::runtime_error{"projectile leaves its authored stage program"};
   auto const &stage{weapon.stages[state.next_stage++]};

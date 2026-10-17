@@ -343,7 +343,9 @@ add_library(tfx_core
   src/world/instance.cpp
   src/world/instance.h
   src/world/impact.cpp src/world/impact.h
-  src/world/effects.cpp src/world/effects.h
+  src/world/effects.cpp
+  src/world/effects.h
+  src/world/trails.cpp src/world/trails.h
   src/world/flak.cpp src/world/flak.h
   src/world/collision.cpp
   src/world/collision.h
@@ -540,6 +542,13 @@ if(BUILD_TESTING)
   target_link_libraries(defence_probe PRIVATE tfx_core)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
+
+  add_executable(trails_probe tests/trails_probe.cpp)
+  target_link_libraries(trails_probe PRIVATE tfx_core)
+  configure_first_party(trails_probe)
+  add_test(NAME world.native_smoke_trail_pool COMMAND trails_probe ${PROJECT_SOURCE_DIR}/tests/reference/trails.txt)
+  add_test(NAME world.native_smoke_trail_segments COMMAND trails_probe ${PROJECT_SOURCE_DIR}/tests/reference/trail_segments.txt)
+  add_test(NAME weapons.native_smoke_trail_dispatch COMMAND trails_probe ${PROJECT_SOURCE_DIR}/tests/reference/trail_dispatch.txt)
 
   add_executable(flak_probe tests/flak_probe.cpp)
   target_link_libraries(flak_probe PRIVATE tfx_core)
@@ -940,6 +949,11 @@ if(BUILD_TESTING)
   add_executable(external_display_probe tests/external_display_probe.cpp)
   target_link_libraries(external_display_probe PRIVATE tfx_core)
   configure_first_party(external_display_probe)
+
+  add_executable(visibility_probe tests/visibility_probe.cpp)
+  target_link_libraries(visibility_probe PRIVATE tfx_core)
+  configure_first_party(visibility_probe)
+  add_test(NAME render.native_sphere_visibility COMMAND visibility_probe ${PROJECT_SOURCE_DIR}/tests/reference/sphere_visibility.txt)
 
   add_executable(point_projection_probe tests/point_projection_probe.cpp)
   target_link_libraries(point_projection_probe PRIVATE tfx_core)
