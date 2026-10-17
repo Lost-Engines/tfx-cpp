@@ -48,7 +48,7 @@ break tfx::platform::fly_mission
 commands
 silent
 python
-import json
+import json, struct
 options=gdb.parse_and_eval('options')
 values=gdb.parse_and_eval('campaign')
 if values.type.code==gdb.TYPE_CODE_REF:values=values.referenced_value()
@@ -56,13 +56,23 @@ printer=gdb.default_visualizer(values)
 if printer is None:raise RuntimeError('GNU std::map printer is required for read-only campaign observation')
 children=list(printer.children())
 numbers={children[i][1]['_M_dataplus']['_M_p'].string():int(children[i+1][1]) for i in range(0,len(children),2)}
-print('ENTRY '+json.dumps({'mission':options['mission']['_M_dataplus']['_M_p'].string(),'values':numbers}))
+entry_mission=options['mission']['_M_dataplus']['_M_p'].string()
+inherited=options['mission_state']
+inherited_values={'position':[int(inherited['position'][axis])for axis in ('x','y','z')],'speed_factor':struct.unpack('<I',struct.pack('<f',float(inherited['speed_factor'])))[0],'weapons':int(inherited['weapons'])}
+print('ENTRY '+json.dumps({'mission':entry_mission,'values':numbers,'inherited':inherited_values}))
 end
 continue
 end
 set $seeker = 0
 set $armament = 0
 set $progress = 0
+set $launch_player = 0
+break tfx::flight::player_flight::advance
+commands
+silent
+set $launch_player = this
+continue
+end
 break tfx::sensors::air_lock::begin_mission
 commands
 silent
@@ -92,6 +102,8 @@ armament=gdb.parse_and_eval('$armament').dereference()
 slot=int(armament['selected'])
 weapon=int(armament['pylons']['_M_elems'][slot]['weapon']) if 0<=slot<10 else -1
 print('COMBAT '+json.dumps([int(progress['results']['enemy_aircraft_down']),int(progress['results']['completed']),int(seeker['guidance']['_M_payload']['_M_engaged']),int(seeker['lock_ticks']),weapon]))
+flight=gdb.parse_and_eval('$launch_player').dereference()['basic']['flight']
+print('FLIGHT_STATE '+json.dumps({'mission':entry_mission,'position':[int(flight['integer_position'][axis])for axis in ('x','y','z')],'speed_factor':struct.unpack('<I',struct.pack('<f',float(flight['speed_mach'])))[0]}))
 end
 continue
 end
@@ -172,8 +184,14 @@ run
      assert 'Arming' in title,('following mission not reached',title)
      import json
      log.seek(0)
-     entries=[json.loads(line[len('ENTRY '):])for line in log.read().splitlines()if line.startswith('ENTRY ')]
+     observation=log.read().splitlines()
+     entries=[json.loads(line[len('ENTRY '):])for line in observation if line.startswith('ENTRY ')]
      assert len(entries)==2 and entries[0]['mission']=='miss501' and entries[1]['mission']=='miss502',entries
+     ended=[json.loads(line[len('FLIGHT_STATE '):])for line in observation if line.startswith('FLIGHT_STATE ')]
+     ended=next(state for state in reversed(ended)if state['mission']=='miss501')
+     inherited=entries[1]['inherited']
+     assert inherited['position']==ended['position'] and inherited['speed_factor']==ended['speed_factor'],('retained live flight state',inherited,ended)
+     assert inherited['weapons']==0,('Hop 1 WEAPONS index',inherited)
      continued=entries[1]['values']
      assert continued['a2akills']>=1 and continued['num_miss']>=1 and continued['score']>0 and continued['mission']==502,continued
      # FWS's SPOS belongs to training graduation, not each hop. Do not invent
@@ -186,7 +204,7 @@ run
     confirm_flight_quit(env,window);game.wait(timeout=15)
     if game.returncode:
      log.seek(0);raise RuntimeError('flight failed:\n'+log.read()[-4000:])
-  print(f'Private X11 training engagement passed: {checked} real frames, AMRAAM lock/release, enemy loss, objective completion, successful FINISH'+('; original pilot/arming/debrief and next-hop campaign values'if a.campaign else ''))
+  print(f'Private X11 training engagement passed: {checked} real frames, AMRAAM lock/release, enemy loss, objective completion, successful FINISH'+('; original pilot/arming/debrief, next-hop campaign values and retained position/Mach/WEAPONS state'if a.campaign else ''))
  finally:
   for process in (game,display):
    if process is not None and process.poll() is None:

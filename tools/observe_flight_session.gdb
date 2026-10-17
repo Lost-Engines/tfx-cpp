@@ -143,6 +143,7 @@ class FrameReturn(gdb.FinishBreakpoint):
 
   import struct
   physical=player['physical']
+  print('CPP_SPEED_FACTOR '+json.dumps(struct.unpack('<I',struct.pack('<f',float(player['basic']['flight']['speed_mach'])))[0]))
   gains=physical['input_gains']
   print('CPP_CONTROL_CONFIGURATION '+json.dumps([int(physical['autopilot']['recovery']['configuration']),*[struct.unpack('<Q',struct.pack('<d',float(gains[field])))[0]for field in ('joystick','pitch','roll','rudder')]]))
   armament=gdb.parse_and_eval('$armament').dereference()

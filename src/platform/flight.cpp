@@ -86,6 +86,31 @@
 #include "weapons/impact_prediction.h"
 
 namespace tfx::platform {
+namespace {
+
+// Original INIT reads the live position/Mach and last WEAPONS index when a
+// declaration omits them. Preserve the final values on every flight return,
+// after camera/refuelling/result callbacks, while the source still exists.
+class mission_handoff {
+private:
+  missions::inherited_setup *destination;
+  flight::arcade_state const &source;
+  uint8_t weapons;
+
+public:
+  mission_handoff(missions::inherited_setup *const destination, flight::arcade_state const &source, uint8_t const weapons)
+    : destination{destination}, source{source}, weapons{weapons} {}
+  ~mission_handoff() {
+    if(!destination) return;
+    destination->position = vec3<int32_t>{source.integer_position};
+    destination->speed_factor = source.speed_mach;
+    destination->weapons = weapons;
+  }
+  mission_handoff(mission_handoff const&) = delete;
+  auto operator=(mission_handoff const&)->mission_handoff& = delete;
+};
+
+} // namespace
 
 flight_result fly_mission(resources::archive const &game, resources::executable_tables const &tables,
   flight_options const &options, missions::variables &campaign, window *const shared_window) {
@@ -107,7 +132,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto const scale{options.scale}, frame_limit{options.frame_limit}, flight_steps{options.flight_steps}, flight_frames{options.flight_frames};
   bool inspect{options.inspect};
   tfx::world::mission const selected{game,mission_name};
-  auto const mission_setup{tfx::missions::initialise(selected.script)};
+  auto const mission_setup{tfx::missions::initialise(selected.script,options.mission_state)};
   // Native mission entry 0x71138 replaces the executable image's prelaunch
   // limits with the TFX world bounds. Camera movement and HUD trajectories
   // share those initialized globals with moving actors and live projectiles.
@@ -1357,6 +1382,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
   }};
   if(!inspect || flight_steps || flight_frames) restart();
+  mission_handoff const remember{inspect ? nullptr : &options.mission_state,player,mission_setup.weapons};
   if(sound && !inspect && !override_cell && !screenshot) sound->begin_flight(flight_audio());
   for(unsigned int step{0}; step != flight_steps; ++step) {
     advance_world({},4,static_cast<double>(4 * .02f));

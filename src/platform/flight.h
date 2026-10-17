@@ -4,6 +4,7 @@
 #include "cockpit/tactical_map.h"
 #include "flight/cheat.h"
 #include "missions/rules.h"
+#include "missions/initialisation.h"
 #include "configuration/settings.h"
 #include "platform/window.h"
 #include "resources/archive.h"
@@ -40,6 +41,7 @@ struct flight_options {
   bool &cannon_navigation;
   cockpit::tactical_map_animation &map_animation;
   flight::cheat_code &cheat;
+  missions::inherited_setup &mission_state;
   render::precipitation &rain;
   math::random_state &session_random;
   audio::runtime *sound{nullptr};
