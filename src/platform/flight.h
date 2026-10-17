@@ -10,6 +10,7 @@
 #include "world/flak.h"
 #include "world/sky.h"
 #include "render/horizon.h"
+#include "render/precipitation.h"
 
 namespace tfx::platform {
 
@@ -25,6 +26,8 @@ struct flight_options {
   world::flak_state &flak;
   world::sky_state &sky;
   render::horizon_phase &ground_phase;
+  render::precipitation &rain;
+  math::random_state &session_random;
   audio::runtime *sound{nullptr};
   bool inspect{false};
 };

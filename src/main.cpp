@@ -222,6 +222,8 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::world::flak_state flak_state;
   tfx::world::sky_state sky_state;
   tfx::render::horizon_phase ground_phase;
+  tfx::render::precipitation rain;
+  tfx::math::random_state session_random;
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -238,6 +240,8 @@ auto main(int const argc, char const *const argv[])->int try {
     .flak{flak_state},
     .sky{sky_state},
     .ground_phase{ground_phase},
+    .rain{rain},
+    .session_random{session_random},
     .sound{sound.get()},
     .inspect{inspect},
   };
