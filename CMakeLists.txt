@@ -342,6 +342,7 @@ add_library(tfx_core
   src/world/instance.cpp
   src/world/instance.h
   src/world/impact.cpp src/world/impact.h
+  src/world/effects.cpp src/world/effects.h
   src/world/collision.cpp
   src/world/collision.h
   src/world/animation.cpp
@@ -537,6 +538,11 @@ if(BUILD_TESTING)
   target_link_libraries(defence_probe PRIVATE tfx_core)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
+
+  add_executable(effects_probe tests/effects_probe.cpp)
+  target_link_libraries(effects_probe PRIVATE tfx_core)
+  configure_first_party(effects_probe)
+  add_test(NAME world.native_temporary_effect_pool COMMAND effects_probe ${PROJECT_SOURCE_DIR}/tests/reference/effects.txt)
 
   add_executable(impact_probe tests/impact_probe.cpp)
   target_link_libraries(impact_probe PRIVATE tfx_core)

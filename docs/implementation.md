@@ -2304,3 +2304,42 @@ area flak and complete combat-session equivalence remain outstanding.
 
 All **111 asset-free regressions** and the complete terrain-credit native cases
 pass in development, Release and ASan/UBSan.
+
+### Native temporary-effect pool
+
+The original `0x7afa4`/`0x7b144` pool owns 100 slots, each with ten independent
+SSD models: hit, miss, splash, boom, clatter, cannon splash/hit/miss, crash and
+fireball. Slots are consumed from the native reverse free order, appended to an
+oldest-first active chain and reused from its head after the pool fills. There
+is no invented expiry timer: the selected SSD's own streams stop drawing it.
+Positions retain signed-word wrapping. Cannon-hit requests retain their normal
+sample-14 request before model reset.
+
+The C++ pool expresses the same allocation order with a bounded circular index
+and an oldest-first range. The live host owns the 1,000 independent model
+instances, resets only the selected slot/model on spawn, queues active effects
+for both the main view and scene-backed MFDs, and includes them in the player's
+post-terrain/mobile contact pass. Word positions are placed in the nearest world
+copy for each camera. Aircraft ground impacts now request crash or splash from
+the native terrain/sampled-surface choice; newly destroyed CBU-55 terrain targets
+request their boom model. Other projectile/trail/flak producers remain separate
+integration work.
+
+**8,192 complete original pool operations** agree on all 1,000 model-load
+bindings, ten kinds, position wrapping, reset and audio ordering, active
+traversal, repeated full-pool reuse and reset. Resource/SSD/audio delivery are
+explicit boundaries; the pool instructions and linked-list changes execute.
+The 768-operation asset-free fixture covers multiple full-pool reuse cycles.
+
+All **112 regressions** and the complete native pool cases pass in development,
+Release and ASan/UBSan. An explicitly seeded private aircraft-impact case reaches
+the live actor request, pool spawn, word placement and scene drawing in both
+development and sanitizers. This checks the handoff, not complete effect-pixel
+equivalence. All **128 retail missions** also start, render and run 64 integrated
+steps in development; only two existing unavailable-vertex preview notes remain.
+No complete mission/result claim is made by that short robustness sweep.
+
+The preceding tanker-collision increment was additionally compared across all
+**192 retail aircraft programs / 352,896 updates**, including each profile's
+forced fall. The observer-only double-Escape/parachute/recovery window check
+passes under sanitizers after the contact changes.
