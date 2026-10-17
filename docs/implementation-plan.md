@@ -196,3 +196,10 @@ Flat model near-plane crossings now use the original word-depth midpoint
 search, Q16 replay, clipped projection and integer raster, with complete native
 edge and VGA-frame comparisons. The model-facing bytecode fallback, general
 shaded/patterned/textured drawing and full-scene transforms/order remain open.
+
+
+Original model-facing bytecode now distinguishes projected dword determinants,
+near-vertex 3D plane tests and the raster's word-difference winding. Native
+camera units reach the interpreter callback. Complete converted synthetic
+model programs agree in control flow and VGA pixels; full actor transforms,
+distance remap selection, general shading/textures and scene order remain.

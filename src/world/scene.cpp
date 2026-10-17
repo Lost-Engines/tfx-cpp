@@ -1,5 +1,6 @@
 #include "scene.h"
 #include "world/sky.h"
+#include "render/integer_model_polygon.h"
 #include <algorithm>
 #include <cmath>
 #include <iterator>
@@ -372,6 +373,16 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         auto point{view.transform(placed(v))};
         if(std::abs(point.z) < view.near_distance * scale) point.z = std::copysign(view.near_distance * scale,point.z);
         return view.project(point,scale);
+      };
+      if(view.projection == render::projection_mode::original_model) context.face_visibility = [&view,&placed](std::span<models::model_vertex const> const vertices, models::facing_test const purpose) {
+        std::vector<models::model_vertex> camera;
+        camera.reserve(vertices.size());
+        for(auto const &vertex : vertices) camera.push_back({
+          .position{view.transform(placed(vertex.position))},
+          .uv{0,0},
+          .projection_scale{vertex.projection_scale},
+        });
+        return render::model_facing(camera,view,purpose);
       };
       auto const geometry{models::interpret(*item.shape,context)};
       warnings.insert(geometry.warnings.begin(),geometry.warnings.end());

@@ -136,9 +136,13 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
   shape_geometry result;
   std::optional<unsigned int> attachment_slot;
   auto const project{[&context](model_vertex const &v){ return context.project ? context.project(v.position,v.projection_scale) : vec2d{-v.position.x,v.position.y}; }};
-  auto const determinant{[&project](std::vector<model_vertex> const &vertices){
+  auto const determinant{[&project](std::span<model_vertex const> const vertices){
     auto const a{project(vertices[0])}, b{project(vertices[1])}, c{project(vertices[2])};
     return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  }};
+  auto const facing{[&](std::span<model_vertex const> const vertices, facing_test const purpose) {
+    if(context.face_visibility) if(auto const native{context.face_visibility(vertices,purpose)}) return *native;
+    return determinant(vertices) >= 0;
   }};
   auto const emit{[&](vec3d value){
     if(cursor >= vertex_slots) throw std::runtime_error{"shape vertex slot exceeds native table"};
@@ -178,7 +182,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         .projection_scale{2 * std::abs(vertex_scales[index])},
       });
     }
-    if(context.facing && p.vertices.size() >= 3 && determinant(p.vertices) < 0) return;
+    if(context.facing && p.vertices.size() >= 3 && !facing(p.vertices,facing_test::polygon)) return;
     result.primitives.push_back(std::move(p));
   }};
   auto const run{[&](auto const &self, shape const &active, unsigned int at, unsigned int const depth)->void {
@@ -250,8 +254,9 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         for(unsigned int i{0}; i != 3; ++i) if(a[i] < vertex_slots && world[a[i]]) vertices.push_back({
           .position{vec3d{*world[a[i]]}},
           .uv{0,0},
+          .projection_scale{2 * std::abs(vertex_scales[a[i]])},
         });
-        if(context.facing && vertices.size() == 3 && determinant(vertices) >= 0) at = target;
+        if(context.facing && vertices.size() == 3 && facing(vertices,facing_test::branch)) at = target;
         continue;
       }
       if(opcode == 45 || opcode == 73) {

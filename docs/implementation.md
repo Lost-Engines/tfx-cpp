@@ -2892,3 +2892,44 @@ still pass. All **128 retail scenes** run 64 steps, and private development /
 sanitizer controls cover firing, missile follow/nose views, MFDs, ground
 controls, pause and combat-to-FINISH. Reproduce with
 `tools/check_near_clip.py` and `tools/check_world_polygons.py --near`.
+
+
+### Native model-facing branch and interpreter handoff
+
+The shape interpreter now distinguishes opcode 21's branch decision from the
+raster's polygon winding. Fully projected branches subtract sign-extended
+screen words in dwords, with wrapped multiplication/subtraction. Polygon
+winding instead narrows its differences to words. If any of the branch's three
+vertices is unprojected, native `0xbb890` builds a wrapped cross product from
+word camera-coordinate differences, shifts every normal axis together until
+all fit a word, then tests a wrapped dot product against the negated second
+vertex. Degenerate near faces consequently differ from ordinary screen tests.
+
+Live native cameras supply those decisions through an explicit shape-context
+callback; inspection retains its separate projection. The branch's temporary
+vertices now retain the same camera-unit scale as the controlled surfaces.
+Flat raster and facing share Q16 conversion, near clipping and integer
+projection, including native origin-word wrapping. IDIV overflow/out-of-range
+inputs retain the host's separate fallback rather than invoking undefined C++
+conversions.
+
+**16,384 complete original model-facing branches** agree across normal/wide
+modes, camera scales, screen-dword overflow, word normals, shared shifts,
+degeneracies and origin wrapping. **1,024 complete synthetic model programs**
+additionally execute the original resource converter, absolute vertices,
+translation scaling, projection, facing branch, colour reader, flat/near
+raster and return dispatch. Their branch-controlled draw counts and every VGA
+pixel agree with C++. The capture supplies model bytes, identity camera/actor
+matrix, translation, viewport and an explicit identity remap; no model
+instruction, numerical helper or drawing helper is replaced. This verifies the
+interpreter handoff, while arbitrary actor transforms, distance remap selection
+and whole-scene equivalence remain separate gates.
+
+Both 1,024-frame flat and near-crossing comparisons still agree. All **136
+regressions** pass in development, Release and ASan/UBSan; full facing and
+256 complete model-program comparisons repeat in Release and sanitizers.
+All **1,012 extracted models / 2,042 detail-state cases** continue to match the
+independent inspection VM. All **128 retail scenes** run 64 steps. Private
+development/sanitizer controls still cover weapons, missile cameras, MFDs,
+designator, pause and combat-to-FINISH. Reproduce with
+`tools/check_model_facing.py` and `tools/check_model_programs.py`.

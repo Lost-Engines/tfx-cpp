@@ -60,6 +60,8 @@ struct primitive {
   unsigned int source_address{0};
   std::optional<unsigned int> attachment_slot;
 };
+enum class facing_test { branch, polygon };
+
 struct shape_context {
   std::array<uint8_t, 256> parameters{0};
   uint16_t status{0};
@@ -69,6 +71,7 @@ struct shape_context {
   double reference_scale{1};
   bool facing{true};
   std::function<vec2d(vec3d const&, double)> project{};
+  std::function<std::optional<bool>(std::span<model_vertex const>,facing_test)> face_visibility{};
   math::jitter_state *jitter{nullptr};
   std::span<shape const *const> attachments{};
 };
