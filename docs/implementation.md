@@ -4753,3 +4753,23 @@ the private-window configuration check also passes under ASan/UBSan. Its GDB
 host disables LeakSanitizer only for ptrace compatibility; ordinary sanitizer
 regressions retain leak detection. See [recording.md](recording.md) for commands
 and boundaries.
+
+### Retail complete-session sweep
+
+`tools/check_mission_sessions.py` selects the 128 retail scripts from the
+checked mission catalogue and runs the complete original/C++ session
+comparison, retaining each case, its log and a machine-readable result list.
+`--capture-only` collects the bounded original traces independently of a C++
+build; `--native-root` reuses those captures with the existing input/resource
+hash checks. `--missions` selects a smaller batch. This is distinct from the
+longer C++-only simulation/render smoke tests.
+
+The first nine cases (501–509), sixteen frames each, agree on all observed
+gameplay/rendering state and every indexed pixel. The remaining retail
+captures/comparisons are in progress; these initial 144 frames do not establish
+the untested missions, later encounters or complete campaign paths.
+
+```sh
+python3 tools/check_mission_sessions.py --capture-only --output build/native-retail-sessions
+python3 tools/check_mission_sessions.py --native-root build/native-retail-sessions --output build/retail-sessions
+```
