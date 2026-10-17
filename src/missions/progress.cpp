@@ -40,6 +40,7 @@ player_loss_effects progress::observe_player_loss(player_loss_context const &con
   }
   if(context.collision && !impact_started) {
     impact_started = true;
+    effects.first_impact = true;
     death_ticks = 200;
     effects.explosion = true;
   }
