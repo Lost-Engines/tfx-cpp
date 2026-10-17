@@ -16,7 +16,7 @@
 
 namespace tfx::world {
 
-scene::scene(environment const &environment, assets &bank, world::environment const *const upper) : terrain{environment}, upper_terrain{upper}, resources{bank} {
+scene::scene(environment const &environment, assets &bank, world::environment const *const upper, animation_clock *const retained_clock) : terrain{environment}, upper_terrain{upper}, resources{bank}, clock{retained_clock ? *retained_clock : local_clock} {
 }
 
 scene_handle scene::create_actor(std::string const &name, vec3d const &position, vec3<math::angle> const &angles) {
@@ -284,7 +284,8 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       auto const *detail{native ? item.shape->detail_for_distance(item.metrics.distance) : nullptr};
       if(native && !detail) return;
       bool const shadow{path == render::model_render_path::ground_shadow};
-      if(shadow && detail && detail->kind != models::detail_kind::polygon) return;
+      // Native shadows retain coloured distant-point LOD; only polygon
+      // silhouettes take the forced-black drawing path below.
       if(detail && detail->kind >= models::detail_kind::pixel_block) {
         unsigned int const size{detail->kind == models::detail_kind::pixel_block ? 2u : 1u};
         render::model_point(renderer.output,item.camera_origin,view,size,resources.model_colours(item.metrics.colour_row)[detail->colour]);

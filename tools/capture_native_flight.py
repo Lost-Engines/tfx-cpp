@@ -202,6 +202,7 @@ def frame_boundary(current):
   'selected':current.read(0x93b0,'<h')[0],
   'stores':[current.read(0x13374+i*2,'<2B') for i in range(11)],
   'ground_phase':current.read(0xad7c,'<i')[0],
+  'animation':[current.read(0xac90,'<B')[0],current.read(0xe74c,'<h')[0]],
   'pattern_seed':struct.unpack('<H',current.cpu.mem_read(current.native(0xe3a3f),2))[0],
   'timer':clock[0],
   'random':struct.unpack('<2H',current.cpu.mem_read(current.native(0xc9894),4)),

@@ -72,6 +72,22 @@ print('CPP_RENDER '+json.dumps({'sha256':hashlib.sha256(raw).hexdigest(),'patter
 end
 continue
 end
+python
+class AnimationReturn(gdb.FinishBreakpoint):
+ def __init__(self):
+  super().__init__(internal=True)
+  self.owner=gdb.parse_and_eval('this')
+ def stop(self):
+  scene=self.owner.dereference()
+  value=int(scene['clock']['accumulated'])
+  print('CPP_ANIMATION '+json.dumps([int(scene['animation_pending']),(value+32768)%65536-32768]))
+  return False
+class AnimationAdvance(gdb.Breakpoint):
+ def stop(self):
+  AnimationReturn()
+  return False
+AnimationAdvance('tfx::world::scene::advance',internal=True)
+end
 break tfx::cockpit::radio_ticker::show
 commands
 silent

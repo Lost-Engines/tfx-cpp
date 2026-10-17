@@ -123,7 +123,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::world::assets assets{game};
   std::unique_ptr<tfx::world::environment> upper_environment;
   if(environment.lighting.cloud_layer) upper_environment = std::make_unique<tfx::world::environment>(game,environment.lighting.upper_grid,environment.lighting_name);
-  tfx::world::scene scene{environment,assets,upper_environment.get()};
+  tfx::world::scene scene{environment,assets,upper_environment.get(),&options.scenery_clock};
   auto &sky_state{options.sky};
   auto &ground_phase{options.ground_phase};
   bool sky_animation{false};
@@ -851,7 +851,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }},
     });
   }};
+  tfx::simulation::timer_ticks constexpr first_animation_ticks{5}; // Native 0x7202f.
+  tfx::simulation::timer_ticks previous_animation_ticks{first_animation_ticks};
   auto const restart{[&]{
+    previous_animation_ticks = first_animation_ticks;
     ground = initial_ground;
     ground_zone = -1;
     simple_controls = {};
@@ -966,6 +969,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   }};
   auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed, double const physics_seconds, bool const fire = false, bool const release_store = false, bool const joystick_fire = false) {
     if(mission_progress.ended) return;
+    // Native 0x7205c gates animation before the player obtains this frame's time.
+    auto const scene_update{scene.advance(previous_animation_ticks)};
+    previous_animation_ticks = elapsed;
     // Native 0x720b8 advances the previous cockpit callback before flight/flak.
     cockpit_position.advance(tables.instruments().viewports[view_index()].bottom,!designator_view && views.value().current == tfx::cockpit::view_mode::cockpit);
     for(auto const index : mission_time.begin_frame()) {
@@ -1241,7 +1247,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
     }
     projectiles.advance(elapsed,air_simulation.random_stream());
-    auto const scene_update{scene.advance(elapsed)};
     sky_animation = scene_update.animated;
     if(scene.animate_player_model(player_visual)) ejection.request();
     flak_flash = false;

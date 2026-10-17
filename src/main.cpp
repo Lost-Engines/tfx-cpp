@@ -223,6 +223,7 @@ auto main(int const argc, char const *const argv[])->int try {
   }
   tfx::world::flak_state flak_state;
   tfx::world::sky_state sky_state;
+  tfx::world::animation_clock scenery_clock;
   tfx::render::horizon_phase ground_phase;
   vec3<int32_t> ground_reference{0,0,0};
   tfx::render::precipitation rain;
@@ -244,6 +245,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .preferences{preferences},
     .flak{flak_state},
     .sky{sky_state},
+    .scenery_clock{scenery_clock},
     .ground_phase{ground_phase},
     .ground_reference{ground_reference},
     .nearby_hostile_count{nearby_hostile_count},

@@ -62,6 +62,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     radio=records('CPP_RADIO ')
     wanted_radio=[event for event in expected['radio_events'] if event['frame']<=a.frames]
     assert radio==wanted_radio,('radio requests',radio,wanted_radio)
+    if 'animation' in expected['snapshots'][1]:
+        animation=records('CPP_ANIMATION ')
+        assert animation==[snapshot['animation'] for snapshot in expected['snapshots'][1:a.frames+1]],('animation',animation,[snapshot['animation'] for snapshot in expected['snapshots'][1:a.frames+1]])
     renders=records('CPP_RENDER ')
     assert len(renders)==a.frames,('render count',len(renders),a.frames)
     different_frames=[]

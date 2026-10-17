@@ -4023,3 +4023,36 @@ sky models first. This removes the persistent 13-pixel runway-edge discrepancy
 in the landed F-117 capture without changing polygon rasterisation. Through
 16 frames, 14 F-117 images now agree exactly; two retain small animated-scenery
 differences under investigation.
+
+
+### Retained scenery animation timing
+
+The complete F-117 trace exposed a host-order error in animation, despite the
+isolated clock and stream interpreters already agreeing. Original `0x7205c`
+adds the **previous** frame's elapsed time before player input obtains the new
+interval; `0x7202f` seeds the first interval to five ticks. Flight now advances
+the scenery gate at that boundary. Its accumulated remainder is application
+state, like original DATA 0xe74c, whose only consumers/writes are in that gate;
+starting another mission retains it. Independent scene inspectors keep their
+own clock. Complete-session captures now expose and compare each gate/remainder
+instead of relying only on the resulting pixels.
+
+The preceding AWACS/sky integration passes all **181 asset-free regressions**
+in development, Release and ASan/UBSan.
+
+
+The corrected gate makes all 16 mission-508 F-117 indexed frames agree exactly,
+alongside the retained player/AI/RNG/radio/camera state and explicit animation
+fields. The remaining mission-501 pixel was independently traced to its actual
+native writer: an aircraft's distant **shadow**, not the aircraft body or a
+scenery raster edge. The original shadow constructor retains the coloured
+one/two-pixel LOD before its forced-black polygon path. The host incorrectly
+suppressed those distant shadow representations. They now follow the ordinary
+native distant-point painter.
+
+
+With both host corrections, **all 256 mission-501 Arcade frames now agree in
+every indexed pixel**, as well as player/AI, shared RNG, radio, camera and
+horizon state. The landed F-117's 16-frame exact comparison also remains
+unchanged. These are complete launch/frame-loop comparisons, not separately
+constructed renderer scenes.

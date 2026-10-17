@@ -59,7 +59,8 @@ private:
   render::model_slot_metadata model_slots;
   std::vector<models::shape const*> carried_models;
   std::array<uint8_t,part_parameters> model_parameters{};
-  animation_clock clock;
+  animation_clock local_clock;
+  animation_clock &clock; // Optional application-owned gate survives mission changes.
   bool animation_pending{false};
   bool instrument_animation{false};
   render::model_jitter jitter;
@@ -75,7 +76,9 @@ public:
   std::set<std::string> warnings;
   unsigned int parts_drawn{0};
   unsigned int primitives_drawn{0};
-  scene(environment const &terrain, assets &resources, environment const *upper = nullptr);
+  scene(environment const &terrain, assets &resources, environment const *upper = nullptr, animation_clock *retained_clock = nullptr);
+  scene(scene const&) = delete;
+  scene &operator=(scene const&) = delete;
   void set_effect_sink(std::function<void(effect_record const&)> sink);
   void set_query_reference(vec3<int32_t> const *position);
   void set_carried_models(std::span<models::shape const *const> models);
