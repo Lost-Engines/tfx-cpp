@@ -21,13 +21,13 @@ struct map_state {
   bool stealth{false};
   map_contacts contacts{};
   std::span<vec3<int32_t> const> targets;
-  std::optional<vec2<int16_t>> navigation_cell;
+  std::optional<vec2<int16_t>> landing_cell;
   vec2<int16_t> offset{0,0};
 };
 struct map_animation {
   uint32_t ticks{0};
   uint8_t target_colour{11};
-  uint8_t navigation_colour{6};
+  uint8_t landing_colour{6};
 };
 
 class moving_map {

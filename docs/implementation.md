@@ -4421,3 +4421,46 @@ missions also complete eight composed frames in Arcade and Military-spec without
 scene warnings. These corpus runs check integration and memory safety rather
 than original-session equivalence; the controlled comparisons above supply the
 original state/pixel evidence.
+
+
+### Paused tactical map and ILS map markers
+
+M now opens original 0x86e2c's paused tactical map using the retained regional
+schematic and DAT/COCKMAP.BIN overlay. It draws the player route, aircraft and
+surface contacts, the first ten eligible enemy aircraft's complete telemetry
+cards, and blinking target/ILS runway markers. The target blink colour persists
+between openings; its timer resets. Original signed-word timer comparisons,
+in-place redraws, route clipping and the initial runway marker's register-mix
+quirk are retained. Shift+M replays the COMPLETE text (DATA 0x11b35), which is
+distinct from the opening mission message.
+
+`check_tactical_map.py` executes the original complete map painter and blink
+loop. All 1,920 supplied frames agree on state and every indexed pixel across
+the five regions. Cases cover contact altitude filtering, the ten-card limit,
+timer wrapping, overlapping targets and runway markers. Contact enumeration,
+timer/keyboard transport and the page flip are declared boundaries; original
+sprite, overlay, line, font, heading and clear routines execute normally.
+
+The live window pauses physics, temporarily presents the normal palette even
+when flight uses infrared, and consumes its closing key. It preserves an
+already-paused flight. `check_window_tactical_map.py` exercises those behaviours
+through actual keys in a silent disposable installation and private display,
+including held Escape/M/Enter and clean confirmed quit without rewriting CFG.
+The development observer also compares the supplied RGB palette with the live
+normal DAC bank after HUD brightness changes in infrared. Map entry now expands
+that bank directly instead of reusing the last normal upload. Sanitizer DWARF
+can omit the caller's bank; that observer reports the boundary explicitly and
+still checks the presented colours, infrared return and modal behaviour.
+
+Both the cockpit moving map and the new full-screen map now receive the ILS
+landing cell rather than an unbound generic navigation marker. Surface contacts
+follow original 0x7c7d0's side equality and exclusion of destroyed/retired actors;
+neutral actors are omitted. The existing moving-map comparison still agrees
+in 320 cases, and assembled HUD in 504 frames. A complete 12-frame F-117 ILS
+on/off session agrees on every captured state and pixel.
+
+All 188 regressions pass in development, Release and ASan/UBSan after the map
+increment. The private-window map check also passes under the sanitizer build;
+the ordinary configuration dialog still passes its live interaction check.
+The retained 160-frame controlled engagement continues to match every captured
+state and all indexed pixels.

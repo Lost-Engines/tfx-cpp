@@ -89,7 +89,7 @@ hud_effects hud::draw(render::software_renderer &renderer, hud_selection &select
       .allied_surface{positions[3]},
     },
     .targets{state.targets},
-    .navigation_cell{state.navigation_cell},
+    .landing_cell{state.landing_cell},
     .offset{vec2<int16_t>{offset}},
   };
   selection.normalise();

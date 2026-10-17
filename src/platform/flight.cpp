@@ -60,6 +60,7 @@
 #include "platform/arming.h"
 #include "platform/flight.h"
 #include "platform/configuration.h"
+#include "platform/tactical_map.h"
 #include "render/camera.h"
 #include "render/point_projection.h"
 #include "render/palette_selection.h"
@@ -167,6 +168,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     tfx::world::scene_handle visual;
     tfx::actors::profile const *profile;
   };
+  auto const visible_surface_contact{[](surface_actor const &actor) {
+    auto constexpr excluded{std::to_underlying(tfx::actors::surface_flag::destroyed) | std::to_underlying(tfx::actors::surface_flag::retired)};
+    auto const &pose{actor.state.pose};
+    return !(pose.flags & excluded) && (pose.side == tfx::actors::allegiance::enemy || pose.side == tfx::actors::allegiance::allied);
+  }};
   std::vector<surface_actor> surface_actors;
   tfx::cockpit::radio_ticker radio{tables.instruments().radio_padding};
   for(auto const &actor : initial_actors) {
@@ -723,6 +729,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::cockpit::designator_display designator_display{tables.instruments(),game};
   tfx::cockpit::frame cockpit_frame{tables.instruments(),game};
   tfx::cockpit::weapon_display aiming{tables.instruments(),game};
+  tfx::cockpit::tactical_map tactical_map{game,tables,environment.lighting.schematic_name,options.map_animation};
   tfx::cockpit::external_display const external_instruments{tables.instruments(),tables.presentation_fonts()};
   // The native ground-start fallback is zero for type 50, -20 otherwise (0x8c318).
   auto const start_x{static_cast<unsigned int>(std::clamp(mission_setup.start.position.x / tfx::world::cell_units,0,static_cast<int>(tfx::world::map_width) - 1))};
@@ -1379,9 +1386,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     for(unsigned int reverse{static_cast<unsigned int>(surface_actors.size())}; reverse; --reverse) {
       auto const &actor{surface_actors[reverse - 1]};
-      auto const flags{actor.state.pose.flags};
-      if(flags & std::to_underlying(tfx::actors::surface_flag::retired)) continue;
-      unsigned int const pool{flags & std::to_underlying(tfx::actors::surface_flag::hostile) ? 0u : 1u};
+      if(!visible_surface_contact(actor)) continue;
+      unsigned int const pool{std::to_underlying(actor.state.pose.side)};
       surface_contacts[pool].push_back({
         .position_q8{vec3<int32_t>{actor.state.pose.position}},
         .type{scene.actor_type(actor.visual)},
@@ -1456,6 +1462,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .projectiles{radar_projectiles},
     };
     state.targets = map_targets;
+    if(landing.value().enabled) state.landing_cell.emplace(vec2<int16_t>{landing.value().cell});
     std::optional<vec3<int32_t>> range_target;
     if(ground_designation) range_target.emplace(designated_point.x >> 8,designated_point.y >> 8,designated_point.z >> 8);
     else if(radar.selected && air_simulation.aircraft()[*radar.selected]) {
@@ -1930,25 +1937,74 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     bool const quit_prompt{(down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT)) && quit_key};
     if((inspect || result_evaluated) && quit_prompt) break;
     if(result_evaluated && (pressed(GLFW_KEY_ENTER) || pressed(GLFW_KEY_KP_ENTER))) break;
-    if(!inspect && !result_evaluated && (quit_prompt || pressed(GLFW_KEY_GRAVE_ACCENT))) {
+    bool const map_key{pressed(GLFW_KEY_M)};
+    bool const map_prompt{map_key && !down(GLFW_KEY_LEFT_SHIFT) && !down(GLFW_KEY_RIGHT_SHIFT)};
+    if(!inspect && !result_evaluated && map_key && !map_prompt && mission_setup.completion && mission_setup.completion->text) radio.show(*mission_setup.completion->text);
+    if(!inspect && !result_evaluated && (map_prompt || quit_prompt || pressed(GLFW_KEY_GRAVE_ACCENT))) {
       captured = mouse_started = false;
       preferences.hud_green = static_cast<uint16_t>(hud_green);
-      auto const action{configure_flight(window,tables,preferences,options.data_directory,renderer.output,*frame_colours,sound,quit_prompt)};
+      auto action{tfx::presentation::configuration_action::resume};
+      if(map_prompt) {
+        std::array<std::vector<tfx::cockpit::tactical_map_aircraft>,2> aircraft;
+        std::array<std::vector<vec3<int32_t>>,2> surface;
+        for(unsigned int index{0}; index != air_simulation.aircraft().size(); ++index) {
+          auto const &actor{air_simulation.aircraft()[index]};
+          if(!actor || (actor->flight.pose.flags & std::to_underlying(tfx::actors::air_flag::retired))) continue;
+          auto const &pose{actor->flight.pose};
+          auto const profile{std::ranges::find(profiles,pose.profile_id,&tfx::actors::profile::id)};
+          unsigned int const side{index / tfx::actors::aircraft_per_side};
+          aircraft[side].push_back({
+            .reading{
+              .name{profile->name},
+              .position_q8{vec3<int32_t>{pose.position}},
+              .heading{pose.angles.y},
+              .speed_q16{pose.speed},
+            },
+            .selected{radar.selected == index},
+          });
+        }
+        // Original enumerators visit each pool in descending slot order.
+        for(auto &pool : aircraft) std::ranges::reverse(pool);
+        for(auto const &actor : surface_actors | std::views::reverse) {
+          auto const &pose{actor.state.pose};
+          if(!visible_surface_contact(actor)) continue;
+          surface[std::to_underlying(pose.side)].emplace_back(pose.position);
+        }
+        tfx::cockpit::tactical_map_snapshot state{
+          .player{vec3<int32_t>{player.integer_position}},
+          .heading{player.angles.y},
+          .route{player_route},
+          .targets{map_targets},
+          .landing_cell{landing.value().enabled ? std::optional{vec2<int16_t>{landing.value().cell}} : std::nullopt},
+          .hostile_aircraft{aircraft[0]},
+          .allied_aircraft{aircraft[1]},
+          .hostile_surface{surface[0]},
+          .allied_surface{surface[1]},
+        };
+        // Original 0x8700e uploads the current normal DAC bank, including
+        // changes made while infrared left normal uploads pending.
+        auto const map_colours{tfx::render::expand_dac_palette(palette_lighting.colours())};
+        show_tactical_map(window,tactical_map,state,map_colours);
+      } else action = configure_flight(window,tables,preferences,options.data_directory,renderer.output,*frame_colours,sound,quit_prompt);
       if(action == tfx::presentation::configuration_action::enrol) return flight_result::enrol;
       if(action == tfx::presentation::configuration_action::quit) break;
-      simple_mode = preferences.model == tfx::simulation::flight_model::simple;
-      arcade_mode = preferences.model == tfx::simulation::flight_model::arcade;
-      player_flight.select_model(preferences.model);
-      air_world.model = preferences.model;
-      simple_controls.source = preferences.control;
-      player.crashing = preferences.effects.crashing != 0;
-      environment.lighting.status = tfx::world::apply_detail_status(environment.lighting.status,preferences.detail);
-      if(preferences.effects.g_force == tfx::configuration::g_effects::none) { g_effects = {};palette_lighting.flash(tfx::render::lighting_stages); }
+      if(!map_prompt) {
+        simple_mode = preferences.model == tfx::simulation::flight_model::simple;
+        arcade_mode = preferences.model == tfx::simulation::flight_model::arcade;
+        player_flight.select_model(preferences.model);
+        air_world.model = preferences.model;
+        simple_controls.source = preferences.control;
+        player.crashing = preferences.effects.crashing != 0;
+        environment.lighting.status = tfx::world::apply_detail_status(environment.lighting.status,preferences.detail);
+        if(preferences.effects.g_force == tfx::configuration::g_effects::none) { g_effects = {};palette_lighting.flash(tfx::render::lighting_stages); }
+      }
       palette_selection.invalidate_normal();
       mouse_control = {};
       pitch_input = roll_input = 0;
       store_trigger = false;
-      held.fill(false);
+      // The modal screen consumed its closing make-code. Do not turn a
+      // still-held M/Escape into another map request or an ejection press.
+      for(int key{GLFW_KEY_SPACE}; key <= GLFW_KEY_LAST; ++key) held[static_cast<unsigned int>(key)] = down(key);
       flight_clock.resume(counter,{
         .model{preferences.model},
       });

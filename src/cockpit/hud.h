@@ -56,7 +56,7 @@ struct hud_state {
   bool landed{false};
   hud_contacts contacts;
   std::span<vec3<int32_t> const> targets;
-  std::optional<vec2<int16_t>> navigation_cell;
+  std::optional<vec2<int16_t>> landing_cell;
   std::optional<std::string_view> radio_message{};
 };
 struct hud_effects {

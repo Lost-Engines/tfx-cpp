@@ -76,7 +76,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "Enter selects air-to-air weapons; Backspace/O air-to-ground; F/Ctrl selects cannon/navigation.\n"
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
                    "X clears targets; F1 returns to flight view; Space fires; Alt+J jettisons ground stores/tanks; T toggles accelerated time; P pauses; backtick opens configuration; double Escape ejects; Shift+Q opens quit/enrol confirmation.\n"
-                   "D toggles external flight information; Shift+D restores default stores and countermeasures.\n"
+                   "M opens the tactical map; any key returns. D toggles external flight information; Shift+D restores default stores and countermeasures.\n"
                    "1/2/3 cycle the MFDs; R changes radar range; N selects the ground-target preview.\n"
                    "Shift+N toggles infrared night vision; Y/U adjust HUD brightness; apostrophe opens/closes the refuelling hookup.\n"
                    "I or backslash toggles ILS; Alt+L requests automatic landing.\n"
@@ -235,6 +235,7 @@ auto main(int const argc, char const *const argv[])->int try {
   int16_t last_released_mount{0};
   bool flight_information{true};
   bool cannon_navigation{true};
+  tfx::cockpit::tactical_map_animation map_animation;
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -260,6 +261,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .last_released_mount{last_released_mount},
     .flight_information{flight_information},
     .cannon_navigation{cannon_navigation},
+    .map_animation{map_animation},
     .rain{rain},
     .session_random{session_random},
     .sound{sound.get()},
