@@ -274,6 +274,8 @@ add_library(tfx_core
   src/actors/surface_combat.h
   src/sensors/ground.cpp
   src/sensors/ground.h
+  src/actors/visibility.cpp
+  src/actors/visibility.h
   src/actors/contact_region.cpp
   src/actors/contact_region.h
   src/actors/scenery.cpp
@@ -1206,6 +1208,11 @@ if(BUILD_TESTING)
   add_executable(attitude_display_probe tests/attitude_display_probe.cpp)
   target_link_libraries(attitude_display_probe PRIVATE tfx_core)
   configure_first_party(attitude_display_probe)
+
+  add_executable(actor_visibility_probe tests/actor_visibility_probe.cpp)
+  target_link_libraries(actor_visibility_probe PRIVATE tfx_core)
+  configure_first_party(actor_visibility_probe)
+  add_test(NAME actors.native_draw_regions COMMAND actor_visibility_probe ${PROJECT_SOURCE_DIR}/tests/reference/actor_visibility.txt)
 
   add_executable(hud_text_probe tests/hud_text_probe.cpp)
   target_link_libraries(hud_text_probe PRIVATE tfx_core)
