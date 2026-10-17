@@ -3,7 +3,7 @@ import subprocess
 import time
 
 
-def click_game_pixel(environment,window,x,y):
+def move_game_pointer(environment,window,x,y):
  def run(*command):
   return subprocess.run(command,env=environment,check=True,capture_output=True,text=True,timeout=5)
  geometry=run('xdotool','getwindowgeometry','--shell',str(window)).stdout
@@ -12,6 +12,12 @@ def click_game_pixel(environment,window,x,y):
  scale=min(width/320,height/240)
  left,top=(width-320*scale)/2,(height-240*scale)/2
  run('xdotool','mousemove','--window',str(window),str(round(left+x*scale)),str(round(top+y*1.2*scale)))
+
+
+def click_game_pixel(environment,window,x,y):
+ move_game_pointer(environment,window,x,y)
+ def run(*command):
+  return subprocess.run(command,env=environment,check=True,capture_output=True,text=True,timeout=5)
  run('xdotool','mousedown','1');time.sleep(.12);run('xdotool','mouseup','1')
 
 

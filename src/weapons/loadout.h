@@ -53,6 +53,7 @@ public:
   bool guns{true};
   armament(flight::player_aircraft aircraft, std::span<definition const> definitions, arming_tables const &tables);
   weapon_role selected_role() const;
+  flight::loadout flight_stores(std::span<vec3d const,flight::store_slots> mounts) const;
   bool can_fit(unsigned int slot, weapon_id weapon) const;
   void assign(unsigned int slot, std::optional<weapon_id> weapon);
   void fit_default(unsigned int index);
