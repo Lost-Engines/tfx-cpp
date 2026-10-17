@@ -36,6 +36,8 @@ private:
   unsigned int next_actor{0};
   instance &terrain_instance(unsigned int x, unsigned int z);
   std::function<void(effect_record const&)> effect_sink{};
+  vec3<int32_t> const *query_reference{nullptr}; // Borrowed from the mission player.
+  vec3<int16_t> reference_words(vec3d const &fallback = {0,0,0}) const;
   void emit_effect(scene_request const &request, vec3d const &origin, math::angle heading = 0);
   bool advance_instance(instance &state, vec3d const &origin, math::angle heading = 0);
   struct actor_submission {
@@ -54,6 +56,7 @@ public:
   unsigned int primitives_drawn{0};
   scene(environment const &terrain, assets &resources);
   void set_effect_sink(std::function<void(effect_record const&)> sink);
+  void set_query_reference(vec3<int32_t> const *position);
   scene_handle create_actor(std::string const &definition, vec3d const &position, vec3<math::angle> const &angles);
   void place_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
   void show_actor(scene_handle handle, bool visible);

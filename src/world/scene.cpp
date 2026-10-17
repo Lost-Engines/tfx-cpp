@@ -60,6 +60,11 @@ unsigned int wrapped_cell(int const value, unsigned int const dimension) {
 } // anonymous namespace
 
 void scene::set_effect_sink(std::function<void(effect_record const&)> sink) { effect_sink = std::move(sink); }
+void scene::set_query_reference(vec3<int32_t> const *const position) { query_reference = position; }
+vec3<int16_t> scene::reference_words(vec3d const &fallback) const {
+  if(query_reference) return word_position(vec3d{*query_reference});
+  return word_position({std::floor(fallback.x),std::floor(fallback.y),std::floor(fallback.z)});
+}
 void scene::emit_effect(scene_request const &request, vec3d const &origin, math::angle const heading) {
   unsigned int constexpr emit_effect_opcode{79};
   if(!effect_sink || request.opcode != emit_effect_opcode) return;
@@ -67,7 +72,7 @@ void scene::emit_effect(scene_request const &request, vec3d const &origin, math:
   if(a.size() != 4 || a[3] >= effect_kind_count) throw std::runtime_error{"invalid authored SSD effect request"};
   auto const world_origin{word_position({std::floor(origin.x),std::floor(origin.y),std::floor(origin.z)})};
   effect_sink({
-    .position{effect_origin({math::signed_word(a[0]),math::signed_word(a[1]),math::signed_word(a[2])},world_origin,heading)},
+    .position{place_instance_point({math::signed_word(a[0]),math::signed_word(a[1]),math::signed_word(a[2])},world_origin,heading)},
     .kind{static_cast<effect_kind>(a[3])},
   });
 }
@@ -193,8 +198,12 @@ instance_result scene::actor_event(scene_handle const handle, unsigned int const
 
 bool scene::advance_instance(instance &state, vec3d const &origin, math::angle const heading) {
   auto const output{[&](scene_request const &request) { emit_effect(request,origin,heading); }};
+  auto const placed_origin{word_position({std::floor(origin.x),std::floor(origin.y),std::floor(origin.z)})};
+  auto const reference{reference_words()};
   return state.animate({
     .status{terrain.lighting.status},
+    .distance{instance_point_distance({0,0,0},placed_origin,heading,reference)},
+    .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),placed_origin,heading,reference); }},
     .request_output{output},
   }).ejection_requested;
 }
@@ -226,6 +235,9 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     double sort_key;
   };
   std::vector<queued_part> queue;
+  // Native 0x7589a binds SSD range queries to the player, independently of the
+  // camera. Standalone inspection scenes use their camera as the reference.
+  auto const reference{reference_words(view.position)};
   int const centre_x{static_cast<int>(std::floor(view.position.x / cell_units))}, centre_z{static_cast<int>(std::floor(view.position.z / cell_units))};
   int const first_x{std::max(0, centre_x - static_cast<int>(radius))}, last_x{std::min(static_cast<int>(map_width) - 1, centre_x + static_cast<int>(radius))};
   int const first_z{std::max(0, centre_z - static_cast<int>(radius))}, last_z{std::min(static_cast<int>(map_height) - 1, centre_z + static_cast<int>(radius))};
@@ -241,9 +253,11 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       try {
         auto &instance{terrain_instance(col,row)};
         auto const requests{[&](scene_request const &request) { emit_effect(request,centre,tile.rotation); }};
+        auto const origin{word_position(centre)};
         instance_context const context{
           .status{terrain.lighting.status},
-          .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(centre + math::rotate_tile(anchor,tile.rotation) - view.position)); }},
+          .distance{instance_point_distance({0,0,0},origin,tile.rotation,reference)},
+          .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,tile.rotation,reference); }},
           .request_output{requests},
         };
         auto const output{instance.execute(1,context)};
@@ -273,9 +287,11 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     // Native moving SSD effect placement retains quarter-turn zero; its full
     // visual Euler transform is separate from the request callback.
     auto const requests{[&](scene_request const &request) { emit_effect(request,position); }};
+    auto const origin{word_position({std::floor(position.x),std::floor(position.y),std::floor(position.z)})};
     instance_context const context{
       .status{terrain.lighting.status},
-      .anchor_distance{[&](vec3d const &anchor) { return math::distance_word(word_position(position + rotation * anchor - view.position)); }},
+      .distance{instance_point_distance({0,0,0},origin,0,reference)},
+      .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,0,reference); }},
       .request_output{requests},
     };
     auto const output{actor.state.execute(1,context)};

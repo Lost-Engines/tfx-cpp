@@ -214,6 +214,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   std::vector<vec2<uint8_t>> player_route;
   for(auto const &point : actor_program.player_route) player_route.emplace_back(static_cast<uint8_t>(point.x / tfx::world::cell_units),static_cast<uint8_t>(point.z / tfx::world::cell_units));
   auto &player{simple_player.flight};
+  scene.set_query_reference(&player.integer_position);
   tfx::flight::simple_inputs simple_controls;
   tfx::flight::mouse_flight_input mouse_control;
   simple_controls.source = preferences.control;
@@ -1552,6 +1553,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
     queue_projectiles();
+    scene.set_query_reference(inspect ? nullptr : &player.integer_position);
     scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); });
     if(!inspect && result_evaluated) {
       // Diagnostic result display until the original presentation/menu graph supplies its result page.

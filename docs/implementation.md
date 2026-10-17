@@ -2586,3 +2586,34 @@ impact/retirement window test still reaches its real effect request, pool,
 placement and world draw in development and sanitizers. Smoke trails, legacy
 offset consumers, ground shadows and full renderer/session equivalence remain
 separate work.
+
+
+### Player-referenced SSD range and anchor queries
+
+The scene now borrows the player's live integer position for SSD range queries,
+matching the original actor-initialization bindings at `0x7589a`. This
+reference is independent of the chase, fly-past, target and scene-MFD cameras.
+Inspection clears that borrowing and uses its camera reference instead.
+
+Previously ordinary SSD drawing supplied distance zero, and measured anchors
+from the camera with the full visual transform. Drawing and animation now
+supply the native word distance from the instance origin, and anchor queries
+use the original quarter-turn placement followed by word subtraction and
+`0xcbe94`. Moving SSD anchor placement remains separate from its Euler-rendered
+parts. Exact placement is shared with effect emission in the instance module;
+signed distance wrapping and native thresholds are retained.
+
+The placed-request comparison now also executes the complete original
+`0xb6be8` anchor query for **11,320 cases**, covering all authored effect
+positions/quarter turns and synthetic extreme/reference cases. The controlled
+factory scene now explicitly supplies a player reference different from its
+camera and runs the matching original range setup through its 32 passes.
+All range, placement, request-order and factory comparisons pass in development,
+Release and ASan/UBSan, along with all **118 regressions**.
+
+All **128 retail missions** additionally start, render and run 64 integrated
+steps in development. Only the same two pre-existing unavailable-vertex notes
+remain. The private controlled cannon-impact window check also still passes.
+These are scene robustness and declared query-context checks; complete original
+visibility/update eligibility, collision caller context, world pixels and
+whole-session equivalence remain separate gates.
