@@ -4764,10 +4764,13 @@ build; `--native-root` reuses those captures with the existing input/resource
 hash checks. `--missions` selects a smaller batch. This is distinct from the
 longer C++-only simulation/render smoke tests.
 
-The first nine cases (501–509), sixteen frames each, agree on all observed
-gameplay/rendering state and every indexed pixel. The remaining retail
-captures/comparisons are in progress; these initial 144 frames do not establish
-the untested missions, later encounters or complete campaign paths.
+All 128 retail cases, sixteen Arcade frames each, now agree on all captured
+gameplay/rendering state and every indexed pixel: 2,048 complete frames through
+the actual launch and frame loops. Mission 850's original capture required a
+larger instruction allowance; its successful retry preserves the same timer
+inputs. Mission 507's comparison was rerun after isolating the sourced GDB
+observer. This coverage does not establish later encounters or complete
+campaign paths; longer controlled combat traces retain their separate gates.
 
 ```sh
 python3 tools/check_mission_sessions.py --capture-only --output build/native-retail-sessions
@@ -4839,4 +4842,41 @@ allowance is now larger; this changes no simulated timer or device input.
 python3 tools/capture_launch_stores.py --mission 604 --flight-model realistic --output build/native-launch-604
 python3 tools/check_flight_session.py --mission 604 --flight-model realistic --frames 16 --native-capture build/native-launch-604 --strict-pixels
 python3 tools/check_training_engagement.py --campaign --recording
+```
+
+### Cannon command dispatch and longer combat observations
+
+The queued Space command and joystick fire share original `0x83fa8`.
+Its cannon branch fires before player physics; held Space is independently
+polled later by `0x86898`. The first keyboard press therefore fires twice,
+using alternating muzzles, while subsequent held frames fire once. The host
+previously connected the early cannon branch only to joystick commands.
+Both command sources now use it, retaining the separate weapon-system checks
+and the later held-key path. Each actual shot also sends the missing normal
+sample-13 request from original `0xa4ef8`.
+
+`tools/check_combat_sessions.py` retains explicit keyboard tapes for an
+intercept, ground designation/release and held cannon fire. The 32-frame cannon
+sequence and 96-frame mixed cannon/Sidearm sequence agree with the original
+in every captured state and indexed pixel, including ammunition, alternating
+barrels, releases, projectile identities and trajectories. Release output also
+passes the private silent PCM/window check with cannon firing, sound off/on
+and shutdown. All 195 regressions pass in development, Release and ASan/UBSan.
+
+The session observer now compares the real ten score/result counters, target
+credit and cursor, violations, completion latch, exit countdown, timer and
+termination flags. The 220-frame intercept reaches an actual missile kill
+(frame 206), score/kill credit and objective completion (207), with all those
+captured gameplay fields agreeing. Later indexed-image differences remain
+under investigation; this longer trace is not claimed as pixel exact.
+
+Projectile observation assigns identities at the real pool allocator's return
+(`0xa2d79`), rather than at the shared constructor. HUD-only cannon predictions
+use that constructor without allocating a live projectile and must not consume
+observed gameplay identities. No prediction or game instruction is suppressed.
+
+```sh
+python3 tools/check_combat_sessions.py --case held-cannon --output build/cannon-session
+python3 tools/check_combat_sessions.py --case ground-designation --output build/ground-session
+python3 tools/check_window_audio.py --build build-rel --data-dir /path/to/TFX --cannon
 ```

@@ -25,6 +25,7 @@ enum class sample_id : unsigned int {
   control_selection = 8,
   weapon_release = 11,
   aircraft_explosion = 12,
+  cannon_fire = 13,
   cannon_hit = 14,
   nearby_flak = 16,
   ejection = 20,

@@ -1068,7 +1068,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .aircraft_disabled{player_disabled}
     };
   }};
-  auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed, double const physics_seconds, bool const fire = false, bool const release_store = false, bool const joystick_fire = false) {
+  auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed, double const physics_seconds, bool const fire = false, bool const command_fire = false) {
     if(mission_progress.ended) return;
     ++designator_frame_gap;
     // Native 0x7205c gates animation before the player obtains this frame's time.
@@ -1092,13 +1092,18 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .crashed{player.collision != 0},
         .ejected{player_disabled || ejected()},
         .landed{player.landed},
-      },tables.cannon_mounts,air_simulation.random_stream())}) projectiles.launch(*shot);
+      },tables.cannon_mounts,air_simulation.random_stream())}) {
+        sample(audio::sample_priority::normal,audio::sample_id::cannon_fire);
+        projectiles.launch(*shot);
+      }
     }};
-    if(joystick_fire && armament.guns && !player_disabled && !ejected() && !player.collision && !player.landed) {
+    // Space and joystick fire share command 83FA8. The later held-Space
+    // poll (86898) is separate, so an initial press can fire both barrels.
+    if(command_fire && armament.guns && !player_disabled && !ejected() && !player.collision && !player.landed) {
       auto const condition{player_damage.condition(tfx::flight::aircraft_system::weapons)};
       fire_gun(condition != tfx::flight::system_condition::failed && (condition != tfx::flight::system_condition::intermittent || air_simulation.random_stream().next() <= 3000));
     }
-    if(release_store && !ejected() && !player_disabled && !armament.guns && armament.selected >= 0 && armament.selected < tfx::weapons::cannon_pylon && !player.landed) {
+    if(command_fire && !ejected() && !player_disabled && !armament.guns && armament.selected >= 0 && armament.selected < tfx::weapons::cannon_pylon && !player.landed) {
       auto const &weapon{tables.weapons.at(armament.pylons[static_cast<unsigned int>(armament.selected)].weapon)};
       // Native Space first acquires a ship for Harpoon; a subsequent press releases it. Laser stores require a designation.
       auto const status{player_damage.condition(tfx::flight::aircraft_system::weapons)};
@@ -2566,7 +2571,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         pitch_input -= controls.pitch_delta;
         roll_input -= controls.roll_delta;
         if(simple_controls.source == tfx::flight::control_source::mouse && !arcade_mode) mouse_control.advance({controls.roll_delta,controls.pitch_delta});
-        advance_world(controls,step->world_ticks,step->physics_seconds,down(GLFW_KEY_SPACE),store_trigger,stick_action == tfx::flight::joystick_action::fire);
+        advance_world(controls,step->world_ticks,step->physics_seconds,down(GLFW_KEY_SPACE),store_trigger);
         store_trigger = false;
         frame_ticks = step->world_ticks;
         flight_clock.begin({

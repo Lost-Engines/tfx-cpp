@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[a.flight_model]
     (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX=0\r\nMUSIC=0\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode())
     if not a.native_capture:
-        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else [])],check=True,timeout=300)
+        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else [])],check=True,timeout=max(300,a.frames*4))
     expected=json.loads((native/'session.json').read_text())
     assert expected.get('resource_root')=='TFX','native capture predates the corrected DOS texture root; recapture it'
     assert expected['mission']==a.mission and expected['flight_model']==a.flight_model and expected['ticks_per_frame']==4,'native capture configuration differs'
@@ -112,7 +112,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         bits=lambda value:struct.unpack('<Q',struct.pack('<d',value))[0]
         want={'fuel':bits(before_arming['fuel']),'mass':bits(before_arming['raw_fields']['0x14320']),'capacity':bits(before_arming['raw_fields']['0x14770'])}
         assert initial[0]==want,('pre-arming initialization',initial[0],want)
-    for field,prefix in (('speed_factor','CPP_SPEED_FACTOR '),('cheat_state','CPP_CHEAT_STATE '),('aiming_flags','CPP_AIMING_FLAGS '),('control_configuration','CPP_CONTROL_CONFIGURATION '),('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES '),('player_parts','CPP_PLAYER_PARTS '),('launch_notice','CPP_LAUNCH_NOTICE '),('player_models','CPP_PLAYER_MODELS ')):
+    for field,prefix in (('mission_progress','CPP_MISSION_PROGRESS '),('cannon','CPP_CANNON '),('radar_pulse','CPP_RADAR_PULSE '),('speed_factor','CPP_SPEED_FACTOR '),('cheat_state','CPP_CHEAT_STATE '),('aiming_flags','CPP_AIMING_FLAGS '),('control_configuration','CPP_CONTROL_CONFIGURATION '),('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES '),('player_parts','CPP_PLAYER_PARTS '),('launch_notice','CPP_LAUNCH_NOTICE '),('player_models','CPP_PLAYER_MODELS ')):
         if field in expected['snapshots'][1]:
             actual_records=records(prefix)
             wanted_records=[snapshot[field] for snapshot in expected['snapshots'][1:a.frames+1]]
@@ -151,6 +151,6 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     verified=['player','actors','shared RNG','radio','camera','horizon']
     if 'trail_events' in expected:verified.append('smoke samples')
     if expected.get('recordings'):verified.append('recorded model queues')
-    verified += [field for field in ('speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]
+    verified += [field for field in ('mission_progress','cannon','radar_pulse','speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]
     print(f'Mission {a.mission}, {a.flight_model}, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
     if a.strict_pixels:assert not different_frames,('whole-frame pixels',different_frames[:20],differences)
