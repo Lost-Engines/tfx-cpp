@@ -2,14 +2,15 @@
 
 #include "models/shape.h"
 #include "render/camera.h"
+#include "render/colour_remap.h"
 
 namespace tfx::render {
 
-// Project a flat model face through native Q16 projection and integer screen
+// Project flat/Gouraud model faces through native Q16 projection and integer screen
 // clipping, including native near-plane crossings. Returns false for inspection
 // cameras, out-of-range coordinates or the separate far-plane path; no pixels
 // are changed in that case.
-bool integer_model_polygon(framebuffer &output, std::span<models::model_vertex const> vertices, camera const &view, uint8_t colour);
+bool integer_model_polygon(framebuffer &output, std::span<models::model_vertex const> vertices, camera const &view, uint8_t colour, colour_map const *remap = nullptr);
 
 // Original opcode-21 branch and polygon winding are distinct tests. Null means
 // the supplied camera/coordinates do not have a native projection here.

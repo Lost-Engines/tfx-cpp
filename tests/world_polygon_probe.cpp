@@ -5,9 +5,13 @@
 #include "render/integer_model_polygon.h"
 
 int main(int const argc, char const *const argv[]) try {
-  bool const pixels{argc == 2 && std::string_view{argv[1]} == "--pixels"};
-  std::ifstream fixture;if(argc == 2 && !pixels) fixture.open(argv[1]);
-  if(argc > 2 || (argc == 2 && !pixels && !fixture)) throw std::runtime_error{"expected [FILE | --pixels]"};
+  bool pixels{false},shaded{false};std::ifstream fixture;
+  for(int i{1}; i != argc; ++i) {
+    std::string_view const option{argv[i]};
+    if(option == "--pixels") pixels = true;
+    else if(option == "--shaded") shaded = true;
+    else { if(fixture.is_open()) throw std::runtime_error{"expected [FILE] [--pixels] [--shaded]"};fixture.open(argv[i]);if(!fixture) throw std::runtime_error{"cannot open polygon fixture"}; }
+  }
   auto &input{fixture.is_open() ? fixture : std::cin};
   unsigned int cases{0},count;bool wide;double scale;
   mat3<int32_t> const identity{32767,0,0,0,32767,0,0,0,32767};
@@ -21,6 +25,7 @@ int main(int const argc, char const *const argv[]) try {
       vertices.push_back({
         .position{vec3d{point} / 65536 * scale},
         .uv{0,0},
+        .shade{shaded ? static_cast<double>(192 + i % 16) : -1},
         .projection_scale{scale},
       });
     }

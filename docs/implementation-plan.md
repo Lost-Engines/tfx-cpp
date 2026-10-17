@@ -203,3 +203,11 @@ near-vertex 3D plane tests and the raster's word-difference winding. Native
 camera units reach the interpreter callback. Complete converted synthetic
 model programs agree in control flow and VGA pixels; full actor transforms,
 distance remap selection, general shading/textures and scene order remain.
+
+
+Original distance remaps now load from the game's root colour table and bind
+to actual integer/fixed assembly submission depth. Flat and Gouraud model
+faces share native integer clipping and edges, including their distinct
+near-plane attribute interpolation. Complete converted model programs agree
+through both paths. General patterned/textured/rounded edges, full actor
+transforms, animation visibility eligibility and global scene order remain.

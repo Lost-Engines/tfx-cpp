@@ -19,14 +19,15 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--record',type=Path)
+p.add_argument('--gouraud',action='store_true',help='execute authored vertex-colour and Gouraud face instructions')
 p.add_argument('--cases',type=int,default=512)
-a=p.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);rng=random.Random(0xbb2aa)
+a=p.parse_args();kind='Gouraud' if a.gouraud else 'flat';im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);rng=random.Random(0xbb2aa)
 code=lambda off:im.native(0x70aa4+off)
 im.cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=10000)
 im.cpu.mem_write(code(0x47cea),bytes(im.cpu.mem_read(code(0x68106),4)));im.cpu.mem_write(0x300800,bytes(range(256)));im.cpu.mem_write(code(0x4787e),struct.pack('<I',0x300800))
 im.cpu.mem_write(code(0x47c6e),struct.pack('<9h',32767,0,0,0,32767,0,0,0,32767))
 colour_calls=[]
-im.cpu.hook_add(UC_HOOK_CODE,lambda cpu,at,size,unused:colour_calls.append(at),begin=im.native(0xbbbb0),end=im.native(0xbbbb0))
+im.cpu.hook_add(UC_HOOK_CODE,lambda cpu,at,size,unused:colour_calls.append(at),begin=im.native(0xbc498 if a.gouraud else 0xbbbb0),end=im.native(0xbc498 if a.gouraud else 0xbbbb0))
 def program(points,scale):
  source=bytearray(50)
  def store(at,v):struct.pack_into('>H',source,at,v&65535)
@@ -34,7 +35,7 @@ def program(points,scale):
  store(2,32767);store(18,0);store(34,14);store(48,65535);emit([48,scale])
  for i,point in enumerate(points):emit([98,i,*point])
  emit([97,3,0,21,0,1,2,0]);field=len(source)-2
- emit([2,17,0,1,2,2,17,0,1,2,0]);store(field,len(source)-field);emit([2,19,0,1,2,0,65535]);return bytes(source)
+ emit([76,0xc0cf,0xc700,77,0,1,2,76,0xc0cf,0xc700,77,0,1,2,0] if a.gouraud else [2,17,0,1,2,2,17,0,1,2,0]);store(field,len(source)-field);emit([76,0xc5d3,0xcb00,77,0,1,2,0,65535] if a.gouraud else [2,19,0,1,2,0,65535]);return bytes(source)
 rows=[]
 for case in range(a.cases):
  wide=(case//2)%2;scale=(1,2,5,10,400)[case%5];offset=[rng.randrange(-5,6),rng.randrange(-5,6),rng.choice((0,1,10,100))]
@@ -42,7 +43,7 @@ for case in range(a.cases):
  if case%11==0:points[2]=list(points[1])
  rows.append([wide,scale,*offset,*[v for point in points for v in point]])
 text='\n'.join(' '.join(map(str,row)) for row in rows)+'\n'
-actual=subprocess.check_output([str((a.build/'model_program_probe').resolve())],input=text.encode()).decode().splitlines();pixels=subprocess.check_output([str((a.build/'model_program_probe').resolve()),'--pixels'],input=text.encode());assert len(pixels)==len(rows)*64000
+actual=subprocess.check_output([str((a.build/'model_program_probe').resolve())]+(['--shaded'] if a.gouraud else []),input=text.encode()).decode().splitlines();pixels=subprocess.check_output([str((a.build/'model_program_probe').resolve()),'--pixels']+(['--shaded'] if a.gouraud else []),input=text.encode());assert len(pixels)==len(rows)*64000
 fixtures=[];branches=set()
 for case,(row,line) in enumerate(zip(rows,actual)):
  wide,scale,*_=row;offset=row[2:5];points=[row[i:i+3] for i in range(5,len(row),3)]
@@ -53,6 +54,7 @@ for case,(row,line) in enumerate(zip(rows,actual)):
  for file,value in zip((0xb9447,0xb944d,0xb9452),offset):im.cpu.mem_write(im.native(file),struct.pack('<i',value*32767))
  for file,value in zip((0xbc3ef,0xbc3fd,0xbc40b),offset):im.cpu.mem_write(im.native(file),struct.pack('<i',value*32767))
  im.cpu.ctl_remove_cache(im.native(0xb9434),im.native(0xb94d9));im.cpu.ctl_remove_cache(im.native(0xbc3e8),im.native(0xbc497))
+ im.cpu.mem_write(code(0x47cda),bytes(im.cpu.mem_read(code(0x47cd2),4)))
  im.cpu.mem_write(code(0x47cce),bytes(im.cpu.mem_read(code(0x47cc6),4)))
  colour_calls.clear();vga.reset()
  for plane in vga.planes:plane[:]=bytes([99])*16000
@@ -65,4 +67,4 @@ for case,(row,line) in enumerate(zip(rows,actual)):
  if case<128 or case%31==0:fixtures.append(row+expected)
 assert len(actual)==len(rows);assert branches=={1,2},branches
 if a.record:a.record.write_text('\n'.join(' '.join(map(str,row)) for row in fixtures)+'\n')
-print(f'{len(rows)} complete synthetic native model programs agree in branch-controlled draw counts and every VGA pixel: original endian conversion, absolute vertices, camera scaling/translation, projection, both facing paths, flat/near raster, normal/wide modes and return dispatch')
+print(f'{len(rows)} complete synthetic native model programs agree in branch-controlled draw counts and every VGA pixel: original endian conversion, absolute vertices, camera scaling/translation, projection, both facing paths, {kind}/near raster, normal/wide modes and return dispatch')

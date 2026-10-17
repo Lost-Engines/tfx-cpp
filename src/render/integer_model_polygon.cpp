@@ -84,10 +84,44 @@ bool plane_facing(camera_vertices const &vertices) {
 }
 }
 
-bool integer_model_polygon(framebuffer &output, std::span<models::model_vertex const> const vertices, camera const &view, uint8_t const colour) {
+bool integer_model_polygon(framebuffer &output, std::span<models::model_vertex const> const vertices, camera const &view, uint8_t const colour, colour_map const *const remap) {
   if(std::ranges::any_of(vertices,[&](auto const &vertex) { return vertex.position.z > view.far_distance; })) return false;
   auto const native{native_points(vertices,view)};
   if(!native) return false;
+  bool const shaded{std::ranges::all_of(vertices,[](auto const &vertex) { return vertex.shade >= 0; })};
+  if(shaded) {
+    std::vector<uint16_t> shades;shades.reserve(vertices.size());
+    for(auto const &vertex : vertices) {
+      double const shade{vertex.shade * 256};
+      if(!std::isfinite(shade) || shade < 0 || shade > std::numeric_limits<uint16_t>::max()) return false;
+      shades.push_back(static_cast<uint16_t>(shade));
+    }
+    std::vector<indexed_vertex> projected;projected.reserve(vertices.size() + 2);
+    vec2<int16_t> const origin{static_cast<int16_t>(view.projection_origin.x),static_cast<int16_t>(view.projection_origin.y)};
+    for(unsigned int i{0}; i != vertices.size(); ++i) {
+      unsigned int const next{(i + 1) % static_cast<unsigned int>(vertices.size())};
+      auto const &a{(*native)[i]}, &b{(*native)[next]};
+      bool const inside_a{a.z >> 16 > model_near_depth}, inside_b{b.z >> 16 > model_near_depth};
+      if(inside_a) {
+        auto const point{project(a,view)};
+        if(!point) return false;
+        projected.push_back({
+          .position{vec2<int16_t>{*point}},
+          .shade_q8{shades[i]},
+        });
+      }
+      if(inside_a == inside_b) continue;
+      auto const intersection{inside_a ? intersect_shaded_near_plane(b,a,shades[next],shades[i]) : intersect_shaded_near_plane(a,b,shades[i],shades[next])};
+      projected.push_back({
+        .position{project_near_plane(intersection.position,view.opening,origin)},
+        .shade_q8{intersection.shade_q8},
+      });
+    }
+    static colour_maps const identity;
+    integer_gouraud_polygon(output,projected,remap ? *remap : identity.row(0),view.viewport_minimum,view.viewport_maximum);
+    return true;
+  }
+  if(std::ranges::any_of(vertices,[](auto const &vertex) { return vertex.shade >= 0; })) return false;
   auto const screen{clip(*native,view)};
   if(!screen) return false;
   if(screen->size() >= 3) integer_polygon(output,*screen,colour,view.viewport_minimum,view.viewport_maximum);

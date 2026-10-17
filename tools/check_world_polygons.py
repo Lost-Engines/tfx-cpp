@@ -20,12 +20,14 @@ p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--record',type=Path)
 p.add_argument('--cases',type=int,default=1024)
+p.add_argument('--gouraud',action='store_true',help='exercise projected Gouraud faces rather than flat ink')
 p.add_argument('--near',action='store_true',help='exercise original near-plane clipping on signed Q16 triangles')
-a=p.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);rng=random.Random(0xbd3a8)
+a=p.parse_args();kind='Gouraud' if a.gouraud else 'flat';im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);rng=random.Random(0xbd3a8)
 code=lambda off:im.native(0x70aa4+off)
 im.cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=10000)
 for file in (0xb9447,0xb944d,0xb9452):im.cpu.mem_write(im.native(file),bytes(4))
 im.cpu.mem_write(code(0x47cea),bytes(im.cpu.mem_read(code(0x68106),4)))
+im.cpu.mem_write(im.data+0x24c9c,bytes(range(256)))
 im.cpu.mem_write(code(0x4787e),struct.pack('<I',im.data+0x24c9c));im.cpu.mem_write(code(0x47ca8),bytes([17]))
 def hull(points):
  def cross(a,b,c):return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
@@ -57,7 +59,7 @@ if a.near:
   row[1]=3;row[7:]=row[7:16]
   for vertex in range(3):row[9+vertex*3]=rng.choice((-32768,-1000,-100,-1,0,15,16,17,18,100,1000,32767))*65536+rng.randrange(65536)
 text='\n'.join(' '.join(map(str,row)) for row in rows)+'\n'
-output=subprocess.check_output([str((a.build/'world_polygon_probe').resolve()),'--pixels'],input=text.encode());assert len(output)==64000*len(rows)
+output=subprocess.check_output([str((a.build/'world_polygon_probe').resolve()),'--pixels']+(['--shaded'] if a.gouraud else []),input=text.encode());assert len(output)==64000*len(rows)
 fixtures=[]
 for case,row in enumerate(rows):
  wide,count,scale,mx,my,hx,hy=row[:7];flat=row[7:];points=[flat[i:i+3] for i in range(0,len(flat),3)]
@@ -66,9 +68,11 @@ for case,row in enumerate(rows):
  im.call(0xb9238,stack=(mx,hx,my,hy));im.call(0xb94da,stack=(160,100,hx,hy))
  for i,point in enumerate(points):im.cpu.mem_write(code(0x6814c+i*32),bytes(20)+struct.pack('<3i',*point))
  im.cpu.reg_write(r.UC_X86_REG_EDI,code(0x6814c));im.call(0xb9434,ecx=count)
+ if a.gouraud:
+  for i in range(count):im.cpu.mem_write(code(0x47fac+i*4),struct.pack('<I',(192+i%16)<<8))
  im.cpu.mem_write(0x300000,struct.pack('<'+str(count)+'H',*[i*32 for i in range(count)]));im.cpu.reg_write(r.UC_X86_REG_ESI,0x300000);vga.reset()
  for plane in vga.planes:plane[:]=bytes([99])*16000
- im.call(0xd7998 if a.near else 0xbd3a8,ecx=count,limit=3000000)
+ im.call(0xd8074 if a.near and a.gouraud else 0xd7998 if a.near else 0xbd95c if a.gouraud else 0xbd3a8,ecx=count,limit=3000000)
  want=bytes(vga.pixels());got=output[case*64000:(case+1)*64000]
  if want!=got:
   differences=[(i%320,i//320,x,y) for i,(x,y) in enumerate(zip(got,want)) if x!=y]
@@ -77,8 +81,8 @@ for case,row in enumerate(rows):
   digest=14695981039346656037
   for byte in want:digest=((digest^byte)*1099511628211)&0xffffffffffffffff
   fixtures.append(row+[digest])
- if case and case%256==0:print(f'Checked {case} complete flat model-face frames',flush=True)
+ if case and case%256==0:print(f'Checked {case} complete {kind} model-face frames',flush=True)
 if a.record:a.record.write_text('\n'.join(' '.join(map(str,row)) for row in fixtures)+'\n')
-print(f'{len(rows)} complete flat model-face VGA frames agree pixel for pixel: native Q16 normal/wide projection, scaled coordinates, winding, bottom/top/right/left clipping, reciprocal integer edges and inclusive spans; partial cockpit/MFD viewports included')
+print(f'{len(rows)} complete {kind} model-face VGA frames agree pixel for pixel: native Q16 normal/wide projection, scaled coordinates, winding, bottom/top/right/left clipping, reciprocal integer edges and inclusive spans; partial cockpit/MFD viewports included')
 
-if a.near:print('Original D7998/D7BE5/D7C90 near clipping also executes, including exact/fractional near depths, both crossing directions, all-behind faces, midpoint wraps, projection saturation and winding after clipping')
+if a.near:print(('Original D8074/D809B/D824E Gouraud near clipping' if a.gouraud else 'Original D7998/D7BE5/D7C90 near clipping')+' also executes, including exact/fractional near depths, both crossing directions, all-behind faces, midpoint wraps, projection saturation and winding after clipping')
