@@ -31,6 +31,9 @@ struct view_camera_context {
   vec2<int32_t> height_bounds{-8192,-32};
 };
 struct view_pose {
+  std::optional<int16_t> ground_motion{};
+  std::optional<vec2<math::angle>> horizon_angles{};
+  int16_t horizon_camera_y{0};
   vec3<int32_t> anchor{0,0,0};
   vec3<int32_t> position_q16{0,0,0};
   vec3<math::angle> angles{0,0,0};
@@ -39,6 +42,7 @@ struct view_pose {
   render::camera camera(vec2d const &projection_origin) const;
 };
 struct view_motion_state {
+  vec3<int32_t> ground_reference{0,0,0};
   vec3<int16_t> head{0,0,0};
   vec3<int32_t> offset_q16{0,0,0};
   vec3<math::angle> smoothed_angles{0,0,0};
@@ -65,6 +69,8 @@ public:
   explicit view_camera(view_motion_state initial = {});
   view_motion_state const &value() const;
   view_pose const &last_pose() const;
+  void initialise_ground_reference(vec3<int32_t> const &position);
+  void advance_ground_reference(view_camera_context const &context, bool inhibited = false);
   bool advance(view_control &views, view_camera_context const &context);
 };
 

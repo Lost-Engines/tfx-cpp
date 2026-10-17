@@ -1,4 +1,6 @@
 #include <iostream>
+#include <string_view>
+#include "render/horizon.h"
 #include "flight/aerodynamic_launch.h"
 #include "flight/player_flight.h"
 #include "flight/player_shared.h"
@@ -9,8 +11,14 @@
 #include "aerodynamic_autopilot_snapshot.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc < 2 || argc > 3) throw std::runtime_error{"expected TFX.DAT [--model-changes]"};
-  bool const model_changes{argc == 3};
+  if(argc < 2 || argc > 4) throw std::runtime_error{"expected TFX.DAT [--model-changes] [--horizon]"};
+  bool model_changes{false},horizon{false};
+  for(int i{2}; i != argc; ++i) {
+    auto const argument{std::string_view{argv[i]}};
+    if(argument == "--model-changes") model_changes = true;
+    else if(argument == "--horizon") horizon = true;
+    else throw std::runtime_error{"unknown player probe option"};
+  }
   auto const source{tfx::resources::read_file(argv[1])};
   auto const profiles{tfx::flight::load_aerodynamic_airframes(source)};
   auto const wind{tfx::flight::load_aerodynamic_wind_parameters(source)};
@@ -51,6 +59,7 @@ int main(int const argc, char const *const argv[]) try {
       .high{static_cast<uint16_t>(high)},
     };
     tfx::flight::player_flight player;
+    tfx::render::horizon_phase ground_phase;
     player.initialise(profile,stores,context,.65f,wind[0],damage,random);
     auto &state{player.physical};
     player.fuel = {
@@ -133,7 +142,9 @@ int main(int const argc, char const *const argv[]) try {
       std::cout << player.fuel.reading << ' ' << player.fuel.smoothed_burn << ' ' << player.measured_speed_q8 << ' ';
       std::cout << std::bit_cast<uint32_t>(player.basic.flight.speed_mach) << ' ' << std::bit_cast<uint32_t>(player.basic.flight.speed_metres_per_second) << ' ' << std::bit_cast<uint32_t>(player.basic.flight.target_speed) << ' ';
       std::cout << std::bit_cast<uint32_t>(player.basic.reported_speed) << ' ';
-      std::cout << static_cast<unsigned int>(events.callback) << ' ' << static_cast<unsigned int>(player.automatic.phase) << ' ' << static_cast<uint32_t>(events.landing.score_change) << '\n';
+      std::cout << static_cast<unsigned int>(events.callback) << ' ' << static_cast<unsigned int>(player.automatic.phase) << ' ' << static_cast<uint32_t>(events.landing.score_change);
+      if(horizon) { if(events.horizon_motion) ground_phase.advance(*events.horizon_motion);std::cout << ' ' << static_cast<uint32_t>(ground_phase.packed_state()); }
+      std::cout << '\n';
     }
   }
   return 0;

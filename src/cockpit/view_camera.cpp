@@ -35,6 +35,8 @@ view_motion_state const &view_camera::value() const { return state; }
 view_pose const &view_camera::last_pose() const { return pose; }
 void view_camera::set_angles(vec3<math::angle> const &angles) {
   pose.angles = vec3<math::angle>{angles};
+  pose.horizon_angles.emplace(angles.x,angles.z);
+  pose.horizon_camera_y = math::signed_word(static_cast<uint16_t>(pose.position_q16.y >> 16));
   pose.matrix = math::view_rotation_words(angles);
 }
 void view_camera::player_origin(view_camera_context const &context) {
@@ -125,9 +127,26 @@ bool view_camera::compose(view_control &views, view_camera_context const &contex
   pose.player_model_entry = (near ? (state.heading > -0x2000 && state.heading < 0x2000 ? 19u : 20u) : 21u) + context.refuel_phase;
   return clamped;
 }
+void view_camera::initialise_ground_reference(vec3<int32_t> const &position) { state.ground_reference = vec3<int32_t>{position}; }
+void view_camera::advance_ground_reference(view_camera_context const &context, bool const inhibited) {
+  pose.ground_motion.reset();
+  if(inhibited) return; // Native 0x92969 excludes view 4 and retains its reference.
+  int32_t const x{word(static_cast<uint32_t>(state.ground_reference.x) - static_cast<uint32_t>(context.position.x))};
+  int32_t const z{word(static_cast<uint32_t>(state.ground_reference.z) - static_cast<uint32_t>(context.position.z))};
+  auto const transformed{[&](vec3<int32_t> const &axis) {
+    uint32_t const product{static_cast<uint32_t>(word(axis.x)) * static_cast<uint32_t>(x) + static_cast<uint32_t>(word(axis.z)) * static_cast<uint32_t>(z)};
+    return math::signed_word(static_cast<uint16_t>(wrap(product) >> math::matrix_fraction_bits));
+  }};
+  pose.ground_motion = math::distance_word({transformed(context.basis.right),transformed(context.basis.down),transformed(context.basis.forward)});
+  state.ground_reference = vec3<int32_t>{context.position};
+}
+
 bool view_camera::advance(view_control &views, view_camera_context const &context) {
   auto &control{views.state};
+  int16_t const previous_projection_y{math::signed_word(static_cast<uint16_t>(pose.position_q16.y >> 16))};
+  pose.horizon_angles.reset();
   pose.player_model_entry.reset();
+  pose.ground_motion.reset();
   state.pan = context.pan;
   auto const tracking_angles{[&] {
     if(!context.tracking_target_q8) return vec2<math::angle>{0,0};
@@ -417,6 +436,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     set_angles({angles.x,angles.y,0});
     pose.player_model_entry = 21u + context.refuel_phase;
     views.ready();
+    pose.horizon_camera_y = previous_projection_y;
     break;
   }
   case view_mode::ejection: {
@@ -437,6 +457,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     }
     set_angles({negative(state.smoothed_angles.x),negative(state.smoothed_angles.y),negative(state.smoothed_angles.z)});
     pose.player_model_entry = 21u + context.refuel_phase;
+    pose.horizon_camera_y = previous_projection_y;
     break;
   }
   case view_mode::unbanked_chase: {
@@ -446,6 +467,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     for(unsigned int axis{0}; axis != 3; ++axis) pose.position_q16[axis] = add(pose.position_q16[axis],offset[axis]);
     set_angles({negative(context.angles.x),negative(context.angles.y),0});
     pose.player_model_entry = 21u + context.refuel_phase;
+    pose.horizon_camera_y = previous_projection_y;
     break;
   }
   case view_mode::target: {
@@ -466,6 +488,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     set_angles({0xe000,0,0});
     pose.player_model_entry = 21u + context.refuel_phase;
     views.ready();
+    pose.horizon_camera_y = previous_projection_y;
     break;
   }
   case view_mode::chase: {
@@ -490,6 +513,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
   default:
     return false;
   }
+  advance_ground_reference(context,control.current == view_mode::chase);
   return true;
 }
 

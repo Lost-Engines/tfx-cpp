@@ -193,18 +193,22 @@ player_flight_events player_flight::advance(damage_state &damage, math::random_s
         .surface_type{context.surface_type},
       },context.elapsed,ground)};
       events.gear_sounds = std::move(update.gear_sounds);
+      events.horizon_motion = update.horizon_motion;
       gear_condition = basic.gear.condition;
       simple_body = true;
       break;
     }
-    case player_callback::arcade:
+    case player_callback::arcade: {
       // Simple keeps its visible stall/ground offsets apart from the shared
       // body matrix. Arcade reuses the body, not that display-only attitude.
       if(simple_body) view.orientation = basic.ground.body;
       if(physical.autopilot.recovery.model_reset_requested && view.landed) view.position.y = static_cast<float>(static_cast<calculation>(ground.height) - basic_parameters(view.aircraft).gear_height);
-      previous_position = advance_arcade(view,context.basic_controls,context.elapsed,ground,context.physics.time_warp).movement_origin;
+      auto const update{advance_arcade(view,context.basic_controls,context.elapsed,ground,context.physics.time_warp)};
+      previous_position = update.movement_origin;
+      events.horizon_motion = update.horizon_motion;
       simple_body = false;
       break;
+    }
     case player_callback::none: break;
   }
   if(physical_callback) {

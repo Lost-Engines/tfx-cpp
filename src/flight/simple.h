@@ -28,6 +28,7 @@ struct simple_inputs {
   int16_t surface_type{0};
 };
 struct simple_update {
+  int16_t horizon_motion{0};
   std::vector<unsigned int> gear_sounds{};
 };
 

@@ -9,6 +9,7 @@
 #include "simulation/timing.h"
 #include "world/flak.h"
 #include "world/sky.h"
+#include "render/horizon.h"
 
 namespace tfx::platform {
 
@@ -23,6 +24,7 @@ struct flight_options {
   configuration::settings &preferences;
   world::flak_state &flak;
   world::sky_state &sky;
+  render::horizon_phase &ground_phase;
   audio::runtime *sound{nullptr};
   bool inspect{false};
 };

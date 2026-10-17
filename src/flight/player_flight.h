@@ -22,6 +22,7 @@ struct player_flight_context {
   bool water_world{false};
 };
 struct player_flight_events {
+  std::optional<int16_t> horizon_motion{};
   player_callback callback{player_callback::none};
   aerodynamic_tick_events aerodynamic{};
   automatic_landing_events landing{};

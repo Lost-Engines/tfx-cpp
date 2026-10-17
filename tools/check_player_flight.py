@@ -19,6 +19,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--scenes',type=int,default=48)
+p.add_argument('--horizon',action='store_true')
 p.add_argument('--model-changes',action='store_true')
 a=p.parse_args();path=a.research/'installs/cd_1994_09/TFX/TFX.DAT';im=NativeReference(path);im.call(0xde851);im.cpu.mem_map(0x300000,0x4000);backends=(hardware_fpatan(im,a.build),hardware_sine_cosine(im,a.build),hardware_tangent(im,a.build));rng=random.Random(0x8f56c)
 data_size=(im.layout['objects'][2]['virtual_size']+4095)&~4095;baseline=bytes(im.cpu.mem_read(im.data,data_size));terrain_type=[50];callbacks=[];timer=[4,0];placing=[False]
@@ -46,7 +47,7 @@ for i in range(a.scenes):
  scenes.append((start,ticks))
 requests=[]
 for start,ticks in scenes:requests+=[' '.join(map(str,start)),str(len(ticks)),*(' '.join(map(str,row)) for row in ticks)]
-output=subprocess.check_output([str((a.build/'player_flight_probe').resolve()),str(path)]+(['--model-changes'] if a.model_changes else []),input=('\n'.join(requests)+'\n').encode()).decode().splitlines();assert len(output)==sum(len(ticks) for _,ticks in scenes)
+output=subprocess.check_output([str((a.build/'player_flight_probe').resolve()),str(path)]+(['--model-changes'] if a.model_changes else [])+(['--horizon'] if a.horizon else []),input=('\n'.join(requests)+'\n').encode()).decode().splitlines();assert len(output)==sum(len(ticks) for _,ticks in scenes)
 at=0;counts={}
 for scene,(row,ticks) in enumerate(scenes):
  craft,model,landed,height,count,slot,weapon,occupied,low,high=row[:10];position=row[10:13];angles=row[13:16]
@@ -81,6 +82,7 @@ for scene,(row,ticks) in enumerate(scenes):
   im.cpu.mem_write(0x303000,struct.pack('<I',1000000))
   callbacks.clear();im.call(0x8f56c,limit=3000000);assert len(callbacks)==1
   expected=snapshot(im)+autopilot_snapshot(im)+[im.read(f,fmt)[0] for f,fmt in ((0x6c3c,'<h'),(0x6c3a,'<h'),(0x133f0,'<i'),(0x86f4,'<I'),(0x133e8,'<I'),(0x133cc,'<I'),(0x13440,'<I'))]+callbacks+[im.read(0x86cf,'<B')[0],(struct.unpack('<I',im.cpu.mem_read(0x303000,4))[0]-1000000)&0xffffffff]
+  if a.horizon:expected += [im.read(0xad7c,'<I')[0]]
   actual=list(map(int,output[at].split()));at+=1
   assert actual==expected,(scene,tick,craft,model,request,callbacks,[(i,hex(fields[i][0]) if i<len(fields) else hex(tail[i-260][0]) if 260<=i<282 else 'outer',x,y) for i,(x,y) in enumerate(zip(actual,expected)) if x!=y],len(actual),len(expected))
   counts[callbacks[0]]=counts.get(callbacks[0],0)+1

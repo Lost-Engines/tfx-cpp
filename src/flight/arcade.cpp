@@ -360,6 +360,7 @@ arcade_update advance_arcade(arcade_state &state, flight_controls const &control
   }
   return {
     .movement_origin{vec3f{movement_origin}},
+    .horizon_motion{math::signed_word(static_cast<uint16_t>(state.fixed_speed / 256))},
   };
 }
 
