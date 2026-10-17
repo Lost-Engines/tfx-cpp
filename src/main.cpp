@@ -243,6 +243,10 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::flight::cheat_code cheat;
   tfx::missions::inherited_setup mission_state;
   auto recording_name{tables.configuration_widgets().recording_name};
+  tfx::weapons::pylon_inventory launch_inventory;
+  launch_inventory.back() = {
+    .weapon{std::to_underlying(tfx::weapons::weapon_id::cannon)},
+  };
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -272,6 +276,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .cheat{cheat},
     .mission_state{mission_state},
     .recording_name{recording_name},
+    .launch_inventory{launch_inventory},
     .rain{rain},
     .session_random{session_random},
     .sound{sound.get()},

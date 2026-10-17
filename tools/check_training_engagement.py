@@ -61,6 +61,8 @@ numbers={children[i][1]['_M_dataplus']['_M_p'].string():int(children[i+1][1]) fo
 entry_mission=options['mission']['_M_dataplus']['_M_p'].string()
 inherited=options['mission_state']
 inherited_values={'position':[int(inherited['position'][axis])for axis in ('x','y','z')],'speed_factor':struct.unpack('<I',struct.pack('<f',float(inherited['speed_factor'])))[0],'weapons':int(inherited['weapons'])}
+inventory=options['launch_inventory']['_M_elems']
+inherited_values['pylons']=[[int(inventory[i][field])for field in ('weapon','count','visible')]for i in range(11)]
 print('ENTRY '+json.dumps({'mission':entry_mission,'values':numbers,'inherited':inherited_values}))
 end
 continue
@@ -69,6 +71,16 @@ set $seeker = 0
 set $armament = 0
 set $progress = 0
 set $launch_player = 0
+set $pilot_page = -1
+break tfx::presentation::pilot_panel::advance
+commands
+silent
+if !this->entering && (int)this->current != $pilot_page
+set $pilot_page = (int)this->current
+printf "PILOT_READY %d\\n", $pilot_page
+end
+continue
+end
 break tfx::flight::player_flight::advance
 commands
 silent
@@ -117,7 +129,7 @@ slot=int(armament['selected'])
 weapon=int(armament['pylons']['_M_elems'][slot]['weapon']) if 0<=slot<10 else -1
 print('COMBAT '+json.dumps([int(progress['results']['enemy_aircraft_down']),int(progress['results']['completed']),int(seeker['guidance']['_M_payload']['_M_engaged']),int(seeker['lock_ticks']),weapon]))
 flight=gdb.parse_and_eval('$launch_player').dereference()['basic']['flight']
-print('FLIGHT_STATE '+json.dumps({'mission':entry_mission,'position':[int(flight['integer_position'][axis])for axis in ('x','y','z')],'speed_factor':struct.unpack('<I',struct.pack('<f',float(flight['speed_mach'])))[0]}))
+print('FLIGHT_STATE '+json.dumps({'mission':entry_mission,'position':[int(flight['integer_position'][axis])for axis in ('x','y','z')],'speed_factor':struct.unpack('<I',struct.pack('<f',float(flight['speed_mach'])))[0],'pylons':[[int(armament['pylons']['_M_elems'][i][field])for field in ('weapon','count','visible')]for i in range(11)]}))
 end
 continue
 end
@@ -135,7 +147,11 @@ run
   def host(*command):return subprocess.run(command,env=env,timeout=5,check=True,capture_output=True,text=True)
   checked=0
   for mission in (501,):
-   with (root/f'{mission}.log').open('w+') as log:
+   log_path=root/f'{mission}.log'
+   with log_path.open('w') as log:
+    # Separate read handles keep observation from seeking GDB's shared
+    # stdout file description while it writes the next record.
+    def output():return log_path.read_text()
     game=subprocess.Popen(['gdb','--quiet','--batch','--return-child-result','-x',str(observer),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),*(['--skip-intro']if a.campaign else ['--mission',str(mission)]),'--control','keyboard','--flight-model',a.flight_model,'--scale','2'],env=env,cwd=root,stdout=log,stderr=subprocess.STDOUT)
     window=None;deadline=time.monotonic()+30
     while time.monotonic()<deadline and game.poll() is None:
@@ -143,12 +159,11 @@ run
      if found.stdout.strip():window=found.stdout.splitlines()[0];break
      time.sleep(.05)
     if window is None:
-     log.seek(0);raise RuntimeError('flight window did not appear:\n'+log.read()[-4000:])
+     raise RuntimeError('flight window did not appear:\n'+output()[-4000:])
     host('xdotool','windowfocus','--sync',window)
     def records():
      import json
-     log.seek(0)
-     text=log.read();lines=text.splitlines()
+     text=output();lines=text.splitlines()
      # GDB writes JSON to a live file; its last line may still be in flight.
      if text and not text.endswith('\n'):lines=lines[:-1]
      return [json.loads(line[len('COMBAT '):]) for line in lines if line.startswith('COMBAT ')]
@@ -158,18 +173,27 @@ run
       current=records()
       if current and predicate(current[-1]):return current[-1]
       time.sleep(.05)
-     log.seek(0);raise RuntimeError(label+': '+str(current[-4:])+'\n'+log.read()[-4000:])
+     raise RuntimeError(label+': '+str(current[-4:])+'\n'+output()[-4000:])
     def tap(key):
      host('xdotool','keydown',key);time.sleep(.15);host('xdotool','keyup',key)
+    def await_text(text,timeout=30):
+     deadline=time.monotonic()+timeout
+     while time.monotonic()<deadline and game.poll() is None:
+      if text in output():return
+      time.sleep(.025)
+     raise RuntimeError('missing '+repr(text)+'\n'+output()[-5000:])
     if a.campaign:
-     time.sleep(1)
-     tap('Down');tap('Return');tap('Return')
+     await_text('PILOT_READY 0\n')
+     tap('Down');tap('Return')
+     await_text('PILOT_READY 2\n')
+     tap('Return')
      deadline=time.monotonic()+30
      while time.monotonic()<deadline and game.poll() is None:
       title=host('xdotool','getwindowname',window).stdout
       if 'Arming' in title:break
       time.sleep(.05)
-     assert 'Arming' in title,title
+     if 'Arming' not in title:
+      raise RuntimeError('arming was not reached: '+title+'\n'+output()[-5000:])
      time.sleep(1)
      for x in (202,394):
       host('xdotool','mousemove','--window',window,str(x),'477');time.sleep(.15)
@@ -187,10 +211,9 @@ run
     print('COMPLETE',complete,flush=True)
     deadline=time.monotonic()+20
     while time.monotonic()<deadline:
-     log.seek(0)
-     if 'Mission result:' in log.read():break
+     if 'Mission result:' in output():break
      time.sleep(.05)
-    log.seek(0);text=log.read()
+    text=output()
     assert 'Mission result:' in text and 'outcome 0' in text,text[-4000:]
     checked=len(records())
     if a.recording:
@@ -202,8 +225,7 @@ run
       for name in ('wwn','prtv2','Flight recording'):
        if name in title:titles.add(name)
       if 'Flight recording' in titles:
-       log.seek(0)
-       if 'RECORDING_FRAME' in log.read():break
+       if 'RECORDING_FRAME' in output():break
       time.sleep(.025)
      assert titles=={'wwn','prtv2','Flight recording'},titles
      from native_recording import decode_recording
@@ -219,8 +241,7 @@ run
       tap('space');time.sleep(.1)
      assert 'Arming' in title,('following mission not reached',title)
      import json
-     log.seek(0)
-     observation=log.read().splitlines()
+     observation=output().splitlines()
      entries=[json.loads(line[len('ENTRY '):])for line in observation if line.startswith('ENTRY ')]
      assert len(entries)==2 and entries[0]['mission']=='miss501' and entries[1]['mission']=='miss502',entries
      ended=[json.loads(line[len('FLIGHT_STATE '):])for line in observation if line.startswith('FLIGHT_STATE ')]
@@ -228,6 +249,7 @@ run
      inherited=entries[1]['inherited']
      assert inherited['position']==ended['position'] and inherited['speed_factor']==ended['speed_factor'],('retained live flight state',inherited,ended)
      assert inherited['weapons']==0,('Hop 1 WEAPONS index',inherited)
+     assert inherited['pylons']==ended['pylons'],('retained live inventory',inherited,ended)
      continued=entries[1]['values']
      assert continued['a2akills']>=1 and continued['num_miss']>=1 and continued['score']>0 and continued['mission']==502,continued
      # FWS's SPOS belongs to training graduation, not each hop. Do not invent
@@ -239,8 +261,8 @@ run
     host('xdotool','keyup','q');host('xdotool','keyup','Shift_L')
     confirm_flight_quit(env,window);game.wait(timeout=15)
     if game.returncode:
-     log.seek(0);raise RuntimeError('flight failed:\n'+log.read()[-4000:])
-  print(f'Private X11 training engagement passed: {checked} real frames, AMRAAM lock/release, enemy loss, objective completion, successful FINISH'+('; original pilot/arming/debrief, next-hop campaign values and retained position/Mach/WEAPONS state'if a.campaign else ''))
+     raise RuntimeError('flight failed:\n'+output()[-4000:])
+  print(f'Private X11 training engagement passed: {checked} real frames, AMRAAM lock/release, enemy loss, objective completion, successful FINISH'+('; original pilot/arming/debrief, next-hop campaign values and retained position/Mach/WEAPONS/inventory state'if a.campaign else ''))
  finally:
   for process in (game,display):
    if process is not None and process.poll() is None:

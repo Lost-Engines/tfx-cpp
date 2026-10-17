@@ -51,7 +51,10 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     env=dict(os.environ)
     # LSan cannot inspect a process under ptrace; ordinary sanitizer tests keep it enabled.
     env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
-    command=['gdb','--quiet','--batch','--return-child-result','-x',str(tools/'observe_flight_session.gdb'),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',str(a.mission),'--control','keyboard','--flight-model',a.flight_model]
+    # GDB reads sourced files incrementally. Retain the exact observer beside
+    # the capture so ongoing development cannot change a running comparison.
+    observer=root/'observe.gdb';observer.write_bytes((tools/'observe_flight_session.gdb').read_bytes())
+    command=['gdb','--quiet','--batch','--return-child-result','-x',str(observer),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',str(a.mission),'--control','keyboard','--flight-model',a.flight_model]
     display=None
     try:
         if a.inputs:
@@ -98,6 +101,17 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     radio=records('CPP_RADIO ')
     wanted_radio=[event for event in expected['radio_events'] if event['frame']<=a.frames]
     assert radio==wanted_radio,('radio requests',radio,wanted_radio)
+    initial=records('CPP_INITIAL ')
+    assert len(initial)==1,('player initialization count',initial)
+    if 'armament' in expected['snapshots'][0]:
+        assert initial[0]['fuel']==expected['snapshots'][0]['armament'][-1],('initial fuel',initial[0],expected['snapshots'][0]['armament'][-1])
+    launch=native/'launch.json'
+    if launch.exists():
+        import struct
+        before_arming=next(event for event in json.loads(launch.read_text())if event['event']=='arming_screen')
+        bits=lambda value:struct.unpack('<Q',struct.pack('<d',value))[0]
+        want={'fuel':bits(before_arming['fuel']),'mass':bits(before_arming['raw_fields']['0x14320']),'capacity':bits(before_arming['raw_fields']['0x14770'])}
+        assert initial[0]==want,('pre-arming initialization',initial[0],want)
     for field,prefix in (('speed_factor','CPP_SPEED_FACTOR '),('cheat_state','CPP_CHEAT_STATE '),('aiming_flags','CPP_AIMING_FLAGS '),('control_configuration','CPP_CONTROL_CONFIGURATION '),('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES '),('player_parts','CPP_PLAYER_PARTS '),('launch_notice','CPP_LAUNCH_NOTICE '),('player_models','CPP_PLAYER_MODELS ')):
         if field in expected['snapshots'][1]:
             actual_records=records(prefix)

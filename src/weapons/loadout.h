@@ -21,6 +21,7 @@ struct pylon {
   uint8_t count{0};
   bool visible{false};
 };
+using pylon_inventory = std::array<pylon,flight::store_slots + 1>;
 struct selection_change {
   bool clear_contact{false};
   bool clear_tracking{false};
@@ -47,7 +48,7 @@ private:
   uint8_t category(unsigned int slot) const;
 
 public:
-  std::array<pylon,flight::store_slots + 1> pylons{}; // Last entry is the native cannon selection sentinel.
+  pylon_inventory pylons{}; // Last entry is the native cannon selection sentinel.
   int16_t selected{0};
   int16_t last_released{no_pylon};
   bool guns{true};

@@ -16,6 +16,7 @@
 #include "world/sky.h"
 #include "render/horizon.h"
 #include "render/precipitation.h"
+#include "weapons/loadout.h"
 
 namespace tfx::platform {
 
@@ -43,6 +44,7 @@ struct flight_options {
   flight::cheat_code &cheat;
   missions::inherited_setup &mission_state;
   std::string &recording_name;
+  weapons::pylon_inventory &launch_inventory;
   render::precipitation &rain;
   math::random_state &session_random;
   audio::runtime *sound{nullptr};

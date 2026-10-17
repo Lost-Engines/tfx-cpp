@@ -90,6 +90,17 @@
 namespace tfx::platform {
 namespace {
 
+class inventory_handoff {
+private:
+  weapons::pylon_inventory *destination;
+  weapons::armament const &source;
+public:
+  inventory_handoff(weapons::pylon_inventory *const destination, weapons::armament const &source) : destination{destination}, source{source} {}
+  ~inventory_handoff() { if(destination) *destination = source.pylons; }
+  inventory_handoff(inventory_handoff const&) = delete;
+  auto operator=(inventory_handoff const&)->inventory_handoff& = delete;
+};
+
 // Original INIT reads the live position/Mach and last WEAPONS index when a
 // declaration omits them. Preserve the final values on every flight return,
 // after camera/refuelling/result callbacks, while the source still exists.
@@ -224,6 +235,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     fixed_scenery.push_back(handle);
   }
   tfx::weapons::armament armament{mission_setup.aircraft,tables.weapons,tables.arming};
+  armament.pylons = options.launch_inventory;
+  auto const &launch_airframe{tables.aerodynamic_airframes.at(std::to_underlying(mission_setup.aircraft) - 1)};
+  auto const launch_stores{armament.flight_stores(launch_airframe.stores_and_mounts.mounts)};
+  inventory_handoff const remember_inventory{inspect ? nullptr : &options.launch_inventory,armament};
   armament.fit_default(mission_setup.weapons);
   if(campaign_flight && !inspect && !mission_setup.default_weapons) {
     if(!arm_mission(*shared_window,game,tables,armament,mission_setup.aircraft,mission_setup.weapons)) return flight_result::quit;
@@ -1012,8 +1027,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     radiation_cursor = 0;
     player.aircraft = mission_setup.aircraft;
     auto const &airframe{tables.aerodynamic_airframes.at(std::to_underlying(player.aircraft) - 1)};
-    auto const mounted{armament.flight_stores(airframe.stores_and_mounts.mounts)};
-    player_flight.initialise(airframe,mounted,{
+    // Original 8C184/95F3C run before 8B47C replaces the inventory. A new
+    // external tank increases capacity without refilling airborne fuel;
+    // cold-start placement fills it later. Keep the prior launch inputs.
+    player_flight.initialise(airframe,launch_stores,{
       .position{vec3<int32_t>{mission_setup.start.position}},
       .angles{vec3<tfx::math::angle>{mission_setup.angles}},
       .model{preferences.model},
@@ -1026,6 +1043,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       },
       .surface_celsius{surface_celsius()},
     },mission_setup.speed_factor,wind_parameters,player_damage,options.session_random);
+    physical_player.mounted_stores = armament.flight_stores(airframe.stores_and_mounts.mounts);
+    // The modal screen updates store statistics through 95DC8. Automatic
+    // DEFAULT_WEAP fitting skips those previews until the first flight tick.
+    if(!mission_setup.default_weapons)
+      physical_player.stores = tfx::flight::accumulate_stores(airframe.stores_and_mounts.stores,physical_player.mounted_stores);
     // Native player-SSD setup 0x7d736 changes only the landed integer Y;
     // the float position and runway/carrier placement wait for the first update.
     if(mission_setup.start.landed) {
