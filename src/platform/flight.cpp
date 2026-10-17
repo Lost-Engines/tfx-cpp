@@ -33,6 +33,7 @@
 #include "flight/player_flight.h"
 #include "flight/joystick.h"
 #include "flight/mouse_input.h"
+#include "flight/keyboard.h"
 #include "flight/damage.h"
 #include "flight/defence.h"
 #include "missions/engagement.h"
@@ -246,6 +247,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::cockpit::view_control views;
   tfx::cockpit::view_camera view_motion;
   uint16_t view_pan{0};
+  tfx::flight::keyboard_state keyboard;
   unsigned int ground_target_page{0};
   auto &fuel_display{player_flight.fuel};
   fuel_display = instrument_setup.fuel;
@@ -2036,7 +2038,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     if(!inspect && !result_evaluated && pressed(GLFW_KEY_P)) paused = !paused;
     uint8_t const stick_mask{!inspect && !paused && !result_evaluated ? poll_stick() : uint8_t{0}};
-    bool const capture{inspect ? glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS : simple_controls.source == tfx::flight::control_source::mouse && !paused && !result_evaluated};
+    bool const capture{inspect ? glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS : (arcade_mode || simple_controls.source == tfx::flight::control_source::mouse) && !paused && !result_evaluated};
     if(capture != captured) {
       captured = capture;
       mouse_started = false;
@@ -2322,14 +2324,35 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         designator_view = false;
       }};
       for(auto const &[key,action] : view_bindings) if(pressed(key)) select_view(action);
-      view_pan = view_keys.shift ? static_cast<uint16_t>((down(GLFW_KEY_LEFT) ? 1 : 0) | (down(GLFW_KEY_RIGHT) ? 2 : 0) | (down(GLFW_KEY_UP) ? 4 : 0) | (down(GLFW_KEY_DOWN) ? 8 : 0)) : 0;
+      tfx::flight::direction_keys const held_directions{
+        .up{down(GLFW_KEY_UP) || down(GLFW_KEY_KP_8)},
+        .left{down(GLFW_KEY_LEFT) || down(GLFW_KEY_KP_4)},
+        .down{down(GLFW_KEY_DOWN) || down(GLFW_KEY_KP_2)},
+        .right{down(GLFW_KEY_RIGHT) || down(GLFW_KEY_KP_6)},
+      };
+      tfx::flight::poll_keyboard(keyboard,{
+        .directions{held_directions},
+        .home{down(GLFW_KEY_HOME) || down(GLFW_KEY_KP_7)},
+        .end{down(GLFW_KEY_END) || down(GLFW_KEY_KP_1)},
+        .page_up{down(GLFW_KEY_PAGE_UP) || down(GLFW_KEY_KP_9)},
+        .page_down{down(GLFW_KEY_PAGE_DOWN) || down(GLFW_KEY_KP_3)},
+        .accelerate{down(GLFW_KEY_EQUAL) || down(GLFW_KEY_KP_ADD)},
+        .decelerate{down(GLFW_KEY_MINUS) || down(GLFW_KEY_KP_SUBTRACT)},
+        .o{down(GLFW_KEY_O)},
+        .right_shift{down(GLFW_KEY_RIGHT_SHIFT)},
+        .control{down(GLFW_KEY_LEFT_CONTROL) || down(GLFW_KEY_RIGHT_CONTROL)},
+        .automatic_landing{automatic_landing.phase != tfx::flight::automatic_landing_phase::inactive},
+      });
+      // Native adjacent bytes 0x1358a/b pack right-Shift orbit and Ctrl
+      // translation into the low/high bytes of the camera's pan word.
+      view_pan = static_cast<uint16_t>(keyboard.view_pan | static_cast<unsigned int>(keyboard.target_pan) << 8);
       if(pressed(GLFW_KEY_COMMA) && designator_view && designator.zoom) --designator.zoom;
       if(pressed(GLFW_KEY_PERIOD) && designator_view && designator.zoom < 10) ++designator.zoom;
       designator_input = {
-        .up{down(GLFW_KEY_UP)},
-        .down{down(GLFW_KEY_DOWN)},
-        .left{down(GLFW_KEY_LEFT)},
-        .right{down(GLFW_KEY_RIGHT)},
+        .up{held_directions.up},
+        .down{held_directions.down},
+        .left{held_directions.left},
+        .right{held_directions.right},
       };
       if(pressed(GLFW_KEY_SPACE)) store_trigger = true;
       if(!player.collision && !player_disabled && !ejected()) {
@@ -2412,25 +2435,16 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         if(hud_up || hud_down) palette_selection.invalidate_normal();
         int constexpr minimum_hud_green{90}, maximum_hud_green{127};
         hud_green = static_cast<int16_t>(std::clamp(hud_green + (hud_up ? 1 : 0) - (hud_down ? 1 : 0),minimum_hud_green,maximum_hud_green));
-        // Keyboard supplies a relative stick input until the full native device adapter is restored.
-        if(arcade_mode && !designator_view && !view_keys.shift) {
-          pitch_input += (down(GLFW_KEY_UP) - down(GLFW_KEY_DOWN)) * step->world_ticks * 4;
-          roll_input += (down(GLFW_KEY_RIGHT) - down(GLFW_KEY_LEFT)) * step->world_ticks * 4;
-        }
-        bool const steer{!designator_view && !view_keys.shift};
-        simple_controls.keys = {
-          .up{steer && down(GLFW_KEY_UP)},
-          .left{steer && down(GLFW_KEY_LEFT)},
-          .down{steer && down(GLFW_KEY_DOWN)},
-          .right{steer && down(GLFW_KEY_RIGHT)},
-        };
+        // Arcade consumes relative mouse motion; the other original models
+        // consume these independently sampled, retained keyboard flags.
+        simple_controls.keys = designator_view ? tfx::flight::direction_keys{} : keyboard.directions;
         simple_controls.alt = down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT);
         auto const input_word{[](double const value){ return static_cast<int16_t>(std::clamp(value,-32768.0,32767.0)); }};
         tfx::flight::flight_controls const controls{
           .pitch_delta{input_word(pitch_input)},
           .roll_delta{input_word(roll_input)},
-          .accelerate{down(GLFW_KEY_EQUAL) || down(GLFW_KEY_KP_ADD)},
-          .decelerate{down(GLFW_KEY_MINUS) || down(GLFW_KEY_KP_SUBTRACT)},
+          .accelerate{keyboard.accelerate},
+          .decelerate{keyboard.decelerate},
           .mouse_buttons{static_cast<uint8_t>((glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS ? 1 : 0) | (glfwGetMouseButton(host,GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS ? 2 : 0))},
         };
         pitch_input -= controls.pitch_delta;

@@ -4537,3 +4537,41 @@ The original cheat's Ctrl+D arming shortcut is not connected yet.
 All 190 regressions pass in development, Release and ASan/UBSan after this
 increment. The retained original damage and loss checks continue to cover the
 enabled/disabled gates independently of the keyboard sequence.
+
+
+### Persistent keyboard sampling and complete camera controls
+
+Original 0x862f4/0x86458 now have a shared persistent keyboard poller. Right
+Shift and Ctrl suspend manual direction/throttle refresh, retaining the prior
+flags. Automatic landing also retains O; otherwise O refreshes independently.
+Left Shift does not suspend manual input. The original camera pan word packs
+right-Shift orbit/roll/distance controls into its low byte and Ctrl chase
+translation into its high byte. Navigation-keypad aliases are connected too.
+The controller preserves the target byte's high bits, as the native producer
+does, for other consumers to own.
+
+`check_keyboard.py` compares all 16,384 combinations of fourteen supplied held
+inputs in a persistent shuffled sequence. Both original polling bodies execute;
+only hardware key bytes are supplied. All manual flags, independent O and both
+pan bytes agree. The asset-free regression covers retained input across
+modifiers and automatic landing, independent release and high-bit ownership.
+
+The live caller now supplies all these controls to the already compared camera
+and flight kernels. Complete 32-frame Simple and Realistic sequences agree on
+every captured field and indexed pixel: steering retained while panning,
+left-Shift steering, keypad input, orbit distance, camera roll, Ctrl chase
+translation and retained throttle. The previous Arcade arrow-to-mouse
+placeholder is removed. Arcade always acquires relative mouse movement, as
+its original callback does; other models retain their configured source.
+The complete 24-frame cheat sequence, including its ordinary arrow input,
+now also agrees on all captured state and every pixel.
+
+The full input comparison still supplies one declared DOS make and a held-key
+table per frame. It does not establish equivalence for multiple competing
+makes/repeats within one host frame; GLFW edge sampling remains the host input
+boundary. In-flight cheat rearming and recording remain separate work.
+
+All 191 regressions pass in development, Release and ASan/UBSan. A private-window run
+completes Hop 1 through normal pilot/arming/combat/debrief and the next-hop
+campaign values in 507 real frames; the tactical-map input/palette check also
+continues to pass.
