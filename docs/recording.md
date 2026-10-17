@@ -10,7 +10,8 @@ The standalone codec is implemented in `src/recording/file.*`. Alt+V now starts
 and stops live capture to `video.rec` in the selected installation directory.
 `recording::recorder` streams each frame and retains only its bounded resource
 dictionary. Starting again replaces the previous recording, as in the original.
-The post-flight replay interface is being connected separately.
+After a completed mission, the original WNN/press-room introduction precedes
+automatic playback. Any new key press leaves the recorded flight.
 
 All numeric fields use little-endian byte order. The ten-byte file header is:
 
@@ -107,4 +108,45 @@ are reported without aborting flight. These are explicit host protections.
 
 ```sh
 python3 tools/check_recording_session.py --research ../tfx-reverse --build build
+```
+
+## Streaming playback and the post-flight wrapper
+
+`recording::playback` reads the resource dictionary once and decodes one frame
+at a time through a bounded buffer. It validates the file length, dictionary,
+compressed fields and end of the frame stream. Resource names are normalised
+to model basenames, as by native C93BC. Asset-free tests cover actual file
+creation, full queues, successive frames, replacement, RAII finalisation,
+missing directories and malformed/truncated streams.
+
+Native 7B2F4 first plays `anim/wwn.256` and `anim/prtv2.256`, each once with a
+40-retrace fade-in and a one-BIOS-tick frame delay. These introductions do not
+poll keyboard input. It then restores the full-screen 3D viewport, uploads the
+environment's infrared palette, clears pending make codes and reads the film.
+Recorded frames run at four PIT ticks each (about 13.65 frames/second), with
+the shadowed PLAY caption alternating each frame. Its driver font has eight
+drawn columns and a nine-pixel advance, unlike the presentation fonts.
+
+The recording stores view angles and camera-space model submissions, but not
+camera height, scrolling ground phase, drawing seed, status/detail flags or
+carried-model bindings. Original playback inherits these from the flight.
+The live viewer accordingly retains the actual flight scene, renderer and
+attachments; it runs no mission rules, aircraft AI or flight dynamics during
+replay. Immediate scratch submissions are not recorded by the original and
+are not invented during playback.
+
+`tools/check_recording_playback.py` executes the original file reader, resource
+remapping, horizon, queue flush and blinking caption in a retained original
+flight context. Eight ordinary-camera and eleven designator-camera frames,
+plus their infrared palettes, agree pixel for pixel. Animation prefaces,
+display flips and real-time waiting are explicit boundaries of that pixel
+comparison. The separate native animation codec/clock/fade comparisons cover
+their implementation. A private-window campaign check uses normal controls to
+record and complete Hop 1, observes both introductions and replay, then checks
+debriefing and Hop 2's inherited campaign and flight state.
+
+```sh
+python3 tools/check_recording_playback.py --case camera
+python3 tools/check_recording_playback.py --case designator
+python3 tools/check_training_engagement.py --campaign --recording
 ```

@@ -78,6 +78,9 @@ std::array<proportional_layout,font_count> constexpr layouts{{
 
 fonts::fonts(std::span<uint8_t const> const executable) {
   resources::binary_view const view{executable};
+  // C1378's fixed driver font is distinct from the ten presentation styles.
+  for(unsigned int row{0}; row != driver_rows; ++row) for(unsigned int code{0}; code != driver_characters; ++code)
+    driver[row][code] = view.byte(code_file + 0x509e5 + row * driver_characters + code);
   std::array<unsigned int,font_count> constexpr line_heights{13,9,6,16,12,7,7,18,9,7}, trims{2,0,0,0,0,0,0,2,1,1};
   for(unsigned int style{0}; style != font_count; ++style) {
     auto &font{styles[style]};
@@ -152,6 +155,23 @@ void fonts::draw(render::framebuffer &target, font_id const style, vec2<int> con
     // The fixed eight-pixel renderer special-cases a following uppercase I as a four-pixel cell.
     x += style == 1 && character == 'I' && !first ? 4 : static_cast<int>(glyph.advance);
     first = false;
+  }
+}
+
+void fonts::draw_driver(render::framebuffer &target, vec2<int> const &position, std::string_view const text, uint8_t const colour, render::framebuffer *const coverage) const {
+  int x{position.x};
+  for(unsigned char const character : text) {
+    unsigned int const code{character & (driver_characters - 1)};
+    if(!code) break;
+    for(unsigned int row{0}; row != driver_rows; ++row) for(unsigned int column{0}; column != driver_columns; ++column) {
+      if(!(driver[row][code] & (1u << column))) continue;
+      int const px{x + static_cast<int>(column)}, py{position.y + static_cast<int>(row)};
+      if(px < 0 || px >= render::screen_width || py < 0 || py >= render::screen_height) continue;
+      auto const index{static_cast<unsigned int>(py * render::screen_width + px)};
+      target.pixels[index] = colour;
+      if(coverage) coverage->pixels[index] = 255;
+    }
+    x += static_cast<int>(driver_advance);
   }
 }
 

@@ -48,6 +48,8 @@ add_library(tfx_core
   src/recording/file.h
   src/recording/recorder.cpp
   src/recording/recorder.h
+  src/recording/playback.cpp
+  src/recording/playback.h
   src/flight/cheat.cpp
   src/flight/cheat.h
   src/flight/keyboard.cpp
@@ -444,6 +446,8 @@ add_executable(tfx
   src/platform/flight.h
   src/platform/presentations.cpp
   src/platform/presentations.h
+  src/platform/recording.cpp
+  src/platform/recording.h
   src/platform/window.cpp
   src/platform/window.h
 )
@@ -455,9 +459,16 @@ if(BUILD_TESTING)
   target_link_libraries(recording_tests PRIVATE tfx_core)
   configure_first_party(recording_tests)
   add_test(NAME recording.original_file_format COMMAND recording_tests)
+  add_executable(recording_stream_tests tests/recording_stream_test.cpp)
+  target_link_libraries(recording_stream_tests PRIVATE tfx_core)
+  configure_first_party(recording_stream_tests)
+  add_test(NAME recording.streaming_capture_playback COMMAND recording_stream_tests)
   add_executable(recording_probe tests/recording_probe.cpp)
   target_link_libraries(recording_probe PRIVATE tfx_core)
   configure_first_party(recording_probe)
+  add_executable(recording_playback_probe tests/recording_playback_probe.cpp)
+  target_link_libraries(recording_playback_probe PRIVATE tfx_core)
+  configure_first_party(recording_playback_probe)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i.86)$" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_library(native_x87_backend SHARED tools/native_x87_backend.cpp)
     configure_first_party(native_x87_backend)

@@ -10,6 +10,9 @@
 namespace tfx::recording {
 
 unsigned int constexpr header_bytes{10}, native_resource_limit{1000};
+unsigned int constexpr compression_buffer_bytes{2048};
+// Six compressed fields, each with a word length, plus the fixed/raw arrays.
+unsigned int constexpr maximum_frame_bytes{16 + render::model_queue_capacity * 20 + 6 * (2 + compression_buffer_bytes)};
 enum class model_kind : uint8_t { unrotated = 40, rotated = 44, ground_shadow = 48 };
 
 using order_entry = render::model_queue_entry;
@@ -39,6 +42,15 @@ struct scene_frame {
   frame data;
   std::vector<std::string> model_names;
 };
+struct file_header {
+  uint16_t frames{0};
+  uint32_t size{0};
+  uint32_t dictionary{0};
+};
+struct decoded_frame {
+  frame value;
+  unsigned int bytes{0};
+};
 struct file {
   std::vector<frame> frames;
   // Indices 0 and 1 have no stored names. Native playback supplies
@@ -56,6 +68,9 @@ struct file {
 };
 
 resources::bytes encode_frame(frame const &source);
+file_header decode_header(std::span<uint8_t const> source);
+decoded_frame decode_frame(std::span<uint8_t const> source);
+std::vector<resource> decode_resources(std::span<uint8_t const> source);
 resources::bytes encode(file const &source);
 file decode(std::span<uint8_t const> source);
 

@@ -112,7 +112,8 @@ public:
   bool animate_player_model(scene_handle handle);
   void set_player_rendering(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles, animation_policy policy);
   std::optional<render::camera> const &last_camera() const;
-  scene_events draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius, std::function<void()> const &final_submissions = {}, std::optional<int32_t> camera_anchor_y = {}, int16_t shadow_ground_height = 0, scene_pass pass = scene_pass::primary, recording::scene_frame *capture = nullptr);
+  scene_events draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius, std::function<void()> const &final_submissions = {}, std::optional<int32_t> camera_anchor_y = {}, int16_t shadow_ground_height = 0, scene_pass pass = scene_pass::primary, recording::scene_frame *capture = nullptr, recording::scene_frame const *playback = nullptr);
+  void replay(render::software_renderer &renderer, render::camera const &view, recording::scene_frame const &source);
 };
 
 } // namespace tfx::world

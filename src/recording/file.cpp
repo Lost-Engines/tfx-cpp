@@ -6,8 +6,6 @@
 namespace tfx::recording {
 namespace {
 
-unsigned int constexpr native_compression_buffer{2048};
-
 class writer {
 public:
   resources::bytes bytes;
@@ -36,7 +34,7 @@ public:
       block.byte(static_cast<uint8_t>(count));
       block.raw(source.subspan(first,count));
     }
-    if(block.bytes.size() > native_compression_buffer) throw std::runtime_error{"flight recording exceeds the original compression buffer"};
+    if(block.bytes.size() > compression_buffer_bytes) throw std::runtime_error{"flight recording exceeds the original compression buffer"};
     word(static_cast<uint16_t>(block.bytes.size()));raw(block.bytes);
   }
 };
@@ -57,7 +55,7 @@ public:
   bool complete() const { return position == size; }
   resources::bytes packed(size_t const count, uint8_t const fill) {
     auto const size{word()};
-    if(size > native_compression_buffer) throw std::runtime_error{"flight recording compressed block exceeds its native buffer"};
+    if(size > compression_buffer_bytes) throw std::runtime_error{"flight recording compressed block exceeds its native buffer"};
     reader block{raw(size)};
     resources::bytes output;output.reserve(count);
     while(output.size() != count) {
@@ -154,27 +152,46 @@ resources::bytes encode(file const &source) {
   return std::move(output.bytes);
 }
 
-file decode(std::span<uint8_t const> const source) {
-  reader header{source};
-  auto const frames{header.word()};auto const size{header.dword()},trailer{header.dword()};
-  if(size != source.size() || trailer < header_bytes || trailer > size) throw std::runtime_error{"flight recording has invalid file offsets"};
-  file result;result.frames.reserve(frames);
-  reader body{source.subspan(header_bytes,trailer - header_bytes)};
-  for(unsigned int index{0}; index != frames; ++index) result.frames.push_back(read_frame(body));
-  if(!body.complete()) throw std::runtime_error{"flight recording has trailing frame data"};
-  reader dictionary{source.subspan(trailer)};
+file_header decode_header(std::span<uint8_t const> const source) {
+  resources::binary_view const input{source};
+  return {
+    .frames{input.le16(0)},
+    .size{input.le32(2)},
+    .dictionary{input.le32(6)},
+  };
+}
+decoded_frame decode_frame(std::span<uint8_t const> const source) {
+  reader input{source};
+  return {
+    .value{read_frame(input)},
+    .bytes{static_cast<unsigned int>(input.position)},
+  };
+}
+std::vector<resource> decode_resources(std::span<uint8_t const> const source) {
+  reader dictionary{source};
   auto const count{dictionary.word()};
   if(count < 2 || count > native_resource_limit) throw std::runtime_error{"flight recording has an invalid resource table size"};
-  result.resources.resize(count);
-  for(auto &resource : result.resources) resource.handle = dictionary.word();
+  std::vector<resource> result(count);result[1].name = "badshape.3";
+  for(auto &resource : result) resource.handle = dictionary.word();
   auto const bytes{dictionary.dword()};auto const names{dictionary.raw(bytes)};
   size_t cursor{0};
   for(unsigned int index{2}; index != count; ++index) {
     auto const first{cursor};while(cursor != names.size() && names[cursor]) ++cursor;
     if(cursor == names.size()) throw std::runtime_error{"flight recording has an unterminated resource name"};
-    result.resources[index].name.assign(reinterpret_cast<char const*>(names.data() + first),cursor - first);++cursor;
+    result[index].name.assign(reinterpret_cast<char const*>(names.data() + first),cursor - first);++cursor;
   }
   if(cursor != names.size() || !dictionary.complete()) throw std::runtime_error{"flight recording has trailing resource data"};
+  return result;
+}
+
+file decode(std::span<uint8_t const> const source) {
+  auto const header{decode_header(source)};
+  if(header.size != source.size() || header.dictionary < header_bytes || header.dictionary > header.size) throw std::runtime_error{"flight recording has invalid file offsets"};
+  file result;result.frames.reserve(header.frames);
+  reader body{source.subspan(header_bytes,header.dictionary - header_bytes)};
+  for(unsigned int index{0}; index != header.frames; ++index) result.frames.push_back(read_frame(body));
+  if(!body.complete()) throw std::runtime_error{"flight recording has trailing frame data"};
+  result.resources = decode_resources(source.subspan(header.dictionary));
   return result;
 }
 

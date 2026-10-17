@@ -20,9 +20,11 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--data-dir',type=Path,default=Path('../tfx-reverse/installs/cd_1994_09/TFX'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--campaign',action='store_true')
+p.add_argument('--recording',action='store_true',help='record Hop 1 and observe WNN introductions/replay before Hop 2')
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 a=p.parse_args()
+if a.recording and not a.campaign:p.error('--recording requires --campaign')
 with tempfile.TemporaryDirectory(prefix='tfx-training-engagement-') as temporary:
  root=Path(temporary);install=root/'TFX';install.mkdir()
  for name in ('TFX.DAT','DID.DAT'):(install/name).symlink_to((a.data_dir/name).resolve())
@@ -91,6 +93,18 @@ silent
 set $progress = this
 continue
 end
+break tfx::platform::replay_recording
+commands
+silent
+printf "RECORDING_REPLAY\\n"
+continue
+end
+break tfx::world::scene::replay
+commands
+silent
+printf "RECORDING_FRAME\\n"
+continue
+end
 break tfx::missions::progress::finish_frame
 commands
 silent
@@ -134,7 +148,10 @@ run
     def records():
      import json
      log.seek(0)
-     return [json.loads(line[len('COMBAT '):]) for line in log.read().splitlines() if line.startswith('COMBAT ')]
+     text=log.read();lines=text.splitlines()
+     # GDB writes JSON to a live file; its last line may still be in flight.
+     if text and not text.endswith('\n'):lines=lines[:-1]
+     return [json.loads(line[len('COMBAT '):]) for line in lines if line.startswith('COMBAT ')]
     def wait_for(predicate,label,timeout=30):
      deadline=time.monotonic()+timeout
      while time.monotonic()<deadline and game.poll() is None:
@@ -158,6 +175,7 @@ run
       host('xdotool','mousemove','--window',window,str(x),'477');time.sleep(.15)
       host('xdotool','mousedown','1');time.sleep(.15);host('xdotool','mouseup','1');time.sleep(.2)
     wait_for(lambda row:True,'initial flight')
+    if a.recording:tap('alt+v')
     tap('Return')
     tap('t')
     lock=wait_for(lambda row:row[2] and row[3]==0 and row[4]==4,'AMRAAM lock')
@@ -175,6 +193,24 @@ run
     log.seek(0);text=log.read()
     assert 'Mission result:' in text and 'outcome 0' in text,text[-4000:]
     checked=len(records())
+    if a.recording:
+     # The two original animations run to completion. No game state or
+     # timing is replaced to make the WNN/replay host reachable.
+     titles=set();deadline=time.monotonic()+20
+     while time.monotonic()<deadline and game.poll() is None:
+      title=host('xdotool','getwindowname',window).stdout
+      for name in ('wwn','prtv2','Flight recording'):
+       if name in title:titles.add(name)
+      if 'Flight recording' in titles:
+       log.seek(0)
+       if 'RECORDING_FRAME' in log.read():break
+      time.sleep(.025)
+     assert titles=={'wwn','prtv2','Flight recording'},titles
+     from native_recording import decode_recording
+     frames=decode_recording((install/'video.rec').read_bytes())
+     assert len(frames)>20,('incomplete live recording',len(frames))
+     tap('space')
+     print('REPLAY',len(frames),'streamed frames; both WNN introductions and first replay frame observed',flush=True)
     if a.campaign:
      deadline=time.monotonic()+30
      while time.monotonic()<deadline and game.poll() is None:
