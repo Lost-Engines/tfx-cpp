@@ -1760,3 +1760,7 @@ comparisons, the 200 complete menu frames/states and 4,096 detail-flag cases pas
 in development, Release and ASan/UBSan builds. The private-window checks use real
 input and disposable installations; audio and video recording remain separate
 integration work.
+
+## Sampled-sound request controller
+
+The standard Sound Blaster request controller is translated, with 8,192 persistent original-execution comparisons in development, Release and sanitizer builds. These cover signed cooldown wrapping, disabled requests, priority preemption, concatenated speech, unavailable/empty buffers and external stream completion. A 256-case fixture is retained as `audio.native_sample_scheduler`; reproduce the full comparison with `tools/check_sample_scheduler.py`. The native queue and DSP/DMA command preparation execute during the comparison; only physical device reads/writes and declared stream completion are external. PCM synthesis and live triggers remain separate work.
