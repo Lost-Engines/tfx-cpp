@@ -191,7 +191,7 @@ python3 tools/check_world_collision.py --research ../tfx-reverse
 
 With Unicorn installed, these compare **19,589 persistent states across all 703 definitions**, then **4,800 complete native terrain queries** across Yugoslavia, Colombia, Libya and Somalia. The latter execute the original cell selection, negative-remainder wrapping, quarter-turn conversion and collision entry, including map seams. Host model handles, draw submissions, collision callbacks and anchor-distance inputs are declared boundaries in the instance test. The world test supplies independently initialised instance resources and records solid contacts; it does not execute damage to the querying aircraft. CTest also covers independent instances, strict-negative damage thresholds, restoration and an animation event that replaces its own stream.
 
-Interactive flight now uses live terrain/building queries and carries the resulting runway surface into the next physics step, following native update order. A solid contact currently stops flight with the diagnostic collision state. Moving-object contacts, full aircraft damage/death and restart, attached-object event resolution, visibility/update eligibility and complete-session comparison remain unfinished. Static instances are still created on first use. Authored point-light/offset requests are retained for their consumers; projected ground-shadow submissions are distinguished from normal model draws and await the shadow renderer. This is not a claim that the whole SSD/render lifecycle is complete.
+Interactive flight now uses live terrain/building queries and carries the resulting runway surface into the next physics step, following native update order. A solid contact currently stops flight with the diagnostic collision state. Moving-object contacts, full aircraft damage/death and restart, attached-object event resolution, visibility/update eligibility and complete-session comparison remain unfinished. Static instances are still created on first use. Authored temporary-effect requests now reach the live pool, as detailed under secondary scenery blasts below; legacy offset requests remain separate; projected ground-shadow submissions are distinguished from normal model draws and await the shadow renderer. This is not a claim that the whole SSD/render lifecycle is complete.
 
 
 ## Live mission timeline
@@ -2540,3 +2540,49 @@ and sanitizers. The window observer now waits for flight-input readiness and
 holds quit until consumed, avoiding a short key tap being missed during
 startup. This is a supplied-input handoff check, not full sunlight/scene pixel
 equivalence.
+
+
+### Secondary scenery blasts and synchronous SSD outputs
+
+SSD opcode 79 now delivers its authored boom/fireball requests to the live
+100-slot effect pool. The earlier provisional `light` label was misleading:
+native `0xb626c` routes through `0x7b0cc` to the same allocator used for impact
+effects. It is separate from model-authored amber night dots and from dynamic
+lighting. The retained corpus has **782 requests: 699 booms and 83 fireballs**
+in cities, factories, defence sites, bridges, docks, ships and other scenery.
+
+The scene owns local placement; flight owns the pool and its independent
+models. A borrowed synchronous request callback preserves interpreter ordering
+through events, contacts, animation and drawing. Terrain placement uses its
+exact quarter turn and signed-word origin; moving SSD request placement remains
+separate from the full visual Euler transform. Original actor initialization
+binds the relative-reference pointers to the player's integer coordinates,
+which cancel through the emission callback before the pool's word stores.
+Effect submissions are gathered after world SSD execution and before the
+global part-depth sort, including the existing scene-camera display path.
+
+**11,320 original placed requests agree**: all 782 authored requests at all four
+quarter turns, plus 8,192 boundary cases across all ten effect kinds and
+independent player references. Native reference binding, quarter rotation,
+origin addition and player-relative helpers execute. Allocation is observed at
+its separately compared boundary and final stored word positions are checked.
+An original authored SSD additionally verifies that request callbacks observe
+custom states 11 and 22 before the final change to 33; delivery cannot be
+deferred until interpreter return. Compact fixtures and the request-order case
+run without game assets.
+
+A controlled real factory scene damages its authored collision volume, advances
+32 animation/draw passes, resets actual effect models and submits the resulting
+blast in the same frame. Its emitted position and animation frame agree with
+complete original factory bytecode and the placed-emission helpers. Model
+resource/drawing and allocation output remain declared boundaries; this is not
+a complete mission or pixel comparison. The full **703-definition / 19,589
+persistent-state** SSD corpus still agrees; its initialization calls also check
+that no opcode-79 effects are discarded by construction in that capture.
+
+All **118 regressions**, placement/order cases and the controlled factory scene
+pass in development, Release and ASan/UBSan. The private controlled cannon
+impact/retirement window test still reaches its real effect request, pool,
+placement and world draw in development and sanitizers. Smoke trails, legacy
+offset consumers, ground shadows and full renderer/session equivalence remain
+separate work.

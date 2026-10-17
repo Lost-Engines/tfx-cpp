@@ -58,7 +58,7 @@ def main():
     def light(im):
         requests.append((79,4,*[im.cpu.reg_read(reg)&65535 for reg in (r.UC_X86_REG_EAX,r.UC_X86_REG_EDX,r.UC_X86_REG_EBX,r.UC_X86_REG_ECX)]))
         im.return_from()
-    image.intercept(0xb626c,'Record an authored light request; its world-space rendering is a separate consumer.',light)
+    image.intercept(0xb626c,'Record an authored temporary-effect request; placed pool delivery is checked separately.',light)
     def offset(im):
         requests.append((72,3,*[im.cpu.reg_read(reg)&65535 for reg in (r.UC_X86_REG_EAX,r.UC_X86_REG_EDX,r.UC_X86_REG_EBX)]))
         im.return_from()
@@ -79,7 +79,9 @@ def main():
         image.write(0x1b250,'<I',definition)
         image.write(0xac3c,'<I',image.native(0xb7a30))
         image.write(0xac14,'<I',image.native(0xb7a3c))
+        requests.clear()
         image.call(0xb54dc,eax=definition+obj['entries'][0])
+        assert not any(request[0]==79 for request in requests),('unexpected initial effect request',obj['names'])
         commands = [(999,0,0,1,0,0,0,0,0,0,0,0,0)]
         # All authored events execute on the same instance, exposing persistent damage and restoration.
         for entry in range(1,len(obj['entries'])):

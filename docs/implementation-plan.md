@@ -135,3 +135,9 @@ height/cloud/region gates, 20-slot pool and drawing range. Live daytime bursts,
 nighttime models, audio/radio, white palette flash and cockpit shake are
 connected. Sun glare is also connected; full renderer equivalence remains open. All 33
 environments retain their original cloud-layer height, offset and grid name.
+
+
+Authored SSD secondary blasts now feed the live effect pool through synchronous
+placed requests. All 782 corpus requests have native placement coverage, and a
+controlled real factory's collision/animation/draw emission agrees with the
+original. Shared smoke trails, legacy offsets and ground shadows remain.

@@ -9,6 +9,7 @@
 
 namespace tfx::world {
 
+struct scene_request;
 struct instance_context {
   collision_segment movement{};
   bool player_query{false};
@@ -19,6 +20,8 @@ struct instance_context {
   std::function<int16_t(vec3d const&)> anchor_distance{};
   std::function<void(uint16_t)> collision_response{};
   std::function<void(int)> damage_response{};
+  // Borrowed only during this synchronous execute/animate call.
+  std::optional<std::function_ref<void(scene_request const&)>> request_output{};
 };
 struct scene_request {
   unsigned int opcode;
