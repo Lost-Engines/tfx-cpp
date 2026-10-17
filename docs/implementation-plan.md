@@ -315,3 +315,12 @@ establish the distinct dense/sparse/logical edge rules. All 172 regressions and
 the full retail mission corpus pass in development and sanitizers. Point/line
 precision, older sprite-backed model drawing and full phase/session comparison
 remain separate gates.
+
+Authored dot/disc primitives now use the shared native dispatch, including
+signed-word projection, the distinct one/two-pixel viewport rules, high-depth
+radius scaling, wide-view radius retention and material/pattern state. Original
+complete programs cover all circle sizes and retain the partial-circle
+corner-clipping quirk. All 174 regressions pass in development, Release and
+sanitizers; every retail mission and private-window effects/controls pass.
+Native lines, legacy sprite-backed model drawing and full phase/session
+comparison remain separate work.

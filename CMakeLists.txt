@@ -347,6 +347,7 @@ add_library(tfx_core
   src/render/integer_texture_polygon.h
   src/render/integer_model_texture.cpp src/render/integer_model_texture.h
   src/render/model_polygon.cpp src/render/model_polygon.h src/render/rounded_curve.h
+  src/render/model_raster.cpp src/render/model_raster.h
   src/render/model_projection.cpp src/render/model_projection.h
   src/render/model_transform.cpp src/render/model_transform.h
   src/world/model_orientation.h
@@ -599,6 +600,8 @@ if(BUILD_TESTING)
   configure_first_party(model_frame_probe)
   add_test(NAME render.native_model_materials COMMAND model_frame_probe ${PROJECT_SOURCE_DIR}/tests/reference/model_materials.txt)
   add_test(NAME render.native_rounded_model_programs COMMAND model_frame_probe ${PROJECT_SOURCE_DIR}/tests/reference/rounded_model_programs.txt)
+  add_test(NAME render.native_authored_model_dots COMMAND model_frame_probe --viewport ${PROJECT_SOURCE_DIR}/tests/reference/model_dots.txt)
+  add_test(NAME render.native_authored_model_discs COMMAND model_frame_probe --viewport ${PROJECT_SOURCE_DIR}/tests/reference/model_discs.txt)
 
   add_executable(model_depth_palette_probe tests/model_depth_palette_probe.cpp)
   target_link_libraries(model_depth_palette_probe PRIVATE tfx_core)

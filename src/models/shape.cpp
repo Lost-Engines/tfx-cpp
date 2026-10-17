@@ -462,7 +462,7 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
               .projection_scale{2 * std::abs(vertex_scales[index])},
             }},
             .colour{loads_ink ? colour : static_cast<unsigned int>(record[offset] & 255)},
-            .mode{offset ? record[0] : -1},
+            .mode{offset ? record[0] : loads_ink ? drawing_mode : -1},
             .palette{loads_ink ? colour_palette : palette},
             .palette_depth{colour_depth},
             .radius{record.size() > offset + 2 ? record[offset + 2] * std::abs(vertex_scales[index]) : 0},
