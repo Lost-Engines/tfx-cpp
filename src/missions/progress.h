@@ -21,6 +21,18 @@ struct loss_effects {
   std::optional<unsigned int> acknowledgement_sample{};
   bool friendly_target{false};
 };
+struct player_loss_context {
+  bool fatal;
+  bool collision;
+  simulation::timer_ticks elapsed;
+  bool invulnerable{false};
+  int32_t height{0}; // World-integer down coordinate; airborne values are negative.
+};
+struct player_loss_effects {
+  bool first_loss{false};
+  bool explosion{false};
+  bool mayday{false};
+};
 struct progress_context {
   mission_tick mission_time;
   simulation::timer_ticks elapsed;
@@ -52,7 +64,7 @@ public:
   session_status status{session_status::normal};
   explicit progress(setup const &source);
   void reset();
-  bool observe_player_loss(bool fatal, bool collision, simulation::timer_ticks elapsed, bool invulnerable = false);
+  player_loss_effects observe_player_loss(player_loss_context const &context);
   loss_effects record_air_loss(bool enemy_pool, int16_t type, bool player_owned, bool authorised, math::random_state &random);
   loss_effects record_surface_loss(bool hostile, int16_t type);
   std::vector<progress_event> begin_frame(progress_context const &context);

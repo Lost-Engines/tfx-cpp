@@ -2098,3 +2098,25 @@ runs outside ptrace. All 105 asset-free regressions and the defensive-key/native
 population comparisons pass in development, Release and ASan/UBSan builds.
 These are composed controller/input checks, not a complete original combat
 mission or a claim that every remaining flight shortcut is integrated.
+
+
+### Airborne loss, mayday and first-impact samples
+
+The loss transition now returns named effects from an explicit input context,
+keeping first aircraft loss separate from first physical impact. An airborne
+fatal loss requests normal-priority explosion sample 12, followed in the same
+sample sequence by `mayday` (72) only when the world down coordinate is strictly
+less than -200. A subsequent first impact requests its own normal-priority
+explosion. Repeated loss/impact frames retain the original one-time behaviour,
+while the existing first-loss music cue 1 and model event 21 remain ordered ahead
+of these samples.
+
+The complete native loss comparison now observes the actual variadic audio
+callback, including priority, descriptor count and descriptor order; native
+`0xa4f2c` executes rather than being replaced. **4,096 states** agree across
+invulnerability, repeated loss/impact, exact -201/-200/-199 height boundaries,
+countdown expiry and signed-word wrapping. The existing asset-free loss fixture
+retains state and audio outputs together. This comparison and all **105
+asset-free regressions** pass in development, Release and ASan/UBSan. Crash
+model/palette classification, aftermath artwork and full loss-camera handoff
+remain separate integration work.

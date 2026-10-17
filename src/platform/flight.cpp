@@ -953,9 +953,21 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       auto const region{tfx::actors::nearby_surface_region(previous,player.integer_position)};
       for(auto const &actor : surface_actors) if(!(actor.state.pose.flags & std::to_underlying(tfx::actors::surface_flag::retired)) && region.contains(actor.state.pose.position)) collect(scene.collide_actor(actor.visual,previous,player.integer_position,0,response,damage_player,true));
     }
-    if(!ejected() && mission_progress.observe_player_loss(scene.actor_destroyed(player_visual),player.collision != 0,elapsed)) {
-      if(sound) sound->music_cue(audio::music_cue_id::aircraft_lost);
-      scene.actor_event(player_visual,21);
+    if(!ejected()) {
+      auto const loss{mission_progress.observe_player_loss({
+        .fatal{scene.actor_destroyed(player_visual)},
+        .collision{player.collision != 0},
+        .elapsed{elapsed},
+        .height{player.integer_position.y},
+      })};
+      if(loss.first_loss) {
+        if(sound) sound->music_cue(audio::music_cue_id::aircraft_lost);
+        scene.actor_event(player_visual,21);
+      }
+      if(loss.explosion && sound) {
+        if(loss.mayday) sound->sequence(audio::sample_priority::normal,{std::to_underlying(audio::sample_id::aircraft_explosion),std::to_underlying(audio::sample_id::mayday)});
+        else sample(audio::sample_priority::normal,audio::sample_id::aircraft_explosion);
+      }
     }
     projectiles.advance(elapsed,air_simulation.random_stream());
     if(scene.advance(elapsed).eject_player) ejection.request();
