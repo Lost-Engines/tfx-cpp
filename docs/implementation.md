@@ -2755,3 +2755,47 @@ Reproduce with `tools/check_horizon.py`, `tools/check_horizon_pixels.py`,
 `tools/check_player_flight.py --horizon --model-changes`. Complete world/MFD
 pixels, general model lighting/remaps, driver projection-mode configuration,
 precipitation and whole-session equivalence remain separate gates.
+
+
+### Original storm precipitation and startup random order
+
+The native 300-particle field (`0x78af8`) and frame painter (`0x78d8c`) now
+render in live flight. These are single palette-index pixels, with the original
+camera-biased wrapping volume, Q15 transforms, depth bias, signed projection
+and viewport clipping. Wind advects the retained offsets once per drawn frame;
+the vertical offset advances by 30. A zero particle count still advances the
+field. Pausing and excluded frames retain it. Mission initialization replaces
+the particles while preserving drift, as in the original.
+
+The main-frame gate (`0x722c2`) uses the precipitation preference, storm state,
+strict player/cloud-height comparison and view selection. Virtual cockpit and
+target tracking omit rain. The original signed-speed calculation supplies the
+particle count. Rain paints after the world queue and before HUD/cockpit
+artwork, including the current cockpit viewport.
+
+Startup now supplies weather and rain from the retained session random stream,
+then uses the last loaded terrain grid's reset stream for actors and gameplay.
+This preserves the original ordering: player/weather initialization, 1,800
+rain-field random draws, base grid, optional upper grid, actor setup. Each
+mission returns its gameplay stream for the next startup. Complete menu-to-flight
+and warm-session global equivalence remain separate verification boundaries.
+
+`check_precipitation.py` compares **2,048 complete original VGA frames** pixel
+for pixel, along with the full initialized particle field, random words and
+x87 drift. **8,192 original main-frame gate cases** cover height equality,
+view exclusions, signed speed/wrap and unordered floating inputs. The extended
+`check_weather_bindings.py --rain` compares **1,056 complete weather-to-rain
+initializations across all 33 authored environments**, including all ordered
+shared random draws. Numerical helpers and VGA writes execute unchanged;
+camera, viewport, wind and random seed are supplied inputs. Compact captures
+run without game assets. Real mission composition and private storm camera /
+pause checks additionally exercise the live delivery path.
+
+All **129 asset-free regressions** pass in development, Release and ASan/UBSan.
+The complete gate and 1,056 startup comparisons repeat in each configuration;
+Release and sanitizer builds additionally match 256 complete original rain
+frames each. All **128 retail missions** run 64 integrated steps, retaining only
+the two existing unavailable-vertex notes. Real rain/cockpit composition and
+private camera/pause checks pass in development and sanitizers. Reproduce the
+live composition check with `tools/check_precipitation_scene.py`; its temporary
+silent configurations never alter an original install.

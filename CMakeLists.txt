@@ -334,6 +334,8 @@ add_library(tfx_core
   src/render/clipping.h
   src/render/sprites.cpp
   src/render/sprites.h
+  src/render/precipitation.cpp
+  src/render/precipitation.h
   src/render/horizon.cpp src/render/horizon.h
   src/render/integer_polygon.cpp src/render/integer_polygon.h
   src/render/software_renderer.cpp
@@ -555,6 +557,11 @@ if(BUILD_TESTING)
   target_link_libraries(horizon_phase_probe PRIVATE tfx_core)
   configure_first_party(horizon_phase_probe)
   add_test(NAME render.native_horizon_phase COMMAND horizon_phase_probe ${PROJECT_SOURCE_DIR}/tests/reference/horizon_phase.txt)
+  add_executable(precipitation_probe tests/precipitation_probe.cpp)
+  target_link_libraries(precipitation_probe PRIVATE tfx_core)
+  configure_first_party(precipitation_probe)
+  add_test(NAME render.native_precipitation COMMAND precipitation_probe ${PROJECT_SOURCE_DIR}/tests/reference/precipitation.txt)
+  add_test(NAME render.native_precipitation_gate COMMAND precipitation_probe --gate ${PROJECT_SOURCE_DIR}/tests/reference/precipitation_gate.txt)
   add_executable(horizon_probe tests/horizon_probe.cpp)
   target_link_libraries(horizon_probe PRIVATE tfx_core)
   configure_first_party(horizon_probe)

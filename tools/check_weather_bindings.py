@@ -18,11 +18,12 @@ from native_x87 import hardware_fpatan, hardware_sine_cosine, hardware_tangent
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research', type=Path, default=Path('../tfx-reverse'))
 p.add_argument('--build', type=Path, default=Path('build'))
+p.add_argument('--rain',action='store_true',help='Continue native weather startup through shared-RNG rain field initialization')
 a = p.parse_args()
 profiles = [c['environment'] for c in json.loads((a.research / 'analysis/lighting/environments.json').read_text())['environments'] if c['status'] == 'decoded']
 rng = random.Random(0x95f3c)
 rows = [[name, enabled, rng.randrange(65536), rng.randrange(65536)] for name in profiles for enabled in (0, 1) for repeat in range(16)]
-output = subprocess.check_output([str((a.build / 'weather_probe').resolve()), str(a.research / 'installs/cd_1994_09/TFX')], input=('\n'.join(' '.join(map(str, row)) for row in rows) + '\n').encode()).decode().splitlines()
+output = subprocess.check_output([str((a.build / 'weather_probe').resolve()), str(a.research / 'installs/cd_1994_09/TFX')]+(['--rain'] if a.rain else []), input=('\n'.join(' '.join(map(str, row)) for row in rows) + '\n').encode()).decode().splitlines()
 assert len(output) == len(rows) + 1
 fields = [0x13b60,0x14288,0x13ba0,0x8e28,0x8e30,0x13b58,0x13b50,0x13bc8,0x13cc0,0x13b80,0x13cd0,0x13b70,0x13b48,0x13b30,0x13b38,0x8e38,0x13b90,0x13bc0,0x13b98]
 image = None
@@ -52,8 +53,16 @@ for index, (row, line) in enumerate(zip(rows, output[1:])):
     cloud = int(image.read(0xe762, '<H')[0] != 0)
     storm = int(image.read(0xe774, '<H')[0] & 128 != 0)
     flags_seen.add((cloud, storm))
-    expected = [cloud, storm, image.read(0x14240, '<Q')[0]] + [image.read(field, '<Q')[0] for field in fields] + list(image.read(0x133fc, '<3I')) + list(struct.unpack('<2H', image.cpu.mem_read(image.native(0xc9894), 4)))
+    rain = []
+    if a.rain:
+        image.call(0x78af8,limit=100000)
+        value=14695981039346656037
+        for byte in image.cpu.mem_read(image.data+0x1111c,1800):value=((value^byte)*1099511628211)&0xffffffffffffffff
+        rain=[value]
+    expected = [cloud, storm, image.read(0x14240, '<Q')[0]] + [image.read(field, '<Q')[0] for field in fields] + list(image.read(0x133fc, '<3I')) + rain + list(struct.unpack('<2H', image.cpu.mem_read(image.native(0xc9894), 4)))
     actual = list(map(int, line.split()))
     assert actual == expected, (index, row, [(i,x,y) for i,(x,y) in enumerate(zip(actual,expected)) if x != y])
 assert flags_seen == {(0,0), (1,0), (1,1)}, flags_seen
 print(f'{len(rows)} complete environment/atmosphere/wind initializations agree across all {len(profiles)} authored environments: native profile zero, temperature toggle/table, cloud/storm strength and ordered random state')
+
+if a.rain:print('The subsequent original 300-particle field and all 1,800 ordered shared random draws also agree in every case')

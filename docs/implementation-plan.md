@@ -169,3 +169,11 @@ frames have native comparisons. Moving ground phase and the actual camera draw
 eligibility/height handoffs are also connected and checked through complete
 camera/player controllers. Precipitation and general world raster/lighting
 remain next.
+
+
+Original storm rain now paints after the world and beneath the cockpit, with
+native pixel, field/RNG, wind-drift and complete main-frame gate comparisons.
+Weather-to-rain shared random ordering is checked across all 33 environments;
+mission startup now separates that retained stream from the later terrain
+reset. General world raster/lighting, visibility-conditioned animation and
+whole-session equivalence remain open.

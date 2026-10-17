@@ -136,7 +136,19 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::actors::program const actor_program{game.read("waybin/" + mission_setup.waypoints + ".way")};
   auto const initial_actors{tfx::actors::initialise(actor_program,profiles,tables.formations)};
   auto const manoeuvres{tfx::actors::load_manoeuvres(game)};
-  tfx::actors::air_runtime air_simulation{actor_program,initial_actors,profiles,tables.formations,tables.aircraft_envelopes,environment.variant_random_state(),manoeuvres};
+  tfx::actors::air_runtime air_simulation{actor_program,initial_actors,profiles,tables.formations,tables.aircraft_envelopes,upper_environment ? upper_environment->variant_random_state() : environment.variant_random_state(),manoeuvres};
+  // Native startup initializes weather and rain before grid loading resets
+  // the shared generator. Retain the live stream for the next mission's setup.
+  struct retained_random {
+    tfx::math::random_state &session;
+    tfx::math::random_state const &live;
+    bool active;
+    ~retained_random() { if(active) session = live; }
+  } const random_return{
+    .session{options.session_random},
+    .live{air_simulation.random_stream()},
+    .active{!inspect || flight_steps != 0},
+  };
   std::array<std::optional<tfx::world::scene_handle>,tfx::actors::aircraft_per_side * 2> air_visuals;
   struct surface_actor {
     tfx::actors::surface_state state;
@@ -904,7 +916,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .weather_wind_boost{environment.lighting.storm},
       },
       .surface_celsius{surface_celsius()},
-    },mission_setup.speed_factor,wind_parameters,player_damage,air_simulation.random_stream());
+    },mission_setup.speed_factor,wind_parameters,player_damage,options.session_random);
+    options.rain.initialise(options.session_random);
     player.crashing = preferences.effects.crashing != 0;
     view_motion.initialise_ground_reference(player.integer_position);
   }};
@@ -1629,6 +1642,25 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     queue_projectiles();
     scene.set_query_reference(inspect ? nullptr : &player.integer_position);
     scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y});
+    if(!inspect && !result_evaluated) {
+      if(auto const count{tfx::render::precipitation_count({
+        .enabled{preferences.effects.precipitation != 0},
+        .storm{environment.lighting.storm},
+        .layer_y{environment.lighting.layer_y},
+        .player_y{player.position.y},
+        .view{designator_view ? tfx::cockpit::view_mode::designator : views.value().current},
+        .speed{player.fixed_speed},
+      })}) {
+        auto const &projection{*impact_projection};
+        auto const &wind{physical_player.wind.velocity_ned};
+        options.rain.paint(renderer.output,{
+          .matrix{projection.matrix},
+          .camera{tfx::math::signed_word(static_cast<uint16_t>(projection.position_q16.x >> 16)),tfx::math::signed_word(static_cast<uint16_t>(projection.position_q16.y >> 16)),tfx::math::signed_word(static_cast<uint16_t>(projection.position_q16.z >> 16))},
+          .origin{vec2<int16_t>{projection.origin}},
+          .maximum{vec2<int16_t>{projection.maximum}},
+        },*count,{wind.y,wind.x});
+      }
+    }
     if(!inspect && result_evaluated) {
       // Diagnostic result display until the original presentation/menu graph supplies its result page.
       renderer.output.pixels.fill(0);
