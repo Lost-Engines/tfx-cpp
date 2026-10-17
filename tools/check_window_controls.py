@@ -11,6 +11,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 from PIL import Image
 
 parser=argparse.ArgumentParser(__doc__)
@@ -53,7 +54,8 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('import','-window',window,str(store_after),check=True)
             def store_readout(path):
                 with Image.open(path) as image:return image.convert('RGB').resize((320,200),Image.Resampling.NEAREST).crop((55,132,112,170)).tobytes()
-            if store_readout(store_before)==store_readout(store_after):raise RuntimeError('Enter/Space did not change the carried-weapon inventory readout')
+            # Original Arcade retains store quantities; F8 below proves a real release.
+            if store_readout(store_before)!=store_readout(store_after):raise RuntimeError('Arcade unexpectedly changed the carried-weapon inventory readout')
             # The latest player store supplies F8; a second press enters its nose camera.
             tap('F8');missile_path=directory/'missile.png';run('import','-window',window,str(missile_path),check=True)
             with Image.open(store_after) as a,Image.open(missile_path) as b:
@@ -84,10 +86,10 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
                 if before.tobytes()!=after.tobytes():raise RuntimeError('paused instrument frame kept advancing')
             tap('p')
             print('Private X11 MFD controls passed: all three displays cycle, scene pages render, radar range/target keys respond and pause freezes the frame')
-            tap('Shift_L+q');game.wait(timeout=10)
+            tap('Shift_L+q');confirm_flight_quit(environment,window);game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
-            print('Private X11 controls passed: a store fires; F8 follow/nose and F1 return work; cannon fires; Shift+Q exits cleanly')
+            print('Private X11 controls passed: a store fires; F8 follow/nose and F1 return work; cannon fires; Shift+Q and confirmation exit cleanly')
             game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','601','--control','keyboard','--flight-model','arcade','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
             deadline=time.monotonic()+10;window=None
             while time.monotonic()<deadline and game.poll() is None:
@@ -107,7 +109,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('import','-window',window,str(store_before),check=True);tap('space')
             run('import','-window',window,str(store_after),check=True)
             if store_readout(store_before)==store_readout(store_after):raise RuntimeError('designating/firing did not release a ground store')
-            tap('x');tap('F1');tap('Shift_L+q');game.wait(timeout=10)
+            tap('x');tap('F1');tap('Shift_L+q');confirm_flight_quit(environment,window);game.wait(timeout=10)
             if game.returncode:raise RuntimeError('ground-targeting input failed')
             print('Private X11 ground controls passed: select ground weapon, enter/zoom/aim/designate, release store, unlock and return to flight')
             game=subprocess.Popen([str(executable),'--data-dir',str(data),'--mission','605','--flight-steps','1024','--control','keyboard','--flight-model','arcade','--scale','2'],env=environment,stdout=log,stderr=subprocess.STDOUT)
@@ -125,7 +127,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-input-') as temporary:
             run('import','-window',window,str(result_b),check=True)
             with Image.open(result_a) as a,Image.open(result_b) as b:
                 if a.tobytes()!=b.tobytes():raise RuntimeError('mission result display kept changing after termination')
-            tap('Return');game.wait(timeout=10)
+            tap('Return');confirm_flight_quit(environment,window);game.wait(timeout=10)
             if game.returncode:raise RuntimeError('Enter did not close the result display cleanly')
             print('Private X11 mission results passed: live combat reaches FINISH; result display is stable; Enter closes')
     finally:

@@ -12,6 +12,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--data-dir',type=Path,required=True);p.add_argument('--mission',default='501');a=p.parse_args()
 source=Path('src/models/shape.cpp').resolve();line=next(i for i,text in enumerate(source.read_text().splitlines(),1) if 'self(self, child, child.levels.at(0)' in text)
 with tempfile.TemporaryDirectory(prefix='tfx-carried-window-') as temporary:
@@ -53,7 +54,7 @@ run
     if 'TFX_CARRIED_MODEL_DRAW' in log.read_text():break
     time.sleep(.05)
    else:raise RuntimeError('chase view did not execute carried-weapon geometry:\n'+log.read_text()[-6000:])
-   run('xdotool','keydown','Shift_L+q');time.sleep(.15);run('xdotool','keyup','Shift_L+q');game.wait(timeout=15)
+   run('xdotool','keydown','Shift_L+q');time.sleep(.15);run('xdotool','keyup','Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=15)
    text=log.read_text();assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
    print('Private X11 carried-weapon integration passed: normal retail loadout, F5 chase camera, live attachment geometry and clean exit; no world-state mutation')
  finally:

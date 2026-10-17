@@ -49,6 +49,7 @@ configuration_menu::configuration_menu(configuration::settings &preferences, con
   rebuild();
 }
 configuration_page configuration_menu::page() const { return current; }
+void configuration_menu::request_quit() { current = configuration_page::confirm_quit;rebuild(); }
 std::span<configuration_button const> configuration_menu::widgets() const { return buttons; }
 void configuration_menu::rebuild() {
   buttons.clear();

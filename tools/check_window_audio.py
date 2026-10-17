@@ -14,6 +14,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -69,7 +70,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
    tap('grave');click(128,124);click(152,172);time.sleep(.4)
    start=pcm.stat().st_size;tap('g');time.sleep(2.8)
    resumed=samples(start);assert max(map(abs,resumed))>.1,'sound-on did not restore playback'
-   tap('Shift_L+q');game.wait(timeout=10)
+   tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
    assert game.returncode==0 and 'ERROR:' not in log.read_text(),log.read_text()
    assert b'SOUNDFX=1\r\nMUSIC=1' in (install/'TFX.CFG').read_bytes()
    print('Private Pulse/X11 audio passed: live gear requests, continuous stereo output, sound off/on, original config retained and clean device shutdown')

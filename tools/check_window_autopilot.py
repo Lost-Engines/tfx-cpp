@@ -12,6 +12,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -73,7 +74,7 @@ for override in (False,True):
      run('xdotool','mousemove_relative','--','-120','-60')
     tap('l');await_text('TFX_WINDOW_REPLAY')
     tap('i');tap('Alt_L+l');await_text('TFX_WINDOW_LANDING')
-    tap('Shift_L+q');game.wait(timeout=10)
+    tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
     assert game.returncode==0 and 'exited normally' in output() and 'Program received signal' not in output(),output()[-5000:]
     print(f'Private X11 {"CLI override/mouse" if override else "configuration/keyboard"} passed: selected model/source, heading hold, A on/off, plain L replay, I then Alt+L reaches scripted landing, clean quit')
   finally:

@@ -11,6 +11,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--data-dir',type=Path,required=True);p.add_argument('--mission',default='501');a=p.parse_args()
 source=Path('src/render/integer_polygon.cpp').resolve();line=next(i for i,text in enumerate(source.read_text().splitlines(),1) if 'uint8_t const ink{remap[index < texture.size()' in text)
 with tempfile.TemporaryDirectory(prefix='tfx-texture-window-') as temporary:
@@ -52,7 +53,7 @@ run
     if 'TFX_NATIVE_TEXTURE_DRAW 49152' in log.read_text():break
     time.sleep(.05)
    else:raise RuntimeError('canopy view did not execute native texture drawing:\n'+log.read_text()[-6000:])
-   run('xdotool','keydown','Shift_L+q');time.sleep(.15);run('xdotool','keyup','Shift_L+q');game.wait(timeout=15)
+   run('xdotool','keydown','Shift_L+q');time.sleep(.15);run('xdotool','keyup','Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=15)
    text=log.read_text();assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
    print('Private X11 native texture integration passed: original retail atlases, F10 canopy view, live integer texture drawing and clean exit; no world-state mutation')
  finally:

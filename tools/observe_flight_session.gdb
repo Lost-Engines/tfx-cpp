@@ -133,6 +133,9 @@ class FrameReturn(gdb.FinishBreakpoint):
   print('CPP_SENSORS '+json.dumps(values))
 
   import struct
+  physical=player['physical']
+  gains=physical['input_gains']
+  print('CPP_CONTROL_CONFIGURATION '+json.dumps([int(physical['autopilot']['recovery']['configuration']),*[struct.unpack('<Q',struct.pack('<d',float(gains[field])))[0]for field in ('joystick','pitch','roll','rudder')]]))
   armament=gdb.parse_and_eval('$armament').dereference()
   values=[int(armament[name]) for name in ('selected','guns','last_released','cannon_role')]
   values += [int(armament['pylons']['_M_elems'][i][name])for i in range(11)for name in ('weapon','count')]
@@ -159,6 +162,7 @@ class FrameReturn(gdb.FinishBreakpoint):
    player_model_key=key
   model=player_model_pointer.dereference()
   parts=model['state']['parts'];begin=parts['_M_impl']['_M_start'];end=parts['_M_impl']['_M_finish']
+  print('CPP_PLAYER_MODELS '+json.dumps([int(begin[i]['model_index'])for i in range(int(end-begin))]))
   print('CPP_PLAYER_PARTS '+json.dumps([[int(begin[i]['parameters']['_M_elems'][p])for p in range(8)]for i in range(int(end-begin))]))
   scene=gdb.parse_and_eval('$scene').dereference()
   printer=gdb.default_visualizer(scene['warnings'])

@@ -11,6 +11,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -66,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-defence-') as temporary:
    tap('Delete');await_text('FLARE_RELEASE');await_text('FLARE_HUD')
    tap('e');await_text('ECM_HUD');await_text('ECM_MOTION')
    tap('s');await_text('STEALTH_HUD')
-   tap('Shift_L+q');game.wait(timeout=15)
+   tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=15)
    text=log.read_text()
    assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
    print('Private silent X11 defensive controls pass: real Insert/Delete produce player-owned decoys and changing HUD counts; E updates HUD and motion ECM context; S restores stealth and the sensor gate; clean exit')

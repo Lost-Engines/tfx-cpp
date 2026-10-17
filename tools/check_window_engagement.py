@@ -11,6 +11,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -54,7 +55,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-engagement-') as temporary:
    if not window:raise RuntimeError(log.read_text()[-6000:])
    run('xdotool','windowfocus','--sync',window)
    for label in ('TRACKING','PERMISSION_LAMP','PROJECTILE_LAMP'):await_text(label)
-   run('xdotool','keydown','Shift_L+q');time.sleep(.15);run('xdotool','keyup','Shift_L+q');game.wait(timeout=15)
+   run('xdotool','keydown','Shift_L+q');time.sleep(.15);run('xdotool','keyup','Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=15)
    text=log.read_text();assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
    print('Private silent live engagement passes: natural enemy tracking reaches permission state and cockpit notice, incoming player-targeted projectile reaches launch/guidance lamps, clean exit without scenario mutation')
  finally:

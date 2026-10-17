@@ -7,6 +7,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 from PIL import Image
 
 parser=argparse.ArgumentParser(description=__doc__)
@@ -56,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-views-') as temporary:
                 tap('F1',3)
             tap('F10',2);tap('p',.2);before=image('12-paused');time.sleep(.3);after=image('13-paused')
             if before.tobytes()!=after.tobytes():raise RuntimeError('paused camera continued moving')
-            tap('p');tap('F1',3);tap('Shift_L+q');game.wait(timeout=10)
+            tap('p');tap('F1',3);tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
             if game.returncode:
                 log.seek(0);raise RuntimeError(log.read()[-4000:])
             print('Private X11 camera controls passed: chase, full forward, head turns, rear, tactical, target, virtual cockpit, offset restoration and paused-frame retention')

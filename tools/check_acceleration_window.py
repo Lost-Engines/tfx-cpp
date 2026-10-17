@@ -12,6 +12,7 @@ import struct
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--data-dir',type=Path,default=Path('../tfx-reverse/installs/cd_1994_09/TFX'))
@@ -84,7 +85,7 @@ run
      checked+=1
     host('xdotool','keydown','Shift_L');host('xdotool','keydown','q');time.sleep(.15)
     host('xdotool','keyup','q');host('xdotool','keyup','Shift_L')
-    game.wait(timeout=15)
+    confirm_flight_quit(env,window);game.wait(timeout=15)
     if game.returncode:
      log.seek(0);raise RuntimeError('flight failed:\n'+log.read()[-4000:])
   print(f'Private X11 accelerated-time checks passed: {a.flight_model}, airborne/runway starts, T toggle, steering suspension/resumption and {checked} live timer/physics samples')

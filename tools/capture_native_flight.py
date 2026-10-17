@@ -88,7 +88,7 @@ def string(address):
  if not address:return '<null>'
  return bytes(im.cpu.mem_read(address,256)).split(bytes(1))[0].decode('cp437')
 def read(name):
- name=name.replace('\\','/').lstrip('/').lower()
+ name=name.replace('\\','/').lstrip('/').lower().removeprefix('tfx/')
  if name=='tfx.cfg':
   model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[args.flight_model]
   return f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX=0\r\nMUSIC=0\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode()
@@ -118,7 +118,9 @@ def join(current):
 im.intercept(0x7b494,'Supply the DOS pathname join for archive resources.',join)
 im.intercept(0xc72c0,'Supply an available neutral virtual DOS mouse, required even for keyboard sessions.',lambda current:(current.cpu.reg_write(r.UC_X86_REG_EAX,1),current.return_from()))
 im.intercept(0x744e4,'Supply no DOS mouse driver for the explicit keyboard session.',lambda current:(current.cpu.reg_write(r.UC_X86_REG_EAX,0),current.return_from()))
-im.intercept(0xc71b4,'Supply an empty resource root.',lambda current:(current.cpu.mem_write(current.cpu.reg_read(r.UC_X86_REG_EAX),bytes(1)),current.return_from()))
+# A nonempty DID root also enables the original loader's SPR subdirectory.
+# The hosted filesystem strips this explicit virtual root before archive lookup.
+im.intercept(0xc71b4,'Supply the explicit virtual DOS resource root TFX.',lambda current:(current.cpu.mem_write(current.cpu.reg_read(r.UC_X86_REG_EAX),b'TFX\0'),current.return_from()))
 im.intercept(0xc92f7,'Supply a fixed startup calendar.',lambda current:(current.cpu.mem_write(current.cpu.reg_read(r.UC_X86_REG_EAX),bytes(16)),current.return_from()))
 def fatal(current):
  stack=current.cpu.reg_read(r.UC_X86_REG_ESP);pointer=struct.unpack('<I',current.cpu.mem_read(stack+4,4))[0];raise RuntimeError('native fatal '+string(pointer))
@@ -181,6 +183,8 @@ for index,variable in enumerate(program['variables']):
  im.write(0x1a400+index*4,'<I',value)
 im.cpu.mem_write(0x400000,b'tfx\0');im.cpu.mem_write(0x400100,str(args.mission).encode()+bytes(1));im.cpu.mem_write(0x400200,struct.pack('<2I',0x400000,0x400100));im.write(0x1b238,'<I',0x400300);im.write(0x1b23c,'<I',0x400400)
 def begin(current):
+ for page in range(1,5):
+  assert ('read',f'TFX\\SPR\\global_{page}.TM',49152) in loads,('global texture page was not loaded',page)
  entered[0]=True;mouse_buttons[0]=0
 im.intercept(0x72018,'Observe native flight entry and end the explicitly supplied arming input; the original session body executes.',begin)
 def actors_snapshot(current):
@@ -229,14 +233,19 @@ def projectile_snapshot(current):
   pointer=struct.unpack_from('<I',body,52)[0]
  return sorted(result)
 
-def player_parts_snapshot(current):
+bound_models={}
+def observe_model_bind(cpu,address,size,unused):
+ bound_models[cpu.reg_read(r.UC_X86_REG_EAX)]=cpu.reg_read(r.UC_X86_REG_EDX)&65535
+im.cpu.hook_add(UC_HOOK_CODE,observe_model_bind,begin=im.native(0xb4d3c),end=im.native(0xb4d3c))
+
+def player_parts_snapshot(current,bindings=False):
  handle=current.read(0xe76c,'<H')[0]
  table=current.read(0x21800,'<I')[0]
  instance=struct.unpack('<I',current.cpu.mem_read(table+(handle-1)*4,4))[0]
  definition=struct.unpack('<H',current.cpu.mem_read(instance,2))[0]&511
  source=current.read(0x1b250+definition*4,'<I')[0]
  count=current.cpu.mem_read(source+1,1)[0]
- return [list(current.cpu.mem_read(instance+16+29*part,8))for part in range(count)]
+ return [bound_models.get(instance+16+29*part+9,65535)if bindings else list(current.cpu.mem_read(instance+16+29*part,8))for part in range(count)]
 
 def frame_boundary(current):
  snapshots.append({
@@ -256,7 +265,9 @@ def frame_boundary(current):
   'ground_phase':current.read(0xad7c,'<i')[0],
   'body_basis':current.read(0x1345e,'<9h'),
   'player_parts':player_parts_snapshot(current),
+  'player_models':player_parts_snapshot(current,True),
   'launch_notice':current.read(0x6c41,'<B')[0],
+  'control_configuration':[current.read(0x14962,'<H')[0],*[current.read(field,'<Q')[0]for field in (0x14360,0x148b8,0x148b0,0x148a8)]],
   'sensors':sensor_snapshot(current),
   'projectiles':projectile_snapshot(current),
   'armament':[current.read(0x93b0,'<h')[0],int(not current.read(0x7140,'<B')[0]),current.read(0x16e98,'<h')[0],current.read(0x809c+20,'<B')[0],*[v for slot in range(11)for v in current.read(0x13374+slot*2,'<2B')],current.read(0x14858,'<Q')[0]],
@@ -343,7 +354,7 @@ record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
  'inputs':inputs.rows(args.frames),
  'preflight_projection':preflight_projection,
- 'trail_events':trail_events,'mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
+ 'trail_events':trail_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':4,'snapshots':snapshots,'horizons':horizons,'terrain_passes':terrain_passes,
  'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
  'dependencies':{hex(address):reason for address,reason in im.dependencies.items()},
  'host_services':['DPMI exception-vector transport','VGA planar memory and ports','fixed startup calendar','zeroed DOS low page for unused cleared-shot owner','inherited presentation declarations'],

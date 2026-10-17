@@ -12,6 +12,7 @@ import select
 import subprocess
 import tempfile
 import time
+from window_input import confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -66,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-designator-') as temporary:
    # Returning to F1 restores actual cockpit pixels below the world viewport.
    assert len(image.crop((35,175,285,199)).getcolors(maxcolors=64000))>8,'cockpit did not return after leaving designator'
    tap('p');tap('z');tap('Escape');tap('Escape');await_text('EJECTION_CAMERA')
-   tap('Shift_L+q');game.wait(timeout=15)
+   tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=15)
    text=log.read_text();assert game.returncode==0 and 'exited normally' in text and 'ERROR:' not in text and 'Sanitizer' not in text,text[-6000:]
    print('Private silent live designator passes: normal weapon selection and keys reach native search/zoom camera, authored search/tracking overlays, unlock, cockpit return, pause, ejection from designator and clean exit; no scenario state was injected')
  finally:

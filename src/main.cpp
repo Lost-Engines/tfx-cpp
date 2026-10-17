@@ -75,7 +75,8 @@ auto main(int const argc, char const *const argv[])->int try {
                    "E/S toggle ECM/stealth on F-117/F-22; Insert releases chaff; Delete releases a flare.\n"
                    "Enter selects air-to-air weapons; Backspace/O air-to-ground; F selects cannon/navigation.\n"
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
-                   "X clears targets; F1 returns to flight view; Space fires; Alt+J jettisons ground stores/tanks; T toggles accelerated time; P pauses; backtick opens configuration; double Escape ejects; Shift+Q quits.\n"
+                   "X clears targets; F1 returns to flight view; Space fires; Alt+J jettisons ground stores/tanks; T toggles accelerated time; P pauses; backtick opens configuration; double Escape ejects; Shift+Q opens quit/enrol confirmation.\n"
+                   "D toggles external flight information; Shift+D restores default stores and countermeasures.\n"
                    "1/2/3 cycle the MFDs; R changes radar range; N selects the ground-target preview.\n"
                    "Shift+N toggles infrared night vision; Y/U adjust HUD brightness; apostrophe opens/closes the refuelling hookup.\n"
                    "I or backslash toggles ILS; Alt+L requests automatic landing.\n"
@@ -232,6 +233,7 @@ auto main(int const argc, char const *const argv[])->int try {
   tfx::math::random_state session_random;
   int16_t nearby_hostile_count{0};
   int16_t last_released_mount{0};
+  bool flight_information{true};
   tfx::platform::flight_options const flight{
     .mission{mission_name},
     .data_directory{archive_path.parent_path()},
@@ -255,6 +257,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .ground_reference{ground_reference},
     .nearby_hostile_count{nearby_hostile_count},
     .last_released_mount{last_released_mount},
+    .flight_information{flight_information},
     .rain{rain},
     .session_random{session_random},
     .sound{sound.get()},
