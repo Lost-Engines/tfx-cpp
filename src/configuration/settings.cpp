@@ -9,7 +9,6 @@
 namespace tfx::configuration {
 namespace {
 
-unsigned int constexpr configuration_buffer_size{1024};
 
 bool space(char const value) { return value == ' ' || value == '\t' || value == '\r' || value == '\n' || value == '\v' || value == '\f'; }
 std::string_view skip_space(std::string_view value) {
