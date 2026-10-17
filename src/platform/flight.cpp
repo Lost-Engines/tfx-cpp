@@ -36,6 +36,7 @@
 #include "flight/defence.h"
 #include "missions/engagement.h"
 #include "world/impact.h"
+#include "world/effects.h"
 #include "flight/ejection_sequence.h"
 #include "flight/simple.h"
 #include "flight/fuel_gauge.h"
@@ -115,6 +116,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   int16_t hud_green{tfx::math::signed_word(preferences.hud_green)};
   tfx::world::assets assets{game};
   tfx::world::scene scene{environment,assets};
+  tfx::render::software_renderer renderer{tables}, camera_renderer{tables};
   tfx::missions::timeline mission_time{mission_setup};
   tfx::missions::progress mission_progress{mission_setup};
   tfx::missions::finish_program const mission_finish{selected.script};
@@ -247,7 +249,37 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     .contact{scene.create_actor("kapow",{0,0,0},{0,0,0})},
   };
   for(auto const handle : {crashes.land,crashes.water,crashes.contact}) scene.show_actor(handle,false);
+  tfx::world::effect_pool effects;
+  std::array<std::array<tfx::world::scene_handle,tfx::world::effect_kind_count>,tfx::world::effect_capacity> effect_visuals;
+  for(auto &slot : effect_visuals) for(unsigned int kind{0}; kind != slot.size(); ++kind) {
+    slot[kind] = scene.create_actor(std::string{tfx::world::effect_definitions[kind]},{0,0,0},{0,0,0});
+    scene.show_actor(slot[kind],false);
+  }
+  auto const spawn_effect{[&](vec3<int32_t> const &position, tfx::world::effect_kind const kind) {
+    if(kind == tfx::world::effect_kind::cannon_hit) sample(audio::sample_priority::normal,audio::sample_id::cannon_hit);
+    auto const slot{effects.spawn(position,kind)};
+    scene.actor_event(effect_visuals[slot][std::to_underlying(kind)],0);
+  }};
+  auto const queue_effects{[&](tfx::render::camera const &camera) {
+    vec3<int32_t> const reference{
+      static_cast<int32_t>(std::floor(camera.position.x)),
+      static_cast<int32_t>(std::floor(camera.position.y)),
+      static_cast<int32_t>(std::floor(camera.position.z)),
+    };
+    for(auto const slot : effects.active_slots()) {
+      auto const &effect{effects.record(slot)};
+      scene.queue_actor(effect_visuals[slot][std::to_underlying(effect.kind)],vec3d{tfx::world::effect_position(effect,reference)},{0,0,0});
+    }
+  }};
   std::optional<tfx::render::point_projection> impact_projection;
+  auto const impact_surface{[&](vec3<int32_t> const &position) {
+    auto const point{impact_projection ? impact_projection->integer(position) : std::nullopt};
+    return tfx::world::classify_impact(renderer.output,point,environment.lighting.water_world);
+  }};
+  air_world.impact_effect = [&](vec3<int32_t> const &position) -> unsigned int {
+    bool const water{scene.terrain_type(position) == 1 || impact_surface(position) == tfx::world::impact_surface::water};
+    return std::to_underlying(water ? tfx::world::effect_kind::splash : tfx::world::effect_kind::crash);
+  };
   auto player_visual{aircraft_visual};
   scene.show_actor(aircraft_visual,false);
   scene.show_actor(pilot_visual,false);
@@ -456,6 +488,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           }
           if(effects.notice == tfx::missions::terrain_loss_notice::training_warning) radio.show(tables.ground_training_warning);
           else if(effects.notice == tfx::missions::terrain_loss_notice::violation) radio.show(tables.ground_orders_violation,true);
+          if(shot.state.weapon == std::to_underlying(tfx::weapons::weapon_id::cbu55)) spawn_effect({current.x,0,current.z},tfx::world::effect_kind::boom);
         }
       }
       if(scene.actor_destroyed(source)) {
@@ -499,6 +532,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           if(auto const request{std::get_if<tfx::missions::engagement_sample>(&event)}) sample(request->urgent ? audio::sample_priority::urgent : audio::sample_priority::normal,request->sample);
           else radio.show(tables.fire_permission_message);
         }
+      } else if constexpr(std::is_same_v<data_type,tfx::actors::air_impact>) {
+        spawn_effect(data.position,static_cast<tfx::world::effect_kind>(data.kind));
       } else if constexpr(std::is_same_v<data_type,tfx::actors::air_radio>) {
         radio.show(data.text);
       }
@@ -558,7 +593,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       scene.show_actor(actor.visual,(actor.state.pose.flags & std::to_underlying(tfx::actors::surface_flag::retired)) == 0);
     }
   }};
-  tfx::render::software_renderer renderer{tables}, camera_renderer{tables};
   tfx::cockpit::hud instruments{tables.instruments(),game,tables.weapons,environment.lighting.schematic_name};
   tfx::cockpit::scene_displays scene_displays{tables.instruments()};
   tfx::cockpit::frame cockpit_frame{tables.instruments(),game};
@@ -726,6 +760,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     mouse_control = {};
     mission_time.reset();
     mission_progress.reset();
+    effects.reset();
     engagement = {};
     launch_warning = nullptr;
     result_evaluated = false;
@@ -1012,6 +1047,13 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       // Native 0x7c724 queries nearby mobile assemblies after the terrain, including carrier decks.
       auto const region{tfx::actors::nearby_surface_region(previous,player.integer_position)};
       for(auto const &actor : surface_actors) if(!(actor.state.pose.flags & std::to_underlying(tfx::actors::surface_flag::retired)) && region.contains(actor.state.pose.position)) collect(scene.collide_actor(actor.visual,previous,player.integer_position,contact_damage,response,damage_player,true));
+      // Native 0x7b094 follows terrain/mobile contacts, oldest transient first.
+      for(auto const slot : effects.active_slots()) {
+        auto const &effect{effects.record(slot)};
+        auto const visual{effect_visuals[slot][std::to_underlying(effect.kind)]};
+        scene.place_actor(visual,vec3d{tfx::world::effect_position(effect,player.integer_position)},{0,0,0});
+        collect(scene.collide_actor(visual,previous,player.integer_position,contact_damage,response,damage_player,true));
+      }
       auto const contact{tfx::world::resolve_player_contact({
         .previously_destroyed{previously_destroyed},
         .destroyed{scene.actor_destroyed(player_visual)},
@@ -1255,6 +1297,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         camera.far_distance = scene_radius * tfx::world::cell_units;
         camera_renderer.background(camera,0,32);
         queue_projectiles();
+        queue_effects(camera);
         scene.draw(camera_renderer,camera,scene_radius);
         // The current world painter renders a whole software target; copy its viewport
         // into the instrument target. The original world raster's clipping is separate work.
@@ -1439,6 +1482,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     view.far_distance = scene_radius * tfx::world::cell_units;
     renderer.background(view,0,32);
     queue_projectiles();
+    queue_effects(view);
     scene.draw(renderer,view,scene_radius);
     if(!inspect && result_evaluated) {
       // Diagnostic result display until the original presentation/menu graph supplies its result page.
