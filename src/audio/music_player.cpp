@@ -9,7 +9,7 @@ music_player::music_player(resources::archive const &game, std::span<uint8_t con
     music_player{game,launcher,make_la_music_device(launcher,std::make_unique<la_synth>(directory,output_rate)),output_rate,enabled} {}
 music_player::music_player(resources::archive const &game, std::span<uint8_t const> const launcher,
     std::unique_ptr<music_device> device, unsigned int const output_rate, bool const enabled) :
-    game{game}, catalogue{launcher}, device{std::move(device)}, clock{output_rate}, enabled{enabled} {
+    game{game}, catalogue{launcher}, device{std::move(device)}, clock{output_rate}, enabled{enabled}, ticks_enabled{enabled} {
   if(!this->device) throw std::invalid_argument{"music player requires a device"};
   sequencer.register_device(this->device->driver());
   this->device->driver().initialise();
@@ -18,30 +18,99 @@ music_player::music_player(resources::archive const &game, std::span<uint8_t con
   std::vector<float> settling(this->device->reset_settling_frames(output_rate) * 2u);
   this->device->render(settling);
 }
-void music_player::stop_locked() {
+void music_player::stop_playing_locked() {
   if(playing) { sequencer.stop(*playing);playing.reset(); }
+}
+void music_player::stop_locked() {
+  stop_playing_locked();
   if(resource) { sequencer.release(*resource);resource.reset(); }
 }
-void music_player::select(int16_t const requested) {
-  std::lock_guard lock{mutex};
-  uint8_t index{static_cast<uint8_t>(requested)};
-  if(!preselected && index >= 10) { preselected = index;return; }
-  if(preselected) { index = *preselected;preselected.reset(); }
+void music_player::replace_locked(uint8_t const index) {
   stop_locked();
   auto const files{catalogue.files(device->driver().device_type())};
-  if(index >= files.size()) throw std::runtime_error{"native music index exceeds its filename list"};
-  // The original loader returns an unavailable resource when a named file is
-  // absent (including the retail FM antiarm entry); gameplay continues.
-  if(!game.contains(files[index])) return;
-  resource = sequencer.load(game.read(files[index]));
-  if(enabled) playing = sequencer.play(*resource);
+  if(index >= files.size()) return; // Native missing filename/resource result.
+  if(game.contains(files[index])) resource = sequencer.load(game.read(files[index]));
 }
-void music_player::stop() { std::lock_guard lock{mutex};stop_locked(); }
+void music_player::configure(music_mode const mode, uint8_t const sound_device, lapc_order_profiles const &orders) {
+  std::lock_guard lock{mutex};
+  profiles = orders;
+  context.mode = mode;context.sound_device = sound_device;
+  context.enabled = context.music_playing = enabled;
+  context.lapc_orders = profiles[profile];
+}
+void music_player::context_locked(flight_audio_state const &state) {
+  context.throttle = state.throttle;context.engines_running = state.engines_running;
+  context.inhibited = state.inhibited;context.collision = state.collision;context.aircraft_disabled = state.aircraft_disabled;
+  context.preselected = preselected.has_value();context.enabled = enabled;
+}
+void music_player::apply_locked(music_selection const &selection) {
+  if(selection.replace_resource) replace_locked(selection.resource_index);
+  else if(selection.stop_previous) stop_playing_locked();
+  if(resource) playing = sequencer.play(*resource,0,selection.order);
+}
+void music_player::cue_locked(uint8_t const value) {
+  if(auto const selection{select_flight_music(control,context,value)}) apply_locked(*selection);
+}
+void music_player::begin_flight(flight_audio_state const &state) {
+  std::lock_guard lock{mutex};
+  flight_active = true;
+  context_locked(state);
+  auto const selected{preselected.value_or(10)};
+  preselected.reset();context.preselected = false;
+  if(!enabled) return;
+  replace_locked(selected);control.last_cue = 0;
+  cue_locked(0);
+}
+void music_player::end_flight() { std::lock_guard lock{mutex};stop_locked();flight_active = false; }
+void music_player::update_flight(flight_audio_state const &state) {
+  std::lock_guard lock{mutex};
+  if(!flight_active) return;
+  context_locked(state);
+  bool const active{playing && (sequencer.state(*playing).flags & 1)};
+  auto const update{update_flight_music(control,context,active)};
+  if(update.stop_and_release) stop_locked();
+  if(update.selection) apply_locked(*update.selection);
+}
+void music_player::cue(uint8_t const value) { std::lock_guard lock{mutex};if(flight_active) cue_locked(value); }
+void music_player::select(int16_t const requested) {
+  std::lock_guard lock{mutex};
+  flight_active = false;
+  uint8_t index{static_cast<uint8_t>(requested)};
+  if(!preselected && index >= 10) {
+    preselected = index;
+    if(index < 16) {
+      std::array<unsigned int,6> constexpr theme_profiles{0,1,2,2,4,5};
+      profile = theme_profiles[index - 10];context.lapc_orders = profiles[profile];
+    }
+    return;
+  }
+  if(preselected) { index = *preselected;preselected.reset(); }
+  replace_locked(index);control.last_cue = 0;control.resume_cue = 0;
+  if(enabled && resource) playing = sequencer.play(*resource);
+}
+void music_player::stop() { std::lock_guard lock{mutex};stop_locked();flight_active = false; }
 void music_player::enable(bool const value) {
   std::lock_guard lock{mutex};
   if(enabled == value) return;
-  enabled = value;
-  if(playing) sequencer.volume(*playing,enabled ? 75 : 0);
+  enabled = context.enabled = value;
+  if(!flight_active) {
+    ticks_enabled = value;
+    if(playing) sequencer.volume(*playing,value ? 75 : 0);
+    return;
+  }
+  context.music_playing = value;control.previous_throttle = -1;
+  bool const sampled_sb{context.sound_device == 1 || context.sound_device == 3 || context.sound_device == 4};
+  if(value) {
+    ticks_enabled = true;
+    if(playing) sequencer.volume(*playing,127);
+    stop_playing_locked();
+    if(control.last_cue == 12) control.last_cue = 2;
+    control.engine_playing = false;
+    cue_locked(control.last_cue);
+  } else {
+    if(!sampled_sb) { ticks_enabled = false;if(playing) sequencer.volume(*playing,0); }
+    stop_playing_locked();
+  }
 }
 bool music_player::is_enabled() const { std::lock_guard lock{mutex};return enabled; }
 void music_player::render(std::span<float> const stereo) {
@@ -49,7 +118,7 @@ void music_player::render(std::span<float> const stereo) {
   std::lock_guard lock{mutex};
   unsigned int frames{0};
   while(frames != stereo.size() / 2) {
-    while(clock.due()) { clock.consume();if(enabled) sequencer.tick(); }
+    while(clock.due()) { clock.consume();if(ticks_enabled) sequencer.tick(); }
     auto const count{static_cast<unsigned int>(std::min<size_t>(clock.until_tick(),stereo.size() / 2 - frames))};
     device->render(stereo.subspan(frames * 2,count * 2));
     clock.advance(count);

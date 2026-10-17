@@ -32,6 +32,7 @@ executable_tables::executable_tables(std::filesystem::path const &path) {
   auto const limit{view.le16(circle_limit_field)};
   circles.resize(limit);
   unsigned int constexpr data_file{973476}, mapping{data_file + 0x7a44}, advances{data_file + 0x7a84}, glyph_file{0xf5350};
+  for(unsigned int profile{0}; profile != music_orders.size(); ++profile) std::ranges::copy(view.slice(data_file + 0xa38c + profile * 12,12),music_orders[profile].begin());
   std::ranges::copy(view.slice(data_file + 0xd55c,text_palette.size()),text_palette.begin());
   // Native 0x73f5c/0x73964: magenta means leave that palette entry untouched.
   for(unsigned int colour{0}; colour != 256; ++colour) {

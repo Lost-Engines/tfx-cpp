@@ -5,6 +5,7 @@
 #include "audio/music_device.h"
 #include "audio/music_catalogue.h"
 #include "audio/music_clock.h"
+#include "audio/music_control.h"
 #include "audio/osl_sequencer.h"
 #include "resources/archive.h"
 
@@ -22,13 +23,29 @@ private:
   std::optional<osl_playing_id> playing;
   std::optional<uint8_t> preselected;
   bool enabled;
+  bool ticks_enabled;
+  bool flight_active{false};
+  unsigned int profile{0};
+  lapc_order_profiles profiles{};
+  music_control_state control;
+  music_control_context context;
+  void stop_playing_locked();
   void stop_locked();
+  void replace_locked(uint8_t index);
+  void apply_locked(music_selection const &selection);
+  void cue_locked(uint8_t cue);
+  void context_locked(flight_audio_state const &state);
 
 public:
   music_player(resources::archive const &game, std::span<uint8_t const> launcher,
     std::unique_ptr<music_device> device, unsigned int output_rate, bool enabled = true);
   music_player(resources::archive const &game, std::span<uint8_t const> launcher,
     std::filesystem::path const &rom_directory, unsigned int output_rate, bool enabled = true);
+  void configure(music_mode mode, uint8_t sound_device, lapc_order_profiles const &orders);
+  void begin_flight(flight_audio_state const &state);
+  void end_flight();
+  void update_flight(flight_audio_state const &state);
+  void cue(uint8_t cue);
   void select(int16_t index);
   void stop();
   void enable(bool enabled);

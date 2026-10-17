@@ -1946,3 +1946,54 @@ menu stop/restart behavior and whole-session output remain integration work.
 C++ module scanning is explicitly disabled for this non-module project and its
 isolated hardware backends. Scanning generated DBOPL sources was unnecessary and
 triggered a Ninja dynamic-dependency assertion during target regeneration.
+
+
+### Live flight music lifecycle
+
+Mission entry now consumes the original retained theme selection (or defaults
+to bank 10), preserving LA's authored profile selection, including the shared
+profile for theme indices 12/13. The initial cue, per-frame sequencer queries,
+temporary-cue return, throttle-driven engine bank and resource replacement run
+through the verified controllers. Synthesiser/timer state survives song changes.
+Presentation return stops/releases the mission resource before the parser resumes.
+
+The in-flight music switch follows the original stop/restart behavior. Engine
+playback can continue with music off on the ordinary SB path. Re-enabling sends
+the native volume-127 restoration, stops the current sequence and reselects the
+proper arrangement at game volume 75. Its timer gate remains distinct from music
+enablement. The explicit FM option selects native MUSIC mode 3, avoiding the
+hybrid SB/CD option's CD branch; CD delivery remains deferred.
+
+Ejection and ILS requests now reach this controller. Their former `voice` names
+were misleading: they select music cues, rather than sampled speech or an
+independent auxiliary bank. ILS also forwards its actual normal-priority sample
+8 request, now named as an afterburner-stop sample rather than a generic tone.
+
+`tools/check_music_session.py` joins the **original 32-bit game controller to
+its original 16-bit OSL sequencer/device**, supplying only filename/resource I/O,
+protected/real-mode ABI transfer and physical hardware boundaries. A scripted
+10-second lifecycle exercises mission entry, transient cues, mute/engine state,
+restart, teardown, presentation music and mission re-entry. Across 546 shared
+IRQ ticks, every complete output event and exact sample timestamp agrees:
+**4,039 FM register writes (nine original file loads), 1,286 LA messages (three
+loads), and 1,812 SCC messages (six loads)**. Original cue branches, resource
+replacement, playback operations, queries, instrument uploads and IRQ code all
+execute. This is an integrated audio comparison with supplied aircraft state,
+not a whole-game physics/campaign session or serial-instruction timing check.
+
+The callback segmentation/lifecycle probe now also includes those flight phases:
+**2,576 LA / 3,218 SCC messages with exact timestamps** agree, and FM agrees on
+**2,832,000 complete PCM samples**. Both Roland firmware backends remain finite
+and audible through the lifecycle. Private X11/Pulse tests verify audible live
+mission-bank playback and clean shutdown for FM, LAPC-I and SCC-1A. The isolated
+sample-window test explicitly disables music so it continues measuring sampled
+sound independently of the newly audible flight tracks.
+
+All 103 asset-free regressions, all three joined original-code transcripts
+and the exact FM PCM comparison pass in development, Release and ASan/UBSan.
+The independent 1,536-case ILS selection and 4,096-case ejection handoff
+comparisons also remain unchanged.
+
+Remaining audio bindings include the other combat/result/weapon triggers,
+Gravis's separate auxiliary resource path, QSound processing and broader
+whole-session coverage. These results do not close those gates.

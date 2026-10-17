@@ -71,7 +71,7 @@ int main(int const argc, char const *const argv[]) try {
         auto const found{sites.find({cell.x,cell.y})};return found == sites.end() ? std::nullopt : std::optional{found->second};
       },carriers)};
       for(auto const value : words(controller.value())) std::cout << value << ' ';
-      std::cout << result.navigation << ' ' << result.stop_tone << ' ' << (result.voice ? static_cast<int>(*result.voice) : -1) << ' ' << (result.waypoint ? static_cast<int>(*result.waypoint) : -1) << ' ' << result.controls.has_value();
+      std::cout << result.navigation << ' ' << result.afterburner_stop_sample << ' ' << (result.music_cue ? static_cast<int>(*result.music_cue) : -1) << ' ' << (result.waypoint ? static_cast<int>(*result.waypoint) : -1) << ' ' << result.controls.has_value();
       if(result.controls) {
         auto const &control{*result.controls};
         std::cout << ' ' << control.configuration << ' ' << std::bit_cast<uint64_t>(control.response) << ' ' << std::bit_cast<uint64_t>(control.pitch_response) << ' ' << std::bit_cast<uint64_t>(control.roll_response) << ' ' << std::bit_cast<uint64_t>(control.yaw_response);

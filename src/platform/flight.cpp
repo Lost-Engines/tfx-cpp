@@ -716,13 +716,22 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     },mission_setup.speed_factor,wind_parameters,player_damage,air_simulation.random_stream());
     player.crashing = preferences.effects.crashing != 0;
   }};
+  auto const flight_audio{[&] {
+    return audio::flight_audio_state{
+      .throttle{player.throttle},
+      .engines_running{player.left_engine || player.right_engine},
+      .inhibited{ejection.value().stage != flight::ejection_stage::cockpit},
+      .collision{player.collision != 0},
+      .aircraft_disabled{player_disabled}
+    };
+  }};
   auto const advance_world{[&](tfx::flight::flight_controls const &controls, tfx::simulation::timer_ticks const elapsed, double const physics_seconds, bool const fire = false, bool const release_store = false, bool const joystick_fire = false) {
     if(mission_progress.ended) return;
     for(auto const index : mission_time.begin_frame()) {
       radio.show(mission_setup.messages[index].text);
     }
     launch_elapsed = elapsed;
-    if(sound) sound->advance(elapsed);
+    if(sound) { sound->advance(elapsed);sound->update_flight(flight_audio()); }
     bool const flying{!player.collision};
     auto const previous{vec3<int32_t>{player.integer_position}};
     bool const previous_gear{player.gear_down}, previous_chute{player.brake_chute};
@@ -950,6 +959,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
   }};
   if(!inspect || flight_steps) restart();
+  if(sound && !inspect && !override_cell && !screenshot) sound->begin_flight(flight_audio());
   for(unsigned int step{0}; step != flight_steps; ++step) {
     advance_world({},4,static_cast<double>(4 * .02f));
     finish_world(4);
@@ -1444,7 +1454,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           if(event.kind == tfx::flight::ejection_event_kind::player_model) scene.actor_event(player_visual,event.argument);
           else if(event.kind == tfx::flight::ejection_event_kind::camera) views.enqueue(static_cast<tfx::cockpit::view_mode>(event.argument),player.fixed_speed);
           else if(event.kind == tfx::flight::ejection_event_kind::sample && sound) sound->sequence(audio::sample_priority::normal,{event.argument,event.argument});
-          // Voice is a separate auxiliary OSL bank request.
+          else if(event.kind == tfx::flight::ejection_event_kind::music_cue && sound) sound->music_cue(static_cast<uint8_t>(event.argument));
         }
         if(result.end_flight) {
           mission_progress.ended = true;
@@ -1540,6 +1550,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
             .damaged{player_damage.accumulated != 0},
             .realistic{preferences.model == simulation::flight_model::realistic},
           },actor_program.player_route,[&](auto const &cell) { return scene.terrain_landing_port(cell); },carriers);
+          if(result.afterburner_stop_sample) sample(audio::sample_priority::normal,audio::sample_id::afterburner_stop);
+          if(result.music_cue && sound) sound->music_cue(static_cast<uint8_t>(*result.music_cue));
           if(result.navigation) { armament.guns = true;aiming_mode = tfx::cockpit::aiming_mode::navigation; }
           for(auto const message : result.messages) radio.show(tables.instruments().landing_radio_messages[std::to_underlying(message)]);
           if(result.waypoint) physical_player.autopilot.navigation.route_index = static_cast<int16_t>(*result.waypoint + 1);

@@ -20,7 +20,7 @@ a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX
 events=[]
 for address,kind,register in [(0xb52d4,0,r.UC_X86_REG_EDX),(0x8fd84,1,r.UC_X86_REG_EAX),(0xa5a9c,2,r.UC_X86_REG_EAX),(0xa4e18,3,r.UC_X86_REG_EAX)]:
     def callback(image,kind=kind,register=register):events.extend([kind,image.cpu.reg_read(register)&65535]);image.return_from()
-    im.intercept(address,'Observe typed ejection model/camera/voice/sample requests at their separately verified boundaries',callback)
+    im.intercept(address,'Observe typed ejection model/camera/music-cue/sample requests at their separately verified boundaries',callback)
 rng=random.Random(0x70ec8);identity=[32767,0,0,0,32767,0,0,0,32767];cases=[]
 bits=lambda value:struct.unpack('<I',struct.pack('<f',value))[0]
 for index in range(4096):

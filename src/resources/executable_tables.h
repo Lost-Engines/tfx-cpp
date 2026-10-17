@@ -6,6 +6,7 @@
 #include <span>
 #include <vector>
 #include "audio/sample_bank.h"
+#include "audio/music_control.h"
 #include "actors/air_motion.h"
 #include "actors/program.h"
 #include "cockpit/instrument_assets.h"
@@ -54,6 +55,7 @@ private:
 
 public:
   std::vector<audio::sample_definition> samples;
+  audio::lapc_order_profiles music_orders;
   std::vector<weapons::definition> weapons;
   weapons::arming_tables arming;
   std::array<flight::airframe,3> airframes;
