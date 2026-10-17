@@ -3,6 +3,7 @@
 #include "math/native.h"
 #include "math/attitude.h"
 #include "render/framebuffer.h"
+#include "render/aperture.h"
 
 namespace tfx::render {
 
@@ -16,6 +17,7 @@ struct camera {
   vec2d projection_origin{centre_x,centre_y};
   double focal_distance{focal_length};
   projection_mode projection{projection_mode::continuous};
+  aperture opening{aperture::normal};
   double near_distance{16};
   double far_distance{20000};
   vec3d transform(vec3d const &world) const;
@@ -26,7 +28,7 @@ camera aircraft_camera(vec3f const &position, math::attitude const &orientation)
 
 camera orbit_camera(vec3<math::angle> const &angles, int32_t distance, vec2d const &projection_origin);
 
-camera original_camera(vec3<int32_t> const &position_q16, mat3<int32_t> const &matrix, vec2d const &projection_origin);
+camera original_camera(vec3<int32_t> const &position_q16, mat3<int32_t> const &matrix, vec2d const &projection_origin, aperture opening = aperture::normal);
 
 camera inspection_camera(vec3d const &position, double heading, double pitch);
 

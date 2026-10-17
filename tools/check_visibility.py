@@ -16,7 +16,9 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--record',type=Path)
+p.add_argument('--wide',action='store_true')
 a=p.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');im.cpu.mem_map(0x300000,4096);rng=random.Random(0xcbef0);rows=[];expected=[];fixture=[]
+if a.wide:im.call(0xca6fc,stack=(0xffffffff,0xffffffff))
 identity=[32767,0,0,0,32767,0,0,0,32767];matrix_at=im.native(0x70aa4+0x47c4a)
 for case in range(16384):
  if case<512:
@@ -31,7 +33,7 @@ for case in range(16384):
  im.call(0xb9ab9,stack=tuple(v&0xffffffff for v in reversed(camera)));im.call(0xb94da,stack=tuple(v&0xffffffff for v in (*origin,*maximum)))
  visible=int(bool(im.call(0xcbef0,stack=tuple(v&0xffffffff for v in (radius,*reversed(point),0x300000)))));expected.append(visible)
  if case<256 or case>=512 and case%97==0:fixture.append(row+[visible])
-result=subprocess.check_output([str((a.build/'visibility_probe').resolve())],input=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode()).decode().splitlines();assert len(result)==len(expected)
+result=subprocess.check_output([str((a.build/'visibility_probe').resolve())]+(['--wide'] if a.wide else []),input=('\n'.join(' '.join(map(str,row)) for row in rows)+'\n').encode()).decode().splitlines();assert len(result)==len(expected)
 for case,(line,value) in enumerate(zip(result,expected)):assert int(line)==value,(case,rows[case],line,value)
 assert set(expected)=={0,1}
 if a.record:a.record.write_text('\n'.join(' '.join(map(str,row)) for row in fixture)+'\n')

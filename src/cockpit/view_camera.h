@@ -31,6 +31,7 @@ struct view_camera_context {
   vec2<int32_t> height_bounds{-8192,-32};
 };
 struct view_pose {
+  render::aperture opening{render::aperture::normal};
   std::optional<int16_t> ground_motion{};
   std::optional<vec2<math::angle>> horizon_angles{};
   int16_t horizon_camera_y{0};

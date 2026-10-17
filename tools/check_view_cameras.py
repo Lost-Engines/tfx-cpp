@@ -2,7 +2,8 @@
 """Compare original cockpit, head-turn and chase camera motion and matrices.
 
 Player poses and the current ground height are supplied. Unrelated navigation,
-world-painter configuration, weather and player-model flag writes are excluded.
+weather and player-model flag writes are excluded. Original world-painter
+mode configuration executes and its camera handoff can be observed.
 The actual native camera dispatcher, smoothing and matrix setters execute.
 """
 import argparse
@@ -17,10 +18,11 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--refuelling',action='store_true',help='exercise all four refuelling model phases')
+parser.add_argument('--projection',action='store_true',help='observe native model/visibility aperture handoff')
 parser.add_argument('--horizon',action='store_true',help='observe the native background pitch/roll handoff')
 parser.add_argument('--split-basis',action='store_true',help='supply distinct physics and renderer bases as used by Simple flight')
 a=parser.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT');base=im.layout['objects'][0]['preferred_base']
-for address,reason in [(0x94efc,'Supply the player pose without the separate navigation-contact controller.'),(0xca780,'Exclude world-painter mode configuration; native camera matrix setters still execute.'),(0xca6fc,'Exclude missile-camera world-painter mode configuration.'),(0xb6ea4,'Exclude forwarding player angles into the model renderer.'),(0xb4fd0,'Exclude forwarding the player model into the scene queue.'),(0x90320,'Exclude forwarding the player pose into the model renderer.')]:im.intercept(address,reason,lambda im:im.return_from())
+for address,reason in [(0x94efc,'Supply the player pose without the separate navigation-contact controller.'),(0xb6ea4,'Exclude forwarding player angles into the model renderer.'),(0xb4fd0,'Exclude forwarding the player model into the scene queue.'),(0x90320,'Exclude forwarding the player pose into the model renderer.')]:im.intercept(address,reason,lambda im:im.return_from())
 horizon_angles=[];ground_motion=[]
 if a.horizon:
     im.intercept(0x8fcd4,'Observe native horizon pitch/roll from the complete camera controller; its complete geometry/VGA consumer is checked separately.',lambda im:(horizon_angles.append([im.cpu.reg_read(r.UC_X86_REG_EAX)&65535,im.cpu.reg_read(r.UC_X86_REG_EDX)&65535,struct.unpack('<h',im.cpu.mem_read(base+0x47c08,2))[0]]),im.return_from()))
@@ -65,6 +67,7 @@ if a.refuelling:
 command=[str((a.build/'view_camera_probe').resolve())]
 if a.refuelling:command.append('--refuelling')
 if a.horizon:command.append('--horizon')
+if a.projection:command.append('--projection')
 if a.split_basis:command.append('--split-basis')
 output=subprocess.check_output(command,input=('\n'.join(' '.join(str(int(v)) for v in row) for row in cases)+'\n').encode()).decode().splitlines();assert len(output)==len(cases)
 for index,(row,line) in enumerate(zip(cases,output)):
@@ -101,5 +104,8 @@ for index,(row,line) in enumerate(zip(cases,output)):
     if a.horizon:
         want += [1,*horizon_angles[-1]] if horizon_angles else [0,0,0,0]
         want += [int(bool(ground_motion)),struct.unpack('<h',struct.pack('<H',ground_motion[-1]))[0] if ground_motion else 0,*[im.read(at,'<i')[0] for at in (0x1359c,0x13598,0x13594)]]
+    if a.projection:want.append(im.cpu.mem_read(im.native(0xb9472),1)[0])
     got=list(map(int,line.split()));assert got==want,(index,row,[(n,x,y) for n,(x,y) in enumerate(zip(got,want)) if x!=y][:25],len(got),len(want))
 print(f'{len(modes)} cockpit, head/chase, missile/infrared and impact camera modes agree in {len(cases)} native pose/matrix updates with declared world/weather boundaries')
+
+if a.projection:print('Native driver reset/missile-nose mode setters execute, and all 12,288 aperture handoffs agree alongside camera pose, matrix and horizon state')

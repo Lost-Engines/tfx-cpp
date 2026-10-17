@@ -177,3 +177,10 @@ Weather-to-rain shared random ordering is checked across all 33 environments;
 mission startup now separates that retained stream from the later terrain
 reset. General world raster/lighting, visibility-conditioned animation and
 whole-session equivalence remain open.
+
+
+Missile-nose aperture now follows the original driver reset/change through
+model projection, bounding-volume visibility and horizon painting. Both modes,
+complete controller handoffs and the live firing/camera/result path have
+native or private-window coverage. General polygon coverage and near-plane
+clipping, textures/remaps, lighting and visibility-conditioned animation remain.

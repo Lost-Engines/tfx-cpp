@@ -58,7 +58,7 @@ bool point_projection::sphere_visible(vec3<int32_t> const &point, int16_t const 
     int16_t const excess{word(absolute(word(coordinate >> 16)) - extent)};
     if(excess < 0) return false;
     if(excess >= depth) return true; // Also excludes zero before signed division.
-    return static_cast<int32_t>(excess) * 256 / depth > limit;
+    return static_cast<int32_t>(excess) * static_cast<int32_t>(projection_focal_length(opening)) / depth > limit;
   }};
   return !outside(camera.x,horizontal_limit) && !outside(camera.y,vertical_limit);
 }
