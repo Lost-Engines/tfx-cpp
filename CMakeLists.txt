@@ -533,6 +533,10 @@ if(BUILD_TESTING)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
 
+  add_executable(weather_probe tests/weather_probe.cpp)
+  target_link_libraries(weather_probe PRIVATE tfx_core)
+  configure_first_party(weather_probe)
+
   add_executable(g_effects_probe tests/g_effects_probe.cpp)
   target_link_libraries(g_effects_probe PRIVATE tfx_core)
   configure_first_party(g_effects_probe)

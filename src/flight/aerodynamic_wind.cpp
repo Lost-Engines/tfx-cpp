@@ -41,6 +41,16 @@ std::array<aerodynamic_wind_parameters,aerodynamic_weather_profiles> load_aerody
   return result;
 }
 
+aerodynamic_surface_temperatures load_aerodynamic_surface_temperatures(std::span<uint8_t const> const executable) {
+  resources::binary_view const source{executable};
+  aerodynamic_surface_temperatures result;
+  unsigned int constexpr temperature_table{data_object_file + 0x8c98};
+  for(unsigned int profile{0}; profile != result.size(); ++profile) {
+    for(unsigned int column{0}; column != result[profile].size(); ++column) result[profile][column] = math::signed_word(source.le16(temperature_table + (profile * aerodynamic_temperature_columns + column) * 2));
+  }
+  return result;
+}
+
 void initialise_aerodynamic_wind(aerodynamic_wind &state, aerodynamic_wind_parameters const &parameters, math::random_state &random, aerodynamic_wind_context const &context, bool const strongest_weather) {
   math::floating_environment const environment;
   state.simulation_seconds = 0;

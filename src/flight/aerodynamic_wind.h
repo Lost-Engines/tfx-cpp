@@ -5,7 +5,11 @@
 
 namespace tfx::flight {
 
-unsigned int constexpr aerodynamic_weather_profiles{5};
+unsigned int constexpr aerodynamic_weather_profiles{5}, aerodynamic_temperature_columns{4};
+// Native 0x95f3c explicitly starts in profile zero; the temperature column is
+// initialized to zero and has no referenced writer in the reference executable.
+unsigned int constexpr aerodynamic_initial_weather{0}, aerodynamic_initial_temperature_column{0};
+using aerodynamic_surface_temperatures = std::array<std::array<int16_t,aerodynamic_temperature_columns>,aerodynamic_weather_profiles>;
 struct aerodynamic_wind_parameters {
   double direction_wobble_scale{0};
   double surface_speed{0};
@@ -42,6 +46,7 @@ struct aerodynamic_wind_context {
 };
 
 std::array<aerodynamic_wind_parameters,aerodynamic_weather_profiles> load_aerodynamic_wind_parameters(std::span<uint8_t const> executable);
+aerodynamic_surface_temperatures load_aerodynamic_surface_temperatures(std::span<uint8_t const> executable);
 // Original 0x95f3c wind initialization, including all three random draws.
 void initialise_aerodynamic_wind(aerodynamic_wind &state, aerodynamic_wind_parameters const &parameters, math::random_state &random, aerodynamic_wind_context const &context, bool strongest_weather);
 // Complete 0x996c0. The caller advances the shared clock separately.
