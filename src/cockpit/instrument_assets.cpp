@@ -39,6 +39,8 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
     };
   }
   for(unsigned int index{0}; index != target_heading_shape.size(); ++index) target_heading_shape[index] = {source.signed_le16(data + 0x714a + index * 4),source.signed_le16(data + 0x714c + index * 4)};
+  tactical_map_overlay = resource(0x1b00);
+  tactical_map_formats = {string(0x1b2c),string(0x1b38),string(0x1b40),string(0x1b48)};
   in_range_label = string(0x179c);
   radio_padding = string(0x17cc);
   time_warp_message = string(0x1980);

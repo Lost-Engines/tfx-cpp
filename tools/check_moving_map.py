@@ -35,8 +35,8 @@ for name in ('yugosmap','libyamap','colummap','somalmap','seamap'):
     for index in range(64):
         player=[rng.randrange(-2048,410000),-1000,rng.randrange(-2048,410000)]
         heading=[0,16384,32768,49152][index%4] if index<16 else rng.randrange(65536)
-        elapsed=[0,1,49,50,51,54,65535][index%7];stealth=index%2;navigation=(index//2)%2
-        nav=[player[0]//2048+rng.randrange(-20,21),player[2]//2048+rng.randrange(-20,21)]
+        elapsed=[0,1,49,50,51,54,65535][index%7];stealth=index%2;landing=(index//2)%2
+        runway=[player[0]//2048+rng.randrange(-20,21),player[2]//2048+rng.randrange(-20,21)]
         offset=[(0,0),(1,0),(2,0),(3,0),(-10,-10),(20,20),(0,35),(0,70)][index%8]
         bounds=[(135,151,186,193),(213,133,264,167),(20,20,200,120)][index%3]
         contacts=[]
@@ -49,17 +49,17 @@ for name in ('yugosmap','libyamap','colummap','somalmap','seamap'):
                 points.append([x*256,y,z*256])
             contacts.append(points)
         targets=[[player[0]+rng.randrange(-25,26)*2048,0,player[2]+rng.randrange(-25,26)*2048] for _ in range(3)]
-        row=[*player,heading,elapsed,stealth,navigation,*nav,*offset,*bounds]
+        row=[*player,heading,elapsed,stealth,landing,*runway,*offset,*bounds]
         for points in contacts:row.extend([len(points),*[v for point in points for v in point]])
         row.extend([len(targets),*[v for point in targets for v in point]])
-        cases.append((row,player,heading,elapsed,stealth,navigation,nav,offset,bounds,contacts,targets))
+        cases.append((row,player,heading,elapsed,stealth,landing,runway,offset,bounds,contacts,targets))
     output=subprocess.check_output([str((args.build/'map_display_probe').resolve()),str(directory),name],input=('\n'.join(' '.join(map(str,c[0])) for c in cases)+'\n').encode())
     stride=128038;assert len(output)==len(cases)*stride
     for index,case in enumerate(cases):
-        row,player,heading,elapsed,stealth,navigation,nav,offset,bounds,contacts,targets=case
+        row,player,heading,elapsed,stealth,landing,runway,offset,bounds,contacts,targets=case
         for field,value in zip((0x13424,0x13430,0x1343c),player):im.write(field,'<i',value)
         im.write(0x86ca,'<H',heading);im.write(0x13476,'<H',elapsed);im.write(0x12f26,'<B',stealth)
-        im.write(0x8f82,'<B',navigation);im.write(0x14984,'<2h',*nav)
+        im.write(0x8f82,'<B',landing);im.write(0x14984,'<2h',*runway)
         im.write(0x10be8,'<h',offset[0]);im.write(0x10be6,'<h',offset[1])
         lists[:]=contacts
         for group,points in enumerate(contacts):

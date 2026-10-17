@@ -24,6 +24,15 @@ The original readouts, eight instrument MFD pages, both radars, moving maps, war
 
 ## 1. Establish complete-session reference capture
 
+The paused M-key tactical map is connected, including regional artwork,
+route/contact telemetry, target/runway blinking and normal-palette handoff
+from infrared flight. Its complete painter/state comparison covers 1,920
+original frames. Private-window input checks cover pause preservation,
+consumed dismissal keys and the infrared return. Both maps now bind the ILS
+runway marker; surface contact enumeration excludes destroyed, retired and
+neutral actors as the original does. Remaining flight shortcuts and recording
+are the next input integration work.
+
 Extend the relocated-original-code harness from isolated calls to reproducible initialisation/update sequences. Where complete DOS context is necessary, instrument scripted runs of the original through DOSBox. Original runs should use disposable writable installations so they do not alter the user's configuration or pilots.
 
 Record the mission and inherited campaign state, controls, timer increments, random seeds, relevant configuration, actor identities, callback selection and observable state changes. Retain separate clock domains for the simulation, SSD animation, presentation BIOS/retrace timing and music. Replaying recorded elapsed intervals must preserve the native update order, clamping, backlog and projectile subdivision rules.

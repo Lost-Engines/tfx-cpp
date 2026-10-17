@@ -20,8 +20,8 @@ void moving_map::draw(render::software_renderer &renderer, map_state const &stat
   animation.ticks += state.elapsed;
   if(std::bit_cast<int32_t>(animation.ticks) > static_cast<int32_t>(blink_ticks)) {
     animation.ticks -= blink_ticks;
-    if(animation.target_colour == 11) { animation.target_colour = 15;animation.navigation_colour = 6; }
-    else { animation.target_colour = 11;animation.navigation_colour = 7; }
+    if(animation.target_colour == 11) { animation.target_colour = 15;animation.landing_colour = 6; }
+    else { animation.target_colour = 11;animation.landing_colour = 7; }
   }
   vec2<int> const centre{minimum + (maximum - minimum) / 2};
   vec2<int> const low{minimum + vec2<int>{state.offset}}, high{maximum + vec2<int>{state.offset}};
@@ -70,7 +70,7 @@ void moving_map::draw(render::software_renderer &renderer, map_state const &stat
     surface(state.contacts.allied_surface,7);
   }
   for(auto const &target : state.targets) marker(target,animation.target_colour);
-  if(state.navigation_cell) marker({state.navigation_cell->x * world::cell_units + world::cell_units / 2,0,state.navigation_cell->y * world::cell_units + world::cell_units / 2},animation.navigation_colour);
+  if(state.landing_cell) marker({state.landing_cell->x * world::cell_units + world::cell_units / 2,0,state.landing_cell->y * world::cell_units + world::cell_units / 2},animation.landing_colour);
 }
 
 } // namespace tfx::cockpit

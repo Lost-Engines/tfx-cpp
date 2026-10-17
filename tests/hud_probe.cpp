@@ -85,7 +85,7 @@ int main(int const argc, char const *const argv[]) try {
     state.threat = index % 13 == 0;
     state.redraw_phase = static_cast<uint8_t>(index % 4);
     state.afterburner_pips = index % 5;
-    if(index % 2) { state.approach_cue = static_cast<uint8_t>(index % 3);state.navigation_cell.emplace(50,60); }
+    if(index % 2) { state.approach_cue = static_cast<uint8_t>(index % 3);state.landing_cell.emplace(50,60); }
     state.approach_suppressed = index % 3 == 0;
     state.low_speed_ground_contact = index % 4 == 0;
     state.landed = index % 8 == 0;
@@ -112,7 +112,7 @@ int main(int const argc, char const *const argv[]) try {
     auto const effects{hud.draw(renderer,selection,state,random,&coverage)};
     auto const animation{hud.animation()};
     auto const &clip{renderer.clipping};
-    for(uint32_t const value : {static_cast<uint32_t>(animation.warnings.countdown),static_cast<uint32_t>(animation.warnings.phase),static_cast<uint32_t>(effects.threat_sound),static_cast<uint32_t>(animation.auxiliary.engine_refresh),static_cast<uint32_t>(animation.auxiliary.afterburner_refresh),animation.map.ticks,static_cast<uint32_t>(animation.map.target_colour),static_cast<uint32_t>(animation.map.navigation_colour),static_cast<uint32_t>(animation.radar_pulse),static_cast<uint32_t>(animation.redraw_phase),static_cast<uint32_t>(random.low),static_cast<uint32_t>(random.high),static_cast<uint32_t>(clip.glyph_minimum.x),static_cast<uint32_t>(clip.glyph_minimum.y),static_cast<uint32_t>(clip.glyph_limit.x),static_cast<uint32_t>(clip.glyph_limit.y),static_cast<uint32_t>(clip.sprite_minimum.x),static_cast<uint32_t>(clip.sprite_minimum.y),static_cast<uint32_t>(clip.sprite_limit.x),static_cast<uint32_t>(clip.sprite_limit.y)}) {
+    for(uint32_t const value : {static_cast<uint32_t>(animation.warnings.countdown),static_cast<uint32_t>(animation.warnings.phase),static_cast<uint32_t>(effects.threat_sound),static_cast<uint32_t>(animation.auxiliary.engine_refresh),static_cast<uint32_t>(animation.auxiliary.afterburner_refresh),animation.map.ticks,static_cast<uint32_t>(animation.map.target_colour),static_cast<uint32_t>(animation.map.landing_colour),static_cast<uint32_t>(animation.radar_pulse),static_cast<uint32_t>(animation.redraw_phase),static_cast<uint32_t>(random.low),static_cast<uint32_t>(random.high),static_cast<uint32_t>(clip.glyph_minimum.x),static_cast<uint32_t>(clip.glyph_minimum.y),static_cast<uint32_t>(clip.glyph_limit.x),static_cast<uint32_t>(clip.glyph_limit.y),static_cast<uint32_t>(clip.sprite_minimum.x),static_cast<uint32_t>(clip.sprite_minimum.y),static_cast<uint32_t>(clip.sprite_limit.x),static_cast<uint32_t>(clip.sprite_limit.y)}) {
       for(unsigned int byte{0}; byte != 4; ++byte) std::cout.put(static_cast<char>(value >> (byte * 8)));
     }
     std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());

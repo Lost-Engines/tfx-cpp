@@ -166,6 +166,8 @@ add_library(tfx_core
   src/cockpit/view_camera.h
   src/cockpit/view_control.cpp
   src/cockpit/view_control.h
+  src/cockpit/tactical_map.cpp
+  src/cockpit/tactical_map.h
   src/cockpit/target_display.cpp
   src/cockpit/target_display.h
   src/cockpit/format.h
@@ -420,6 +422,8 @@ add_executable(tfx
   src/platform/audio_output.cpp
   src/platform/audio_output.h
   src/main.cpp
+  src/platform/tactical_map.cpp
+  src/platform/tactical_map.h
   src/platform/configuration.cpp
   src/platform/configuration.h
   src/platform/arming.cpp
@@ -931,6 +935,10 @@ if(BUILD_TESTING)
   add_executable(dialogue_probe tests/dialogue_probe.cpp)
   target_link_libraries(dialogue_probe PRIVATE tfx_core)
   configure_first_party(dialogue_probe)
+
+  add_executable(tactical_map_probe tests/tactical_map_probe.cpp)
+  target_link_libraries(tactical_map_probe PRIVATE tfx_core)
+  configure_first_party(tactical_map_probe)
 
   add_executable(flight_configuration_probe tests/flight_configuration_probe.cpp)
   target_link_libraries(flight_configuration_probe PRIVATE tfx_core)

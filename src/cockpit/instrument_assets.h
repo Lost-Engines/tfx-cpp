@@ -49,6 +49,8 @@ struct instrument_assets {
   std::array<std::string,4> landing_radio_messages;
   std::array<std::string,5> hud_number_formats;
   std::array<std::string,4> target_formats;
+  std::string tactical_map_overlay;
+  std::array<std::string,4> tactical_map_formats;
   std::array<std::string,3> external_number_formats;
   float external_altitude_scale;
   float hud_altitude_scale;

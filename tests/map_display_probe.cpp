@@ -13,7 +13,7 @@ int main(int const argc, char const *const argv[]) try {
   while(std::cin >> state.player.x >> state.player.y >> state.player.z >> state.heading >> state.elapsed >> state.stealth) {
     bool navigation{false};vec2<int16_t> cell;vec2<int> minimum, maximum;
     std::cin >> navigation >> cell.x >> cell.y >> state.offset.x >> state.offset.y >> minimum.x >> minimum.y >> maximum.x >> maximum.y;
-    state.navigation_cell.reset();if(navigation) state.navigation_cell.emplace(vec2<int16_t>{cell});
+    state.landing_cell.reset();if(navigation) state.landing_cell.emplace(vec2<int16_t>{cell});
     std::array<std::vector<vec3<int32_t>>,4> contacts;
     for(auto &list : contacts) {
       unsigned int count{0};std::cin >> count;list.resize(count);
@@ -32,7 +32,7 @@ int main(int const argc, char const *const argv[]) try {
     map.draw(renderer,state,minimum,maximum,&coverage);
     auto const ticks{map.state().ticks};
     for(unsigned int byte{0}; byte != 4; ++byte) std::cout.put(static_cast<char>(ticks >> (byte * 8)));
-    std::cout.put(static_cast<char>(map.state().target_colour));std::cout.put(static_cast<char>(map.state().navigation_colour));
+    std::cout.put(static_cast<char>(map.state().target_colour));std::cout.put(static_cast<char>(map.state().landing_colour));
     auto const &clip{renderer.clipping};
     for(auto const value : {clip.glyph_minimum.x,clip.glyph_minimum.y,clip.glyph_limit.x,clip.glyph_limit.y,clip.sprite_minimum.x,clip.sprite_minimum.y,clip.sprite_limit.x,clip.sprite_limit.y}) for(unsigned int byte{0}; byte != 4; ++byte) std::cout.put(static_cast<char>(static_cast<uint32_t>(value) >> (byte * 8)));
     std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());
