@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <span>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -20,6 +21,8 @@ struct archive_entry {
 class archive {
 private:
   bytes storage;
+  std::optional<std::filesystem::path> directory;
+  std::optional<std::filesystem::path> loose_file(std::string_view name) const;
   std::vector<std::string> directories;
   std::vector<std::string> extensions;
   std::vector<archive_entry> index;
