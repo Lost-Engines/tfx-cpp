@@ -22,7 +22,7 @@ The cannon command/held-key integration and missing firing sample are fixed, wit
 
 Normal return is now checked too: the successful sortie matches all 233 frames and the original recovery/FINISH campaign table. A natural 65-frame ejection/recovery return also matches every state, pixel and campaign value in development and ASan/UBSan. Player animation now advances after drawing, and the abandoned aircraft joins the drawing queue before terrain. The recorded 68-frame ejection matches all pixels and 66 model queues. Countdown checks include the final landed/speed changes across 4,439 original updates.
 
-The immediate work is broader ground-attack, failure/recovery and campaign coverage. Remaining audio paths and older sprite-backed drawing retain explicit verification gates. No interactive checkpoint is required for these analytical and automated checks. Commands and detailed evidence are in [implementation.md](implementation.md) and [recording.md](recording.md).
+The immediate work is broader ground-attack, failure/recovery and campaign coverage, followed by remaining audio paths. Original execution now establishes that all 33 environments used by the 128 retail missions disable the retained older sprite-explosion subsystem; that path belongs outside the retail implementation scope. No interactive checkpoint is required for these analytical and automated checks. Commands and detailed evidence are in [implementation.md](implementation.md) and [recording.md](recording.md).
 
 The numbered sections below retain the implementation sequence and its verification boundaries.
 
