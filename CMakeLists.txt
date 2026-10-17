@@ -22,6 +22,9 @@ add_library(tfx_audio
   src/audio/sample_voice.cpp src/audio/sample_voice.h
   src/audio/runtime.cpp src/audio/runtime.h
   src/audio/osl_resource.cpp src/audio/osl_resource.h
+  src/audio/osl_channel.h src/audio/osl_device.h
+  src/audio/osl_la_driver.cpp src/audio/osl_la_driver.h
+  src/audio/osl_sequencer.cpp src/audio/osl_sequencer.h
 )
 configure_first_party(tfx_audio)
 
@@ -569,6 +572,12 @@ if(BUILD_TESTING)
   add_test(NAME flight.native_aerodynamic_recovery_toggle COMMAND aerodynamic_recovery_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery.txt")
   add_test(NAME flight.native_aerodynamic_recovery_trigger COMMAND aerodynamic_recovery_probe --descent "${PROJECT_SOURCE_DIR}/tests/fixtures/aerodynamic_recovery_trigger.txt")
 
+  add_executable(osl_la_probe tests/osl_la_probe.cpp)
+  target_link_libraries(osl_la_probe PRIVATE tfx_audio)
+  configure_first_party(osl_la_probe)
+  add_executable(osl_sequencer_probe tests/osl_sequencer_probe.cpp)
+  target_link_libraries(osl_sequencer_probe PRIVATE tfx_audio)
+  configure_first_party(osl_sequencer_probe)
   add_executable(osl_resource_probe tests/osl_resource_probe.cpp)
   target_link_libraries(osl_resource_probe PRIVATE tfx_audio)
   configure_first_party(osl_resource_probe)

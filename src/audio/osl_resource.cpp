@@ -33,6 +33,14 @@ std::span<uint8_t const> osl_resource::instrument(unsigned int const index) cons
   // remaining common header precedes the selected device's patch payload.
   return data.slice(start + 4,bytes.size() - start - 4);
 }
+std::span<uint8_t const> osl_resource::instrument_parameters(unsigned int const index) const {
+  if(index >= instrument_count()) return {};
+  auto const data{instrument(index)};
+  if(data.empty()) return {};
+  // Native 0x16a5 skips the six-byte parameter-record header when its count
+  // is nonzero. The zero-count form still returns the original record base.
+  return data.subspan(resources::binary_view{data}.le16(0) ? 6u : 0u);
+}
 unsigned int osl_song::channels() const { return resources::binary_view{resource}.le16(offset + 0x12); }
 unsigned int osl_song::order_count() const { return resources::binary_view{resource}.le16(offset + 0x14); }
 unsigned int osl_song::loop_order() const { return resources::binary_view{resource}.le16(offset + 0x10); }
