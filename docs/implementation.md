@@ -4622,3 +4622,20 @@ All 192 regressions pass in development, Release and ASan/UBSan. All 128 retail
 missions render eight complete Military-spec frames without scene warnings.
 The retained 160-frame controlled combat engagement still agrees on every
 captured state and all pixels after the inventory binding change.
+
+### Mission-to-mission launch state
+
+The application now retains the live integer position, basic Mach value and
+last WEAPONS index between flights. Original INIT supplies these only when
+the next script omits a declaration; aircraft and angles still follow the
+original reset rules. In particular, airborne mission 602 has no SPEED line.
+The retained speed is the final live value, including camera/refuelling and
+result callbacks, rather than the preceding script's starting speed. Inspection
+does not change this flight state.
+
+All 256 original initialisation cases still agree across fresh and seeded
+contexts. The private-window training campaign additionally checks that Hop 2
+receives Hop 1's actual final position and exact float Mach bits, plus its
+WEAPONS index, after successful combat and debrief. A fresh eight-frame
+Realistic mission-602 comparison includes the live speed bits and agrees on
+every captured state and all pixels. All 192 development regressions pass.

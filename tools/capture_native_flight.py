@@ -253,6 +253,7 @@ def frame_boundary(current):
   'position':[current.read(at,'<i')[0] for at in (0x13424,0x13430,0x1343c)],
   'angles':current.read(0x86c8,'<3H'),
   'speed':current.read(0x13444,'<i')[0],
+  'speed_factor':current.read(0x86f4,'<I')[0],
   'elapsed':current.read(0x13476,'<H')[0],
   'cockpit_offset':[current.read(at,'<h')[0] for at in (0x10be8,0x10be6)],
   'view':current.read(0x87b8,'<h')[0],
