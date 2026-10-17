@@ -15,8 +15,9 @@ import struct
 import subprocess
 from native_reference import NativeReference,r
 from native_vga import VgaCapture
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=512);p.add_argument('--record',type=Path);p.add_argument('--model',type=Path);p.add_argument('--rounded',action='store_true',help='exercise original 56/62 rounded quads and 90/91 standalone arcs');a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--research',type=Path,default=Path('../tfx-reverse'));p.add_argument('--build',type=Path,default=Path('build'));p.add_argument('--cases',type=int,default=512);p.add_argument('--record',type=Path);p.add_argument('--model',type=Path);p.add_argument('--rounded',action='store_true',help='exercise original 56/62 rounded quads and 90/91 standalone arcs');p.add_argument('--inert',action='store_true',help='insert retained no-op instructions 6/80 between stateful drawing operations');a=p.parse_args()
 assert not(a.model and a.rounded)
+assert not(a.inert and (a.model or a.rounded))
 assert not(a.model and a.record),'retained game model bytes stay external to source fixtures'
 def initialise():
  image=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);video=VgaCapture(image,aperture=0xa0000);image.cpu.mem_map(0x300000,0x30000);image.cpu.emu_start(image.native(0xb9110),image.native(0xb9133),count=10000);image.cpu.mem_write(0x310000,bytes((u*3+v*5+(u^v))&255 for v in range(256) for u in range(256)))
@@ -35,7 +36,9 @@ def program(case):
   x=(face%4)*180-350;y=(face//4)*240-230
   for vertex in range(4):emit([98,face*4+vertex,x+(140 if vertex in (1,2) else 0),y+(170 if vertex>=2 else 0),600+rng.randrange(-50,51)])
  def enable():emit([86,257,87,2])
- def flat(face):emit([3,50+face,face*4,face*4+1,face*4+2,face*4+3])
+ def flat(face):
+  if a.inert:emit([6,180,61,62,40,0,640,80,16224,1,128])
+  emit([3,50+face,face*4,face*4+1,face*4+2,face*4+3])
  if phase==1:enable()
  emit([97,32,0]);flat(0)
  if phase!=1:enable()

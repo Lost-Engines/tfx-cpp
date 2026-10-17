@@ -3771,3 +3771,20 @@ designator controller/overlay comparisons. All 128 retail missions pass 16
 sanitizer frames without warnings. The live observer additionally enters the
 designator again and ejects through normal Escape input, confirming that the
 real ejection camera replaces it; both development and sanitizer builds pass.
+
+### Retained inert model instructions
+
+Opcodes 6 and 80 are literal no-ops in the reference handlers at BBFA6 and
+BC8D9: they consume six and three operands respectively, then dispatch the
+next instruction. They neither draw nor change material state. They now have
+explicit interpreter cases, rather than an unsupported-context warning or an
+attempted polygon. The retained F-117 arming program contains opcode 6.
+
+`tools/check_model_materials.py --inert` inserts both instructions between
+stateful drawing operations. **512 complete original model programs** agree
+in every pixel and final procedural seed, including constant/fixed/depth
+palette state, helper calls, ink reuse, restoration, shading and textures;
+425 produce nonempty frames. Compact synthetic programs retain this evidence
+without original resource bytes. All **176 regressions** pass in development,
+Release and ASan/UBSan; Release and sanitizers each additionally agree on 128
+complete original programs with these instructions.

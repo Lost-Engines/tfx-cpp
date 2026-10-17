@@ -261,6 +261,9 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
       at += 2 + static_cast<unsigned int>(a.size()) * 2;
       auto const target{a.empty() ? 0 : static_cast<unsigned int>(static_cast<int>(at - 2) + math::signed_word(a.back()))};
       if(opcode == 0 || opcode == 65535) return;
+      // Native BBFA6/BC8D9 consume their operands without drawing or changing
+      // state. These retained instructions are intentional no-ops, not faces.
+      if(opcode == 6 || opcode == 80) continue;
       if(opcode == 7) { at = target; continue; }
       if(opcode == 8) { self(self, active, target, depth + 1); continue; }
       if(opcode == 98) {
@@ -492,9 +495,9 @@ shape_geometry interpret(shape const &program, shape_context const &context) {
         surface(opcode == 50 ? a.subspan(1) : a, shade_colours.empty() ? colour : shade_colours[0], -1, false, true);
         continue;
       }
-      if(opcode == 113 || opcode == 114 || opcode == 115 || opcode == 80 || opcode == 47) {
+      if(opcode == 113 || opcode == 114 || opcode == 115 || opcode == 47) {
         if(face_depth_palette && opcode >= 113) load_colour(source_colour,opcode == 115 ? a.subspan(1) : a);
-        surface(opcode == 115 || opcode == 80 || opcode == 47 ? a.subspan(1) : a, opcode == 47 ? 112 : colour, -1, opcode == 47, false);
+        surface(opcode == 115 || opcode == 47 ? a.subspan(1) : a, opcode == 47 ? 112 : colour, -1, opcode == 47, false);
         continue;
       }
       result.warnings.insert("shape opcode " + std::to_string(opcode) + " requires runtime context");
