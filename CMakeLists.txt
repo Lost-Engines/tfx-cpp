@@ -338,6 +338,8 @@ add_library(tfx_core
   src/render/precipitation.cpp
   src/render/precipitation.h
   src/render/horizon.cpp src/render/horizon.h
+  src/render/integer_model_polygon.cpp
+  src/render/integer_model_polygon.h
   src/render/integer_polygon.cpp src/render/integer_polygon.h
   src/render/software_renderer.cpp
   src/render/software_renderer.h
@@ -549,6 +551,10 @@ if(BUILD_TESTING)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
 
+  add_executable(world_polygon_probe tests/world_polygon_probe.cpp)
+  target_link_libraries(world_polygon_probe PRIVATE tfx_core)
+  configure_first_party(world_polygon_probe)
+  add_test(NAME render.native_flat_model_polygons COMMAND world_polygon_probe ${PROJECT_SOURCE_DIR}/tests/reference/world_polygons.txt)
   add_executable(aperture_probe tests/aperture_probe.cpp)
   target_link_libraries(aperture_probe PRIVATE tfx_core)
   configure_first_party(aperture_probe)

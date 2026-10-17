@@ -2830,3 +2830,35 @@ world texture, lighting and polygon coverage remain separate renderer work.
 Reproduce with `tools/check_aperture.py`, `tools/check_visibility.py --wide`,
 `tools/check_view_cameras.py --projection --horizon` and
 `tools/check_window_controls.py`.
+
+
+### Native flat model-face pixel coverage
+
+Flat, untextured, unrounded model faces wholly beyond the native near plane
+now use Q16 projection followed by the verified integer polygon raster. This
+replaces the research viewer's half-open spans and floating side-plane
+intersections for that path. The original signed clipping order, winding,
+reciprocal edges, inclusive spans and endpoint rounding are retained. Inspection
+cameras keep their independent raster. Near-plane crossings, shaded, patterned,
+rounded and textured faces retain their separate paths pending verification.
+
+The camera owns explicit native viewport bounds. Flight supplies the current
+cockpit rectangle and scene displays supply their MFD rectangle; the flat
+raster, horizon and bounding-volume setup share those bounds. This fixes
+coverage at the actual clip boundary rather than relying on later cropping.
+
+`tools/check_world_polygons.py` runs the original `0xb9434` projection and
+`0xbd3a8` flat raster through VGA writes. **1,024 complete controlled frames**
+agree pixel for pixel across normal/wide views, camera-unit scales, windings,
+degenerate faces and partial cockpit/MFD rectangles. Input camera vertices,
+translation, colour/remap and viewport are explicit boundaries; near crossings
+and full-scene transform/order/lighting are separate gates. The 128-triangle
+baseline changed from **114 differing frames to zero**. Compact pixel hashes
+run without game assets, and all 1,287 existing scale/near-clip property cases
+continue to agree.
+
+All **132 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizer builds also match 256 complete original flat-face frames each.
+All **128 retail missions** run 64 steps. Private controls in development and
+sanitizers cover firing, missile cameras, MFD scene pages, designator controls,
+pause and combat-to-result flow. Live storm/cockpit composition still passes.

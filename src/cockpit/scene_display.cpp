@@ -11,6 +11,8 @@ render::camera scene_camera_request::view() const {
   vec2d const centre{vec2d{minimum + (maximum - minimum) / 2}};
   auto result{render::orbit_camera(angles,0,centre)};
   result.position = vec3d{position};
+  result.viewport_minimum = vec2<int16_t>{minimum};
+  result.viewport_maximum = vec2<int16_t>{maximum};
   return result;
 }
 scene_displays::scene_displays(instrument_assets const &source) : assets{source}, animation{
