@@ -87,11 +87,19 @@ void pattern_polygon(framebuffer &output, uint16_t &seed, std::span<polygon_span
     if(mode == 2 && (spans.back().row & 1)) --index;
     auto const valid{[&] { return index >= 0 && spans[static_cast<unsigned int>(index)].left <= spans[static_cast<unsigned int>(index)].right; }};
     auto const width{[&] { auto const &span{spans[static_cast<unsigned int>(index)]};return span.right / 4 - span.left / 4; }};
+    auto const advance{[&] {
+      // Native sparse painters inspect every skipped physical row. An empty
+      // intervening span terminates the face before the next selected row.
+      for(int row{0}; row != stride && index >= 0; ++row) {
+        --index;
+        if(!valid()) { index = -1;return; }
+      }
+    }};
     while(valid()) {
       if(width() == 0) {
-        if(mode == 3) { offset = !offset;index -= stride;continue; }
-        index -= stride;
-        while(valid() && width() == 0) { offset = !offset;index -= stride; }
+        if(mode == 3) { offset = !offset;advance();continue; }
+        advance();
+        while(valid() && width() == 0) { offset = !offset;advance(); }
         if(!valid()) return;
       }
       auto const &span{spans[static_cast<unsigned int>(index)]};
@@ -104,12 +112,14 @@ void pattern_polygon(framebuffer &output, uint16_t &seed, std::span<polygon_span
         int const at{span.row * screen_width + x};
         if(at >= 0 && at < screen_width * screen_height) output.pixels[static_cast<unsigned int>(at)] = colour;
       }
-      offset = !offset;index -= stride;
+      offset = !offset;advance();
     }
     return;
   }
   for(auto const &span : spans | std::views::reverse) {
-    if(span.left > span.right) return;
+    // The procedural callback tests VGA-byte width. An inverted pixel span
+    // inside one byte still consumes a random mask, even though it paints none.
+    if(span.left > span.right && (mode != 4 || span.left / 4 > span.right / 4)) return;
     pattern_span(output,seed,span.row,span.left,span.right,colour,mode,spans.back().row,true);
   }
 }

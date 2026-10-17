@@ -1,5 +1,6 @@
 #include "software_renderer.h"
 #include "integer_model_polygon.h"
+#include "rounded_model_polygon.h"
 #include "integer_polygon.h"
 #include "pattern_raster.h"
 #include <algorithm>
@@ -180,6 +181,7 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   if(camera_vertices.empty()) return;
   uint8_t const source_index{static_cast<uint8_t>(source.colour)};
   uint8_t const ink_index{remap ? (*remap)[source_index] : source_index};
+  if(source.kind == models::primitive_kind::polygon && source.rounded && texture.empty() && rounded_model_polygon(output,camera_vertices,view,ink_index,source.mode,procedural_seed)) return;
   if(source.kind == models::primitive_kind::polygon && !source.rounded && texture.empty()) {
     if(source.mode == -1) {
       if(integer_model_polygon(output,camera_vertices,view,ink_index,remap)) return;

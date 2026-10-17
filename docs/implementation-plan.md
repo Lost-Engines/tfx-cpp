@@ -280,3 +280,9 @@ nested rotated helpers and carried stores. The shared player loadout table is
 also connected to live model drawing. Rounded/textured boundaries and full
 world phase/session comparisons remain open; the independent inspection view
 continues to use its continuous transforms.
+
+Rounded model surfaces now have complete original projection/midpoint/corner,
+patterned pixel and procedural-state comparisons over 1,024 frames. Sparse
+skipped-row termination and empty-byte procedural consumption also retain their
+native rules, with another 2,048 patterned/near-clipped frames unchanged.
+Remaining model material-state operations and texture boundaries are next.

@@ -343,6 +343,7 @@ add_library(tfx_core
   src/render/model_point.cpp
   src/render/model_point.h
   src/render/model_jitter.cpp src/render/model_jitter.h
+  src/render/rounded_model_polygon.cpp src/render/rounded_model_polygon.h
   src/render/model_transform.cpp src/render/model_transform.h
   src/world/model_orientation.h
   src/render/model_metrics.cpp
@@ -566,6 +567,11 @@ if(BUILD_TESTING)
   target_link_libraries(defence_probe PRIVATE tfx_core)
   configure_first_party(defence_probe)
   add_test(NAME flight.native_ecm_stealth_and_countermeasure_keys COMMAND defence_probe ${PROJECT_SOURCE_DIR}/tests/reference/defence.txt)
+
+  add_executable(rounded_model_probe tests/rounded_model_probe.cpp)
+  target_link_libraries(rounded_model_probe PRIVATE tfx_core)
+  configure_first_party(rounded_model_probe)
+  add_test(NAME render.native_rounded_model_polygons COMMAND rounded_model_probe ${PROJECT_SOURCE_DIR}/tests/reference/rounded_models.txt)
 
   add_executable(model_articulation_probe tests/model_articulation_probe.cpp)
   target_link_libraries(model_articulation_probe PRIVATE tfx_core)

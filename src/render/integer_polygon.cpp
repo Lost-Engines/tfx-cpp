@@ -144,7 +144,7 @@ void shaded_span(framebuffer &output, int const y, edge_walker const &left, edge
 }
 
 template<typename Painter>
-void raster(vertex_list vertices, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum, Painter const &paint) {
+void raster(vertex_list vertices, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum, Painter const &paint, polygon_facing const facing = polygon_facing::cull) {
   if(vertices.size() < 3) return;
   int x_low{32767},x_high{-32768},y_low{32767},y_high{-32768};
   for(auto const &v : vertices) {
@@ -154,7 +154,7 @@ void raster(vertex_list vertices, vec2<int16_t> const &minimum, vec2<int16_t> co
   if(x_high < minimum.x || x_low > maximum.x || y_high < minimum.y || y_low > maximum.y) return;
   int32_t const x1{word(vertices[1].position.x - vertices[0].position.x)}, x2{word(vertices[2].position.x - vertices[0].position.x)};
   int32_t const y1{word(vertices[1].position.y - vertices[0].position.y)}, y2{word(vertices[2].position.y - vertices[0].position.y)};
-  if(wrap(static_cast<uint32_t>(x1 * y2) - static_cast<uint32_t>(x2 * y1)) < 0) return;
+  if(facing == polygon_facing::cull && wrap(static_cast<uint32_t>(x1 * y2) - static_cast<uint32_t>(x2 * y1)) < 0) return;
   // Native bounding-span overflow clamps all vertices before clipping.
   if(x_high - x_low > 32767 || y_high - y_low > 32767) for(auto &v : vertices) {
     v.position.x = std::clamp<int16_t>(v.position.x,-16383,16383);v.position.y = std::clamp<int16_t>(v.position.y,-16383,16383);
@@ -191,7 +191,7 @@ void integer_polygon(framebuffer &output, std::span<vec2<int16_t> const> const i
     if(first <= last) std::fill_n(output.pixels.begin() + y * screen_width + first,last - first + 1,colour);
   });
 }
-std::vector<polygon_span> integer_polygon_spans(std::span<vec2<int16_t> const> const input, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum) {
+std::vector<polygon_span> integer_polygon_spans(std::span<vec2<int16_t> const> const input, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum, polygon_facing const facing) {
   vertex_list vertices;vertices.reserve(input.size());
   for(auto const &point : input) vertices.push_back({
     .position{vec2<int16_t>{point}},
@@ -204,7 +204,7 @@ std::vector<polygon_span> integer_polygon_spans(std::span<vec2<int16_t> const> c
       .left{static_cast<int16_t>(left.x())},
       .right{static_cast<int16_t>(right.x())},
     });
-  });
+  },facing);
   return result;
 }
 void integer_gouraud_polygon(framebuffer &output, std::span<indexed_vertex const> const vertices, colour_map const &remap, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum) {

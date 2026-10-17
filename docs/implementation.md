@@ -3421,3 +3421,44 @@ Release and ASan/UBSan, and all 158 regressions pass in both builds. The live
 carried-model observer passes Eurofighter, F-22 and F-117 retail loadouts.
 The independent inspection comparison still agrees on all 1,012 models /
 2,042 detail/state cases / 253,334 vertices.
+
+### Complete rounded-model surfaces
+
+Native rounded quads now follow `0xbc660` rather than averaging their projected
+screen corners. Each edge midpoint is formed from wrapped camera-coordinate
+sums and projected separately; the centre is painted before the four original
+`0xdaf50` corner fans. A rounded face with any near vertex is omitted as in the
+original. Corner fans bypass the common raster's winding test, while the
+central polygon retains it. Inspection keeps its separate continuous fallback.
+
+Original `0xbc89f` has a retained aperture quirk: its midpoint shifts stay at
+eight even after the missile-nose setter switches ordinary vertices to nine.
+The reconstruction preserves that difference rather than making the rounded
+shape internally consistent with a different result.
+
+The full comparison also exposed two sparse/procedural painter rules absent
+from the earlier face corpus. Sparse modes inspect skipped physical scanlines
+and stop at the first inverted span. The procedural painter instead compares
+VGA-byte width: an inverted pixel span inside one byte consumes a random mask
+without painting. Both rules now follow their original consumers. Explicit
+fixtures retain the three-pixel corner and random-state failures that revealed
+them.
+
+`tools/check_rounded_models.py` agrees across **1,024 complete original rounded
+frames and final procedural seeds**, including 411 nonempty frames. Actual
+projection, wrapped midpoint arithmetic, corner recurrence, winding bypass,
+viewport clipping, integer edges and all nine represented patterned/logical
+painters execute without geometry/raster substitutions. Camera vertices,
+viewport, drawing mode and initial seed are supplied inputs. No native division
+faults occur in this corpus. The compact fixture runs without game data.
+
+Another **2,048 complete original ordinary/near-clipped patterned frames** still
+agree after the shared painter changes. All **159 regressions** pass in
+development, Release and ASan/UBSan; Release and sanitizers repeat 256 complete
+rounded frames each. All 128 retail missions compose 64 frames without warnings,
+and private-window controls still cover weapons, MFD/camera pages, designation,
+pause and actual combat FINISH. The preceding articulated-renderer sanitizer
+sweep also finished all 128 missions × 16 frames without warnings.
+
+These are supplied model-face comparisons. Remaining material-state operations,
+texture boundaries and complete world-phase/session equivalence remain open.
