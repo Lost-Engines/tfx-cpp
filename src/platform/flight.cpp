@@ -1483,6 +1483,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .offset{vec2<int16_t>{offset}},
       },
     };
+    if(preferences.model == tfx::simulation::flight_model::military_spec || preferences.model == tfx::simulation::flight_model::realistic) state.aerodynamic.emplace(tfx::cockpit::aerodynamic_hud_state{
+      .angle_of_attack{physical_player.data.angle_of_attack},
+      .down_metres_per_second{physical_player.response.motion.velocity_ned.z},
+    });
     if(radar.selected && air_simulation.aircraft()[*radar.selected]) {
       auto const &actor{air_simulation.aircraft()[*radar.selected]->flight.pose};
       auto const profile{std::ranges::find(profiles,actor.profile_id,&tfx::actors::profile::id)};

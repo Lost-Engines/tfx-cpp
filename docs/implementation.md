@@ -8,9 +8,10 @@ The actual C++ game and the original `launch_game`/flight loop agree over
 256 neutral four-tick frames of mission 501 (20.48 seconds): player position,
 angles and speed; every retained aircraft controller field observed by the
 session probe; shared RNG; and the complete camera/horizon handoff. The newer
-every-frame image check also matches **all 32 Arcade frames pixel for pixel**.
-Simple and advanced models expose additional drawing differences and remain
-under investigation; this does not establish complete-game equivalence.
+every-frame image check also matches **all 32 frames pixel for pixel** in
+Arcade, Military-spec and Realistic flight. The longer Arcade run and Simple
+flight expose a distant-aircraft admission difference still under investigation;
+this does not establish complete-game equivalence.
 
 The original presentation variables, DOS devices, external timer, silent audio
 and host memory remain explicit capture inputs. The original mission,
@@ -3917,3 +3918,23 @@ python3 tools/check_flight_session.py --build build --frames 32 --strict-pixels
 python3 tools/check_flight_session.py --build build --flight-model simple --frames 32
 python3 tools/check_model_materials.py --build build --lines --cases 2048
 ```
+
+
+### Advanced-flight HUD instruments
+
+The forward HUD now draws the original angle-of-attack tape and climb-rate
+indicator in Military-spec and Realistic flight (`0x7f870`, `0x7e130`,
+`0x7e328`). It uses the retained physical alpha and NED down velocity, original
+monochrome artwork, approximate-pi conversion, truncating integer/word stores,
+clamped climb pointer, feet-per-second readout and separate line/glyph clipping.
+The climb tape retains the original direct linear VGA addressing at the right
+edge rather than treating it as a clipped polygon.
+
+`check_hud_text.py --aerodynamic` compares **308 complete original indexed and
+coverage frames**, spanning alpha/climb thresholds, truncation neighbours,
+negative climb and cockpit offsets. The original pixel writer has no endpoint
+bounds check; coordinates that access unrelated memory are explicitly excluded.
+The pre-existing 768 flight-readout/message frames still agree. Complete
+mission-501 comparisons now match every pixel and retained observed state
+through 32 frames in both advanced flight models. All 179 regressions pass
+in development, Release and ASan/UBSan.

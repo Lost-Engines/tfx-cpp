@@ -48,6 +48,7 @@ weapon_effects weapon_display::draw_forward(render::software_renderer &renderer,
   if(state.limited && !state.cannon && (state.mode != aiming_mode::navigation || !state.navigation_target)) {
     render::draw_monochrome(renderer.output,assets.masks[std::to_underlying(instrument_mask::weapon_centre_cue)],{static_cast<uint16_t>(150 + offset.x),state.attitude.projection_origin.y},6,coverage,renderer.clipping);
   }
+  if(state.aerodynamic) numbers.draw_aerodynamic(renderer,*state.aerodynamic,offset,coverage);
   auto const line_limit{attitude.draw_heading(renderer,state.attitude,coverage)};
   full_clip();numbers.draw_values(renderer,state.flight,coverage);
   if(state.mode != aiming_mode::navigation) {
