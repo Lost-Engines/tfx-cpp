@@ -351,6 +351,7 @@ add_library(tfx_core
   src/render/integer_model_polygon.cpp
   src/render/integer_model_polygon.h
   src/render/integer_polygon.cpp src/render/integer_polygon.h
+  src/render/pattern_raster.cpp src/render/pattern_raster.h
   src/render/software_renderer.cpp
   src/render/software_renderer.h
   src/math/native.cpp
@@ -620,6 +621,8 @@ if(BUILD_TESTING)
   target_link_libraries(world_polygon_probe PRIVATE tfx_core)
   configure_first_party(world_polygon_probe)
   add_test(NAME render.native_flat_model_polygons COMMAND world_polygon_probe ${PROJECT_SOURCE_DIR}/tests/reference/world_polygons.txt)
+  add_test(NAME render.native_patterned_model_polygons COMMAND world_polygon_probe --pattern ${PROJECT_SOURCE_DIR}/tests/reference/world_patterns.txt)
+  add_test(NAME render.native_near_patterned_model_polygons COMMAND world_polygon_probe --pattern ${PROJECT_SOURCE_DIR}/tests/reference/world_patterns_near.txt)
   add_executable(aperture_probe tests/aperture_probe.cpp)
   target_link_libraries(aperture_probe PRIVATE tfx_core)
   configure_first_party(aperture_probe)

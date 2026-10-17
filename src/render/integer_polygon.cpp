@@ -143,8 +143,8 @@ void shaded_span(framebuffer &output, int const y, edge_walker const &left, edge
   }
 }
 
-template<bool Shaded>
-void raster(framebuffer &output, vertex_list vertices, uint8_t const colour, colour_map const *const remap, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum) {
+template<typename Painter>
+void raster(vertex_list vertices, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum, Painter const &paint) {
   if(vertices.size() < 3) return;
   int x_low{32767},x_high{-32768},y_low{32767},y_high{-32768};
   for(auto const &v : vertices) {
@@ -173,11 +173,7 @@ void raster(framebuffer &output, vertex_list vertices, uint8_t const colour, col
   if(!left || !right) return;
   edge_walker l{*left},r{*right};
   for(int y{vertices[top].position.y}; y <= bottom; ++y) {
-    int const first{std::max(0,l.x())},last{std::min(screen_width - 1,r.x())};
-    if(y >= 0 && y < screen_height && first <= last) {
-      if constexpr(Shaded) shaded_span(output,y,l,r,*remap);
-      else std::fill_n(output.pixels.begin() + y * screen_width + first,last - first + 1,colour);
-    }
+    if(y >= 0 && y < screen_height) paint(y,l,r);
     l.advance();r.advance();
   }
 }
@@ -190,10 +186,29 @@ void integer_polygon(framebuffer &output, std::span<vec2<int16_t> const> const i
     .position{vec2<int16_t>{point}},
     .shade_q8{0},
   });
-  raster<false>(output,std::move(vertices),colour,nullptr,minimum,maximum);
+  raster(std::move(vertices),minimum,maximum,[&](int const y, edge_walker const &left, edge_walker const &right) {
+    int const first{std::max(0,left.x())},last{std::min(screen_width - 1,right.x())};
+    if(first <= last) std::fill_n(output.pixels.begin() + y * screen_width + first,last - first + 1,colour);
+  });
+}
+std::vector<polygon_span> integer_polygon_spans(std::span<vec2<int16_t> const> const input, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum) {
+  vertex_list vertices;vertices.reserve(input.size());
+  for(auto const &point : input) vertices.push_back({
+    .position{vec2<int16_t>{point}},
+    .shade_q8{0},
+  });
+  std::vector<polygon_span> result;
+  raster(std::move(vertices),minimum,maximum,[&](int const y, edge_walker const &left, edge_walker const &right) {
+    result.push_back({
+      .row{static_cast<int16_t>(y)},
+      .left{static_cast<int16_t>(left.x())},
+      .right{static_cast<int16_t>(right.x())},
+    });
+  });
+  return result;
 }
 void integer_gouraud_polygon(framebuffer &output, std::span<indexed_vertex const> const vertices, colour_map const &remap, vec2<int16_t> const &minimum, vec2<int16_t> const &maximum) {
-  raster<true>(output,vertex_list{vertices.begin(),vertices.end()},0,&remap,minimum,maximum);
+  raster(vertex_list{vertices.begin(),vertices.end()},minimum,maximum,[&](int const y, edge_walker const &left, edge_walker const &right) { shaded_span(output,y,left,right,remap); });
 }
 
 } // namespace tfx::render

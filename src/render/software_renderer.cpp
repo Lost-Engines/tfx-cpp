@@ -1,5 +1,7 @@
 #include "software_renderer.h"
 #include "integer_model_polygon.h"
+#include "integer_polygon.h"
+#include "pattern_raster.h"
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -57,15 +59,7 @@ software_renderer::software_renderer(resources::executable_tables const &source_
 }
 
 void software_renderer::ink(int const x, int const y, uint8_t const colour, int const mode) {
-  if(x < 0 || y < 0 || x >= screen_width || y >= screen_height) return;
-  if(mode == 0 && ((x + y) & 1) == 0) return;
-  if(mode == 1 && (x & 3) != (y & 1 ? 3 : 1)) return;
-  if(mode == 7 && (y & 1)) return;
-  auto &destination{output.pixels[static_cast<unsigned int>(y * screen_width + x)]};
-  if(mode == 10) destination ^= colour;
-  else if(mode == 11) destination &= colour;
-  else if(mode == 12) destination |= colour;
-  else destination = colour;
+  pattern_pixel(output,x,y,colour,mode);
 }
 
 uint16_t software_renderer::procedural_state() const {
@@ -73,40 +67,7 @@ uint16_t software_renderer::procedural_state() const {
 }
 
 void software_renderer::patterned_span(int const y, double const left, double const right, uint8_t const colour, int const mode, int const bottom, bool const inclusive, bool const paint) {
-  /// Preserve native VGA byte-group masks, including sparse dots beyond the nominal right edge
-  int const first{std::max(0,static_cast<int>(std::ceil(left - .5)))}, last{std::min(screen_width,inclusive ? static_cast<int>(std::floor(right)) + 1 : static_cast<int>(std::ceil(right - .5)))};
-  int const first_byte{static_cast<int>(std::floor(left / 4))}, last_byte{static_cast<int>(std::floor(right / 4))};
-  if(mode == 4) {
-    for(int byte{first_byte}; byte <= last_byte; ++byte) {
-      unsigned int const low{static_cast<unsigned int>(procedural_seed & 255)}, high{static_cast<unsigned int>(procedural_seed >> 8)};
-      auto const sum{high + low}, next_high{sum & 255}, next_low{(low + next_high + (sum > 255)) & 255};
-      procedural_seed = static_cast<uint16_t>((next_high << 8) | next_low);
-      auto const mask{next_low & (((bottom - y) & 1) ? 5u : 10u)};
-      if(!paint) continue;
-      for(unsigned int bit{0}; bit != 4; ++bit) {
-        int const x{byte * 4 + static_cast<int>(bit)};
-        if(x >= first && x < last && (mask & (1u << bit))) ink(x,y,colour,-1);
-      }
-    }
-    return;
-  }
-  if(mode == 2) {
-    if(y & 1) return;
-    int const phase{(first_byte + (((bottom & ~1) - y) / 2) + (bottom & 1)) & 1};
-    int const end{(first_byte + ((last_byte - first_byte) & ~1)) * 4 + 3};
-    for(int x{first_byte * 4}; x <= end; ++x) if((x & 7) == phase * 4 + 3) ink(x,y,colour,-1);
-    return;
-  }
-  if(mode == 3) {
-    int const row{bottom - y};
-    if(row % 3) return;
-    int const offset{(bottom & 1 ? 0 : 2) + ((row / 3) & 1) * 2};
-    int const start{(first_byte + (offset & 3)) * 4 + 3};
-    int const end{start + static_cast<int>(std::floor((last_byte - first_byte - 1) / 4.0)) * 16};
-    for(int x{start}; x <= end; x += 16) ink(x,y,colour,-1);
-    return;
-  }
-  for(int x{first}; x < last; ++x) ink(x,y,colour,mode);
+  pattern_span(output,procedural_seed,y,left,right,colour,mode,bottom,inclusive,paint);
 }
 
 void software_renderer::background(camera const &view, uint8_t const sky, uint8_t const ground) {
@@ -219,8 +180,16 @@ void software_renderer::primitive(models::primitive const &source, std::span<mod
   if(camera_vertices.empty()) return;
   uint8_t const source_index{static_cast<uint8_t>(source.colour)};
   uint8_t const ink_index{remap ? (*remap)[source_index] : source_index};
-  if(source.kind == models::primitive_kind::polygon && source.mode == -1 && !source.rounded && texture.empty()) {
-    if(integer_model_polygon(output,camera_vertices,view,ink_index,remap)) return;
+  if(source.kind == models::primitive_kind::polygon && !source.rounded && texture.empty()) {
+    if(source.mode == -1) {
+      if(integer_model_polygon(output,camera_vertices,view,ink_index,remap)) return;
+    } else if(std::ranges::all_of(camera_vertices,[](auto const &vertex) { return vertex.shade < 0; })) {
+      if(auto const screen{project_model_face(camera_vertices,view)}) {
+        auto const spans{integer_polygon_spans(*screen,view.viewport_minimum,view.viewport_maximum)};
+        pattern_polygon(output,procedural_seed,spans,ink_index,source.mode);
+        return;
+      }
+    }
   }
   if(source.kind == models::primitive_kind::point) {
     auto const &v{camera_vertices[0].position};

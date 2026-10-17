@@ -3149,3 +3149,37 @@ PPM SHA-256 is `20cdd6250b457c8cdfa343325f6d2b7530a6d42513cbcfaa4011246ea5ee7ea0
 All **147 asset-free regressions** remain green. This runner improves the
 coverage of render-dependent state without implying original whole-frame or
 whole-campaign equivalence.
+
+
+### Complete patterned model-face raster coverage
+
+Unrounded, untextured patterned model faces now use the same native Q16 near
+projection, signed-word viewport clippers and reciprocal integer edge table
+as flat faces. Painters consume that table from bottom to top, retaining
+empty endpoint spans and procedural byte-generator consumption. The shared
+pattern painter also retains the existing circle and inspection paths.
+
+All nine modes (0, 1, 2, 3, 4, 7, 10, 11 and 12) have complete original VGA
+comparisons, including checker/sparse stipples, random masks and palette-index
+XOR/AND/OR. The sparse painters have distinct narrow-byte skip phases and
+endpoint counts. The line-stipple callback's original `0xe4ccf` one-bit left
+shift after a single-byte span is preserved; this can terminate a tapered
+face early. This is an original raster quirk, not a new culling rule.
+
+`tools/check_world_polygons.py --pattern` compares **1,024 complete frames**;
+adding `--near` compares **1,024 more** through original near clipping. Every
+pixel and retained procedural seed agrees, across normal/missile-nose
+projection, signed coordinates, reverse/degenerate winding, scaled model
+units and cockpit/MFD viewports. Compact frame hashes and final seeds run
+without game assets. The VGA verification aperture now models read latches
+and write-mode-0 logical operations instead of treating all writes as direct
+colour stores. Flat and Gouraud captures remain unchanged. Rounded/textured
+edges, complete actor transforms, shadows and whole-scene scheduling remain
+separate verification work.
+
+All **149 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizers each repeat 256 complete patterned near-plane comparisons.
+The existing 27 raster interiors, nine complete circles, three procedural
+seed transitions, 44 rounded corners and 1,280 Gouraud samples still agree.
+All 128 retail missions advance and compose 64 complete frames without
+preview warnings after this renderer change.
