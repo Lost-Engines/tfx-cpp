@@ -20,6 +20,9 @@ KEYS={
  'slash':(53,47),'keypad-multiply':(55,332),'keypad-minus':(74,333),'keypad-plus':(78,334),
  'page-up':(73,266),'page-down':(81,267),'keypad-9':(73,329),'keypad-3':(81,323),
  '4':(5,52),
+ 'home':(71,268),'end':(79,269),
+ 'keypad-8':(72,328),'keypad-4':(75,324),'keypad-2':(80,322),'keypad-6':(77,326),
+ 'keypad-7':(71,327),'keypad-1':(79,321),
  **{f'f{i}':(58+i,289+i)for i in range(1,11)},
 }
 

@@ -39,7 +39,11 @@ captured state and pixel. The original right-Shift PLOP dispatcher is also
 connected, with 4,096 original input comparisons, a complete 20-frame
 activation/deactivation comparison and a private-window check. Flight recording,
 cheat-enabled in-flight rearming and remaining keyboard acquisition details
-are separate work.
+are separate work. The persistent held-key poller now matches all 16,384
+combinations, including modifier/automatic-landing retention. Orbit, roll,
+distance, Ctrl chase translation and keypad steering are connected; 32-frame
+Simple and Realistic sequences match all captured state and pixels. Arcade
+now uses the original relative-mouse steering without invented arrow motion.
 
 Extend the relocated-original-code harness from isolated calls to reproducible initialisation/update sequences. Where complete DOS context is necessary, instrument scripted runs of the original through DOSBox. Original runs should use disposable writable installations so they do not alter the user's configuration or pilots.
 
