@@ -17,7 +17,9 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--data-dir',type=Path,required=True)
 p.add_argument('--screenshot-dir',type=Path)
+p.add_argument('--observe-fixed-palette',action='store_true',help='also observe the authored fixed-colour branch in land/contact effects')
 a=p.parse_args()
+scene_source=Path('src/world/scene.cpp').resolve();placement_line=next(i for i,text in enumerate(scene_source.read_text().splitlines(),1) if 'actor.position = position;' in text)
 for label,mission,collision in [('land','501',2),('water','504',1),('contact','602',0)]:
  with tempfile.TemporaryDirectory(prefix='tfx-crash-'+label+'-') as temporary:
   directory=Path(temporary);install=directory/'TFX';install.mkdir()
@@ -38,7 +40,7 @@ for label,mission,collision in [('land','501',2),('water','504',1),('contact','6
     'set context.collision = true','set context.height = 0','printf "TFX_CRASH_SEEDED\\n"','disable 2','continue','end',
     f'break tfx::world::select_crash_appearance if collision == {collision}'+(' && water_world' if label=='water' else ''),
     'commands','silent','set $selected = 1','printf "TFX_CRASH_SELECTED\\n"','disable 3','continue','end',
-    'break tfx::world::scene::place_actor if $selected && angles.x == 0 && angles.y == 0 && angles.z == 0',
+    f'break {scene_source}:{placement_line} if $selected && angles.x == 0 && angles.y == 0 && angles.z == 0',
     'commands','silent','printf "TFX_CRASH_PLACED\\n"','disable 4','continue','end',
     'break tfx::cockpit::view_camera::advance if views.state.current == tfx::cockpit::view_mode::impact_orbit && context.impact_target_q8._M_payload._M_engaged',
     'commands','silent','printf "TFX_CRASH_CAMERA\\n"','disable 5','continue','end','run']
@@ -53,6 +55,9 @@ for label,mission,collision in [('land','501',2),('water','504',1),('contact','6
      'printf "TFX_CRASH_PLACED\\n"','disable 3','continue','end',
      'break tfx::cockpit::view_camera::advance if views.state.current == tfx::cockpit::view_mode::unbanked_chase',
      'commands','silent','printf "TFX_CRASH_CAMERA\\n"','disable 4','continue','end','run']
+   if a.observe_fixed_palette and label!='water':
+    source=Path('src/world/scene.cpp').resolve();line=next(i for i,text in enumerate(source.read_text().splitlines(),1) if 'renderer.primitive(primitive,vertices,view,texture,' in text)
+    script[-1:-1]=[f'break {source}:{line} if primitive.palette == tfx::models::palette_source::fixed','commands','silent','printf "TFX_FIXED_PALETTE_DRAW\\n"','disable $bpnum','continue','end']
    if label=='water':
     # Put the controlled sea impact clear of the starting carrier, so the splash is visible.
     at=script.index('set context.collision = true')
@@ -74,6 +79,7 @@ for label,mission,collision in [('land','501',2),('water','504',1),('contact','6
     if not window:raise RuntimeError(log.read_text()[-6000:])
     run('xdotool','windowfocus','--sync',window)
     for marker in ('SEEDED','SELECTED','PLACED','CAMERA'):await_text('TFX_CRASH_'+marker)
+    if a.observe_fixed_palette and label!='water':await_text('TFX_FIXED_PALETTE_DRAW')
     time.sleep(.7)
     def tap(key):run('xdotool','keydown',key);time.sleep(.15);run('xdotool','keyup',key);time.sleep(.15)
     tap('p')

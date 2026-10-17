@@ -3462,3 +3462,40 @@ sweep also finished all 128 missions × 16 frames without warnings.
 
 These are supplied model-face comparisons. Remaining material-state operations,
 texture boundaries and complete world-phase/session equivalence remain open.
+
+### Authored fixed-palette effects
+
+Model opcode 84 (`0xbc9ac`) now switches subsequent colour lookups to the
+original fixed row zero, rather than the submitted object's distance row.
+This is used by explosion, flare/chaff and other authored effect programs.
+The live painter receives a per-primitive palette source for flat, Gouraud,
+textured and point/line consumers; forced black silhouettes retain their
+separate path.
+
+Flat ink remembers the table used when its colour was loaded. A palette switch
+therefore does not recolour a later instruction that reuses that existing
+ink. Newly loaded flat colours and interpolated Gouraud/texture indices use
+the current table. The selection persists through model helper calls, matching
+the original shared drawing state.
+
+`tools/check_model_palettes.py` agrees across **1,024 complete original model
+frames**, exercising seven switch positions, nested helper entry/return,
+colour reuse, packed Gouraud shades and both apertures. Original resource
+conversion, vertex generation/projection, model bytecode, clipping and VGA
+raster execute without intercepted geometry or drawing helpers. Source model
+bytes, identity basis/zero translation and two deliberately distinct lookup
+rows are declared inputs. Compact original frame hashes run without game data.
+
+All **160 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizers repeat 256 complete original palette programs each. All 128
+retail scenes compose 64 frames without warnings. Controlled private-window
+land/water/contact crash scenarios still reach their selected models/cameras
+and exit cleanly. `tools/check_window_crash.py --observe-fixed-palette` also
+observes the actual fixed-colour branch in the land/contact effect painter;
+these scenarios deliberately seed a contact and do not claim unmodified
+end-to-end original crash sessions. The preceding rounded-renderer sanitizer
+sweep finished all 128 retail missions × 16 frames without warnings.
+
+The separate parameter-selected ink/mode controls and specialised retained
+helper opcodes remain distinct material work. General texture edge/near-plane
+fidelity and complete renderer/session scheduling are still open.
