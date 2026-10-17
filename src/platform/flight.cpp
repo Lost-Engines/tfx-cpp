@@ -1409,7 +1409,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           .origin_y{static_cast<int16_t>(camera.projection_origin.y)},
         });
         queue_projectiles();
-        scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); },request.position.y);
+        scene.draw(camera_renderer,camera,scene_radius,[&] { queue_effects(camera); },request.position.y,ground.height);
         // The current world painter renders a whole software target; copy its viewport
         // into the instrument target. The original world raster's clipping is separate work.
         int const top{request.minimum.y + (request.maximum.y < tfx::render::screen_height ? 1 : 0)};
@@ -1631,7 +1631,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     queue_projectiles();
     scene.set_query_reference(inspect ? nullptr : &player.integer_position);
-    scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y});
+    scene.draw(renderer,view,scene_radius,[&] { queue_effects(view); },inspect ? std::nullopt : std::optional<int32_t>{designator_view ? designator.camera.y : view_motion.last_pose().anchor.y},ground.height);
     if(!inspect && !result_evaluated) {
       if(auto const count{tfx::render::precipitation_count({
         .enabled{preferences.effects.precipitation != 0},

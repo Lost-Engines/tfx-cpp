@@ -247,7 +247,7 @@ scene_events scene::advance(timer_ticks const elapsed) {
   return result;
 }
 
-void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y) {
+void scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y, int16_t const shadow_ground_height) {
   /// Native cached model metrics own detail, distance predicates, remap and signed sort priority
   struct queued_part {
     models::shape const *shape;
@@ -261,13 +261,14 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     double sort_key;
     vec3<int32_t> camera_origin;
     render::model_metrics metrics;
+    part_draw_kind kind;
   };
   std::vector<queued_part> queue;
   render::model_queue native_queue;
   auto const projection{view.projector()};
   bool const native{view.projection == render::projection_mode::original_model};
   auto const fixed_position{[](vec3d const &position) { return vec3<int32_t>{vec3<uint32_t>{vec3<int64_t>{position * 65536}}}; }};
-  auto const queue_part{[&](models::shape const &shape, model_part const &part, vec3d const &origin, mat3d const &rotation, math::angle const heading, vec3<math::angle> const &angles, vec3<int32_t> const &camera_origin) {
+  auto const queue_part{[&](models::shape const &shape, model_part const &part, vec3d const &origin, mat3d const &rotation, math::angle const heading, vec3<math::angle> const &angles, vec3<int32_t> const &camera_origin, part_draw_kind const kind = part_draw_kind::model) {
     auto metrics{render::measure_model(camera_origin,shape.sort_depth_bias)};
     auto const model_origin{render::scale_model_cache(camera_origin,part.rotation_mode)};
     metrics.distance = render::measure_model(model_origin,shape.sort_depth_bias).distance;
@@ -284,6 +285,7 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
       .sort_key{native ? metrics.order : depth + shape.sort_depth_bias},
       .camera_origin{vec3<int32_t>{model_origin}},
       .metrics{metrics},
+      .kind{kind},
     };
     if(native) {
       auto const slot{native_queue.insert(metrics.order)};
@@ -323,14 +325,16 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         };
         auto const output{instance.execute(1,context)};
         for(auto const &draw : output.draws) {
-          if(draw.kind == part_draw_kind::ground_shadow) continue;
+          bool const shadow{draw.kind == part_draw_kind::ground_shadow};
+          auto const shadow_placement{shadow ? place_model_shadow(projection,assembly,shadow_ground_height,instance.bounding_radius()) : std::optional<model_placement>{}};
+          if(shadow && (!shadow_placement || !shadow_placement->visible)) continue;
           auto const &part{instance.parts.at(draw.slot)};
           if(part.name.empty()) continue;
           auto const &shape{resources.shape(part.name)};
-          auto const placement{place_model_part(projection,assembly,word_position(draw.anchor),tile.rotation,draw.placement,instance.bounding_radius())};
+          auto const placement{shadow ? *shadow_placement : place_model_part(projection,assembly,word_position(draw.anchor),tile.rotation,draw.placement,instance.bounding_radius())};
           if(native && !placement.visible) continue;
-          auto const origin{native && draw.placement != part_position::assembly_origin ? vec3d{effect_position(placement.position,vec3<int32_t>{centre})} : centre + math::rotate_tile(draw.anchor,tile.rotation)};
-          queue_part(shape,part,origin,math::rotation(part.rotation),tile.rotation,model_orientation({0,0,0},part,tile.rotation,draw.orientation),placement.camera_origin);
+          auto const origin{(shadow || (native && draw.placement != part_position::assembly_origin)) ? vec3d{effect_position(placement.position,vec3<int32_t>{centre})} : centre + math::rotate_tile(draw.anchor,tile.rotation)};
+          queue_part(shape,part,origin,math::rotation(part.rotation),tile.rotation,model_orientation({0,0,0},part,tile.rotation,draw.orientation),placement.camera_origin,draw.kind);
         }
       } catch(std::exception const &error) {
         warnings.insert(grid.variant(col,row) + ": " + error.what());
@@ -353,17 +357,19 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     };
     auto const output{actor.state.execute(1,context)};
     for(auto const &draw : output.draws) {
-      if(draw.kind == part_draw_kind::ground_shadow) continue;
+      bool const shadow{draw.kind == part_draw_kind::ground_shadow};
+      auto const shadow_placement{shadow ? place_model_shadow(projection,assembly,shadow_ground_height,actor.state.bounding_radius()) : std::optional<model_placement>{}};
+      if(shadow && (!shadow_placement || !shadow_placement->visible)) continue;
       auto const &part{actor.state.parts.at(draw.slot)};
       if(part.name.empty()) continue;
       try {
         auto const &shape{resources.shape(part.name)};
-        auto const placement{place_model_part(projection,assembly,word_position(draw.anchor),0,draw.placement,actor.state.bounding_radius())};
+        auto const placement{shadow ? *shadow_placement : place_model_part(projection,assembly,word_position(draw.anchor),0,draw.placement,actor.state.bounding_radius())};
         if(native && !placement.visible) continue;
-        auto const origin{native && draw.placement != part_position::assembly_origin ? vec3d{effect_position(placement.position,vec3<int32_t>{position})} : position + rotation * draw.anchor};
+        auto const origin{(shadow || (native && draw.placement != part_position::assembly_origin)) ? vec3d{effect_position(placement.position,vec3<int32_t>{position})} : position + rotation * draw.anchor};
         double const depth{view.transform(origin).z};
         if(!native && (depth < -cell_units || depth > view.far_distance + cell_units)) continue;
-        queue_part(shape,part,origin,rotation * math::rotation(part.rotation),0,model_orientation(angles,part),placement.camera_origin);
+        queue_part(shape,part,origin,rotation * math::rotation(part.rotation),0,model_orientation(angles,part),placement.camera_origin,draw.kind);
       } catch(std::exception const &error) {
         warnings.insert(part.name + ": " + error.what());
       }
@@ -387,6 +393,8 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
     try {
       auto const *detail{native ? item.shape->detail_for_distance(item.metrics.distance) : nullptr};
       if(native && !detail) continue;
+      bool const shadow{item.kind == part_draw_kind::ground_shadow};
+      if(shadow && detail && detail->kind != models::detail_kind::polygon) continue;
       if(detail && detail->kind >= models::detail_kind::pixel_block) {
         unsigned int const size{detail->kind == models::detail_kind::pixel_block ? 2u : 1u};
         render::model_point(renderer.output,item.camera_origin,view,size,resources.model_colours(item.metrics.colour_row)[detail->colour]);
@@ -394,8 +402,8 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         continue;
       }
       auto const placed{[&item](vec3d const &vertex){ return item.origin + math::rotate_tile(item.rotation * vertex,item.heading); }};
-      render::model_transform const transform{projection.matrix,item.angles,item.camera_origin};
-      auto const camera_point{[&](vec3d const &position, double const scale) { return native ? transform.point(position,scale) : view.transform(placed(position)); }};
+      render::model_transform const transform{projection.matrix,item.angles,item.camera_origin,shadow ? render::model_surface::ground_shadow : render::model_surface::body};
+      auto const camera_point{[&](vec3d const &position, double const scale) { if(native) return transform.point(position,scale);auto point{placed(position)};if(shadow) point.y = item.origin.y;return view.transform(point); }};
       models::shape_context context;
       std::copy(item.parameters.begin(),item.parameters.end(),context.parameters.begin());
       // Native 0xcc001 queues parameter 0; 0xbac16 seeds the shape condition from it.
@@ -428,9 +436,14 @@ void scene::draw(render::software_renderer &renderer, render::camera const &view
         for(auto const &vertex : primitive.vertices) vertices.push_back({
           .position{camera_point(vertex.position,vertex.projection_scale)},
           .uv{vec2d{vertex.uv}},
-          .shade{vertex.shade},
+          .shade{shadow ? -1 : vertex.shade},
           .projection_scale{vertex.projection_scale},
         });
+        if(shadow) {
+          auto silhouette{primitive};silhouette.colour = 0;silhouette.texture.reset();
+          renderer.primitive(silhouette,vertices,view,{});
+          ++primitives_drawn;continue;
+        }
         auto const texture{primitive.texture ? resources.texture(*primitive.texture) : std::span<uint8_t const>{}};
         if(primitive.texture && texture.empty()) warnings.insert("unresolved runtime texture: " + item.name);
         renderer.primitive(primitive,vertices,view,texture,view.projection == render::projection_mode::original_model ? &resources.model_colours(item.metrics.colour_row) : nullptr);

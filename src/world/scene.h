@@ -85,7 +85,7 @@ public:
   void prepare_terrain_cell(unsigned int x, unsigned int z);
   instance_result terrain_event(unsigned int x, unsigned int z, unsigned int entry);
   scene_events advance(timer_ticks elapsed);
-  void draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius, std::function<void()> const &final_submissions = {}, std::optional<int32_t> camera_anchor_y = {});
+  void draw(render::software_renderer &renderer, render::camera const &view, unsigned int radius, std::function<void()> const &final_submissions = {}, std::optional<int32_t> camera_anchor_y = {}, int16_t shadow_ground_height = 0);
 };
 
 } // namespace tfx::world

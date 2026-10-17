@@ -3227,3 +3227,46 @@ and sanitizers each repeat 256 complete native transformed-model frames.
 All 703 SSD definitions / 19,589 persistent states still agree. Private-window
 controls retain three MFD displays, weapons, follow/nose cameras, ground
 weapon designation, pause and a real combat FINISH/return flow.
+
+
+### Original ground-shadow submission and drawing
+
+SSD ground-shadow requests are now rendered instead of discarded. The
+original `0xb6a44` cutoff admits object Y in **(-1024, 0]**. The shadow query
+retains the actor's fixed X/Z fractions and uses the current global
+player-ground-height word (`0xabf2`) for its plane; it does not independently
+sample terrain beneath each aircraft. This original shared-plane behaviour
+is retained in both the main world view and secondary MFD cameras.
+
+Shadows enter the same bounded queue with their own camera cache, priority,
+colour-row state and copied model parameters. Original `0xbacb1` constructs
+the component matrix, applies its X/Z flattening matrix through `0xcc97c`,
+then composes the view matrix with the usual word stores. The additional
+32767 diagonal quantisation is retained even at zero Euler angles. Shadows
+only use polygon detail levels; their distant point representations do not
+draw. Forced black drawing discards authored Gouraud colours and texture
+bindings while retaining the model's geometry and facing decisions.
+
+`tools/check_model_shadows.py` executes **8,192 complete original shadow
+placements**, checking the height boundaries, signed shared ground height,
+fixed camera products, sphere predicate and normal/wide viewports. Supplied
+instance resolution and subsequent geometry submission are boundaries.
+`tools/check_model_transforms.py --shadow` compares **1,023 complete native
+shadow VGA frames**, including all nine matrix words. `--shadow --gouraud`
+repeats them with authored Gouraud faces and the original forced-flat path.
+One synthetic input overflows original word-IDIV and has no completed native
+frame; it is explicitly excluded. Of the defined inputs, 417 paint pixels.
+The original converter, queue construction/flush, matrix generation,
+flattening, model bytecode, near clipping and VGA painter execute; only model
+handle resolution is supplied. Compact fixtures run without game data.
+
+All **154 regressions** pass in development, Release and ASan/UBSan. Release
+and sanitizers repeat 256 complete Gouraud-shadow frames each. All 128 retail
+missions compose 64 frames without warnings; sanitizers repeat the corpus
+for 16 complete frames each. Private-window controls still exercise MFDs,
+weapons, cameras, designation, pause and real combat FINISH. The additional
+`tools/check_window_shadows.py` observes a normal landed Tour mission reach
+production silhouette drawing after F5 chase view, without injecting world
+state. Earlier outer-transform sanitizer coverage also completed all 128
+missions × 64 frames. Complete scene scheduling, immediate delivery and
+model-local articulated transforms remain separate gates.

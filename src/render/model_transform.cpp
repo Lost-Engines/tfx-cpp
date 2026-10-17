@@ -17,11 +17,20 @@ vec3<int32_t> scale_model_cache(vec3<int32_t> const &origin, uint8_t const scale
   return result;
 }
 
-model_transform::model_transform(mat3<int32_t> const &view, vec3<math::angle> const &angles, vec3<int32_t> const &origin) : basis{view}, camera_origin{origin} {
+model_transform::model_transform(mat3<int32_t> const &view, vec3<math::angle> const &angles, vec3<int32_t> const &origin, model_surface const surface) : basis{view}, camera_origin{origin} {
   // BABCB bypasses the component generator when every angle is zero. Applying
   // an identity sine matrix would incorrectly reduce its diagonal by one.
-  if(!angles.x && !angles.y && !angles.z) return;
-  auto const body{math::rotation_words(angles)};
+  if(surface == model_surface::body && !angles.x && !angles.y && !angles.z) return;
+  auto body{math::rotation_words(angles)};
+  if(surface == model_surface::ground_shadow) {
+    // BACB1 first applies the original XZ ground-plane matrix via CC97C,
+    // including its 32767 diagonal, before the ordinary view composition.
+    for(unsigned int column{0}; column != 3; ++column) {
+      body.data[column * 3] = math::signed_word(static_cast<uint16_t>((body.data[column * 3] * 32767) >> math::matrix_fraction_bits));
+      body.data[column * 3 + 1] = 0;
+      body.data[column * 3 + 2] = math::signed_word(static_cast<uint16_t>((body.data[column * 3 + 2] * 32767) >> math::matrix_fraction_bits));
+    }
+  }
   for(unsigned int row{0}; row != 3; ++row) for(unsigned int column{0}; column != 3; ++column) {
     uint32_t sum{0};
     for(unsigned int axis{0}; axis != 3; ++axis) sum += static_cast<uint32_t>(view.data[row * 3 + axis]) * static_cast<uint32_t>(body.data[column * 3 + axis]);
