@@ -5335,7 +5335,7 @@ The same launch misses in the original Military Spec and Realistic models.
 The maintained `training-military` and `training-realistic` cases retain their
 **384-frame** trajectories, including enemy attacks, rather than forcing a
 successful result. All captured state and every indexed pixel agree in both
-development comparisons; Military Spec also agrees under sanitizers. These
+development and sanitizer comparisons. These
 remain direct-mission contexts with the declared inherited Arcade campaign
 flag, not proof of career-mode court-martial or campaign completion.
 
@@ -5346,3 +5346,51 @@ observer now reads the same system byte represented by the original. New
 captures additionally retain all twelve system conditions, repair clocks and
 accumulated damage bits for complete-frame comparisons. No gameplay logic was
 changed to resolve this observation.
+
+### LAPC-I flight effects and playback ownership
+
+`SOUNDFX=2` selects the original synthesised effects arrangement. Original
+launch wrapper 72970 calls A5FC8 to load filename-table entry 17, normally
+`tunes/fxonly.rld` with `MUSIC=2`. It suppresses sampled Sound Blaster output
+and ordinary flight music. Effect wrapper A6068 starts the requested order
+at volume 75. Its main-song handle is initially invalid, so successive
+effects can overlap and exhaust the shared 32-channel pool; a full pool
+silently rejects another request, as in the original.
+
+The live consumers now include engine start/stop, afterburner increase, gear
+and airbrake switches, cannon, missile/bomb releases and the engine-powered
+F6 fly-past. Slash stops afterburner without requesting a synth effect.
+The sampled-sound switch gates recorded effects/speech; the music switch
+suspends and resumes the synth effects clock.
+
+Original resource release leaves active songs playing. The sequencer now
+retains immutable resource ownership in each playback slot, independently
+of public handle reuse. A synthetic bank verifies twelve complete master
+snapshots across active release, continued ticking, handle reuse, overlap,
+all sixteen playback slots, capacity failure and ordered stopping. This
+does not establish the original's behaviour when a different bank overwrites
+its shared DOS buffer before an old effect has finished.
+
+```sh
+python3 tools/check_lapc_effects.py --build build
+python3 tools/check_osl_lifetime.py --build build
+python3 tools/check_gear_key.py --build build
+python3 tools/check_flight_session.py --build build --mission 501 --frames 32 \
+  --inputs tests/inputs/lapc-effects.json --lapc-effects \
+  --rom-dir /path/to/roms --strict-pixels
+```
+
+The component comparison executes the unchanged original 32-bit wrappers,
+16-bit OSL master and LA callbacks. All **512 MIDI events and sample
+timestamps** agree through overlap, exhaustion, music mute/resume and bank
+reuse, with 546 shared IRQ ticks. The private-window comparison separately
+checks every state, indexed pixel, radio request, damage field and LAPC cue
+in 32 complete flight frames; host PCM is muted before its device starts.
+This is original-code agreement, not a physical-card recording.
+
+That session also exposed the Eurofighter's overspeed gear warning and
+automatic gear switch sound. The shared gear command now preserves original
+warning precedence, the 350-speed limit, aircraft exceptions and flight-state
+gates. All 4,096 original gear-command calls agree, with a 256-row retained
+fixture. The lifetime and gear fixtures bring the asset-free suite to
+**204 passing tests** in development, Release and ASan/UBSan.

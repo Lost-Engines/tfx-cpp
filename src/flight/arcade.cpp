@@ -1,5 +1,6 @@
 #include "math/floating_environment.h"
 #include "arcade.h"
+#include "gear_controls.h"
 #include "world/environment.h"
 #include <algorithm>
 #include <array>
@@ -298,7 +299,7 @@ arcade_update advance_arcade(arcade_state &state, flight_controls const &control
   math::floating_environment const environment;
   /// Native Arcade 0x8dc50: throttle/fuel, gear contact, filtered controls, coordinated bank turn, then movement
   auto const &model{parameters(state.aircraft)};
-  if(state.aircraft == player_aircraft::eurofighter && state.gear_down && state.fixed_speed > 350) state.gear_down = false;
+  if(state.aircraft == player_aircraft::eurofighter && state.gear_down && state.fixed_speed > eurofighter_maximum_gear_speed) state.gear_down = false;
   if(state.landed && state.fixed_speed < 5 && state.brake_chute) { state.brake_chute = false; state.brake_chute_cut_away = true; }
   state.recovering = false;
   throttle(state,controls,elapsed,false,true,state.gear_down);

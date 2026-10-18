@@ -100,6 +100,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   controls_bank = resource(0x1620);
   pilot_notices = {string(0x19d4),string(0x19fc),string(0x1a1c),string(0x1a3c),string(0x1a80),string(0x1ac4),string(0x19a4),string(0x19bc)};
   automatic_landing_gear_failure = string(0x1918);
+  gear_speed_warning = string(0x195c);
   autopilot_bank = resource(0x1680);
   autopilot_number_format = string(0x16dc);
   autopilot_label = string(0x1bf8);

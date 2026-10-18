@@ -38,7 +38,7 @@ See [controls and configuration](docs/controls.md) for weapons, autopilot, camer
 
 ## Sound
 
-Sampled Sound Blaster and Gravis effects and speech, FM music, Roland LAPC-I and Sound Canvas emulation are connected. The saved `SOUNDFX=4` setting selects Gravis. `--music=soundblaster-fm` selects synthesised FM music explicitly; `--music=none` disables music. Roland modes require the matching ROMs selected with `--rom-dir`. Details are in [controls and configuration](docs/controls.md).
+Sampled Sound Blaster and Gravis effects and speech, FM music, Roland LAPC-I and Sound Canvas emulation are connected. The saved `SOUNDFX=4` setting selects Gravis; `SOUNDFX=2` with `MUSIC=2` selects the original LAPC-I synthesised flight effects. `--music=soundblaster-fm` selects synthesised FM music explicitly; `--music=none` disables music. Roland modes require the matching ROMs selected with `--rom-dir`. Details are in [controls and configuration](docs/controls.md).
 
 CD music remains deferred. The original hybrid SB/CD setting can request CD playback; select FM explicitly to use synthesised flight music instead.
 

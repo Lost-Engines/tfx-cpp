@@ -21,11 +21,11 @@ osl_device_driver *osl_sequencer::device(osl_device const type) const {
   auto const found{std::ranges::find_if(devices,[&](auto const *driver) { return driver->device_type() == type; })};
   return found == devices.end() ? nullptr : *found;
 }
-osl_song osl_sequencer::song(playing const &voice) const { return resources.at(voice.state.resource)->song(voice.state.song); }
+osl_song osl_sequencer::song(playing const &voice) const { return voice.source->song(voice.state.song); }
 osl_resource_id osl_sequencer::load(resources::bytes source) {
   auto const found{std::ranges::find_if(resources,[](auto const &value) { return !value; })};
   if(found == resources.end()) throw std::runtime_error{"OSL has no free resource slots"};
-  found->emplace(std::move(source));
+  *found = std::make_shared<osl_resource>(std::move(source));
   auto const &resource{**found};
   for(unsigned int index{0}; index != resource.instrument_count(); ++index) {
     auto const instrument{resource.instrument(index)};
@@ -36,16 +36,22 @@ osl_resource_id osl_sequencer::load(resources::bytes source) {
   return static_cast<unsigned int>(found - resources.begin());
 }
 void osl_sequencer::release(osl_resource_id const resource) {
-  for(auto const &voice : songs) if((voice.state.flags & 1) && voice.state.resource == resource) throw std::logic_error{"cannot release a playing OSL resource"};
+  // Command 3 releases the handle without stopping its active playback.
   resources.at(resource).reset();
 }
 osl_playing_id osl_sequencer::play(osl_resource_id const resource, unsigned int const index, uint8_t const order, uint16_t const row, uint8_t const volume) {
+  auto const result{try_play(resource,index,order,row,volume)};
+  if(!result) throw std::runtime_error{"OSL has insufficient free playback slots or channels"};
+  return *result;
+}
+std::optional<osl_playing_id> osl_sequencer::try_play(osl_resource_id const resource, unsigned int const index, uint8_t const order, uint16_t const row, uint8_t const volume) {
   if(!resources.at(resource)) throw std::out_of_range{"OSL resource is not loaded"};
   auto const data{resources[resource]->song(index)};
   auto const found{std::ranges::find_if(songs,[](auto const &voice) { return !(voice.state.flags & 1); })};
-  if(found == songs.end()) throw std::runtime_error{"OSL has no free playback slots"};
-  if(data.channels() > osl_channels || std::ranges::count_if(channels,[](auto const &channel) { return !channel.allocation; }) < data.channels()) throw std::runtime_error{"OSL has insufficient free channels"};
+  if(found == songs.end()) return {};
+  if(data.channels() > osl_channels || std::ranges::count_if(channels,[](auto const &channel) { return !channel.allocation; }) < data.channels()) return {};
   *found = {};
+  found->source = resources[resource];
   auto &voice{found->state};
   voice.resource = resource;
   voice.song = index;
@@ -76,25 +82,28 @@ void osl_sequencer::stop(osl_playing_id const id) {
   auto &voice{songs.at(id).state};
   if(!(voice.flags & 1)) return;
   voice.flags &= 254;
-  auto *const driver{device(resources.at(voice.resource)->device())};
+  auto *const driver{device(songs.at(id).source->device())};
   for(unsigned int logical{0}; logical != voice.channel_count; ++logical) {
     auto &channel{channels[voice.channel_slots[logical]]};
     if(driver) driver->silence(channel.allocation - 1u);
     channel.allocation = 0;
   }
 }
+void osl_sequencer::stop_all() {
+  for(unsigned int index{0}; index != songs.size(); ++index) stop(index);
+}
 void osl_sequencer::volume(osl_playing_id const id, uint8_t const value) {
   auto &voice{songs.at(id)};
   if(!(voice.state.flags & 1)) return;
   voice.state.volume = value;
-  auto *const driver{device(resources[voice.state.resource]->device())};
+  auto *const driver{device(voice.source->device())};
   if(driver) for(unsigned int logical{0}; logical != voice.state.channel_count; ++logical) {
     auto const physical{voice.state.channel_slots[logical]};
     send_volume(voice,channels[physical],physical,*driver);
   }
 }
 uint8_t osl_sequencer::transpose(playing const &voice, osl_channel const &channel) const {
-  auto const &resource{*resources[voice.state.resource]};
+  auto const &resource{*voice.source};
   uint8_t value{song(voice).transpose()};
   auto const instrument{resource.instrument_parameters(channel.sent_instrument)};
   if(!instrument.empty()) value = static_cast<uint8_t>(value + resources::binary_view{instrument}.byte(0x18));
@@ -124,7 +133,7 @@ void osl_sequencer::send_volume(playing &voice, osl_channel &channel, unsigned i
   auto value{channel.volume};
   if(physical >= 16 || !(voice.state.mask & (1u << physical))) value = 0;
   uint8_t cap{0};
-  auto const &resource{*resources[voice.state.resource]};
+  auto const &resource{*voice.source};
   auto const instrument{resource.instrument_parameters(channel.sent_instrument)};
   if(!instrument.empty()) cap = resources::binary_view{instrument}.byte(0x19);
   value = std::min(value,cap);
@@ -262,7 +271,7 @@ void osl_sequencer::tick() {
     bool const row{voice.state.subtick == voice.state.speed};
     bool jump{false}, end{false};
     if(row) { voice.state.subtick = 0;read_row(voice); }
-    auto *const driver{device(resources[voice.state.resource]->device())};
+    auto *const driver{device(voice.source->device())};
     if(driver) for(unsigned int logical{0}; logical != voice.state.channel_count; ++logical) {
       auto const physical{voice.state.channel_slots[logical]};
       auto &channel{channels[physical]};

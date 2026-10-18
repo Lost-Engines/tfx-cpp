@@ -1,0 +1,16 @@
+[
+  {"frame": 1, "event": "g"},
+  {"frame": 3, "event": "b"},
+  {"frame": 5, "event": "left-bracket"},
+  {"frame": 7, "event": "right-bracket"},
+  {"frame": 9, "event": "left-bracket"},
+  {"frame": 11, "event": "keypad-multiply"},
+  {"frame": 13, "event": "slash"},
+  {"frame": 15, "event": "enter"},
+  {"frame": 17, "event": "space"},
+  {"frame": 19, "event": "f"},
+  {"frame": 21, "event": "space"},
+  {"frame": 23, "event": "g"},
+  {"frame": 25, "event": "slash"},
+  {"frame": 27, "event": "f6"}
+]

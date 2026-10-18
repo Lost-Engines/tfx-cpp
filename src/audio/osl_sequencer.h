@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <memory>
 #include "audio/osl_device.h"
 
 namespace tfx::audio {
@@ -49,10 +50,13 @@ class osl_sequencer {
 private:
   struct playing {
     osl_playing_state state;
+    // Original playback retains bank pointers after its public handle is
+    // released. Keep those bytes alive until this playback slot is reused.
+    std::shared_ptr<osl_resource const> source;
     std::optional<osl_pattern_reader> pattern;
     unsigned int pattern_rows{0};
   };
-  std::array<std::optional<osl_resource>,osl_resource_slots> resources;
+  std::array<std::shared_ptr<osl_resource const>,osl_resource_slots> resources;
   std::array<playing,osl_playing_slots> songs;
   std::array<osl_channel,osl_voice_channels> channels;
   std::vector<osl_device_driver*> devices;
@@ -76,7 +80,11 @@ public:
   osl_resource_id load(resources::bytes source);
   void release(osl_resource_id resource);
   osl_playing_id play(osl_resource_id resource, unsigned int song = 0, uint8_t order = 0, uint16_t row = 0, uint8_t volume = 75);
+  // Native play reports carry when its fixed playback/channel pools are full.
+  // Direct sound-effect requests ignore that failure without altering a song.
+  std::optional<osl_playing_id> try_play(osl_resource_id resource, unsigned int song = 0, uint8_t order = 0, uint16_t row = 0, uint8_t volume = 75);
   void stop(osl_playing_id id);
+  void stop_all();
   void volume(osl_playing_id id, uint8_t value);
   void tick();
   uint16_t clock_rate() const;

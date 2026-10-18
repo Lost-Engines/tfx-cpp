@@ -23,7 +23,9 @@ void music_player::stop_playing_locked() {
 }
 void music_player::stop_locked() {
   stop_playing_locked();
+  if(resource && !effect_bank) sequencer.stop_all();
   if(resource) { sequencer.release(*resource);resource.reset(); }
+  effect_bank = false;
 }
 void music_player::replace_locked(uint8_t const index) {
   stop_locked();
@@ -57,6 +59,14 @@ void music_player::begin_flight(flight_audio_state const &state) {
   context_locked(state);
   auto const selected{preselected.value_or(10)};
   preselected.reset();context.preselected = false;
+  if(context.sound_device == 2) {
+    // Native A5FC8 requests filename slot 17 and loads it independently of
+    // music enable. Individual A6068 callers start orders in this bank.
+    replace_locked(17);
+    effect_bank = true;
+    control.last_cue = 0;
+    return;
+  }
   if(!enabled) return;
   replace_locked(selected);control.last_cue = 0;
   cue_locked(0);
@@ -72,6 +82,14 @@ void music_player::update_flight(flight_audio_state const &state) {
   if(update.selection) apply_locked(*update.selection);
 }
 void music_player::cue(uint8_t const value) { std::lock_guard lock{mutex};if(flight_active) cue_locked(value); }
+void music_player::effect(lapc_effect_cue const cue) {
+  std::lock_guard lock{mutex};
+  if(!flight_active || context.sound_device != 2 || !resource) return;
+  stop_playing_locked();
+  // The original ignores a full channel pool. Existing effects keep their
+  // voices and expire through the sequencer, rather than being preempted.
+  static_cast<void>(sequencer.try_play(*resource,0,std::to_underlying(cue)));
+}
 void music_player::select(int16_t const requested) {
   std::lock_guard lock{mutex};
   flight_active = false;

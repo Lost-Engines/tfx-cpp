@@ -211,14 +211,14 @@ auto main(int const argc, char const *const argv[])->int try {
     }
     if(music) music->configure(static_cast<tfx::audio::music_mode>(preferences.music),preferences.sound_effects,tables.music_orders);
     std::optional<tfx::audio::gus_parameters> gravis;
-    bool effects_enabled{preferences.sound_effects != 0};
+    auto effects_device{static_cast<tfx::audio::sound_device>(preferences.sound_effects)};
     if(preferences.sound_effects == 4) {
       try { gravis = tfx::audio::load_gus_parameters(tfx::resources::read_file(archive_path.parent_path() / "GUS.COM")); }
-      catch(std::exception const &error) { std::cerr << "Gravis effects unavailable: " << error.what() << '\n';effects_enabled = false; }
+      catch(std::exception const &error) { std::cerr << "Gravis effects unavailable: " << error.what() << '\n';effects_device = tfx::audio::sound_device::none; }
     }
     if(preferences.sound_effects || music) {
       try {
-        sound = std::make_unique<tfx::audio::runtime>(tables.samples,game,tfx::platform::audio_output::sample_rate,effects_enabled,std::move(music),gravis);
+        sound = std::make_unique<tfx::audio::runtime>(tables.samples,game,tfx::platform::audio_output::sample_rate,effects_device,std::move(music),gravis);
         output = std::make_unique<tfx::platform::audio_output>([](void *const user, std::span<float> const pcm) noexcept {
           static_cast<tfx::audio::runtime*>(user)->render(pcm);
         },sound.get());
