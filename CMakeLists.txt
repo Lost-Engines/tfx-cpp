@@ -561,6 +561,10 @@ if(BUILD_TESTING)
   target_link_libraries(pilot_probe PRIVATE tfx_core)
   configure_first_party(pilot_probe)
 
+  add_executable(pilot_panel_probe tests/pilot_panel_probe.cpp)
+  target_link_libraries(pilot_panel_probe PRIVATE tfx_core)
+  configure_first_party(pilot_panel_probe)
+
   add_executable(name_probe tests/name_probe.cpp)
   target_link_libraries(name_probe PRIVATE tfx_core)
   configure_first_party(name_probe)
