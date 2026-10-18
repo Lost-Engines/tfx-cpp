@@ -9,7 +9,8 @@ std::vector<engagement_event> engagement_state::observe(engagement_warning const
     if(!targets_player) return events;
     if(!permitted) {
       permitted = true;
-      if(context.aircraft != flight::player_aircraft::eurofighter && !context.arcade && !context.training) events.emplace_back(permission_notice{});
+      // Native aircraft 1 is the F-117; mission-script aircraft start at 1.
+      if(context.aircraft != flight::player_aircraft::nighthawk && !context.arcade && !context.training) events.emplace_back(permission_notice{});
     }
     int16_t constexpr notice_duration{30}; // Rendered frames; independent of the simulation tick count.
     notice_frames = notice_duration;
