@@ -76,6 +76,7 @@ public:
   explicit landing_system(landing_state initial = {});
   landing_state const &value() const;
   void reset();
+  void disengage();
   // Carriers are supplied in the original descending allied surface-slot order.
   landing_selection toggle(landing_input const &input, std::span<vec3<int32_t> const> route,
     std::function<std::optional<landing_port>(vec2<int16_t> const&)> const &terrain,

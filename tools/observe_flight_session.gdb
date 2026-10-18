@@ -114,7 +114,8 @@ class InitialReturn(gdb.FinishBreakpoint):
  def stop(self):
   player=self.player.dereference()
   bits=lambda value:struct.unpack('<Q',struct.pack('<d',float(value)))[0]
-  print('CPP_INITIAL '+json.dumps({'fuel':bits(player['physical']['powerplant']['fuel']),'mass':bits(player['physical']['data']['mass_kg']),'capacity':bits(player['physical']['stores']['fuel_capacity'])}))
+  prefix='CPP_INITIAL 'if flight_frame==0 else 'CPP_REINITIALIZED '
+  print(prefix+json.dumps({'fuel':bits(player['physical']['powerplant']['fuel']),'mass':bits(player['physical']['data']['mass_kg']),'capacity':bits(player['physical']['stores']['fuel_capacity'])}))
   return False
 end
 break tfx::flight::player_flight::initialise
@@ -234,7 +235,9 @@ set $player = this
 set $damage = &damage
 python
 flight_frame+=1
-if virtual_devices:virtual_devices['input_pending']=False
+if virtual_devices:
+ virtual_devices['input_pending']=False
+ virtual_devices['in_frame']=True
 end
 printf "CPP_PRE %d %d %d %u %u %u %d\n", this->basic.flight.integer_position.x, this->basic.flight.integer_position.y, this->basic.flight.integer_position.z, this->basic.flight.angles.x, this->basic.flight.angles.y, this->basic.flight.angles.z, this->basic.flight.fixed_speed
 continue
@@ -286,8 +289,10 @@ class FrameReturn(gdb.FinishBreakpoint):
 
   import struct
   physical=player['physical']
-  landing=player['automatic'];approach=landing['approach']
-  print('CPP_AUTOMATIC_LANDING '+json.dumps([int(landing['phase']),*[int(approach[field][axis])for field in ('destination_metres','player_metres')for axis in ('x','y','z')],*[struct.unpack('<Q',struct.pack('<d',float(approach[field])))[0]for field in ('distance_km','pitch_degrees')],int(approach['flaring'])]))
+  landing=player['automatic'];navigation=physical['autopilot']['navigation']
+  # These original globals belong to ordinary route guidance too. Observe
+  # their canonical owner, rather than the inactive approach's cached copy.
+  print('CPP_AUTOMATIC_LANDING '+json.dumps([int(landing['phase']),*[int(navigation[field][axis])for field in ('target_position','player_position')for axis in ('x','y','z')],*[struct.unpack('<Q',struct.pack('<d',float(value)))[0]for value in (navigation['route_distance'],physical['autopilot']['guidance']['heading_error'])],int(landing['approach']['flaring'])]))
   targets=physical['manual']['controls']['autopilot']
   print('CPP_AUTOPILOT_TARGETS '+json.dumps([int(targets[field])for field in ('enabled','mode','heading')]+[struct.unpack('<Q',struct.pack('<d',float(targets[field])))[0]for field in ('down_metres','metres_per_second')]))
   damage=gdb.parse_and_eval('$damage').dereference()
@@ -342,6 +347,7 @@ class FrameReturn(gdb.FinishBreakpoint):
   rendered_frames+=1
   Path(f'cpp-frame-{rendered_frames}.indices').write_bytes(raw)
   print('CPP_RENDER '+json.dumps({'sha256':hashlib.sha256(raw).hexdigest(),'pattern_seed':int(renderer['procedural_seed'])}))
+  if virtual_devices:virtual_devices['in_frame']=False
   return False
 end
 break tfx::weapons::runtime::finish_frame

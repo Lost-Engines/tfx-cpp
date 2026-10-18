@@ -118,6 +118,7 @@ instrument_assets::instrument_assets(std::span<uint8_t const> const executable) 
   radar_format = string(0x1884);
   nearby_fighters_message = string(0x1888);
   cleared_for_takeoff_message = string(0x16b8);
+  ground_service_message = string(0x2ec);
   for(unsigned int index{0}; index != horizontal_scales.size(); ++index) horizontal_scales[index] = {
     .label{source.signed_le16(data + 0x7d80 + index * 2)},
     .world_per_pixel{source.signed_le16(data + 0x7d88 + index * 2)},
