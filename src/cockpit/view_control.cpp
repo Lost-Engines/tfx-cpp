@@ -23,6 +23,14 @@ void view_control::enqueue(view_mode view, int32_t const speed) {
   }
   if(state.written < state.queue.size()) state.queue[state.written++] = view;
 }
+void view_control::start_impact_orbit(int32_t const speed) {
+  // Native 7D349 queues the loss camera, then replaces its orbit basis with
+  // a fresh 1/16-turn pitch. It must not inherit the previous chase orbit.
+  math::angle constexpr initial_pitch{0x1000};
+  enqueue(view_mode::impact_orbit,speed);
+  state.orbit = {};
+  state.orbit.rotate(math::rotation_axis::pitch,initial_pitch);
+}
 void view_control::consume() {
   // The flight loop calls this only after the active camera stage signals ready.
   if(state.read != state.written) {

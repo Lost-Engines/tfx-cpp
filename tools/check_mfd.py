@@ -51,6 +51,15 @@ for page in (*range(6),11):
                 selected=rng.randrange(10);guns=variant%2;locked=(variant//2)%2
                 row=[page,side,aircraft,speed,height,heading,fuel,gauge,burn,throttle,x,y,rng.random()*1.5,rng.random()*1.5,*systems,selected,guns,locked,*[v for pair in stores for v in pair]]
                 cases.append(row)
+# Ground-impact frames reach exact zero height. Watcom omits the sign of
+# decimal zero, including a negative nonzero value that rounds to zero.
+for page in (2,3,11):
+    for side in range(2):
+        for aircraft in range(3):
+            base=next(row for row in cases if row[:3]==[page,side,aircraft])
+            for value in (0.0,-0.0,0.0001,-0.0001,0.005,-0.005,0.5,-0.5):
+                row=list(base);row[4]=value;row[6]=value;row[12:14]=[value,value]
+                cases.append(row)
 output=subprocess.check_output([str((args.build/'mfd_probe').resolve()),str(directory)],input=('\n'.join(' '.join(map(str,row)) for row in cases)+'\n').encode())
 assert len(output)==len(cases)*128000
 for index,row in enumerate(cases):

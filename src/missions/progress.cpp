@@ -200,16 +200,21 @@ std::vector<progress_event> progress::begin_frame(progress_context const &contex
     return_score = add(return_score,10000);
     set_termination(context.arcade);
   }
+  return notices;
+}
+
+void progress::advance_return_countdown(simulation::timer_ticks const elapsed, bool const arcade) {
+  // Native 71B90 runs after the aircraft and surface controllers, so their
+  // final update still observes the player's flying speed and landed state.
   if(exit_ticks) {
-    exit_ticks = word(exit_ticks - context.elapsed);
+    exit_ticks = word(exit_ticks - elapsed);
     if(exit_ticks <= 0) {
       exit_ticks = 0;
       force_landed_return = true; // Native 71BBB/71BCA; this does not perform physical ground placement.
       if(critical_loss) { outcome = session_outcome::critical_loss; status = session_status::critical_loss; ended = true; }
-      else set_termination(context.arcade);
+      else set_termination(arcade);
     }
   }
-  return notices;
 }
 
 bool progress::finish_frame(simulation::timer_ticks const elapsed) {

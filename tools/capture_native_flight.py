@@ -210,6 +210,13 @@ def sensor_snapshot(current):
  slots=current.read(current.read(0x76c8,'<I')[0]-current.data,'<20I')
  return [current.read(0x76d0,'<h')[0],identity(current.read(0x11108,'<I')[0]),*[identity(p) for p in slots],int(current.read(0x763e,'<H')[0]!=0),current.read(0x7774,'<h')[0],identity(current.read(0x135c8,'<I')[0]),identity(current.read(0x135d0,'<I')[0]),*current.read(0x135c0,'<2i'),*current.read(0x135cc,'<2h'),*current.read(0x135d4,'<2h'),int(current.read(0x8860,'<B')[0]!=0)]
 
+hud_alert_events=[]
+def observe_hud_alert(current):
+ if not entered[0]:return
+ pointer=current.cpu.reg_read(r.UC_X86_REG_EAX)-current.data
+ assert pointer in (0x6fbe,0x6f12),hex(pointer)
+ hud_alert_events.append({'frame':frames[0],'kind':int(pointer==0x6f12)})
+im.intercept(0x7dde4,'Observe vector HUD alert requests; the original warning state and painter execute unchanged.',observe_hud_alert)
 trail_events=[]
 def observe_trail(current):
     stack=current.cpu.reg_read(r.UC_X86_REG_ESP)
@@ -429,7 +436,7 @@ record={
  'processor_exceptions':im.processor_exceptions,
  'cockpit_displays':cockpit_displays,
  'preflight_projection':preflight_projection,
- 'trail_events':trail_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':args.ticks_per_frame,'snapshots':snapshots,'horizons':horizons,'world_cameras':world_cameras,'terrain_passes':terrain_passes,
+ 'trail_events':trail_events,'hud_alert_events':hud_alert_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':args.ticks_per_frame,'snapshots':snapshots,'horizons':horizons,'world_cameras':world_cameras,'terrain_passes':terrain_passes,
  'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),
  'dependencies':{hex(address):reason for address,reason in im.dependencies.items()},
  'host_services':['DPMI exception-vector transport','VGA planar memory and ports','capture-owned in-memory DOS files','fixed startup calendar','zeroed DOS low page for unused cleared-shot owner','inherited presentation declarations'],

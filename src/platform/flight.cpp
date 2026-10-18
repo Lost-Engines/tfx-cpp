@@ -56,6 +56,7 @@
 #include "missions/initialisation.h"
 #include "missions/timeline.h"
 #include "missions/progress.h"
+#include "missions/target_binding.h"
 #include "missions/recovery.h"
 #include "platform/window.h"
 #include "platform/arming.h"
@@ -229,11 +230,32 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     });
   }
   std::vector<tfx::world::scene_handle> fixed_scenery;
+  std::vector<vec3<int32_t>> fixed_positions_q8;
   for(auto const &placement : tfx::actors::initialise_scenery(actor_program,profiles)) {
     auto const handle{scene.create_actor(placement.definition,vec3d{placement.position} / tfx::actors::position_unit,{0,0,0})};
     if(placement.event) scene.actor_event(handle,placement.event);
     fixed_scenery.push_back(handle);
+    fixed_positions_q8.emplace_back(placement.position);
   }
+  std::vector<tfx::missions::surface_target_candidate> surface_targets;
+  for(auto const &actor : surface_actors) surface_targets.push_back({
+    .slot{actor.state.pose.slot},
+    .position_q8{vec3<int32_t>{actor.state.pose.position}},
+    .flags{static_cast<uint8_t>(actor.state.pose.flags)},
+  });
+  std::vector<tfx::missions::target_binding> mission_targets;
+  for(auto const &target : mission_setup.targets) mission_targets.push_back(tfx::missions::bind_target(target.position,fixed_positions_q8,surface_targets));
+  auto const target_intact{[&](tfx::missions::target_binding const &target) {
+    return std::visit([&](auto const &reference) {
+      using reference_type = std::decay_t<decltype(reference)>;
+      if constexpr(std::is_same_v<reference_type,tfx::missions::fixed_target>) return !scene.actor_destroyed(fixed_scenery.at(reference.index));
+      else if constexpr(std::is_same_v<reference_type,tfx::missions::surface_target>) {
+        auto const found{std::ranges::find_if(surface_actors,[&](auto const &actor) { return actor.state.pose.slot == reference.slot; })};
+        if(found == surface_actors.end()) throw std::runtime_error{"bound mission target has lost its surface slot"};
+        return !scene.actor_destroyed(found->visual);
+      } else return scene.terrain_intact(static_cast<unsigned int>(reference.cell.x),static_cast<unsigned int>(reference.cell.y));
+    },target);
+  }};
   tfx::weapons::armament armament{mission_setup.aircraft,tables.weapons,tables.arming};
   armament.pylons = options.launch_inventory;
   auto const &launch_airframe{tables.aerodynamic_airframes.at(std::to_underlying(mission_setup.aircraft) - 1)};
@@ -1212,7 +1234,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     for(auto const id : update.gear_sounds) sample(audio::sample_priority::urgent,id);
     for(auto const change : update.aerodynamic.recovery_changes) if(change == flight::aerodynamic_recovery_change::engaged) sample(audio::sample_priority::urgent,audio::sample_id::recovery);
     if(update.refuel_afterburner_warning) radio.show(tables.refuel_parameters().afterburner_message);
-    if(update.aerodynamic.descent_warning) radio.show(tables.instruments().descent_warning);
+    if(update.aerodynamic.descent_warning) {
+      aiming.show_alert(tfx::cockpit::hud_alert::pull_up);
+      sample(audio::sample_priority::urgent,audio::sample_id::pull_up);
+    }
     for(auto const entry : update.model_entries) scene.actor_event(player_visual,entry);
     for(auto const event : update.aerodynamic.afterburner) {
       reheat_sound(event);
@@ -1255,10 +1280,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     cockpit_position.advance(tables.instruments().viewports[view_index()].bottom,!designator_view && views.value().current == tfx::cockpit::view_mode::cockpit);
     for(auto const index : mission_time.begin_frame()) radio.show(mission_setup.messages[index].text);
     std::vector<tfx::missions::target_life> targets;
-    for(auto const &target : mission_setup.targets) targets.push_back(scene.terrain_intact(static_cast<unsigned int>(target.position.x / tfx::world::cell_units),static_cast<unsigned int>(target.position.z / tfx::world::cell_units)) ? tfx::missions::target_life::alive : tfx::missions::target_life::dead);
+    for(auto const &target : mission_targets) targets.push_back(target_intact(target) ? tfx::missions::target_life::alive : tfx::missions::target_life::dead);
     for(auto const &event : mission_progress.begin_frame({
       .mission_time{mission_time.elapsed()},
-      .elapsed{elapsed},
       .targets{targets},
       .landed{player.landed},
       .speed{player.fixed_speed},
@@ -1278,10 +1302,6 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         sample(audio::sample_priority::urgent,audio::sample_id::mission_complete);
       }
     }
-    if(mission_progress.force_landed_return) {
-      player.fixed_speed = 0;
-      player.landed = true;
-    }
     air_world.player = tfx::actors::air_contact{
       .position{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
       .angles{vec3<tfx::math::angle>{player.angles}},
@@ -1290,6 +1310,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     scene.place_actor(player_visual,vec3d{player.position},player.angles);
     tfx::flight::repair_systems(player_damage,elapsed);
     advance_actors(elapsed);
+    mission_progress.advance_return_countdown(elapsed,!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0));
+    if(mission_progress.force_landed_return) {
+      player.fixed_speed = 0;
+      player.landed = true;
+    }
     auto const contact_source{player_visual};
     auto const contact_damage{scene.actor_impact_damage(contact_source)};
     {
@@ -1365,7 +1390,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       if(loss.first_loss) {
         if(sound) sound->music_cue(audio::music_cue_id::aircraft_lost);
         scene.actor_event(player_visual,21);
-        views.enqueue(tfx::cockpit::view_mode::impact_orbit,player.fixed_speed);
+        views.start_impact_orbit(player.fixed_speed);
       }
       if(loss.explosion && sound) {
         if(loss.mayday) sound->sequence(audio::sample_priority::normal,{std::to_underlying(audio::sample_id::aircraft_explosion),std::to_underlying(audio::sample_id::mayday)});
@@ -1957,7 +1982,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       auto const callback{tables.instruments().viewports[view_index()].callback_file};
       if(!designator_view && (callback == 0x806dc || callback == 0x80718 || callback == 0x80758)) draw_aiming(view,callback != 0x80758);
       bool const hide_external_information{!designator_view && callback == 0x80794 && !options.flight_information};
-      auto const radio_window{designator_view || callback == 0x80704 || hide_external_information ? std::optional<std::string>{} : radio.advance(launch_elapsed,acceleration.active)};
+      // Several loss/ejection viewports have no display callback at all.
+      // They neither draw nor advance the retained radio ticker.
+      auto const radio_window{!callback || designator_view || callback == 0x80704 || hide_external_information ? std::optional<std::string>{} : radio.advance(launch_elapsed,acceleration.active)};
       if(!designator_view && view_index() == tfx::cockpit::forward_cockpit) {
         cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
         draw_instruments(radio_window);

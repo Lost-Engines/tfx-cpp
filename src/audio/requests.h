@@ -36,6 +36,7 @@ enum class sample_id : unsigned int {
   refuel_acquiring = 46,
   refuel_response = 48,
   landing_stopped = 49,
+  pull_up = 61,
   recovery = 62,
   bomb_release = 64,
   fill_up = 69,

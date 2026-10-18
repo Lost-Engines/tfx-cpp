@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <utility>
+#include "cockpit/format.h"
 #include "presentation/drawing.h"
 #include "render/sprites.h"
 
@@ -102,10 +103,10 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
   }
   case display_page::flight_data: {
     background(3);
-    text({24,2},formatted(assets.flight_formats[0],static_cast<double>(static_cast<long double>(state.speed) * assets.speed_scale)),3);
-    text({24,9},formatted(assets.flight_formats[0],static_cast<double>(-static_cast<long double>(state.height) * assets.altitude_scale)),1);
+    text({24,2},detail::decimal(assets.flight_formats[0],static_cast<double>(static_cast<long double>(state.speed) * assets.speed_scale),0),3);
+    text({24,9},detail::decimal(assets.flight_formats[0],static_cast<double>(-static_cast<long double>(state.height) * assets.altitude_scale),0),1);
     text({24,16},formatted(assets.flight_formats[1],static_cast<unsigned int>(state.heading / 182)),1);
-    text({24,23},formatted(assets.flight_formats[0],state.fuel),status(flight::aircraft_system::fuel));
+    text({24,23},detail::decimal(assets.flight_formats[0],state.fuel,0),status(flight::aircraft_system::fuel));
     if(state.smoothed_fuel_burn) {
       auto const product{std::bit_cast<int32_t>(static_cast<uint32_t>(state.speed) * static_cast<uint32_t>(static_cast<int32_t>(state.fuel_gauge)))};
       long const range{static_cast<int64_t>(product) / state.smoothed_fuel_burn / 1000};
@@ -133,7 +134,7 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
       }
       remaining -= cell_capacity;
     }
-    centred(30,formatted(assets.fuel_total_format,state.fuel),status(flight::aircraft_system::fuel));
+    centred(30,detail::decimal(assets.fuel_total_format,state.fuel,0),status(flight::aircraft_system::fuel));
     break;
   }
   case display_page::systems:
@@ -153,8 +154,8 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
     background(2);
     mask(instrument_mask::left_engine,{22,10},status(flight::aircraft_system::left_engine));
     mask(instrument_mask::right_engine,{30,10},status(flight::aircraft_system::right_engine));
-    text({2,30},formatted(assets.engine_formats[0],static_cast<double>(static_cast<long double>(state.engine_load[0]) * assets.engine_percent)),status(flight::aircraft_system::left_engine));
-    text({30,30},formatted(assets.engine_formats[1],static_cast<double>(static_cast<long double>(state.engine_load[1]) * assets.engine_percent)),status(flight::aircraft_system::right_engine));
+    text({2,30},detail::decimal(assets.engine_formats[0],static_cast<double>(static_cast<long double>(state.engine_load[0]) * assets.engine_percent),0),status(flight::aircraft_system::left_engine));
+    text({30,30},detail::decimal(assets.engine_formats[1],static_cast<double>(static_cast<long double>(state.engine_load[1]) * assets.engine_percent),0),status(flight::aircraft_system::right_engine));
     break;
   case display_page::schematic:
     background(2);
@@ -209,8 +210,8 @@ void mfd::draw(render::software_renderer &renderer, display_side const side, dis
       double const speed{static_cast<double>(static_cast<long double>(autopilot.speed) * assets.autopilot_speed_scale)};
       if(autopilot.mode == autopilot_mode::waypoint || autopilot.mode == autopilot_mode::heading) {
         double const height{static_cast<double>(-static_cast<long double>(autopilot.height) * assets.autopilot_height_scale)};
-        text({2,27},formatted(assets.autopilot_height_speed_format,height,speed),2);
-      } else if(autopilot.mode != autopilot_mode::recover) text({2,27},formatted(assets.autopilot_speed_format,speed),2);
+        text({2,27},formatted(assets.autopilot_height_speed_format,detail::decimal_value(height,0),detail::decimal_value(speed,0)),2);
+      } else if(autopilot.mode != autopilot_mode::recover) text({2,27},detail::decimal(assets.autopilot_speed_format,speed,0),2);
     } else {
       auto const configuration{std::to_underlying(state.controls.configuration)};
       if(configuration < assets.configuration_labels.size()) text({2,20},assets.configuration_labels[configuration],2);

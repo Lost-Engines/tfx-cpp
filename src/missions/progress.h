@@ -63,7 +63,6 @@ struct player_loss_effects {
 };
 struct progress_context {
   mission_tick mission_time;
-  simulation::timer_ticks elapsed;
   std::span<target_life const> targets;
   bool landed{false};
   int32_t speed{0};
@@ -102,6 +101,7 @@ public:
   terrain_loss_effects record_terrain_loss(terrain_loss_context const &context);
   airspace_event observe_airspace(airspace_context const &context);
   std::vector<progress_event> begin_frame(progress_context const &context);
+  void advance_return_countdown(simulation::timer_ticks elapsed, bool arcade);
   bool finish_frame(simulation::timer_ticks elapsed);
 };
 
