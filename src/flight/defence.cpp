@@ -4,9 +4,10 @@ namespace tfx::flight {
 
 defensive_effects press_defensive_key(defensive_systems &state, defensive_key const key, defensive_context const &context) {
   defensive_effects result;
-  // Native 0x85f50/0x86258: the Eurofighter ignores both mode keys. Other craft cannot run ECM and stealth together.
+  // Native 0x85f50/0x86258 compare the zero-based aircraft index with 1:
+  // the F-117 ignores both keys. Other craft cannot run ECM and stealth together.
   if(key == defensive_key::ecm || key == defensive_key::stealth) {
-    if(context.aircraft == player_aircraft::eurofighter) return result;
+    if(context.aircraft == player_aircraft::nighthawk) return result;
     if(key == defensive_key::ecm) {
       state.ecm = !state.ecm;
       if(state.ecm) state.stealth = false;

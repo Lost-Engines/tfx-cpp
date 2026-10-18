@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare controlled combat inputs through complete original/C++ flight frames.
 
-Only keyboard events, held keys and external timer samples are supplied.
+Only keyboard events, held keys, mouse samples and external timers are supplied.
 Targets, locks, projectiles, damage, scores and completion state are reached
 through the real game loops. Original resources stay outside the repository.
 """
@@ -13,7 +13,18 @@ import sys
 import tempfile
 
 
+DEFENSIVE_INPUTS = [
+    *({'frame': frame, 'event': 'insert' if frame % 2 else 'delete'} for frame in range(1, 33)),
+    {'frame': 35, 'event': 'e'},
+    {'frame': 37, 'event': 's'},
+    {'frame': 39, 'event': 'e'},
+    {'frame': 41, 'event': 's'},
+]
+
 CASES = {
+    'defensive-controls': (513, 'arcade', 64, DEFENSIVE_INPUTS),
+    'defensive-controls-raptor': (512, 'arcade', 64, DEFENSIVE_INPUTS),
+    'defensive-controls-eurofighter': (501, 'arcade', 64, DEFENSIVE_INPUTS),
     'career-carrier-landing': (1111, 'realistic', 1024, [
         {'frame': 1, 'event': 'p', 'held': ['right-shift', 'p']},
         {'frame': 3, 'event': 'l', 'held': ['right-shift', 'l']},
@@ -201,6 +212,18 @@ def main():
             native = args.native_root / name / 'native' if args.native_root else root / name / 'native'
             capture = json.loads((native / 'session.json').read_text())
             snapshots = capture['snapshots']
+            if name.startswith('defensive-controls'):
+                decoys = capture['player_countermeasures']
+                assert len(decoys) == 30, ('the two fifteen-cartridge inventories were not exhausted', len(decoys))
+                assert sum(event['radar'] for event in decoys) == 15, 'chaff inventory did not emit fifteen radar decoys'
+                assert all(event['strength'] == (60 if event['radar'] else 40) for event in decoys), 'ordinary decoy strength changed'
+                assert all(event['frame'] <= 30 for event in decoys), 'an exhausted inventory still released a cartridge'
+                if 'defensive_displays' in capture:
+                    modes = {tuple(event['values'][2:]) for event in capture['defensive_displays']}
+                    if name == 'defensive-controls':
+                        assert modes == {(False, True)}, 'the F-117 unexpectedly changed its defensive mode'
+                    else:
+                        assert modes >= {(True, False), (False, True)}, 'ECM/stealth mode keys did not both take effect'
             if name.endswith('-result'):
                 assert capture['terminal']['returned'], 'original mission did not return through its result'
                 assert snapshots[-1]['mission_progress']['ended'], 'flight ended without the mission result gate'

@@ -88,12 +88,14 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         env['TFX_OBSERVE_PALETTE']='1'
     if 'aerodynamic_wind' in expected['snapshots'][1]:env['TFX_OBSERVE_WIND']='1'
     if 'realism_state' in expected['snapshots'][1]:env['TFX_OBSERVE_REALISM']='1'
+    if 'player_contact' in expected['snapshots'][1]:env['TFX_OBSERVE_PLAYER_CONTACT']='1'
     if a.default_rearming:env['TFX_DEFAULT_REARMING']='1'
     if a.lapc_effects:env['TFX_OBSERVE_LAPC']='1'
     # LSan cannot inspect a process under ptrace; ordinary sanitizer tests keep it enabled.
     env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
     if (native/'radar.json').exists():env['TFX_OBSERVE_RADAR_CONTEXT']='1'
     if 'projectile_guidance' in expected:env['TFX_OBSERVE_PROJECTILE_GUIDANCE']='1'
+    if 'player_countermeasures' in expected:env['TFX_OBSERVE_COUNTERMEASURES']='1'
     # GDB reads sourced files incrementally. Retain the exact observer beside
     # the capture so ongoing development cannot change a running comparison.
     observer=root/'observe.gdb';observer.write_bytes((tools/'observe_flight_session.gdb').read_bytes())
@@ -117,7 +119,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
                 if not select.select([read],[],[],5)[0]:raise RuntimeError('private X11 display did not start')
                 number=os.read(read,64).decode().strip()
             finally:os.close(read)
-            env.update(DISPLAY=':'+number,LIBGL_ALWAYS_SOFTWARE='1',XDG_RUNTIME_DIR=str(root),XMODIFIERS='@im=none',TFX_FLIGHT_INPUTS=json.dumps(inputs.rows(a.frames)),TFX_TICKS_PER_FRAME=str(a.ticks_per_frame),TFX_TOOLS_DIRECTORY=str(tools))
+            env.update(DISPLAY=':'+number,LIBGL_ALWAYS_SOFTWARE='1',XDG_RUNTIME_DIR=temporary,XMODIFIERS='@im=none',TFX_FLIGHT_INPUTS=json.dumps(inputs.rows(a.frames)),TFX_TICKS_PER_FRAME=str(a.ticks_per_frame),TFX_TOOLS_DIRECTORY=str(tools))
             # Pulse socket discovery needs the real runtime directory; the
             # test's only stream explicitly selects its private silent sink.
             if a.lapc_effects:
@@ -144,6 +146,11 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if a.default_rearming:assert 'CPP_DEFAULT_REARMING_COMPLETE' in lines,'declared post-landing arming input never completed a dialog'
     def integers(prefix):return [[int(value) for value in line[len(prefix):].split()] for line in lines if line.startswith(prefix)]
     def records(prefix):return [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
+    if 'configuration_events' in expected:
+        assert records('CPP_CONFIGURATION_EVENT ')==expected['configuration_events'],('configuration pointer input',records('CPP_CONFIGURATION_EVENT '),expected['configuration_events'])
+        assert (install/'TFX.CFG').read_bytes()==expected['saved_configuration'].encode('cp437'),'saved configuration bytes differ'
+    if 'player_countermeasures' in expected:
+        assert records('CPP_PLAYER_COUNTERMEASURE ')==expected['player_countermeasures'],('player countermeasure requests',records('CPP_PLAYER_COUNTERMEASURE '),expected['player_countermeasures'])
     if a.model_queues:
         actual=records('CPP_MODEL_QUEUE_INSERT ');wanted=expected['model_queue_insertions']
         assert actual==wanted,('model queue inputs',len(actual),len(wanted),[(i,got,want)for i,(got,want)in enumerate(zip(actual,wanted))if got!=want][:4])
@@ -165,6 +172,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         actual=records('CPP_RADAR_INPUT ')
         assert actual==wanted,('live radar inputs',[(got,want)for got,want in zip(actual,wanted)if got!=want][:3],len(actual),len(wanted))
     before=integers('CPP_PRE ');after=integers('CPP_POST ');world=records('CPP_WORLD ')
+    if 'player_contact' in expected['snapshots'][1]:
+        actual=records('CPP_PLAYER_CONTACT ');wanted=[snapshot['player_contact']for snapshot in expected['snapshots'][1:a.frames+1]]
+        assert actual==wanted,('published player contact',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:4],len(actual),len(wanted))
     if 'realism_state' in expected['snapshots'][1]:
         actual=records('CPP_REALISM_STATE ');wanted=[snapshot['realism_state']for snapshot in expected['snapshots'][1:a.frames+1]]
         assert actual==wanted,('live realism settings',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:4],len(actual),len(wanted))
@@ -273,6 +283,8 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         actual=records('CPP_COCKPIT_DISPLAYS ')
         wanted=[event for event in expected['cockpit_displays']if event['frame']<=a.frames]
         assert actual==wanted,('cockpit display inputs',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:3],len(actual),len(wanted))
+    if 'defensive_displays' in expected:
+        assert records('CPP_DEFENSIVE_DISPLAY ')==expected['defensive_displays'],('defensive HUD inputs',records('CPP_DEFENSIVE_DISPLAY '),expected['defensive_displays'])
     if 'precipitation_events' in expected:
         actual=records('CPP_PRECIPITATION ');wanted=expected['precipitation_events']
         assert actual==wanted,('precipitation inputs',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:3],len(actual),len(wanted))
@@ -289,7 +301,11 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if 'projectile_guidance' in expected:verified.append('projectile guidance inputs')
     if 'cockpit_displays' in expected:verified.append('cockpit display inputs')
     if 'precipitation_events' in expected:verified.append('precipitation inputs')
+    if 'configuration_events' in expected:verified.append('configuration input and persistence')
+    if 'player_countermeasures' in expected:verified.append('player countermeasure requests')
+    if 'defensive_displays' in expected:verified.append('defensive HUD inputs')
     if 'realism_state' in expected['snapshots'][1]:verified.append('live realism settings')
+    if 'player_contact' in expected['snapshots'][1]:verified.append('published player contact')
     if 'aerodynamic_wind' in expected['snapshots'][1]:verified.append('aerodynamic wind')
     if a.model_queues:verified.append('model queue inputs')
     if 'autopilot_targets' in expected['snapshots'][1]:verified.append('autopilot targets')

@@ -26,7 +26,8 @@ cases=[];expected=[];fixtures=[]
 for index in range(8192):
  row=[index%4,1+(index//4)%3,rng.choice([0,1,15,255,rng.randrange(256)]),rng.choice([0,1,15,255,rng.randrange(256)]),rng.randrange(2),rng.randrange(2),*[int(rng.randrange(8)==0)for _ in range(3)],rng.choice([0,1,2,255])]
  key,aircraft,chaff,flares,ecm,stealth,ejecting,collision,disabled,afterburner=row
- for at,fmt,value in [(0x11b2a,'<H',aircraft),(0x6c3e,'<B',chaff),(0x6c3f,'<B',flares),(0x12f29,'<B',ecm),(0x12f26,'<B',stealth),(0xabe9,'<B',ejecting),(0x12c04,'<H',collision),(0x86ce,'<B',disabled),(0x1496d,'<B',afterburner),(0x11108,'<I',0x300000),(0x135c8,'<I',0x300100),(0x135d0,'<I',0x300200)]:im.write(at,fmt,value)
+ # Rows use mission-script aircraft values; DATA 11B2A stores their zero-based index.
+ for at,fmt,value in [(0x11b2a,'<H',aircraft-1),(0x6c3e,'<B',chaff),(0x6c3f,'<B',flares),(0x12f29,'<B',ecm),(0x12f26,'<B',stealth),(0xabe9,'<B',ejecting),(0x12c04,'<H',collision),(0x86ce,'<B',disabled),(0x1496d,'<B',afterburner),(0x11108,'<I',0x300000),(0x135c8,'<I',0x300100),(0x135d0,'<I',0x300200)]:im.write(at,fmt,value)
  events.clear();im.call((0x85f50,0x86258,0x86124,0x86168)[key])
  cleared=[im.read(at,'<I')[0]==0 for at in (0x11108,0x135c8,0x135d0)];assert len(set(cleared))==1
  assert len(events)<=1

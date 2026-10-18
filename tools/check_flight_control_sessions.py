@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare live flight controls and their cockpit through original/C++ frames.
 
-Supplies keyboard and timer inputs only. The original launch, flight, guidance,
+Supplies declared keyboard, mouse and timer inputs. The original launch, flight, guidance,
 target adjustment and MFD selection execute without substituted game state.
 """
 import argparse

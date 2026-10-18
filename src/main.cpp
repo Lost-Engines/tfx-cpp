@@ -243,6 +243,11 @@ auto main(int const argc, char const *const argv[])->int try {
   vec2<int16_t> projection_origin{tfx::render::centre_x - 1,tfx::render::centre_y - 1};
   tfx::render::horizon_phase ground_phase;
   vec3<int32_t> ground_reference{0,0,0};
+  tfx::actors::air_contact player_contact{
+    .position{0,0,0},
+    .angles{0,0,0},
+    .speed{0},
+  };
   tfx::render::precipitation rain;
   tfx::math::random_state session_random;
   int16_t nearby_hostile_count{0};
@@ -278,6 +283,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .projection_origin{projection_origin},
     .ground_phase{ground_phase},
     .ground_reference{ground_reference},
+    .player_contact{player_contact},
     .nearby_hostile_count{nearby_hostile_count},
     .last_released_mount{last_released_mount},
     .flight_information{flight_information},
