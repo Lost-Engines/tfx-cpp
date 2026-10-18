@@ -2,7 +2,7 @@
 """Compare the original automatic descent warning/recovery producer.
 
 The bounded original 0x991e9..0x992f8 region and complete 0x85a7c engagement
-handler execute. Synthetic caller scratch is supplied; only sound/radio/model
+handler execute. Synthetic caller scratch is supplied; only sound/HUD/radio/model
 output delivery is intercepted. Both original return paths are observed.
 """
 import argparse

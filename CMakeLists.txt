@@ -296,6 +296,8 @@ add_library(tfx_core
   src/missions/engagement.cpp src/missions/engagement.h
   src/missions/progress.cpp
   src/missions/progress.h
+  src/missions/target_binding.cpp
+  src/missions/target_binding.h
   src/flight/defence.cpp src/flight/defence.h
   src/flight/damage.cpp
   src/flight/damage.h
@@ -884,6 +886,10 @@ if(BUILD_TESTING)
   target_link_libraries(progress_probe PRIVATE tfx_core)
   configure_first_party(progress_probe)
   add_test(NAME missions.native_target_progress_and_termination COMMAND progress_probe ${PROJECT_SOURCE_DIR}/tests/reference/progress.txt)
+  add_executable(target_binding_probe tests/target_binding_probe.cpp)
+  target_link_libraries(target_binding_probe PRIVATE tfx_core)
+  configure_first_party(target_binding_probe)
+  add_test(NAME missions.native_target_binding COMMAND target_binding_probe ${PROJECT_SOURCE_DIR}/tests/reference/target_binding.txt)
 
   add_executable(damage_probe tests/damage_probe.cpp)
   target_link_libraries(damage_probe PRIVATE tfx_core)

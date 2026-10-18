@@ -38,7 +38,7 @@ for file in (0xb52d4,0xa4dfc,0x81198):
   if file==0xa4dfc and image.cpu.reg_read(r.UC_X86_REG_EAX)==0x3d:events.append(('warning',))
   image.return_from()
  im.intercept(file,'Observe model/radio output delivery',delivery)
-im.intercept(0x7dde4,'Observe descent warning radio delivery',lambda image:image.return_from())
+im.intercept(0x7dde4,'Observe vector PULL UP HUD warning delivery',lambda image:image.return_from())
 for file,change in ((0x85ad0,1),(0x85b50,2)):
  im.intercept(file,'Observe recovery transition; instruction executes',lambda image,change=change:recovery_changes.append(change))
 im.intercept(0x954fc,'Observe physical model reset; instructions execute',lambda image:resets.append(1))

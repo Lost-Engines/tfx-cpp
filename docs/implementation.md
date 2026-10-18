@@ -5124,3 +5124,60 @@ natural result has not yet occurred, rather than discarding useful evidence.
 ```sh
 python3 tools/check_flight_control_sessions.py --case mouse
 ```
+
+### Bound ground objectives and the final return frame
+
+Mission targets bind once at launch, as original `0x70b70` requires: fixed
+scenery in linked-list order, eligible mobile units in ascending slot order,
+then terrain. Height is ignored for the exact cell-centre actor search.
+Destroyed/retired mobile units are excluded. Actor searches truncate cells
+to signed words, while terrain lookup retains the full signed dwords.
+The live host now keeps these bindings instead of assuming every objective
+is a terrain tile. **4,096 complete original binding executions agree**,
+with 256 compact synthetic cases available without game assets.
+
+A maintained mouse/keyboard tape flies mission 503 to its SAM target, releases
+an AGM-88, destroys the target and returns naturally through FINISH. It enters
+the original PLOP cheat through the actual key sequence to prevent enemy damage;
+neither host supplies positions, targets, damage or outcomes. The external
+timer interval is eighteen ticks, with the original time acceleration still
+running. **All 338 frames agree in captured state and every indexed pixel**,
+including 2,154 live projectile-guidance inputs and the final campaign table.
+
+This also exposed an ordering error on the final frame. Original `0x720ef`
+updates other aircraft before `0x71b90` expires the return countdown. Moving
+that stage after AI preserves the player's flying speed for their last
+update, before the forced landed/zero-speed return. All **4,439 original
+mission-progress updates** still agree after separating the stages.
+
+```sh
+python3 tools/check_target_binding.py
+python3 tools/check_progress.py
+python3 tools/check_combat_sessions.py --case ground-strike-result
+```
+
+### Natural crash, descent warning and loss-camera displays
+
+A second maintained tape uses only downward mouse steering and time
+acceleration. The original hits terrain and returns through its aircraft-loss
+FINISH in fourteen frames. **All captured state, HUD warning requests and
+every indexed pixel agree**, including the resulting campaign status/outcome.
+
+Three missing display handoffs were exposed. `0x7dde4` requests a vector
+PULL UP HUD alert; `0x6f12` is its vertex table, not a radio string. The caller
+now shows that alert and requests urgent sample 61. `0x7d349` also initializes
+a fresh pitched orbit after queuing the loss camera; it must not inherit the
+previous camera basis. Finally, viewports with no display callback neither
+paint nor advance the retained radio ticker. The crash trace now observes
+alert delivery separately from its later painting.
+
+The impact frame's MFD also reaches zero altitude. Watcom prints rounded
+decimal zero without a sign, whereas host printf produced `-0`. MFD telemetry
+now uses the same verified decimal conversion as the other HUD displays.
+**732 complete original MFD pixel/coverage frames agree**, including signed
+zero, small positive/negative values, both positions and all three aircraft.
+
+```sh
+python3 tools/check_combat_sessions.py --case crash-result
+python3 tools/check_mfd.py
+```

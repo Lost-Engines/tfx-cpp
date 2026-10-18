@@ -56,6 +56,11 @@ class FinishEntry(gdb.Breakpoint):
   FinishReturn()
   return False
 FinishEntry('tfx::missions::finish_program::execute',internal=True)
+class HudAlert(gdb.Breakpoint):
+ def stop(self):
+  if flight_frame:print('CPP_HUD_ALERT '+json.dumps({'frame':flight_frame,'kind':int(gdb.parse_and_eval('alert'))}))
+  return False
+HudAlert('tfx::cockpit::hud_alerts::show',internal=True)
 def current_renderer():
  global renderer_pointer
  if renderer_pointer is None:

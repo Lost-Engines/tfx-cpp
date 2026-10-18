@@ -93,6 +93,7 @@ public:
   void clear_queue();
   void fixed_position(vec3<int32_t> const &position);
   void enqueue(view_mode view, int32_t speed);
+  void start_impact_orbit(int32_t speed);
   void ready();
   void consume();
   void press(view_key key, view_key_context const &context);

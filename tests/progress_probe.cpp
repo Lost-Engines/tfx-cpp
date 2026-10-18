@@ -34,12 +34,12 @@ int main(int const argc, char const *const argv[]) try {
       for(unsigned int index{0}; index != count; ++index) targets.push_back(mask & (1u << index) ? tfx::missions::target_life::dead : tfx::missions::target_life::alive);
       auto const notices{state.begin_frame({
         .mission_time{mission_time},
-        .elapsed{static_cast<uint16_t>(elapsed)},
         .targets{targets},
         .landed{landed != 0},
         .speed{speed},
         .arcade{arcade != 0},
       })};
+      state.advance_return_countdown(static_cast<uint16_t>(elapsed),arcade != 0);
       bool const timer_notice{state.finish_frame(static_cast<uint16_t>(elapsed))};
       auto const returned_landed{state.force_landed_return ? 1u : landed};
       auto const returned_speed{state.force_landed_return ? 0 : speed};

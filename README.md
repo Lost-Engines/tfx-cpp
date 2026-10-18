@@ -44,7 +44,7 @@ CD music remains deferred. The original hybrid SB/CD setting can request CD play
 
 ## Development status
 
-The original and C++ launch/flight loops match across all 128 retail mission setups and their first sixteen Arcade frames. Longer controlled comparisons cover live combat, mission return, ejection, recording and ground bombing. Subsystem checks execute the original code independently, with compact regressions runnable without game data:
+The original and C++ launch/flight loops match across all 128 retail mission setups and their first sixteen Arcade frames. Longer controlled comparisons cover successful interception and ground attack, aircraft loss, mission return, ejection and recording. Subsystem checks execute the original code independently, with compact regressions runnable without game data:
 
 ```sh
 ctest --test-dir build --output-on-failure

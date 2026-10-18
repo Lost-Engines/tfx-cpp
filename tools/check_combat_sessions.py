@@ -14,6 +14,14 @@ import tempfile
 
 
 CASES = {
+    # Open-loop mouse steering, actual PLOP key sequence and a timed AGM-88
+    # release. This reaches a SAM objective and a natural return, without
+    # changing position, target, damage or campaign state in either game.
+    'ground-strike-result': (503, 'arcade', 384, 'ground-strike.json'),
+    'crash-result': (501, 'arcade', 96, [
+        {'frame': 2, 'mouse': [0, -256]},
+        {'frame': 3, 'event': 't'},
+    ]),
     'training-result': (501, 'arcade', 256, [
         {'frame': 1, 'event': 't'},
         {'frame': 2, 'event': 'enter'},
@@ -87,6 +95,9 @@ def main():
             root.mkdir(parents=True, exist_ok=False)
         for name in ([args.case] if args.case else CASES):
             mission, model, frames, inputs = CASES[name]
+            if isinstance(inputs, str):
+                inputs = json.loads((Path(__file__).resolve().parent.parent / 'tests/inputs' / inputs).read_text())
+            ticks = 18 if name in ('ground-strike-result', 'crash-result') else 4
             tape = root / f'{name}.json'
             tape.write_text(json.dumps(inputs, indent=2) + '\n')
             command = [
@@ -95,12 +106,14 @@ def main():
                 '--build', str(args.build.resolve()),
                 '--mission', str(mission), '--flight-model', model,
                 '--frames', str(frames), '--inputs', str(tape),
+                '--ticks-per-frame', str(ticks),
                 '--strict-pixels', '--output', str(root / name),
             ]
             if args.capture_only:
                 command = [sys.executable, '-B', str(harness.with_name('capture_native_flight.py')),
                            '--research', str(args.research.resolve()), '--mission', str(mission),
                            '--flight-model', model, '--frames', str(frames), '--inputs', str(tape),
+                           '--ticks-per-frame', str(ticks),
                            '--output', str(root / name / 'native')]
             elif args.native_root:
                 command.extend(['--native-capture', str((args.native_root / name / 'native').resolve())])
@@ -117,6 +130,13 @@ def main():
                 assert any(s['projectiles'] for s in snapshots), 'intercept never released a store'
                 assert any(s['mission_progress']['results'][3] for s in snapshots), 'intercept never downed the enemy'
                 assert any(s['mission_progress']['results'][5] for s in snapshots), 'intercept never completed its objective'
+            elif name == 'ground-strike-result':
+                assert any(shot[1] == 20 for s in snapshots for shot in s['projectiles']), 'strike never released its AGM-88'
+                assert snapshots[-1]['mission_progress']['credited_targets'] == 1, 'strike never credited its bound objective'
+                assert capture['terminal']['campaign']['a2gkills'] >= 1, 'strike never reached a ground kill'
+            elif name == 'crash-result':
+                assert capture['terminal']['campaign']['status'] == 4, 'crash did not report the aircraft lost'
+                assert capture['terminal']['campaign']['outcome'] == 1, 'crash did not reach the failure outcome'
             elif name == 'ground-designation':
                 weapons = {shot[1] for s in snapshots for shot in s['projectiles']}
                 assert {0, 21} <= weapons, 'ground sequence never fired its cannon and Sidearm'

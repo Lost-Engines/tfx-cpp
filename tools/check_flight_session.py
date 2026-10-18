@@ -120,6 +120,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         trails=records('CPP_TRAIL ')
         wanted=[event for event in expected['trail_events']if event[0]<=a.frames]
         assert trails==wanted,('trail samples',len(trails),len(wanted),[(i,got,want)for i,(got,want)in enumerate(zip(trails,wanted))if got!=want][:4])
+    if 'hud_alert_events' in expected:
+        wanted=[event for event in expected['hud_alert_events']if event['frame']<=a.frames]
+        assert records('CPP_HUD_ALERT ')==wanted,('HUD warning requests',records('CPP_HUD_ALERT '),wanted)
     radio=records('CPP_RADIO ')
     wanted_radio=[event for event in expected['radio_events'] if event['frame']<=a.frames]
     assert radio==wanted_radio,('radio requests',radio,wanted_radio)
@@ -201,6 +204,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if 'cockpit_displays' in expected:verified.append('cockpit display inputs')
     if 'autopilot_targets' in expected['snapshots'][1]:verified.append('autopilot targets')
     if 'trail_events' in expected:verified.append('smoke samples')
+    if 'hud_alert_events' in expected:verified.append('HUD warning requests')
     if expected.get('recordings'):verified.append('recorded model queues')
     verified += [field for field in ('mission_progress','cannon','radar_pulse','speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]
     print(f'Mission {a.mission}, {a.flight_model}, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
