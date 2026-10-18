@@ -2,6 +2,8 @@
 
 These follow the original September 1994 TFX 2.05 controls. Start the game with `--data-dir /path/to/TFX`; use `--help` for command-line options.
 
+The saved `LANG` values are 1 English, 2 French, 3 German, 4 Italian and 5 Spanish. `--language=NAME` overrides the saved choice for this run.
+
 Startup reads the original `TFX.CFG`; `--flight-model` overrides its model selection. Without a configuration, Arcade is selected. Arcade uses mouse steering. Select `--flight-model=simple`, `--flight-model=military-spec` or `--flight-model=realistic` for the other original models, using arrow keys and Alt+left/right for rudder. These retain their different flight dynamics, aircraft-specific handling, gear damage and carrier arrestor behaviour. `--control=keyboard`, `--control=mouse` or `--control=joystick` overrides the configured input in the non-Arcade models. Simple supports keyboard/joystick steering; joystick steering is available in the three non-Arcade models. `--joystick=N` selects a particular device (0–15), otherwise the first available stick is used. An absent stick falls back to keyboard input.
 
 Joystick buttons follow the original mapping: fire, select ground weapons, select air weapons and cycle targets on buttons 1–4. Stick sensitivity uses the original `JOYSCALE` setting.

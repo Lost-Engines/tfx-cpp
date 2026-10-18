@@ -5763,3 +5763,53 @@ Realistic carrier landing** still agree in every captured state and indexed
 pixel after the ownership correction, the latter under ASan/UBSan.
 
 All **208 asset-free regressions** pass in development, Release and ASan/UBSan.
+
+### Complete refuelling encounter
+
+The complete-session observer now records the original refuelling controller's
+enable/saved-mode bytes, phase, reconnect delay, follow divisors, selected tanker,
+proximity result and attitude errors. These are compared independently of the
+already observed aircraft poses, fuel bits, model states and cockpit inputs.
+
+A **256-frame complete flight** agrees in development and ASan/UBSan in every
+captured state, indexed pixel and displayed palette. Ordinary throttle inputs
+establish separation, apostrophe engages the controller, connection occurs on
+frame 69, fuel transfer starts in the following physics update, and the frame-241
+toggle disengages it. Fuel subsequently falls through ordinary consumption.
+
+    python3 tools/check_refuelling_session.py
+    python3 tools/check_refuelling_session.py --build build-san
+
+This is explicitly a **test-authored mission**, `tests/scenarios/refuelling.mis`,
+not a claimed retail training completion. It loads Columbia and the unmodified
+`miss500` tanker routes, with a nearby F-117 start. Both executables load the same
+source through their normal resource loaders; no controller state, pose, fuel or
+outcome is patched after initialization. The test uses an unused mission number
+and refuses to shadow an archived mission. Captures identify the test source by
+SHA-256. The fixture retains CRLF because the original tokenizer recognizes CR
+as its end-of-token marker; LF-only source makes that parser run past its lines.
+
+The approach also retains the original launch snapping to map-cell centres and
+the controller's wrapped dword squared-distance calculation. Docking anchors use
+the native signed high-word products: Q15 rotation components shifted by sixteen
+halve those model-coordinate offsets. Treating them as ordinary Q16 coordinates
+would place the approach incorrectly. These are retained reference behaviours,
+not production changes made to help the test connect.
+
+### Saved language selection at startup
+
+The CLI now uses the original `DATA:AB1C` language-directory ordering:
+English, French, German, Italian and Spanish for `LANG=1..5`. Italian and Spanish
+had been reversed in the startup selection table, even though the independently
+selected caption/planner renderers already agreed in all five languages. One
+shared table now handles validation and saved-number selection.
+
+    python3 tools/check_startup_languages.py
+    python3 tools/check_startup_languages.py --build build-san
+
+The check reads expected directory names directly from the original executable,
+then observes the actual front-end entry after normal configuration/CLI parsing.
+It reproduced `LANG=4` incorrectly choosing Spanish before the fix. All five saved
+selections and five explicit overrides now pass in development and ASan/UBSan.
+The executable's help also reflects the already corrected ECM/stealth aircraft
+restrictions and Arcade's mouse steering.

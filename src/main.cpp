@@ -23,6 +23,9 @@
 
 namespace {
 
+// Native LANG values 1..5 index the directory table at DATA:AB1C.
+std::array<std::string_view,5> constexpr language_names{"english","french","german","italian","spanish"};
+
 unsigned int number(std::string_view const text) {
   unsigned int result{0};
   auto const [end,error]{std::from_chars(text.data(),text.data() + text.size(),result)};
@@ -62,7 +65,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --data-dir DIRECTORY  Original TFX 2.05 installation (DID.DAT and TFX.DAT)\n"
                    "  --mission N           Enter a mission directly instead of the original front end\n"
                    "  --skip-intro          Start at pilot enrolment without the opening sequence\n"
-                   "  --language NAME       english, french, german, spanish or italian\n"
+                   "  --language NAME       english, french, german, italian or spanish\n"
                    "  --flight-model NAME   arcade, simple, military-spec or realistic; overrides TFX.CFG\n"
                    "  --control NAME        keyboard, mouse or joystick; overrides TFX.CFG\n"
                    "  --joystick N          Select joystick 0..15 (default: first available); enables joystick input\n"
@@ -73,7 +76,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "Arcade uses mouse steering; other models use the original arrow-key controls.\n"
                    "Keypad * raises afterburner; Alt+keypad * or keypad - lowers it; / switches it off.\n"
                    "[ and ] toggle engines; G gear; H arrestor hook; W wheel brakes; B air brakes; Alt+B brake chute; Shift+B cut away.\n"
-                   "E/S toggle ECM/stealth on F-117/F-22; Insert releases chaff; Delete releases a flare.\n"
+                   "E/S toggle ECM/stealth on Eurofighter/F-22; Insert releases chaff; Delete releases a flare.\n"
                    "Enter selects air-to-air weapons; Backspace/O air-to-ground; F/Ctrl selects cannon/navigation.\n"
                    "C cycles radar/emitter targets; Z opens/locks laser designator; arrows aim; comma/period zoom.\n"
                    "X clears targets; F1 returns to flight view; Space fires; Alt+J jettisons ground stores/tanks; T toggles accelerated time; P pauses; backtick opens configuration; double Escape ejects; Shift+Q opens quit/enrol confirmation.\n"
@@ -123,8 +126,7 @@ auto main(int const argc, char const *const argv[])->int try {
     else if(key == "--language") {
       language = value();
       language_selected = true;
-      std::array<std::string_view,5> constexpr languages{"english","french","german","spanish","italian"};
-      if(std::ranges::find(languages,language) == languages.end()) throw std::runtime_error{"unknown TFX language: " + language};
+      if(std::ranges::find(language_names,language) == language_names.end()) throw std::runtime_error{"unknown TFX language: " + language};
     }
     else if(key == "--skip-intro") skip_intro = true;
     else if(key == "--mission") {
@@ -188,9 +190,8 @@ auto main(int const argc, char const *const argv[])->int try {
   if(model_selected) preferences.model = model;
   if(music_override) preferences.music = *music_override;
   if(control_override) preferences.preferred_control = preferences.control = *control_override;
-  if(control_override == tfx::flight::control_source::joystick && preferences.model == tfx::simulation::flight_model::arcade) throw std::runtime_error{"joystick steering requires Simple, Military-spec or Realistic flight; Arcade uses relative mouse/arrow input"};
+  if(control_override == tfx::flight::control_source::joystick && preferences.model == tfx::simulation::flight_model::arcade) throw std::runtime_error{"joystick steering requires Simple, Military-spec or Realistic flight; Arcade uses relative mouse input"};
   if(control_override == tfx::flight::control_source::mouse && preferences.model == tfx::simulation::flight_model::simple) throw std::runtime_error{"the original Simple model has no mouse steering; choose keyboard or joystick"};
-  std::array<std::string_view,5> constexpr language_names{"english","french","german","spanish","italian"};
   if(!language_selected && preferences.language >= 1 && preferences.language <= language_names.size()) language = language_names[preferences.language - 1];
   tfx::resources::archive const game{archive_path};
   tfx::resources::executable_tables const tables{archive_path.parent_path() / "TFX.DAT"};

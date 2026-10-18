@@ -1,0 +1,13 @@
+INIT:
+ world columbia
+ type colum_d
+ start 62464,-2117,291840
+ way miss500
+ speed 250
+ plane 2
+ weapons 3
+ default_weapons
+
+FINISH:
+ return 0
+END:

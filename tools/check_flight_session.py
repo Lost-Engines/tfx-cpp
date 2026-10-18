@@ -20,6 +20,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--mission',type=int,default=501)
+p.add_argument('--mission-file',type=Path,help='declared test-authored loose mission source, with an unused --mission number')
 p.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 p.add_argument('--realism',type=realism_settings,default=DEFAULT_REALISM,help='seven original REALISM values: G effects, precipitation, crashing, gear damage, wind, temperature, recovery')
 p.add_argument('--x87-backend',type=Path,help='build directory supplying hardware transcendental adapters to the original capture')
@@ -52,12 +53,16 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[a.flight_model]
     device=2 if a.lapc_effects else 0
     (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM={",".join(map(str,a.realism))}\r\n'.encode())
+    if a.mission_file:
+        (install/'missions').mkdir()
+        (install/f'missions/miss{a.mission}.mis').write_bytes(a.mission_file.read_bytes())
     if not a.native_capture:
-        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,'--realism',','.join(map(str,a.realism)),*(['--x87-backend',str(a.x87_backend.resolve())]if a.x87_backend else []),*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--until-landed']if a.until_landed else []),*(['--lapc-effects']if a.lapc_effects else []),*(['--career-rules']if a.career_rules else []),*(['--default-rearming']if a.default_rearming else []),*(['--model-queues']if a.model_queues else [])],check=True,timeout=max(300,a.frames*4))
+        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,'--realism',','.join(map(str,a.realism)),*(['--mission-file',str(a.mission_file.resolve())]if a.mission_file else []),*(['--x87-backend',str(a.x87_backend.resolve())]if a.x87_backend else []),*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--until-landed']if a.until_landed else []),*(['--lapc-effects']if a.lapc_effects else []),*(['--career-rules']if a.career_rules else []),*(['--default-rearming']if a.default_rearming else []),*(['--model-queues']if a.model_queues else [])],check=True,timeout=max(300,a.frames*4))
     expected=json.loads((native/'session.json').read_text())
     assert expected.get('resource_root')=='TFX','native capture predates the corrected DOS texture root; recapture it'
     assert expected['mission']==a.mission and expected['flight_model']==a.flight_model and expected['ticks_per_frame']==a.ticks_per_frame,'native capture configuration differs'
     assert expected.get('realism',list(DEFAULT_REALISM))==list(a.realism),'native realism configuration differs'
+    assert expected.get('test_mission_sha256')==(hashlib.sha256(a.mission_file.read_bytes()).hexdigest()if a.mission_file else None),'native test-authored mission differs'
     assert expected.get('x87_backend','unicorn')==('hardware'if a.x87_backend else'unicorn'),'native transcendental backend differs'
     assert expected.get('lapc_effects',False)==a.lapc_effects,'native audio capture configuration differs'
     assert expected.get('default_rearming',False)==a.default_rearming,'native arming input policy differs'
@@ -89,6 +94,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if 'aerodynamic_wind' in expected['snapshots'][1]:env['TFX_OBSERVE_WIND']='1'
     if 'realism_state' in expected['snapshots'][1]:env['TFX_OBSERVE_REALISM']='1'
     if 'player_contact' in expected['snapshots'][1]:env['TFX_OBSERVE_PLAYER_CONTACT']='1'
+    if 'refuelling' in expected['snapshots'][1]:env['TFX_OBSERVE_REFUELLING']='1'
     if a.default_rearming:env['TFX_DEFAULT_REARMING']='1'
     if a.lapc_effects:env['TFX_OBSERVE_LAPC']='1'
     # LSan cannot inspect a process under ptrace; ordinary sanitizer tests keep it enabled.
@@ -172,6 +178,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         actual=records('CPP_RADAR_INPUT ')
         assert actual==wanted,('live radar inputs',[(got,want)for got,want in zip(actual,wanted)if got!=want][:3],len(actual),len(wanted))
     before=integers('CPP_PRE ');after=integers('CPP_POST ');world=records('CPP_WORLD ')
+    if 'refuelling' in expected['snapshots'][1]:
+        actual=records('CPP_REFUELLING ');wanted=[snapshot['refuelling']for snapshot in expected['snapshots'][1:a.frames+1]]
+        assert actual==wanted,('refuelling controller',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:4],len(actual),len(wanted))
     if 'player_contact' in expected['snapshots'][1]:
         actual=records('CPP_PLAYER_CONTACT ');wanted=[snapshot['player_contact']for snapshot in expected['snapshots'][1:a.frames+1]]
         assert actual==wanted,('published player contact',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:4],len(actual),len(wanted))
@@ -306,6 +315,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if 'defensive_displays' in expected:verified.append('defensive HUD inputs')
     if 'realism_state' in expected['snapshots'][1]:verified.append('live realism settings')
     if 'player_contact' in expected['snapshots'][1]:verified.append('published player contact')
+    if 'refuelling' in expected['snapshots'][1]:verified.append('refuelling controller')
     if 'aerodynamic_wind' in expected['snapshots'][1]:verified.append('aerodynamic wind')
     if a.model_queues:verified.append('model queue inputs')
     if 'autopilot_targets' in expected['snapshots'][1]:verified.append('autopilot targets')
