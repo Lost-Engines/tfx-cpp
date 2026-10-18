@@ -52,16 +52,16 @@ void initialise_simple(simple_state &state, vec3<int32_t> const &position, vec3<
   state.gear.down = landed;
   state.gear.condition = landed ? system_condition::active : system_condition::normal;
 }
-void advance_simple_disabled(simple_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground) {
+void advance_simple_disabled(simple_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks const elapsed, ground_contact const ground) {
   math::floating_environment const environment;
   state.flight.orientation = state.ground.body;
-  update_basic_disabled(state.flight,controls,elapsed,ground,false,state.gear.condition == system_condition::active);
+  update_basic_disabled(state.flight,controls,engine_conditions,elapsed,ground,false,state.gear.condition == system_condition::active);
   state.ground.body = state.flight.orientation;
   state.displayed_g_load = 0;
   state.first_update = false;
 }
 
-simple_update advance_simple(simple_state &state, simple_inputs const &inputs, simulation::timer_ticks const elapsed, ground_contact const ground) {
+simple_update advance_simple(simple_state &state, simple_inputs const &inputs, vec2<system_condition> const &engine_conditions, simulation::timer_ticks const elapsed, ground_contact const ground) {
   math::floating_environment const environment;
   auto &flight{state.flight};
   auto const &parameters{basic_parameters(flight.aircraft)};
@@ -79,7 +79,7 @@ simple_update advance_simple(simple_state &state, simple_inputs const &inputs, s
   }
   flight.recovering = false;
   state.geometric_altitude_km = static_cast<float>(-static_cast<calculation>(flight.position.y) * feet_per_world_unit * geometric_metres_per_foot * kilometres_per_metre);
-  update_basic_speed(flight,inputs.controls,elapsed,false,state.gear.condition == system_condition::active);
+  update_basic_speed(flight,inputs.controls,engine_conditions,elapsed,false,state.gear.condition == system_condition::active);
   state.turn.orientation = flight.orientation;
   state.turn.heading_remainder = flight.rotation_remainder.y;
   update_simple_turn(state.turn,{

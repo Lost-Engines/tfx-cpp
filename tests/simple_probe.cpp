@@ -73,8 +73,12 @@ int main(int const argc, char const *const argv[]) try {
         state.gear.condition = gear ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
       }
       if(engines >= 0) { state.flight.left_engine = engines & 1;state.flight.right_engine = engines & 2; }
-      if(disabled && frame >= 64) tfx::flight::advance_simple_disabled(state,controls.controls,static_cast<tfx::simulation::timer_ticks>(ticks),ground);
-      else tfx::flight::advance_simple(state,controls,static_cast<tfx::simulation::timer_ticks>(ticks),ground);
+      vec2<tfx::flight::system_condition> const engine_conditions{
+        state.flight.left_engine ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal,
+        state.flight.right_engine ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal,
+      };
+      if(disabled && frame >= 64) tfx::flight::advance_simple_disabled(state,controls.controls,engine_conditions,static_cast<tfx::simulation::timer_ticks>(ticks),ground);
+      else tfx::flight::advance_simple(state,controls,engine_conditions,static_cast<tfx::simulation::timer_ticks>(ticks),ground);
       auto const values{words(state)};
       if(check) {
         for(auto const value : values) for(unsigned int shift{0}; shift != 64; shift += 8) digest = (digest ^ static_cast<uint8_t>(value >> shift)) * 1099511628211ULL;

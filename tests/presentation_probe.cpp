@@ -36,6 +36,51 @@ int main(int const argc, char const *const argv[]) try {
           else if(std::holds_alternative<tfx::presentation::opaque_action>(node.data)) throw std::runtime_error{"opaque parser action in the retail comparison"};
         }
       }
+    } else if(command == 'R') {
+      // A suspended flight returns into its real enclosing parser call stack.
+      unsigned int function{0},statement{0},depth{0};
+      std::cin >> function >> statement >> depth;
+      tfx::presentation::saved_state saved{
+        .values{},
+        .reserved{std::vector<uint32_t>(tfx::presentation::saved_variable_slots - program.variables.size(),0)},
+        .callers{},
+        .resume{tfx::presentation::location{
+          .function{function},
+          .statement{statement},
+        }},
+      };
+      for(unsigned int i{0}; i != depth; ++i) {
+        tfx::presentation::location caller;
+        std::cin >> caller.function >> caller.statement;
+        saved.callers.push_back(caller);
+      }
+      for(auto const &variable : program.variables) {
+        if(variable.text) saved.values[variable.name] = std::string{"TEST"};
+        else {
+          uint32_t value{0};
+          std::cin >> value;
+          saved.values[variable.name] = value;
+        }
+      }
+      tfx::presentation::runtime execution{program,saved.values};
+      execution.restore(saved);
+      unsigned int constexpr action_budget{4096};
+      unsigned int actions{0};
+      for(; actions != action_budget; ++actions) {
+        auto const *node{execution.run()};
+        if(!node) break;
+        auto const at{*execution.position()};
+        std::cout << at.function << ' ' << at.statement << ' ' << execution.call_depth() << ' ' << static_cast<unsigned int>(std::to_underlying(node->kind)) << ' ';
+        if(node->kind == tfx::presentation::node_kind::launch || node->kind == tfx::presentation::node_kind::options || node->kind == tfx::presentation::node_kind::quit || node->kind == tfx::presentation::node_kind::planner || node->kind == tfx::presentation::node_kind::load_parser) break;
+        execution.complete();
+      }
+      if(actions == action_budget) throw std::runtime_error{"campaign segment did not reach a host boundary"};
+      std::cout << -1 << ' ';
+      for(auto const &variable : program.variables) if(!variable.text) std::cout << std::get<uint32_t>(saved.values.at(variable.name)) << ' ';
+      auto const final{execution.snapshot(tfx::presentation::save_mode::without_resume)};
+      std::cout << final.callers.size();
+      for(auto const &caller : final.callers) std::cout << ' ' << caller.function << ' ' << caller.statement;
+      std::cout << '\n';
     } else {
       unsigned int function{0},statement{0};uint32_t before{0};
       std::cin >> function >> statement >> before;

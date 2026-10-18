@@ -44,12 +44,14 @@ CD music remains deferred. The original hybrid SB/CD setting can request CD play
 
 ## Development status
 
-The original and C++ launch/flight loops match across all 128 retail mission setups and their first sixteen Arcade frames. Longer controlled comparisons cover successful interception and ground attack, aircraft loss, mission return, ejection and recording. Subsystem checks execute the original code independently, with compact regressions runnable without game data:
+The original and C++ launch/flight loops match across all 128 retail mission setups and their first sixteen Arcade frames. Longer controlled comparisons cover successful interception and ground attack, incoming fire and aircraft loss, refuelling, mission return, ejection and recording. Subsystem checks execute the original code independently, with compact regressions runnable without game data:
 
 ```sh
 ctest --test-dir build --output-on-failure
 ```
 
-Broader campaign/encounter coverage and the remaining optional audio paths are still being investigated. [Verification details](docs/implementation.md) distinguish complete-session evidence from isolated checks; the [implementation plan](docs/implementation-plan.md) tracks remaining work. The research tree is the sibling `tfx-reverse` directory.
+For a minimal installation, `cmake --install build-rel --component Runtime --prefix /path/to/output` copies just the executable from a Release build. Original game data remain separate.
+
+[Verification details](docs/implementation.md) distinguish complete-session evidence from isolated checks; the [implementation plan](docs/implementation-plan.md) tracks further coverage. The research tree is the sibling `tfx-reverse` directory.
 
 GPL-3.0-or-later; see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).

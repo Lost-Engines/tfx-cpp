@@ -133,7 +133,7 @@ void recover(arcade_state &state, uint16_t const elapsed) {
   state.orientation = state.orientation.transposed();
   state.recovering = true;
 }
-void throttle(arcade_state &state, flight_controls const &controls, uint16_t const ticks, bool const disabled, bool const arcade, bool const gear_drag) {
+void throttle(arcade_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, uint16_t const ticks, bool const disabled, bool const arcade, bool const gear_drag) {
   auto const &model{parameters(state.aircraft)};
   calculation const movement{static_cast<calculation>(ticks) * throttle_step};
   if(state.left_engine || state.right_engine) {
@@ -175,8 +175,12 @@ void throttle(arcade_state &state, flight_controls const &controls, uint16_t con
   if(disabled) state.target_speed = 0.5f; // Native 0x8ca91 fixes the requested Mach after loss/ejection.
   if(gear_drag) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.95f);
   if(state.air_brake) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.8f);
-  if(!state.left_engine && !state.right_engine) { state.target_speed = 0; state.arrested = false; }
-  else if(!state.left_engine || !state.right_engine) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.5f);
+  // Native 8CADA reads the indicators, while throttle input and fuel use the
+  // engine factors. The outer frame normalizes these indicators afterwards.
+  bool const left_off{engine_conditions.x == system_condition::normal};
+  bool const right_off{engine_conditions.y == system_condition::normal};
+  if(left_off && right_off) { state.target_speed = 0; state.arrested = false; }
+  else if(left_off || right_off) state.target_speed = static_cast<float>(static_cast<calculation>(state.target_speed) * 0.5f);
   float response{arcade ? speed_response : simple_speed_response};
   if((state.landed && state.wheel_brake) || state.brake_chute) { state.target_speed = 0; response = brake_response; }
   if(state.arrested) { state.target_speed = 0; response = arrested_response; }
@@ -217,9 +221,9 @@ void filter_control(float &target, float &current, int16_t const delta, uint16_t
 } // anonymous namespace
 
 basic_aircraft_parameters const &basic_parameters(player_aircraft const aircraft) { return parameters(aircraft); }
-void update_basic_speed(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, bool const arcade, bool const gear_drag) {
+void update_basic_speed(arcade_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks const elapsed, bool const arcade, bool const gear_drag) {
   math::floating_environment const environment;
-  throttle(state,controls,elapsed,false,arcade,gear_drag);
+  throttle(state,controls,engine_conditions,elapsed,false,arcade,gear_drag);
 }
 void consume_basic_fuel(arcade_state &state, simulation::timer_ticks const elapsed, bool const arcade) {
   math::floating_environment const environment;
@@ -263,13 +267,13 @@ void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<
   state.angles = state.orientation.angles();
 }
 
-void update_basic_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const arcade, bool const gear_drag) {
+void update_basic_disabled(arcade_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks const elapsed, ground_contact const ground, bool const arcade, bool const gear_drag) {
   math::floating_environment const environment;
   // Native 0x8e5a8, selected by the outer player callback after loss/ejection.
   if(!state.collision) {
     recover(state,elapsed);
     if(state.position.y < 0) {
-      throttle(state,controls,elapsed,true,arcade,gear_drag);
+      throttle(state,controls,engine_conditions,elapsed,true,arcade,gear_drag);
       calculation const movement{static_cast<calculation>(state.speed_mach) * sound_speed * (1.0f / speed_metres_per_native_tick)};
       state.movement_per_tick = static_cast<float>(movement);
       state.fixed_speed = integer(movement * fixed_speed_scale);
@@ -290,19 +294,19 @@ void update_basic_disabled(arcade_state &state, flight_controls const &controls,
   if((state.landed && state.orientation.down.y < 0) || (ground.present && state.position.y > ground.height)) { state.position.y = ground.height; state.collision = 2; }
 }
 
-void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground) {
+void advance_disabled(arcade_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks const elapsed, ground_contact const ground) {
   math::floating_environment const environment;
-  update_basic_disabled(state,controls,elapsed,ground,true,state.gear_down);
+  update_basic_disabled(state,controls,engine_conditions,elapsed,ground,true,state.gear_down);
 }
 
-arcade_update advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks const elapsed, ground_contact const ground, bool const time_warp) {
+arcade_update advance_arcade(arcade_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks const elapsed, ground_contact const ground, bool const time_warp) {
   math::floating_environment const environment;
   /// Native Arcade 0x8dc50: throttle/fuel, gear contact, filtered controls, coordinated bank turn, then movement
   auto const &model{parameters(state.aircraft)};
   if(state.aircraft == player_aircraft::eurofighter && state.gear_down && state.fixed_speed > eurofighter_maximum_gear_speed) state.gear_down = false;
   if(state.landed && state.fixed_speed < 5 && state.brake_chute) { state.brake_chute = false; state.brake_chute_cut_away = true; }
   state.recovering = false;
-  throttle(state,controls,elapsed,false,true,state.gear_down);
+  throttle(state,controls,engine_conditions,elapsed,false,true,state.gear_down);
   calculation const movement{static_cast<calculation>(state.speed_mach) * sound_speed * (1.0f / speed_metres_per_native_tick)};
   state.movement_per_tick = static_cast<float>(movement);
   state.fixed_speed = integer(movement * fixed_speed_scale);

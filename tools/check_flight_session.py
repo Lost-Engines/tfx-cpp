@@ -145,7 +145,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         if audio_module is not None:subprocess.run(['pactl','unload-module',audio_module],check=True)
     (root/'observer.log').write_text(result.stdout+result.stderr)
     if a.inputs and result.returncode==0:
-        (root/'cpp.indices').write_bytes((root/f'cpp-frame-{a.frames}.indices').read_bytes())
+        final_image=root/f'cpp-frame-{a.frames}.indices'
+        assert final_image.is_file(),('C++ returned before the original final frame',a.frames,'observed images',len(list(root.glob('cpp-frame-*.indices'))),'see',str(root/'observer.log'))
+        (root/'cpp.indices').write_bytes(final_image.read_bytes())
     assert result.returncode==0,(result.stdout+result.stderr)[-6000:]
     assert 'exited normally' in result.stdout and 'ERROR:' not in result.stderr,(result.stdout+result.stderr)[-6000:]
     lines=result.stdout.splitlines()

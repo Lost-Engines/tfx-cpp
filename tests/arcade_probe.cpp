@@ -66,8 +66,12 @@ auto main(int const argc, char const *const argv[])->int try {
       controls.mouse_buttons = static_cast<uint8_t>(buttons);
       controls.accelerate = accelerate != 0;
       controls.decelerate = decelerate != 0;
-      if(disabled && frame >= 64) tfx::flight::advance_disabled(state,controls,static_cast<uint16_t>(ticks),ground);
-      else tfx::flight::advance_arcade(state,controls,static_cast<uint16_t>(ticks),ground);
+      vec2<tfx::flight::system_condition> const engine_conditions{
+        state.left_engine ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal,
+        state.right_engine ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal,
+      };
+      if(disabled && frame >= 64) tfx::flight::advance_disabled(state,controls,engine_conditions,static_cast<uint16_t>(ticks),ground);
+      else tfx::flight::advance_arcade(state,controls,engine_conditions,static_cast<uint16_t>(ticks),ground);
       std::ostringstream row;
       output(state,row,ground_mode);
       if(check) for(unsigned char const byte : row.str()) hash = (hash ^ byte) * 1099511628211ULL;
