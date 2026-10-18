@@ -135,6 +135,7 @@ def install(current_frame):
    def stop(self):
     nonlocal arming
     assert arming is None,'nested arming dialog'
+    print('CPP_ARMING_ENTRY '+json.dumps({'frame':current_frame()+int(not phase['in_frame']),'incomplete':int(gdb.parse_and_eval('entry'))==1}))
     clicks=inputs.at(current_frame()+1).get('arming',[])
     arming={'polls':0,'default':False,'clicks':clicks,'ready':not clicks}
     ArmingReturn(internal=True)

@@ -26,7 +26,7 @@ private:
 
 public:
   arming_screen(resources::archive const &game, resources::executable_tables const &tables, weapons::armament &inventory,
-    flight::player_aircraft aircraft, unsigned int default_fit);
+    flight::player_aircraft aircraft, unsigned int default_fit, arming_entry entry = arming_entry::normal);
   void press(uint8_t scan);
   bool rotating() const;
   bool advance(vec2<int16_t> const &position, vec2<int16_t> const &movement, uint8_t buttons);

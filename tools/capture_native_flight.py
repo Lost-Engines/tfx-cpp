@@ -168,10 +168,12 @@ im.intercept(0xb41e4,'Supply private keyboard transport arrays instead of instal
 im.intercept(0xb43b4,'No host keyboard events are pending during startup.',lambda current:current.return_from())
 entered=[False];frames=[0];snapshots=[]
 configuration=ConfigurationMouse(im,inputs,lambda:frames[0])if any('configuration'in row for row in inputs.rows(args.frames))else None
-mouse_polls=[0];mouse_buttons=[0];defaults_applied=[False];inside_arming=[False];arming_actions=[];arming_events=[]
+mouse_polls=[0];mouse_buttons=[0];defaults_applied=[False];inside_arming=[False];arming_actions=[];arming_events=[];arming_entries=[]
 def begin_arming(current):
  global arming_actions
  arming_actions=[list(action)for action in inputs.at(frames[0]).get('arming',[])]if entered[0] else []
+ if entered[0] and not current.read(0x11b3d,'<B')[0]:
+  arming_entries.append({'frame':frames[0],'incomplete':current.read(0x132fc,'<I')[0]==current.native(0x8a66c)})
  inside_arming[0]=True
  if not entered[0] or args.default_rearming or arming_actions:
   mouse_polls[0]=0;defaults_applied[0]=False
@@ -577,6 +579,7 @@ record={
  'x87_backend':'hardware'if args.x87_backend else'unicorn',
  'default_rearming':args.default_rearming,
  'arming_events':arming_events,
+ 'arming_entries':arming_entries,
  'lapc_effects':args.lapc_effects,'lapc_requests':lapc_requests,
  'sample_requests':sample_requests if args.lapc_effects else None,
  **({'model_queue_scope':'flight','model_queue_insertions':model_queue_insertions}if args.model_queues else {}),

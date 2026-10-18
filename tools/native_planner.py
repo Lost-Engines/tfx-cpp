@@ -81,6 +81,7 @@ class NativePlanner:
         self.stopped = False
         self.displayed = bytes(64000)
         self.buttons = 0
+        self.button_polls = []
         im.write(0x1b238, '<I', 0x7f0000)
         im.write(0x1b23c, '<I', 0x7f0100)
         im.write(0xab36, '<B', 1)
@@ -96,7 +97,7 @@ class NativePlanner:
             im.intercept(address, 'Supply hardware display, retrace and mouse boundaries for a fixed 2D frame.', lambda im: im.return_from())
         im.intercept(0xc72c0, 'Supply an available mouse.', lambda im: (cpu.reg_write(r.UC_X86_REG_EAX,1),im.return_from()))
         im.intercept(0xa6134, 'Supply a fixed clock without installing the DOS timer interrupt.', lambda im: (im.write(0x16f2c,'<I',0),im.return_from()))
-        im.intercept(0xc733e, 'Supply the selected held mouse buttons.', lambda im: (cpu.reg_write(r.UC_X86_REG_EAX,self.buttons),im.return_from()))
+        im.intercept(0xc733e, 'Supply the selected held mouse buttons.', lambda im: (cpu.reg_write(r.UC_X86_REG_EAX,self.button_polls.pop(0)if self.button_polls else self.buttons),im.return_from()))
         im.intercept(0xc7370, 'Clear the supplied drawing page.', lambda im: (self.video.reset(),im.return_from()))
         for address in (0xb0e4c,):
             im.intercept(address, 'Optional satellite/world 3D setup is outside this 2D planner comparison.', lambda im: im.return_from())

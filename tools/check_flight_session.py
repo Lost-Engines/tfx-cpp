@@ -154,6 +154,8 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if a.default_rearming:assert 'CPP_DEFAULT_REARMING_COMPLETE' in lines,'declared post-landing arming input never completed a dialog'
     def integers(prefix):return [[int(value) for value in line[len(prefix):].split()] for line in lines if line.startswith(prefix)]
     def records(prefix):return [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
+    if 'arming_entries' in expected:
+        assert records('CPP_ARMING_ENTRY ')==expected['arming_entries'],('arming entry notice',records('CPP_ARMING_ENTRY '),expected['arming_entries'])
     if 'arming_events' in expected:
         assert records('CPP_ARMING_EVENT ')==expected['arming_events'],('arming pointer input',records('CPP_ARMING_EVENT '),expected['arming_events'])
     if 'configuration_events' in expected:

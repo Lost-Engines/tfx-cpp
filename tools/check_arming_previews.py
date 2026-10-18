@@ -15,21 +15,30 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--data-dir',type=Path,default=Path('../tfx-reverse/installs/cd_1994_09/TFX'))
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
+parser.add_argument('--incomplete',action='store_true',help='compare the real landing-service notice and click-to-dismiss sequence')
+parser.add_argument('--dismiss',choices=('left','right'),default='left',help='mouse button used to dismiss --incomplete')
 parser.add_argument('--output',type=Path,help='save the F-117 reference/C++ opening screenshots')
 args=parser.parse_args()
+dismiss_button=1 if args.dismiss=='left'else 2
 # Thirty-two idle draws cover a full miniature revolution, including byte wrap,
 # and advance the native store thumbnails and weapon-bay animation every draw.
 positions=[(100,75),(160,100),(10,10),(315,195)]*8
+if args.incomplete:positions=positions[:28]+[(197,199),(197,199),(100,75),(315,195)]
 count=0
 for aircraft in range(3):
-    request=str(aircraft)+'\n'+''.join(f'{x} {y} 0 0 0\n' for x,y in positions)
-    actual=subprocess.check_output([str((args.build/'arming_preview_probe').resolve()),str(args.data_dir),'sequence'],input=request.encode())
+    request=str(aircraft)+'\n'+''.join(f'{x} {y} 0 0 {dismiss_button if args.incomplete and index==28 else 0}\n' for index,(x,y)in enumerate(positions))
+    actual=subprocess.check_output([str((args.build/'arming_preview_probe').resolve()),str(args.data_dir),'incomplete'if args.incomplete else'sequence'],input=request.encode())
     assert len(actual)==(len(positions)+1)*64000
     native=NativeArming(args.data_dir,args.research,previews=True)
-    native.initialise_aircraft(aircraft);native.open_screen()
+    native.initialise_aircraft(aircraft);native.open_screen(incomplete=args.incomplete)
     for frame in range(len(positions)+1):
         if frame:
             native.position=positions[frame-1]
+            native.buttons=dismiss_button if args.incomplete and frame==29 else 0
+            if native.buttons==2:
+                # Press at the outer poll, then release before idle's blocking
+                # release wait. Both are explicit external mouse samples.
+                native.button_polls=[2];native.buttons=0
             native.frame(1,-1,[-1]*10)
         want=native.displayed;got=actual[frame*64000:(frame+1)*64000]
         if args.output and aircraft==1 and frame==0:
@@ -41,6 +50,9 @@ for aircraft in range(3):
                 image.convert('RGB').resize((1280,800),Image.Resampling.NEAREST).save(args.output/f'arming-{label}.png')
         assert got==want,(aircraft,frame,sum(a!=b for a,b in zip(got,want)),[(i%320,i//320,a,b) for i,(a,b) in enumerate(zip(got,want)) if a!=b][:12])
         count+=1
+    if args.incomplete:
+        assert native.image.read(0x132fc,'<I')[0]==native.image.native(0x89590),'notice did not dismiss to idle'
+        assert native.image.read(0x13308,'<H')[0]==0,'notice dismissal clicked through to DONE'
     print(f'Aircraft {aircraft}: all {len(positions)+1} complete native 3D arming frames agree in every indexed pixel',flush=True)
 
 # Execute the real post-arming logo routine, rather than assuming it shares

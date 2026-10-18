@@ -4,8 +4,9 @@
 
 namespace tfx::presentation {
 
-arming_controller::arming_controller(weapons::armament &inventory, arming_assets const &assets, unsigned int const default_fit) : inventory{inventory}, assets{assets}, default_fit{default_fit} {
+arming_controller::arming_controller(weapons::armament &inventory, arming_assets const &assets, unsigned int const default_fit, arming_entry const entry) : inventory{inventory}, assets{assets}, default_fit{default_fit} {
   for(unsigned int slot{0}; slot != flight::store_slots; ++slot) inventory.assign(slot,std::nullopt);
+  if(entry == arming_entry::mission_incomplete) current.mode = arming_mode::mission_incomplete;
 }
 arming_controller::~arming_controller() { remove_previews(); }
 arming_state const &arming_controller::state() const { return current; }
@@ -74,7 +75,7 @@ void arming_controller::advance(vec2<int16_t> const &position, vec2<int16_t> con
   case arming_mode::clearing:
     if(click && picked) clear(*picked);
     return;
-  case arming_mode::overview: case arming_mode::unavailable:
+  case arming_mode::overview: case arming_mode::unavailable: case arming_mode::mission_incomplete:
     if(click) cancel();
     return;
   case arming_mode::scrolling:

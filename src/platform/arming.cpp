@@ -32,8 +32,8 @@ public:
 } // anonymous namespace
 
 bool arm_mission(window &window, resources::archive const &game, resources::executable_tables const &tables,
-  weapons::armament &inventory, flight::player_aircraft const aircraft, unsigned int const default_fit) {
-  presentation::arming_screen screen{game,tables,inventory,aircraft,default_fit};
+  weapons::armament &inventory, flight::player_aircraft const aircraft, unsigned int const default_fit, presentation::arming_entry const entry) {
+  presentation::arming_screen screen{game,tables,inventory,aircraft,default_fit,entry};
   auto *const host{window.get()};
   arming_keys keys{host,screen};
   window.title("TFX C++ — Arming");

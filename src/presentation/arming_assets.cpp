@@ -54,6 +54,7 @@ arming_assets::arming_assets(std::span<uint8_t const> const executable) {
   store_mass_format = string(0x1e2c);
   store_drag_format = string(0x1e34);
   unavailable = {string(0x1c9c),string(0x1cb0)};
+  mission_incomplete = string(0x1cc0);
   for(unsigned int corner{0}; corner != unavailable_box.size(); ++corner) unavailable_box[corner] = {source.signed_le16(data + 0x8074 + corner * 4),source.signed_le16(data + 0x8076 + corner * 4)};
   auto const region{[&](unsigned int const at, arming_action const kind, unsigned int const row = 0) {
     return arming_region{
