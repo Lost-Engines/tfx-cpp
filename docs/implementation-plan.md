@@ -1,6 +1,6 @@
 # Remaining implementation plan
 
-Reference: September 1994 TFX 2.05. The project remains a native C++26 reconstruction using original installation data and the existing software-rendering/window approach. CD music remains deferred, and CI remains unconfigured.
+Reference: September 1994 TFX 2.05. The project remains a native C++26 reconstruction using original installation data and the existing software-rendering/window approach. Linux is the authentic reference target; Windows and macOS builds are interim conveniences. Platform-specific verification and non-x86 numerical portability are deferred while campaign and audio verification take priority, ahead of eventual Emscripten work. CD music remains deferred, and CI remains unconfigured.
 
 The executable starts the original introduction, enrolment and menus, with DOS-compatible pilot save/load, briefing/review/arming and authored results handoff. All four player flight models, keyboard/mouse/joystick acquisition, autopilot, recovery, refuelling and automatic landing are connected. Aircraft and surface routes/combat, carried stores, sensors, damage, mission rules, cockpit displays and cameras also run. Backtick opens the original configuration/realism dialogs with live settings and compatible preference saving. The remaining work is broader interacting-encounter and campaign coverage, rather than those systems' initial implementation. See [implementation.md](implementation.md) for verification boundaries.
 
@@ -8,10 +8,11 @@ The aim is to reach a substantially complete, automatically exercised game befor
 
 ## Current next work
 
-- Continue broadening complete original-session coverage where playtesting or analysis identifies a specific uncertainty. Hostile fire through loss/FINISH, coupled refuelling, live wind changes and stock depletion/defensive modes now have strict comparisons. Exercise actual controls and natural outcomes; do not set internal state to manufacture success.
 - Broaden persistent campaign playthrough coverage beyond the verified training result/save/continue sequence. Separately, 680 post-flight control-flow segments now cover 96 mission callers and the authored recovery/discipline/promotion branches with explicitly supplied flight results.
+- Extend integrated audio comparisons across repeated loops, cue changes, overlapping music/speech/effects, ground service, results and menu returns. All 81 resources now have verified first-traversal exports across 104 hardware auditions; sustained gameplay audio is the next coverage target.
+- Continue broadening complete original-session coverage where playtesting or analysis identifies a specific uncertainty. Hostile fire through loss/FINISH, coupled refuelling, live wind changes and stock depletion/defensive modes now have strict comparisons. Exercise actual controls and natural outcomes; do not set internal state to manufacture success.
 - Keep every captured state, indexed image and (for new captures) displayed palette strict. Investigate divergent inputs or update order before attributing differences to the original.
-- Keep native packaging minimal: the Runtime install component contains only the executable. CI remains unconfigured and CD music deferred. Optional QSound processing requires external Creative CSP firmware/driver support; it is an established dependency, not an unimplemented software effect.
+- Keep native packaging minimal: the Runtime install component contains the executable and the matching platform’s asset-fetch script and ROM manifest. CI remains unconfigured and CD music deferred. Optional QSound processing requires external Creative CSP firmware/driver support; it is an established dependency, not an unimplemented software effect.
 
 The latest corpus sweep matches all 128 retail missions through sixteen complete
 frames. The runway and carrier approaches now match every intermediate image,
