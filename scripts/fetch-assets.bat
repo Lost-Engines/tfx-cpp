@@ -8,7 +8,8 @@ if not exist "%script_dir%roms.txt" (
   echo ERROR: missing ROM manifest: %script_dir%roms.txt 1>&2
   exit /b 1
 )
-set "destination=%~dp0..\roms"
+rem Match Darker: default to the package directory, beside tfx.exe.
+set "destination=%~dp0.."
 if not "%~1"=="" set "destination=%~1"
 for %%T in (curl.exe certutil.exe tar.exe) do (
   where.exe %%T >nul 2>nul
@@ -38,7 +39,6 @@ if "%failed%"=="1" (
   exit /b 1
 )
 echo ROMs ready in %CD%
-echo Use --rom-dir with this directory to enable Roland music.
 popd
 exit /b 0
 
@@ -98,7 +98,7 @@ exit /b 0
 
 :help
 echo Usage: %~nx0 [destination]
-echo Fetch CM-32L, SC-55 and SCC-1A ROMs (default: roms in the project/package directory).
+echo Fetch CM-32L, SC-55 and SCC-1A ROMs (default: package directory, beside tfx.exe).
 exit /b 0
 :usage_error
 echo Usage: %~nx0 [destination] 1>&2

@@ -69,6 +69,19 @@ with tempfile.TemporaryDirectory(prefix='tfx-fetch-test-') as temporary:
         assert requests['/bundle.zip']-before==4,'a failed shared archive was retried separately for each ROM'
         fail_archive=False;run();verify()
         print('Fetch: shared archive failures produce a nonzero exit and one retry sequence; rerun restores the missing ROMs')
+        # The no-argument helper must agree with the runtime, independently of
+        # its own location and the directory from which it was launched.
+        for xdg in (str(root/'user data with spaces'),'relative/data',''):
+            home=root/'home with spaces'
+            default=Path(xdg)/'tfx'if Path(xdg).is_absolute()else home/'.local/share/tfx'
+            env=dict(os.environ,HOME=str(home),XDG_DATA_HOME=xdg)
+            result=subprocess.run(['/bin/bash',str(script)],cwd=root,env=env,capture_output=True,text=True,timeout=45)
+            assert result.returncode==0,(xdg,result.stdout,result.stderr)
+            for name,data in payloads.items():assert (default/name).read_bytes()==data,(xdg,name)
+            assert not (root/'roms').exists(),'helper still defaults to project-local ROMs'
+            assert not list(default.glob('.fetch-assets*'))
+            assert 'Use --rom-dir'not in result.stdout
+        print('Fetch: no-argument XDG/HOME destinations, relative XDG rejection and launch-directory independence passed')
         if shutil.which('shasum'):
             commands=root/'mac-style-path';commands.mkdir()
             for command in ('curl','unzip','dirname','mkdir','mktemp','rm','mv','shasum'):(commands/command).symlink_to(shutil.which(command))

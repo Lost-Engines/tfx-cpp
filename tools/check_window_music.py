@@ -18,7 +18,6 @@ p.add_argument('--rom-dir',type=Path)
 p.add_argument('--mission',help='check direct flight music instead of the opening presentation')
 p.add_argument('--music',choices=('roland-lapc','soundblaster-fm','roland-scc1a','roland-sc55'),default='roland-lapc')
 a=p.parse_args()
-if a.music!='soundblaster-fm' and not a.rom_dir:p.error('Roland playback requires --rom-dir')
 with tempfile.TemporaryDirectory(prefix='tfx-music-window-') as temporary:
  directory=Path(temporary);install=directory/'TFX';install.mkdir()
  for name in ('DID.DAT','TFX.DAT','START.EXE','TUNES'):(install/name).symlink_to((a.data_dir/name).resolve())
