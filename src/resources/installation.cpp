@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include "archive.h"
+#include "cd_image.h"
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -32,10 +33,17 @@ std::filesystem::path default_game_directory() {
 #endif // _WIN32
 }
 
-std::filesystem::path select_game_archive(std::optional<std::filesystem::path> const &requested) {
-  if(requested) return find_game_archive(*requested);
+std::filesystem::path select_game_archive(std::optional<std::filesystem::path> const &requested, std::optional<std::filesystem::path> const &media) {
+  auto const prepared{[&](std::filesystem::path const &directory) {
+    bool const installed{std::filesystem::is_regular_file(directory / "DID.DAT") || std::filesystem::is_regular_file(directory / "did.dat")};
+    auto const managed{directory / "cd" / "tfx.cue"};
+    if(std::filesystem::is_regular_file(managed)) install_reference_cd(managed,directory);
+    else if(!installed && media && std::filesystem::is_regular_file(*media)) install_reference_cd(*media,directory);
+    return find_game_archive(directory);
+  }};
+  if(requested) return prepared(*requested);
   for(auto const *name : {"DID.DAT","did.dat"}) if(std::filesystem::is_regular_file(name)) return find_game_archive(".");
-  return find_game_archive(default_game_directory());
+  return prepared(default_game_directory());
 }
 
 std::vector<std::filesystem::path> rom_directories(std::filesystem::path const &game_directory, std::optional<std::filesystem::path> const &requested) {

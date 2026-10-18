@@ -53,12 +53,21 @@ void music_player::apply_locked(music_selection const &selection) {
 void music_player::cue_locked(uint8_t const value) {
   if(auto const selection{select_flight_music(control,context,value)}) apply_locked(*selection);
 }
+void music_player::set_cd_mode(bool const active) {
+  std::lock_guard lock{mutex};
+  context.cd_playing = active;
+}
+std::optional<uint8_t> music_player::preselected_index() const {
+  std::lock_guard lock{mutex};
+  return preselected;
+}
 void music_player::begin_flight(flight_audio_state const &state) {
   std::lock_guard lock{mutex};
   flight_active = true;
   context_locked(state);
   auto const selected{preselected.value_or(10)};
   preselected.reset();context.preselected = false;
+  if(context.cd_playing) { stop_locked();return; }
   if(context.sound_device == 2) {
     // Native A5FC8 requests filename slot 17 and loads it independently of
     // music enable. Individual A6068 callers start orders in this bank.

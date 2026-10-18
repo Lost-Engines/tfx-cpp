@@ -2,24 +2,27 @@
 
 A native C++26 reconstruction of Digital Image Design’s **TFX: Tactical Fighter Experiment**, using the September 1994 CD release, **version 2.05**, as its reference. This is an integration build under active verification.
 
-You need the original installed game files. They are loaded directly; extracted research assets are neither required nor bundled.
+The supplied fetch script downloads the reference game CD and synthesiser ROMs. You can also use your own TFX 2.05 installation. Research exports are neither required nor bundled.
 
 ## Getting started
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build -j
-./build/tfx --data-dir /path/to/TFX
+./scripts/fetch-assets.sh
+./build/tfx
 ```
 
 Requires CMake 3.30+, a compiler and standard library with C++26 support, and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, install `libglfw3-dev` and `libgl1-mesa-dev` for the desktop dependencies. The faithful numerical flight backend currently requires x87 support.
 
 The default installation directory is `~/.local/share/tfx` on Linux/macOS
-(`$XDG_DATA_HOME/tfx` when set), or beside `tfx.exe` on Windows. Put the original
-game files there and launch normally. An installation in the current directory
-takes precedence; `--data-dir` selects a different location.
+(`$XDG_DATA_HOME/tfx` when set), or beside `tfx.exe` on Windows. The fetch
+script uses that location too. An installation in the current directory takes
+precedence; `--data-dir` selects a different location.
 
-The installation needs the reference `TFX.DAT` and `DID.DAT`. Keep `START.EXE`
+On first launch, the fetched disc supplies the required game files automatically. Later launches also repair missing or changed files from that disc, preserving settings and pilot saves. No DOS installer or 7-Zip extractor is needed.
+
+An existing installation can be selected with `--data-dir /path/to/TFX`. It needs the reference `TFX.DAT` and `DID.DAT`. Keep `START.EXE`
 there for synthesised music, and `GUS.COM` for Gravis effects. Existing `TFX.CFG`
 settings are read on startup. Pilot saves and configuration changes use the
 selected installation directory, which should be writable.
@@ -27,7 +30,7 @@ selected installation directory, which should be writable.
 Normal startup plays the introduction and opens pilot enrolment. `--skip-intro` goes straight to enrolment. To try a mission directly:
 
 ```sh
-./build/tfx --data-dir /path/to/TFX --mission=501 --music=soundblaster-fm
+./build/tfx --mission=501
 ```
 
 Mission 501 is the first Fighter Weapons School engagement. Direct launches use the mission’s preset stores; campaign launches open the original arming screen. Choose **DEFAULT** for its preset, then **DONE** to fly.
@@ -48,22 +51,37 @@ See [controls and configuration](docs/controls.md) for weapons, autopilot, camer
 
 Sampled Sound Blaster and Gravis effects and speech, FM music, Roland LAPC-I and Sound Canvas emulation are connected. The saved `SOUNDFX=4` setting selects Gravis; `SOUNDFX=2` with `MUSIC=2` selects the original LAPC-I synthesised flight effects. `--music=soundblaster-fm` selects synthesised FM music explicitly; `--music=none` disables music. Roland modes find matching ROMs automatically beside the game files or in the default installation directory. Details are in [controls and configuration](docs/controls.md).
 
-To fetch the Roland ROMs on Linux or macOS:
+To fetch or repair the game disc and Roland ROMs on Linux or macOS:
 
 ```sh
 ./scripts/fetch-assets.sh
-./build/tfx --data-dir /path/to/TFX --music=roland-scc1a
+./build/tfx --music=roland-scc1a
 ```
 
 On Windows, run `scripts\fetch-assets.bat`. The scripts use the default
 installation directory described above, so no `--rom-dir` option is needed.
-They fetch CM-32L/LAPC-I, SC-55 v1.21 and SCC-1A v1.30 ROMs, verify every file on
-each run and retry interrupted downloads. An optional destination argument and
+They fetch the reference CD as individual BIN files (roughly 576 MiB), plus
+CM-32L/LAPC-I, SC-55 v1.21 and SCC-1A v1.30 ROMs. Every file is checked on each
+run; missing or damaged files are downloaded again, with retries. An optional destination argument and
 `--rom-dir` are available for custom locations. Linux/macOS
 needs `curl`, `unzip` and `sha256sum` or `shasum`; Windows uses its built-in
-`curl.exe`, `certutil.exe` and `tar.exe`. **Game data are not downloaded yet.**
+`curl.exe`, `certutil.exe` and `tar.exe`.
 
-CD music remains deferred. The original hybrid SB/CD setting can request CD playback; select FM explicitly to use synthesised flight music instead.
+The fetched installation defaults to **CD music**, streamed directly from its
+`cd/tfx.cue` and BIN files. An existing installation’s saved music choice is
+retained; `--music=soundblaster-cd` (or `--music=cd`) selects CD playback.
+
+To use another disc image or your own ripped tracks:
+
+```sh
+./build/tfx --cd-cue /path/to/tfx.cue
+./build/tfx --cd-audio-dir /path/to/soundtrack
+```
+
+Rips can be FLAC, Ogg Vorbis, MP3 or WAV, named `track02.flac`, `track03.ogg`,
+and so on, using the original physical CD track numbers (audio starts at 02).
+Names such as `track-02` and uppercase extensions are also accepted. Playback
+uses the original track selection, stop and flight-loop behaviour.
 
 ## Development status
 
@@ -73,7 +91,7 @@ The original and C++ launch/flight loops match across all 128 retail mission set
 ctest --test-dir build --output-on-failure
 ```
 
-For a minimal installation, `cmake --install build-rel --component Runtime --prefix /path/to/output` copies the executable and the matching platform’s fetch script and ROM manifest from a Release build. Original game data and ROMs remain separate.
+For a minimal installation, `cmake --install build-rel --component Runtime --prefix /path/to/output` copies the executable and the matching platform’s fetch script and asset manifests from a Release build. Original game data and ROMs remain separate.
 
 [Verification details](docs/implementation.md) distinguish complete-session evidence from isolated checks; the [implementation plan](docs/implementation-plan.md) tracks further coverage. The research tree is the sibling `tfx-reverse` directory.
 

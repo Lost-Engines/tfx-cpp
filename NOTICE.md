@@ -18,3 +18,8 @@ The pinned Nuked Sound Canvas emulator is copyright nukeykt and contributors,
 including J.C. Moyer's backend integration, under GPL-2.0-or-later. Its original
 source headers and licence accompany the fetched dependency. Synthesiser ROMs
 are external user assets and are not distributed with this project.
+
+The pinned miniaudio library supplies the shared audio device and streamed WAV,
+FLAC and MP3 decoding. Its bundled stb_vorbis supplies Ogg Vorbis decoding.
+Both offer a choice of public-domain or MIT licensing; their upstream copyright
+and licence headers are retained in the fetched sources.

@@ -1,6 +1,6 @@
 # Remaining implementation plan
 
-Reference: September 1994 TFX 2.05. The project remains a native C++26 reconstruction using original installation data and the existing software-rendering/window approach. Linux is the authentic reference target; Windows and macOS builds are interim conveniences. Platform-specific verification and non-x86 numerical portability are deferred while campaign and audio verification take priority, ahead of eventual Emscripten work. CD music remains deferred, and CI remains unconfigured.
+Reference: September 1994 TFX 2.05. The project remains a native C++26 reconstruction using original installation data and the existing software-rendering/window approach. Linux is the authentic reference target; Windows and macOS builds are interim conveniences. Platform-specific verification and non-x86 numerical portability are deferred while campaign and audio verification take priority, ahead of eventual Emscripten work. CD playback now supports the fetched reference CUE/BIN set and numbered local rips; CI remains unconfigured.
 
 The executable starts the original introduction, enrolment and menus, with DOS-compatible pilot save/load, briefing/review/arming and authored results handoff. All four player flight models, keyboard/mouse/joystick acquisition, autopilot, recovery, refuelling and automatic landing are connected. Aircraft and surface routes/combat, carried stores, sensors, damage, mission rules, cockpit displays and cameras also run. Backtick opens the original configuration/realism dialogs with live settings and compatible preference saving. The remaining work is broader interacting-encounter and campaign coverage, rather than those systems' initial implementation. See [implementation.md](implementation.md) for verification boundaries.
 
@@ -12,7 +12,7 @@ The aim is to reach a substantially complete, automatically exercised game befor
 - Extend integrated audio comparisons across repeated loops, cue changes, overlapping music/speech/effects, ground service, results and menu returns. All 81 resources now have verified first-traversal exports across 104 hardware auditions; sustained gameplay audio is the next coverage target.
 - Continue broadening complete original-session coverage where playtesting or analysis identifies a specific uncertainty. Hostile fire through loss/FINISH, coupled refuelling, live wind changes and stock depletion/defensive modes now have strict comparisons. Exercise actual controls and natural outcomes; do not set internal state to manufacture success.
 - Keep every captured state, indexed image and (for new captures) displayed palette strict. Investigate divergent inputs or update order before attributing differences to the original.
-- Keep native packaging minimal: the Runtime install component contains the executable and the matching platform’s asset-fetch script and ROM manifest. CI remains unconfigured and CD music deferred. Optional QSound processing requires external Creative CSP firmware/driver support; it is an established dependency, not an unimplemented software effect.
+- Keep native packaging minimal: the Runtime install component contains the executable and the matching platform’s asset-fetch script and asset manifests. CI remains unconfigured. Optional QSound processing requires external Creative CSP firmware/driver support; it is an established dependency, not an unimplemented software effect.
 
 The latest corpus sweep matches all 128 retail missions through sixteen complete
 frames. The runway and carrier approaches now match every intermediate image,
@@ -26,7 +26,7 @@ The native game now connects pilot enrolment and persistence, original presentat
 
 Cockpit/HUD instruments, sensors, all camera controllers, scenery animation/collision, original model detail and queue ordering, textures, shadows, palettes, weather, horizon and precipitation are connected. Subsystem comparisons execute the original code at declared boundaries. All 128 retail missions now match the original launch and first sixteen Arcade frames in all captured state and every indexed pixel: 2,048 complete frames. Mission 501 also agrees through 256 neutral Arcade frames, with separate controlled targeting, combat and recording comparisons. Longer combat traces are now checking scores, objective counters and termination countdowns as well as movement/rendering state.
 
-FM, LAPC-I and Sound Canvas music use the original OSL drivers through DBOPL, Munt and Nuked Sound Canvas. Standard sampled Sound Blaster and Gravis effects/speech and the original flight music/cue selection are connected. Optional QSound processing and complete-session audio coverage remain open. CD music is deferred as requested.
+FM, LAPC-I and Sound Canvas music use the original OSL drivers through DBOPL, Munt and Nuked Sound Canvas. Standard sampled Sound Blaster and Gravis effects/speech and the original flight music/cue selection are connected. Optional QSound processing and complete-session audio coverage remain open. CD transport and its native selection/restart controller are now connected; the independent checks are recorded in the implementation notes.
 
 Alt+V recording and automatic post-flight WNN/replay are connected. The original format has byte-exact writer/reader comparisons; nineteen replay frames and their palettes agree pixel for pixel. A private-window campaign test records a complete successful training flight, observes both WNN introductions and replay, then continues to the next mission. The original filename editor now supports case-sensitive typing, backspace, scrolling, its 18-character limit and Enter; 115 complete original widget frames agree.
 
@@ -151,7 +151,7 @@ Implement TFX's OSL sequencing and original device/event behaviour, reusing the 
 
 Implement sampled effects, radio speech, looping, pitch, panning, priorities and their runtime triggers. Bind flight, combat, damage and presentation events to the mixer. Optional synthesiser ROMs remain external user assets.
 
-**Completion gate:** compare event streams and reproducible PCM, including repeated track changes, controller resets, overlapping effects and varied audio callback sizes. Playback must follow live game state rather than a prerecorded listening export. CD playback remains deferred.
+**Completion gate:** compare event streams and reproducible PCM, including repeated track changes, controller resets, overlapping effects and varied audio callback sizes. Playback must follow live game state rather than a prerecorded listening export. CD playback now has separate image/rip PCM and native controller comparisons.
 
 ## 9. Complete corpus coverage and prepare interactive review
 

@@ -6050,3 +6050,68 @@ cmake --build build-rel --target music_render -j
 python3 ../tfx-reverse/tools/render_music_archive.py
 python3 ../tfx-reverse/tools/map_music_scenes.py
 ```
+
+
+### Fetched reference CD and streamed soundtrack
+
+The asset helpers download the Nova Rev 1 reference dump from Internet Archive
+as fifteen individual archive members, with pinned SHA-256 values in
+`scripts/game-files.txt`. They never download or unpack the enclosing 7z.
+The bundled CUE retains the source INDEX 00/01 positions under short local
+filenames. The existing hash checks, repair, retries and User-Agent apply to
+these images as well as the ROMs. No disc or ROM bytes are committed.
+
+On a normal first launch, `resources::cd_image` reads the Mode 1 ISO filesystem
+from the fetched CUE/BIN set. `install_reference_cd` extracts only the eight
+runtime assets, using the reference DISK1.DAT member offsets; it does not run
+the DOS installer. Later launches compare and repair those assets from the
+managed disc without replacing TFX.CFG or pilot saves. A fresh installation
+selects the original SB/CD mode. An existing installation's choice is retained.
+The default source is `cd/tfx.cue` beside the selected game data, then in the
+default data directory. Explicit `--cd-cue` and `--cd-audio-dir` also select
+CD mode unless `--music` overrides it.
+
+CUE tracks are bounded by their own INDEX 01 and the next INDEX 00, or the end
+of their FILE. Both shared and split BIN layouts work. CD-DA's 44.1 kHz stereo
+PCM streams through the same decoder/resampler as local numbered FLAC, WAV,
+Ogg Vorbis and MP3 rips. Track filenames use physical disc numbers, starting
+at 02. A worker decodes into a bounded ring; the shared 48 kHz output callback
+only mixes available PCM. No whole-track conversion, temporary audio file,
+codec initialization or file read occurs in that callback.
+
+The original zero-based MSCDEX index is converted to the physical track at
+the transport boundary. Flight entry uses pending music index minus eight,
+or native index eight (physical track 09) when none is pending. Native A5374
+polls stopped playback strictly after 300 shared timer ticks and restarts the
+selected track; music enable restarts it too. Synthesised presentation music
+and SB/CD flight music retain their distinct roles. Authored presentation
+CD play/stop requests also reach the same player. This supersedes the earlier
+notes above that deferred CD delivery.
+
+`check_cd_control.py` executes the original launch music block, CD polling,
+cue gating and enable/disable handlers. All 274 control steps agree with the
+production runtime, including the signed timer arithmetic, restart delay,
+mute/unmute and flight return. MSCDEX and PCM transport remain explicit
+boundaries; the C++ probe retains the real OSL driver with its FM register
+writes ending at a transport sink, without constructing unrelated FM hardware. The independent audio check compares raw image PCM exactly,
+compares lossless rips exactly and compares Vorbis/MP3 against FFmpeg within
+codec rounding differences. All sixteen source ISO files match the retained
+hashes; all eight installed runtime assets match the original installation
+byte for byte. Repair checks preserve configuration and pilot files. The
+asset-free CTest covers CUE pregaps, streaming, EOF and replay. The image/rip
+checks and all 274 control steps also pass with address/undefined-behaviour
+sanitizers enabled, including leak checks.
+
+The normal default-path launch was checked with a disposable HOME/XDG data
+directory, including initial extraction and subsequent repair. Private X11
+and PulseAudio checks exercise CUE playback and Release FLAC playback through
+the real flight loop and shared output, without accessing the user's desktop
+or audible output device.
+
+```sh
+python3 tools/check_fetch_assets.py
+python3 tools/check_cd_audio.py --reference ../tfx-reverse
+python3 tools/check_cd_control.py
+python3 tools/check_window_music.py --data-dir /path/to/TFX \
+  --music soundblaster-cd --mission 501 --cd-cue /path/to/tfx.cue
+```
