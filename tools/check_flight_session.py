@@ -137,7 +137,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         bits=lambda value:struct.unpack('<Q',struct.pack('<d',value))[0]
         want={'fuel':bits(before_arming['fuel']),'mass':bits(before_arming['raw_fields']['0x14320']),'capacity':bits(before_arming['raw_fields']['0x14770'])}
         assert initial[0]==want,('pre-arming initialization',initial[0],want)
-    for field,prefix in (('mission_progress','CPP_MISSION_PROGRESS '),('cannon','CPP_CANNON '),('radar_pulse','CPP_RADAR_PULSE '),('speed_factor','CPP_SPEED_FACTOR '),('cheat_state','CPP_CHEAT_STATE '),('aiming_flags','CPP_AIMING_FLAGS '),('control_configuration','CPP_CONTROL_CONFIGURATION '),('autopilot_targets','CPP_AUTOPILOT_TARGETS '),('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES '),('player_parts','CPP_PLAYER_PARTS '),('launch_notice','CPP_LAUNCH_NOTICE '),('player_models','CPP_PLAYER_MODELS ')):
+    for field,prefix in (('mission_progress','CPP_MISSION_PROGRESS '),('player_damage','CPP_PLAYER_DAMAGE '),('cannon','CPP_CANNON '),('radar_pulse','CPP_RADAR_PULSE '),('speed_factor','CPP_SPEED_FACTOR '),('cheat_state','CPP_CHEAT_STATE '),('aiming_flags','CPP_AIMING_FLAGS '),('control_configuration','CPP_CONTROL_CONFIGURATION '),('autopilot_targets','CPP_AUTOPILOT_TARGETS '),('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES '),('player_parts','CPP_PLAYER_PARTS '),('launch_notice','CPP_LAUNCH_NOTICE '),('player_models','CPP_PLAYER_MODELS ')):
         if field in expected['snapshots'][1]:
             actual_records=records(prefix)
             wanted_records=[snapshot[field] for snapshot in expected['snapshots'][1:a.frames+1]]

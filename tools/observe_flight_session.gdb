@@ -103,6 +103,7 @@ set $cheat = &options.cheat
 continue
 end
 set $player = 0
+set $damage = 0
 set $air = 0
 set $seeker = 0
 set $radar = 0
@@ -200,6 +201,7 @@ break tfx::flight::player_flight::advance
 commands
 silent
 set $player = this
+set $damage = &damage
 python
 flight_frame+=1
 if virtual_devices:virtual_devices['input_pending']=False
@@ -256,7 +258,12 @@ class FrameReturn(gdb.FinishBreakpoint):
   physical=player['physical']
   targets=physical['manual']['controls']['autopilot']
   print('CPP_AUTOPILOT_TARGETS '+json.dumps([int(targets[field])for field in ('enabled','mode','heading')]+[struct.unpack('<Q',struct.pack('<d',float(targets[field])))[0]for field in ('down_metres','metres_per_second')]))
-  print('CPP_AIR_BRAKE '+json.dumps([struct.unpack('<Q',struct.pack('<d',float(physical['manual']['air_brake_fraction'])))[0],int(physical['manual']['air_brake_condition'])]))
+  damage=gdb.parse_and_eval('$damage').dereference()
+  # The original byte is the authoritative system condition. The manual
+  # flight object's copy is the input to its earlier physics update, and can
+  # legitimately lag a missile hit later in this same frame.
+  print('CPP_AIR_BRAKE '+json.dumps([struct.unpack('<Q',struct.pack('<d',float(physical['manual']['air_brake_fraction'])))[0],int(damage['systems']['_M_elems'][7])]))
+  print('CPP_PLAYER_DAMAGE '+json.dumps([struct.unpack('<Q',struct.pack('<d',float(damage['accumulated'])))[0],*[int(damage['systems']['_M_elems'][i])for i in range(12)],*[int(damage['repair_ticks']['_M_elems'][i])for i in range(12)]]))
   print('CPP_SPEED_FACTOR '+json.dumps(struct.unpack('<I',struct.pack('<f',float(player['basic']['flight']['speed_mach'])))[0]))
   gains=physical['input_gains']
   print('CPP_CONTROL_CONFIGURATION '+json.dumps([int(physical['autopilot']['recovery']['configuration']),*[struct.unpack('<Q',struct.pack('<d',float(gains[field])))[0]for field in ('joystick','pitch','roll','rudder')]]))
