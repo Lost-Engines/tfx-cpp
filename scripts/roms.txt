@@ -1,0 +1,14 @@
+# SHA-256 filename URL ZIP-member-or-dash
+# CM-32L/LAPC-I v1.02, SC-55 v1.21, SCC-1A v1.30
+08d68695e5bff6bbcbb751d6e4453db9f5ead0b5f41e86480798a04376dfe090 cm32l_ctrl_1_02.rom https://archive.org/download/mame-versioned-roland-mt-32-and-cm-32l-rom-files/MT-32_and_CM-32L_MAME-Versioned_ROM_files..zip/cm32l_ctrl_1_02.rom -
+0dc50190bb7ea3fb212c970346b771a511772b528801e7eda6d27efda8c40698 cm32l_pcm.rom https://archive.org/download/mame-versioned-roland-mt-32-and-cm-32l-rom-files/MT-32_and_CM-32L_MAME-Versioned_ROM_files..zip/cm32l_pcm.rom -
+effc6132d68f7e300aaef915ccdd08aba93606c22d23e580daf9ea6617913af1 sc55_rom2.bin https://archive.org/download/nuked-sc-55-clap-rom-files/Nuked-SC55-CLAP-ROM-files.zip/Nuked-SC55-CLAP-ROM-files/Nuked-SC55-Resources/ROMs/SC-55-v1.21/sc55_rom2.bin -
+7e1bacd1d7c62ed66e465ba05597dcd60dfc13fc23de0287fdbce6cf906c6544 sc55_rom1.bin https://archive.org/download/nuked-sc-55-clap-rom-files/Nuked-SC55-CLAP-ROM-files.zip/Nuked-SC55-CLAP-ROM-files/Nuked-SC55-Resources/ROMs/SC-55-v1.21/sc55_rom1.bin -
+5655509a531804f97ea2d7ef05b8fec20ebf46216b389a84c44169257a4d2007 sc55_waverom1.bin https://archive.org/download/nuked-sc-55-clap-rom-files/Nuked-SC55-CLAP-ROM-files.zip/Nuked-SC55-CLAP-ROM-files/Nuked-SC55-Resources/ROMs/SC-55-v1.21/sc55_waverom1.bin -
+c655b159792d999b90df9e4fa782cf56411ba1eaa0bb3ac2bdaf09e1391006b1 sc55_waverom2.bin https://archive.org/download/nuked-sc-55-clap-rom-files/Nuked-SC55-CLAP-ROM-files.zip/Nuked-SC55-CLAP-ROM-files/Nuked-SC55-Resources/ROMs/SC-55-v1.21/sc55_waverom2.bin -
+334b2d16be3c2362210fdbec1c866ad58badeb0f84fd9bf5d0ac599baf077cc2 sc55_waverom3.bin https://archive.org/download/nuked-sc-55-clap-rom-files/Nuked-SC55-CLAP-ROM-files.zip/Nuked-SC55-CLAP-ROM-files/Nuked-SC55-Resources/ROMs/SC-55-v1.21/sc55_waverom3.bin -
+9ec66abb5231b6c6f46f48b33d5412703041037d69a6803626ac402f25552af2 cm300_rom1.bin https://files.catbox.moe/8vvq0a.zip roms/scc1a/cm300_rom1.bin
+f89442734fdebacae87c7707c01b2d7fdbf5940abae738987aee912d34b5882e cm300_rom2.bin https://files.catbox.moe/8vvq0a.zip roms/scc1a/cm300_rom2.bin
+40c093cbfb4441a5c884e623f882a80b96b2527f9fd431e074398d206c0f073d cm300_waverom1.bin https://files.catbox.moe/8vvq0a.zip roms/scc1a/cm300_waverom1.bin
+9bbbcac747bd6f7a2693f4ef10633db8ab626f17d3d9c47c83c3839d4dd2f613 cm300_waverom2.bin https://files.catbox.moe/8vvq0a.zip roms/scc1a/cm300_waverom2.bin
+5b753f6cef4cfc7fcafe1430fecbb94a739b874e55356246a46abe24097ee491 cm300_waverom3.bin https://files.catbox.moe/8vvq0a.zip roms/scc1a/cm300_waverom3.bin

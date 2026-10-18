@@ -466,7 +466,7 @@ add_executable(tfx
 )
 target_link_libraries(tfx PRIVATE tfx_audio PRIVATE pcm_device PRIVATE tfx_core PRIVATE glfw PRIVATE OpenGL::GL)
 configure_first_party(tfx)
-install(TARGETS tfx RUNTIME DESTINATION . COMPONENT Runtime)
+include(cmake/install.cmake)
 
 if(BUILD_TESTING)
   add_library(gf1_reference SHARED tests/gf1_reference_bridge.cpp)
