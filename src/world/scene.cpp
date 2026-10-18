@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iterator>
+#include <stdexcept>
 #include <vector>
 #include <utility>
 
@@ -27,7 +28,22 @@ scene_handle scene::create_actor(std::string const &name, vec3d const &position,
     .position{vec3d{position}},
     .angles{vec3<math::angle>{angles}},
   });
+  actor_order.push_back({
+    .value{id},
+  });
   return {.value{id}};
+}
+
+void scene::set_actor_draw_order(std::span<scene_handle const> const order) {
+  std::set<unsigned int> seen;
+  std::vector<scene_handle> replacement;
+  replacement.reserve(actors.size());
+  for(auto const handle : order) {
+    if(!actors.contains(handle.value) || !seen.insert(handle.value).second) throw std::invalid_argument{"actor drawing order contains an unknown or repeated handle"};
+    replacement.push_back(handle);
+  }
+  for(auto const handle : actor_order) if(seen.insert(handle.value).second) replacement.push_back(handle);
+  actor_order = std::move(replacement);
 }
 
 void scene::place_actor(scene_handle const handle, vec3d const &position, vec3<math::angle> const &angles) {
@@ -511,6 +527,13 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       submit(actors.at(submission.handle.value),submission.position,submission.angles);
     }
   }};
+  // Native 72135/7213A submit the camera's player model and abandoned
+  // aircraft before A26CC queues the sky, independently of their constructors.
+  if(pass == scene_pass::primary && player_model) {
+    auto &actor{actors.at(player_model->handle.value)};
+    if(actor.visible) submit(actor,player_model->position,player_model->angles,player_model->animation);
+  }
+  submit_queued(submission_phase::before_sky);
   // Native sky models enter the bounded queue before world/actor models.
   // Even an offscreen sun changes the original quicksort's equal-depth order.
   for(auto const &submission : model_submissions) {
@@ -519,15 +542,6 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
     queue_part(shape,submission.part,submission.position,identity,0,{0,0,0},projection.camera_integer(vec3<int32_t>{submission.position}),render::model_render_path::unrotated);
   }
   model_submissions.clear();
-  // The main camera submits the player's model before the world. Instrument
-  // world passes do not invoke that separate player-model constructor.
-  if(pass == scene_pass::primary && player_model) {
-    auto &actor{actors.at(player_model->handle.value)};
-    if(actor.visible) submit(actor,player_model->position,player_model->angles,player_model->animation);
-  }
-  // Native 0x71024 submits the abandoned aircraft after the current player
-  // model, before terrain. Its ordinary constructor still advances animation.
-  submit_queued(submission_phase::before_terrain);
   std::vector<terrain_cell> cells;
   if(native) visit_terrain_cells({static_cast<int32_t>(std::floor(view.position.x)),static_cast<int32_t>(std::floor(view.position.z))},static_cast<int16_t>(radius * 2),[&](terrain_cell const &cell) { cells.push_back(cell); });
   else for(int x{first_x}; x <= last_x; ++x) for(int z{first_z}; z <= last_z; ++z) cells.push_back(terrain_cell{
@@ -574,7 +588,10 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
   // Native 0xa30cc submits weapons before 0x7572c submits moving actors.
   // Equal-depth insertion and retained model-slot metadata observe this order.
   submit_queued(submission_phase::before_actors);
-  for(auto &[id, actor] : actors) if(actor.visible && (!player_model || player_model->handle.value != id)) submit(actor,actor.position,actor.angles);
+  for(auto const handle : actor_order) {
+    auto &actor{actors.at(handle.value)};
+    if(actor.visible && (!player_model || player_model->handle != handle)) submit(actor,actor.position,actor.angles);
+  }
   // Gather effects after world SSD execution so newly emitted/reused slots
   // join this frame with their current state, before the global depth sort.
   if(final_submissions) final_submissions();

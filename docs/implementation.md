@@ -5532,7 +5532,8 @@ The carrier command deliberately keeps strict pixel checking enabled and
 reports the remaining renderer discrepancies. The absence-of-runway case in
 mission 605 separately reaches its original refusal and natural aircraft-loss
 result after 36 frames; its captured gameplay/FINISH values agree, with small
-palette-index differences on six intermediate images still open.
+palette-index differences on six intermediate images subsequently resolved by
+the model-submission ordering correction below.
 
 ### Retained display pages and the shared cockpit refresh clock
 
@@ -5562,5 +5563,36 @@ both copied and retained footers. These component checks complement the full
     python3 tools/check_cockpit_frames.py --build build --retained
     python3 tools/check_combat_sessions.py --case career-airspace-result
 
-The carrier and no-runway traces retain their separate intermediate world
-polygon differences. They are still reported by strict comparison.
+The carrier trace retains its separate intermediate world polygon differences.
+They are still reported by strict comparison.
+
+### Original model-submission order through complete flight frames
+
+The original scene controller `7572C` submits ascending slots from the other-air
+pool, then allied air, surface actors and the fixed-scenery list. Creation order
+can interleave those pools. Scene handles retain their allocation identities,
+while an explicit drawing sequence now preserves that original submission order.
+This matters even for unrelated landscape polygons: equal-depth quicksort ties
+depend on the complete input sequence.
+
+Main-loop calls `72135` and `7213A` also submit the current player model and the
+abandoned aircraft before `A26CC` queues the sky. That order applies independently
+of which camera/coordinate constructor produced the player model. An offscreen
+sky model can still change the queue's equal-depth ordering.
+
+The complete **36-frame mission 605 loss/refusal sequence now agrees in every
+captured state, indexed pixel and natural FINISH value**, in development and
+sanitizer builds. All 2,851 queue insertions agree in priority, payload slot and
+order. A separate **96-frame missile-camera sequence** uses actual launch/F8
+inputs, confirms entry to native viewport 6, and agrees in every captured state,
+queue insertion and indexed pixel. All 207 asset-free regressions also pass in
+development, Release and sanitizer builds.
+
+    python3 tools/check_combat_sessions.py --case career-no-runway-result --model-queues
+    python3 tools/check_combat_sessions.py --case training-missile-view --model-queues
+
+`--model-queues` observes original `C4930` and the production C++ queue before
+their allocators/sorters run. It excludes arming-screen previews, which have
+separate UI comparisons. Queue ordering and final images are both checked;
+neither is substituted for the other. New session captures also retain the
+original view mode. The remaining carrier-image discrepancies stay open.

@@ -67,6 +67,7 @@ parser.add_argument('--until-landed',action='store_true',help='capture an automa
 parser.add_argument('--inputs',type=Path,help='declared per-frame keyboard events/held keys as JSON')
 parser.add_argument('--lapc-effects',action='store_true',help='execute the original LAPC effects driver and record live cue requests')
 parser.add_argument('--default-rearming',action='store_true',help='supply DEFAULT/DONE pointer input in post-landing arming dialogs too')
+parser.add_argument('--model-queues',action='store_true',help='observe model queue insertion priorities and payload slots')
 args=parser.parse_args()
 if args.until_result and args.until_landed:parser.error('choose either --until-result or --until-landed')
 inputs=FlightInputs.read(args.inputs)if args.inputs else FlightInputs([])
@@ -295,6 +296,15 @@ def projectile_snapshot(current):
   pointer=struct.unpack_from('<I',body,52)[0]
  return sorted(result)
 
+model_queue_insertions=[]
+if args.model_queues:
+ def observe_model_queue(current):
+  if not entered[0] or not frames[0] or inside_arming[0]:return
+  priority=struct.unpack('<h',struct.pack('<H',current.cpu.reg_read(r.UC_X86_REG_EAX)&65535))[0]
+  slot=struct.unpack('<H',current.cpu.mem_read(current.native(0x70aa4+0x50b6a),2))[0]
+  model_queue_insertions.append({'frame':frames[0],'priority':priority,'slot':slot})
+ im.intercept(0xc4930,'Observe queue insertion inputs; allocation, sorting and all model drawing execute unchanged.',observe_model_queue)
+
 bound_models={}
 def observe_model_bind(cpu,address,size,unused):
  bound_models[cpu.reg_read(r.UC_X86_REG_EAX)]=cpu.reg_read(r.UC_X86_REG_EDX)&65535
@@ -313,6 +323,7 @@ def snapshot(current):
  return {
   **({'automatic_landing':[current.read(0x86cf,'<B')[0],*current.read(0x14920,'<3i'),*current.read(0x1492c,'<3i'),current.read(0x14398,'<Q')[0],current.read(0x14378,'<Q')[0],int(current.read(0x1495a,'<H')[0]!=0)]}if args.until_landed else {}),
   'frame':frames[0],
+  'view_mode':current.read(0x87b6,'<h')[0],
   'mission_progress':{
    'results':[current.read(at,'<i')[0]for at in (0x5c14,0x5c18,0x5c1c,0x5c24,0x5c28,0x5c30,0x5c20,0x5c2c,0x5c34,0x5c38)],
    'credited_targets':current.read(0x11b26,'<h')[0],
@@ -488,6 +499,7 @@ record={
  'default_rearming':args.default_rearming,
  'lapc_effects':args.lapc_effects,'lapc_requests':lapc_requests,
  'sample_requests':sample_requests if args.lapc_effects else None,
+ **({'model_queue_scope':'flight','model_queue_insertions':model_queue_insertions}if args.model_queues else {}),
  'terminal':terminal,
  'landing_checkpoint':landing_checkpoint,
  'recordings':recordings,
