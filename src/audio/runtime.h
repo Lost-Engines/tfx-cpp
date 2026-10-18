@@ -1,6 +1,8 @@
 #pragma once
 
 #include <initializer_list>
+#include <variant>
+#include "audio/gus_samples.h"
 #include "audio/sample_voice.h"
 #include "audio/requests.h"
 #include "audio/music_player.h"
@@ -10,13 +12,14 @@ namespace tfx::audio {
 class runtime {
 private:
   sample_bank bank;
-  sample_voice effects;
+  std::variant<sample_voice,gus_samples> effects;
   bool const available;
   bool enabled;
   std::unique_ptr<music_player> music;
 
 public:
-  runtime(std::span<sample_definition const> definitions, resources::archive const &game, unsigned int output_rate, bool sound_enabled, std::unique_ptr<music_player> music = {});
+  runtime(std::span<sample_definition const> definitions, resources::archive const &game, unsigned int output_rate,
+    bool sound_enabled, std::unique_ptr<music_player> music = {}, std::optional<gus_parameters> const &gravis = {});
   bool sound_available() const;
   bool sound_enabled() const;
   bool music_available() const;

@@ -21,11 +21,14 @@ p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--data-dir',type=Path,required=True)
 p.add_argument('--cannon',action='store_true',help='also exercise firing in the airborne training mission')
 p.add_argument('--air-brake',action='store_true',help='also exercise the shared gear/airbrake switch sample')
+p.add_argument('--gravis',action='store_true',help='exercise the one-MiB GF1 effects path selected by SOUNDFX=4')
 a=p.parse_args()
 with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
  directory=Path(temporary);install=directory/'TFX';install.mkdir()
  for name in ('DID.DAT','TFX.DAT'):(install/name).symlink_to((a.data_dir/name).resolve())
- (install/'TFX.CFG').write_bytes(b'CONTROL=0\r\nMODEL=0\r\nSOUNDFX=1\r\nMUSIC=1\r\nREALISM=0,0,1,1,0,0,0\r\nDETAIL=2\r\n')
+ if a.gravis:(install/'GUS.COM').symlink_to((a.data_dir/'GUS.COM').resolve())
+ device=4 if a.gravis else 1
+ (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL=0\r\nSOUNDFX={device}\r\nMUSIC=1\r\nREALISM=0,0,1,1,0,0,0\r\nDETAIL=2\r\n'.encode())
  sink='tfx_check_'+str(os.getpid());module=None;display=None;game=None;capture=None
  try:
   module=subprocess.check_output(['pactl','load-module','module-null-sink','sink_name='+sink,'rate=48000','channels=2'],text=True).strip()
@@ -62,10 +65,11 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
    def samples(start):
     data=pcm.read_bytes()[start:];data=data[:len(data)//8*8];values=array.array('f');values.frombytes(data)
     assert values and all(abs(x)<1.1 for x in values),(len(data),capture.poll(),log.read_text())
-    assert all(values[i]==values[i+1] for i in range(0,len(values),2)),'dual mono changed'
+    if not a.gravis:assert all(values[i]==values[i+1] for i in range(0,len(values),2)),'dual mono changed'
     return values
    time.sleep(1);start=pcm.stat().st_size;tap('g');time.sleep(2.8)
    first=samples(start);assert max(map(abs,first))>.1,'gear sound did not reach the PCM device'
+   if a.gravis:assert any(first[i]!=first[i+1] for i in range(0,len(first),2)),'GF1 native pan did not reach stereo output'
    if a.air_brake:
     start=pcm.stat().st_size;tap('b');time.sleep(2.8)
     brake=samples(start);assert max(map(abs,brake))>.1,'airbrake sound did not reach the PCM device'
@@ -81,8 +85,8 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
    resumed=samples(start);assert max(map(abs,resumed))>.1,'sound-on did not restore playback'
    tap('Shift_L+q');confirm_flight_quit(env,window);game.wait(timeout=10)
    assert game.returncode==0 and 'ERROR:' not in log.read_text(),log.read_text()
-   assert b'SOUNDFX=1\r\nMUSIC=1' in (install/'TFX.CFG').read_bytes()
-   print('Private Pulse/X11 audio passed: live gear'+('/airbrake'if a.air_brake else '')+('/cannon'if a.cannon else '')+' requests, continuous stereo output, sound off/on, original config retained and clean device shutdown')
+   assert f'SOUNDFX={device}\r\nMUSIC=1'.encode() in (install/'TFX.CFG').read_bytes()
+   print('Private Pulse/X11 '+('Gravis'if a.gravis else 'Sound Blaster')+' audio passed: live gear'+('/airbrake'if a.air_brake else '')+('/cannon'if a.cannon else '')+' requests, continuous stereo output, sound off/on, original config retained and clean device shutdown')
  finally:
   for process in (game,capture,display):
    if process is not None and process.poll() is None:
