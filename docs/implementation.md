@@ -723,6 +723,29 @@ sample-RAM allocation are still being connected.
 python3 tools/check_gus_scheduler.py
 ```
 
+### Gravis sample-RAM planning
+
+The loader's original pairwise size swaps are preserved, including indirect
+reordering of equal-size samples. Zero-length entries are skipped. A failed
+large allocation does not prevent later smaller samples from fitting. The
+driver reserves 32 KiB for streaming; its command-5 unsigned comparison rejects
+an exact fit, leaving at least one byte free after successful allocations.
+Its zero-byte request can succeed without advancing the cursor. Native linked
+indices use nine signed bits, with `-1` terminating the list.
+
+The comparison executes the original TFX sort, load walk and resident-flag
+updates, forwarding allocation calls to the original real-mode `GUS.COM`
+interrupt dispatcher. RAM capacity and sample lengths are declared inputs;
+filesystem copying and hardware upload are observed separately. **1,024
+complete plans and 32,097 direct driver allocations agree**, across all four
+RAM sizes, zero samples, ties and exact-fit boundaries. There are 128 compact
+synthetic fixtures. All **200 regressions pass** in development, Release and
+ASan/UBSan. Live Gravis playback remains separate work.
+
+```sh
+python3 tools/check_gus_memory.py
+```
+
 Seven original page painters now consume typed flight, fuel, damage and inventory telemetry: stores, gauges, flight data, four fuel cells, system warnings, aircraft schematic and engine load. Their backgrounds, monochrome masks, labels, positions, display mount ordering, formats and conversion factors come from the external assets. Selected stores retain the original readiness colours and aircraft-specific mount arrangement; failed systems retain their outlined cells. The fuel display preserves the signed-word comparisons inside its dword subtraction loop.
 
 **588 complete native pixel/coverage frames agree**, covering both outer display positions, all three aircraft, damage states, fractional values, viewport clipping and fuel-cell boundaries. All **eighteen original outer-page selections** agree independently. The two dispatch tables differ: the right display adds the moving map and engine load, while the left supplies the aircraft schematic and ground database; gauges occupy different indices. Scene-dependent camera, ground database, moving-map and control/autopilot pages remain separate integration work.

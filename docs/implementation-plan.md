@@ -32,6 +32,8 @@ The immediate work is broader campaign/encounter coverage and remaining audio pa
 
 The Gravis four-voice request controller now matches 8,192 complete original requests, including persistent cooldowns, resident rotation, stream selection, shared priorities and exact first-item delivery. Its compact fixture passes in all three builds, bringing the regression count to 199. Sample-RAM allocation and live GF1 playback remain the next audio integration stages.
 
+Gravis sample-RAM planning now matches 1,024 complete original TFX load plans with allocations executed by the real-mode GUS.COM driver, plus 32,097 direct driver allocation calls. Pairwise tie ordering, all four RAM capacities, streaming reservation and exact-fit rejection are retained. The 200th regression passes in all three builds. The complete retail sample bank fits the selected 1 MiB hardware configuration; connecting GF1 playback is next.
+
 The numbered sections below retain the implementation sequence and its verification boundaries.
 
 ## 1. Establish complete-session reference capture
