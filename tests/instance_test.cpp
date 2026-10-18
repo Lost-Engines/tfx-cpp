@@ -12,12 +12,12 @@ void require(bool const condition, char const *const message) {
 }
 
 std::vector<uint8_t> program(bool const percentage = false) {
-  /// An original test program, not copied game data: one part, six entries and a custom health word.
-  std::vector<uint8_t> result(22);
+  /// An original test program, not copied game data: one part, eight entries and a custom health word.
+  std::vector<uint8_t> result(26);
   result[0] = 2;
   result[1] = 1;
   result[5] = 1;
-  result[8] = 6;
+  result[8] = 8;
   auto const word{[&](unsigned int const at, uint16_t const value) {
     result.at(at) = static_cast<uint8_t>(value);
     result.at(at + 1) = static_cast<uint8_t>(value >> 8);
@@ -47,6 +47,10 @@ std::vector<uint8_t> program(bool const percentage = false) {
   emit({11,0,22,27,0,3,0x0900,5,0});
   entry(5);
   emit({19,3,0,0,11,0,10,0});
+  entry(6);
+  emit({73,65516,0});
+  entry(7);
+  emit({73,0,0});
   return result;
 }
 
@@ -78,6 +82,12 @@ int main() try {
   first.execute(5);
   require(!first.destroyed && first.parts[0].name == "intact" && first.custom[0] == 10,"restoration event differs");
   require(first.execute(999).draws.empty(),"missing event should be ignored as in the original dispatcher");
+  context.player_query = true;
+  auto const elevated_surface{first.execute(6,context)};
+  require(elevated_surface.surface_height == -20 && !elevated_surface.surface_present,"ground height writes must survive without a surface contact");
+  require(first.execute(7,context).surface_height == 0,"a written zero ground height must differ from no write");
+  context.player_query = false;
+  require(!first.execute(6,context).surface_height && !first.execute(999,context).surface_height,"other-object and missing queries must retain the caller's ground height");
   tfx::world::definition const reporting_source{program(true),names};
   tfx::world::instance reporting{reporting_source};
   unsigned int notifications{0};

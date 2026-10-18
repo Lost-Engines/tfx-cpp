@@ -220,6 +220,8 @@ set $scene = this
 python
 view=gdb.parse_and_eval('view')
 print('CPP_WORLD_CAMERA '+json.dumps([round(float(view['position'][axis])*65536)for axis in ('x','y','z')]))
+print('CPP_TERRAIN_ANCHOR '+json.dumps([int(view['world_anchor'][axis])for axis in ('x','y','z')]))
+print('CPP_SHADOW_GROUND_HEIGHT '+json.dumps(int(gdb.parse_and_eval('shadow_ground_height'))))
 # This observer launches a direct mission: its first scene draw targets the
 # actual flight framebuffer, before any MFD viewport. Capture the borrowed
 # renderer argument while it is live instead of depending on an optimised

@@ -6,7 +6,7 @@ from pathlib import Path
 import struct
 import subprocess
 
-from unicorn import x86_const as r
+from unicorn import UC_HOOK_MEM_WRITE, x86_const as r
 from native_reference import NativeReference
 
 
@@ -22,6 +22,9 @@ def main():
     image.cpu.mem_map(0x300000, 0x30000)
     definition, instance = 0x300000, 0x310000
     calls, requests, reports = [], [], []
+    height_written=[False]
+    def observe_height(cpu,access,address,size,value,unused):height_written[0]=True
+    image.cpu.hook_add(UC_HOOK_MEM_WRITE,observe_height,begin=image.data+0xabf2,end=image.data+0xabf3)
     collisions = 0
     raw = b''
     distance = 0
@@ -112,6 +115,7 @@ def main():
             image.cpu.mem_write(image.native(0x70aa4+0x47c82),struct.pack('<H',status))
             for offset,fmt,value in [(0xabe8,'<B',0),(0xabe9,'<B',0),(0xabea,'<B',0),(0xabf2,'<h',0),(0xabec,'<h',-1),(0xabee,'<h',0),(0xabf0,'<H',0)]:image.write(offset,fmt,value)
             calls.clear();requests.clear();reports.clear();collisions=0
+            height_written[0]=False
             if animate:
                 for part in range(obj['part_count']):
                     for parameter in range(8 if obj['flags']&256 else 1):
@@ -128,7 +132,7 @@ def main():
                 rotation_at=struct.unpack_from('<H',memory,base+27)[0]*2
                 rotation=struct.unpack_from('<3H',raw,rotation_at) if rotation_at else (0,0,0)
                 values += [struct.unpack_from('<H',memory,base+9)[0],memory[base+8],*rotation,*memory[base:base+8],*[v*2 for v in struct.unpack_from('<8H',memory,base+11)]]
-            values += [collisions,image.read(0xabe8,'<B')[0],image.read(0xabe9,'<B')[0],image.read(0xabea,'<B')[0],image.read(0xabf2,'<h')[0],image.read(0xabec,'<h')[0],image.read(0xabee,'<h')[0],image.read(0xabf0,'<H')[0],len(calls)]
+            values += [collisions,image.read(0xabe8,'<B')[0],image.read(0xabe9,'<B')[0],image.read(0xabea,'<B')[0],image.read(0xabf2,'<h')[0],height_written[0],image.read(0xabec,'<h')[0],image.read(0xabee,'<h')[0],image.read(0xabf0,'<H')[0],len(calls)]
             for call in calls:values.extend(call)
             values.append(len(requests))
             for request in requests:values.extend(request)

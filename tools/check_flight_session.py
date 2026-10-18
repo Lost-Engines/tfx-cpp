@@ -211,6 +211,13 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         # their Q16 values to the original signed 32-bit camera cache.
         actual_cameras=[[(coordinate+2**31)%2**32-2**31 for coordinate in row]for row in records('CPP_WORLD_CAMERA ')]
         assert actual_cameras==expected['world_cameras'],('world cameras',[(i,x,y)for i,(x,y)in enumerate(zip(actual_cameras,expected['world_cameras']),1)if x!=y][:4],len(actual_cameras),len(expected['world_cameras']))
+        terrain=expected.get('terrain_passes',[])
+        if terrain and all('anchor' in item for item in terrain):
+            wanted=[item['anchor']for item in terrain];actual=records('CPP_TERRAIN_ANCHOR ')
+            assert actual==wanted,('terrain anchors',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:4],len(actual),len(wanted))
+        if terrain and all('shadow_ground_height' in item for item in terrain):
+            wanted=[item['shadow_ground_height']for item in terrain];actual=records('CPP_SHADOW_GROUND_HEIGHT ')
+            assert actual==wanted,('shadow ground heights',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:4],len(actual),len(wanted))
     else:
         assert cameras==expected['horizons'][:len(cameras)],('camera/horizon',cameras,expected['horizons'][:len(cameras)])
     actual=(root/'cpp.indices').read_bytes();image=(native/f'frame-{a.frames}.indices').read_bytes()
