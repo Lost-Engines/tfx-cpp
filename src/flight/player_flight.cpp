@@ -2,6 +2,7 @@
 #include <utility>
 #include "flight/player_frame.h"
 #include "flight/player_shared.h"
+#include "flight/gear_controls.h"
 #include "math/floating_environment.h"
 
 namespace tfx::flight {
@@ -92,7 +93,7 @@ player_flight_events player_flight::advance(damage_state &damage, math::random_s
   }
   basic_recovery(*this,damage,context,events.aerodynamic);
   auto &gear_condition{damage.systems[std::to_underlying(aircraft_system::landing_gear)]};
-  if(view.aircraft == player_aircraft::eurofighter && physical.gear_fraction != 0 && view.fixed_speed > 350 && automatic.phase == automatic_landing_phase::inactive && !context.physics.recovery_inhibited && !view.collision && !ejected && gear_condition != system_condition::failed) {
+  if(view.aircraft == player_aircraft::eurofighter && physical.gear_fraction != 0 && view.fixed_speed > eurofighter_maximum_gear_speed && automatic.phase == automatic_landing_phase::inactive && !context.physics.recovery_inhibited && !view.collision && !ejected && gear_condition != system_condition::failed) {
     physical.gear_fraction = 0;
     view.gear_down = false;
     gear_condition = system_condition::normal;

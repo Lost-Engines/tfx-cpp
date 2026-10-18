@@ -32,13 +32,19 @@ for name in ('yugosmap','libyamap','colummap','somalmap','seamap'):
     im.cpu.mem_write(0x300000,archive.unpack(entries[archive.hash_name('spr/'+name+'.spr')]))
     im.write(0x12f30,'<I',0);im.write(0x767e,'<2B',11,6)
     cases=[]
-    for index in range(64):
+    for index in range(128):
         player=[rng.randrange(-2048,410000),-1000,rng.randrange(-2048,410000)]
         heading=[0,16384,32768,49152][index%4] if index<16 else rng.randrange(65536)
         elapsed=[0,1,49,50,51,54,65535][index%7];stealth=index%2;landing=(index//2)%2
         runway=[player[0]//2048+rng.randrange(-20,21),player[2]//2048+rng.randrange(-20,21)]
         offset=[(0,0),(1,0),(2,0),(3,0),(-10,-10),(20,20),(0,35),(0,70)][index%8]
         bounds=[(135,151,186,193),(213,133,264,167),(20,20,200,120)][index%3]
+        if index>=64:
+            # Expose the clear rectangle where the schematic no longer
+            # covers it, including each VGA-plane alignment at the border.
+            cell=(-1,0,1,15,16,17,18,20,99,100,180,182,183,184,199,200)[(index-64)//4]
+            player=[143*2048,-1000,cell*2048]
+            offset=(index%4,0);bounds=(213,133,264,167)
         contacts=[]
         for group in range(4):
             points=[]

@@ -26,6 +26,7 @@ enum class sample_id : unsigned int {
   air_brake = gear,
   afterburner_stop = 8,
   control_selection = 8,
+  key_click = control_selection,
   weapon_release = 11,
   aircraft_explosion = 12,
   cannon_fire = 13,
@@ -38,6 +39,8 @@ enum class sample_id : unsigned int {
   refuel_acquiring = 46,
   refuel_response = 48,
   landing_stopped = 49,
+  engine_stop = 59,
+  engine_running = 60,
   pull_up = 61,
   recovery = 62,
   bomb_release = 64,
@@ -46,6 +49,12 @@ enum class sample_id : unsigned int {
   missile_release = 73,
   afterburner = 75,
   fly_past = 76,
+  engine_ignition = 77,
+};
+
+inline constexpr std::array<unsigned int,2> engine_start_sequence{
+  std::to_underlying(sample_id::engine_ignition),
+  std::to_underlying(sample_id::engine_running),
 };
 // Orders in the separate bank used by the original LAPC-I effects selection.
 // These are explicit callers of A6068, independent of SB speech/sample IDs.

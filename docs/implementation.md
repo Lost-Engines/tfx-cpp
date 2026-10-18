@@ -20,7 +20,7 @@ environment, renderer, arming and AI code executes. `--flight-model` selects
 any of the four models, and `--output` retains the private frames and observer
 log. `--strict-pixels` requires every captured image to match, not just the last.
 
-All **204 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+All **205 CTests** pass in development, Release and ASan/UBSan. All 128 retail
 missions also compose 64 development frames and 16 sanitizer frames without
 preview warnings. Real private-window controls exercise firing, MFDs,
 missile cameras, designator use, ejection and an automatic FINISH handoff.
@@ -5424,3 +5424,56 @@ python3 tools/check_engagement.py --build build
 
 These are complete direct flights with declared career rules. They do not
 establish every campaign graph or court-martial presentation branch.
+
+### Complete engine-key sound requests
+
+Original engine handlers 842B0/84370 now have a shared typed controller. They
+honour the current system condition and refuelling/loss gates. Switching off
+the last normally stopped partner also stops reheat. Engine stop requests
+urgent sample 59; startup requests the ignition/on sequence 77,60 at normal
+priority. The two original handlers retain their different ordering of that
+sequence and the LAPC startup cue.
+
+All **4,096 complete original calls** agree on power factors, system and
+afterburner state, display refresh, sample priority/sequence, LAPC cues and model
+notifications. A 256-row fixture adds `flight.native_engine_keys` to CTest.
+The last remaining literal gear-speed threshold now uses its shared constant.
+
+Flight also restores original 83970's background-priority sample-8 click before
+bound key actions. Consumed PLOP letters bypass that dispatch as in the original.
+The complete-flight harness now observes actual original variadic sample
+requests and the C++ PCM voice entry, including requests rejected by the
+selected null PCM device. It separately checks ordered sample IDs/priorities
+and LAPC cues. Each live synth check uses a private silent Pulse sink and mutes
+its PCM device before start.
+
+```sh
+python3 tools/check_engine_key.py --build build
+python3 tools/check_flight_session.py --build build-san --mission 501 --frames 32 \
+  --inputs tests/inputs/engine-controls.json --lapc-effects \
+  --rom-dir /path/to/roms --strict-pixels
+```
+
+The 32-frame engine sequence agrees in Arcade and Realistic flight under
+ASan/UBSan, as does the separate 32-frame gear/brake/weapon/fly-past sequence:
+all state, radio, damage, pixels, recorded-effect requests and LAPC requests.
+Private Release PCM checks also pass for Sound Blaster and Gravis: live gear,
+airbrake and cannon, sound off/on, preserved configuration and clean shutdown.
+All **205 asset-free regressions** pass in the three build configurations.
+
+### Longer career and landing investigations
+
+The maintained career airspace sortie uses actual PLOP, time-warp and reheat
+keys. Original execution reaches its natural orders-violation FINISH at frame
+740. C++ agrees on every captured gameplay state, warning and final campaign
+value. Strict pixel comparison remains open: starting at frame 511, a single
+moving-map border column retains different cockpit pixels as the schematic
+leaves the viewport. Doubling the independent moving-map checks to **640 full
+pixel/coverage frames**, including map edges and all VGA alignments, still
+passes. The remaining difference concerns integration with retained cockpit
+pages; it is not counted as complete image equivalence.
+
+Automatic runway/carrier approach captures are also under investigation. The
+capture tool can stop at a naturally stopped landing controller and retains
+an intervening mission result for diagnosis. No landing outcome is supplied
+to either game. These cases do not yet establish complete approach equivalence.

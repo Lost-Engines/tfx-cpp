@@ -71,6 +71,7 @@
 #include "render/glare.h"
 #include "render/g_effects.h"
 #include "flight/gear_controls.h"
+#include "flight/engine_controls.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
@@ -2120,6 +2121,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       bool const before{options.cheat.value().enabled};
       bool const consumed{options.cheat.press(letter,down(GLFW_KEY_RIGHT_SHIFT))};
       if(before != options.cheat.value().enabled) radio.show(tables.instruments().cheat_messages[options.cheat.value().enabled]);
+      // Native 83970 clicks before dispatching a bound make code; the PLOP
+      // prepass clears consumed cheat letters before they reach that handler.
+      if(!consumed && !inspect && !result_evaluated) sample(audio::sample_priority::background,audio::sample_id::key_click);
       return !consumed;
     }};
     if((inspect || result_evaluated) && pressed(GLFW_KEY_ESCAPE)) break;
@@ -2572,20 +2576,43 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         bool const lower_cockpit{pressed(GLFW_KEY_PAGE_DOWN)}, lower_keypad{pressed(GLFW_KEY_KP_3)};
         if(raise_cockpit || raise_keypad) cockpit_position.raise();
         if(lower_cockpit || lower_keypad) cockpit_position.lower();
-        if(pressed(GLFW_KEY_LEFT_BRACKET)) {
-          lapc_effect(player.left_engine ? audio::lapc_effect_cue::engine_stop : audio::lapc_effect_cue::engine_start);
-          player.left_engine = !player.left_engine;
-        }
-        if(pressed(GLFW_KEY_RIGHT_BRACKET)) {
-          lapc_effect(player.right_engine ? audio::lapc_effect_cue::engine_stop : audio::lapc_effect_cue::engine_start);
-          player.right_engine = !player.right_engine;
-        }
-        if(!player.left_engine && !player.right_engine && player.afterburner) {
-          physical_player.powerplant.stop_afterburner();
-          player.afterburner = 0;
-          reheat_sound(tfx::flight::afterburner_change::stopped);
-          scene.actor_event(player_visual,10);
-        }
+        auto const engine_key{[&](flight::engine_side const side) {
+          auto const index{static_cast<unsigned int>(side)};
+          auto const system{side == flight::engine_side::left ? flight::aircraft_system::left_engine : flight::aircraft_system::right_engine};
+          auto const other{side == flight::engine_side::left ? flight::aircraft_system::right_engine : flight::aircraft_system::left_engine};
+          auto const request{flight::press_engine_key({
+            .side{side},
+            .condition{player_damage.condition(system)},
+            .other_condition{player_damage.condition(other)},
+            .afterburner{player.afterburner != 0},
+            .inhibited{refuelling.value().phase != 0},
+            .crashed{player.collision != 0},
+            .disabled{player_disabled || ejected()},
+          })};
+          for(auto const event : request.ordered) switch(event) {
+          case flight::engine_key_event::stop_afterburner:
+            physical_player.powerplant.stop_afterburner();
+            player.afterburner = 0;
+            reheat_sound(flight::afterburner_change::stopped);
+            scene.actor_event(player_visual,10);
+            break;
+          case flight::engine_key_event::stop_sample: sample(audio::sample_priority::urgent,audio::sample_id::engine_stop);break;
+          case flight::engine_key_event::start_samples:
+            if(sound) sound->sequence(audio::sample_priority::normal,audio::engine_start_sequence);
+            break;
+          case flight::engine_key_event::start_synth: lapc_effect(audio::lapc_effect_cue::engine_start);break;
+          case flight::engine_key_event::stop_synth: lapc_effect(audio::lapc_effect_cue::engine_stop);break;
+          }
+          if(request.running) {
+            (side == flight::engine_side::left ? player.left_engine : player.right_engine) = *request.running;
+            auto const condition{*request.running ? flight::system_condition::active : flight::system_condition::normal};
+            player_damage.systems[std::to_underlying(system)] = condition;
+            physical_player.powerplant.engine_condition[index] = condition;
+            physical_player.powerplant.engine_factor[index] = *request.running ? 1 : 0;
+          }
+        }};
+        if(pressed(GLFW_KEY_LEFT_BRACKET)) engine_key(flight::engine_side::left);
+        if(pressed(GLFW_KEY_RIGHT_BRACKET)) engine_key(flight::engine_side::right);
         if(automatic_landing.phase == tfx::flight::automatic_landing_phase::inactive && !physical_player.manual.controls.autopilot.enabled) {
           auto change{tfx::flight::afterburner_change::none};
           if(pressed(GLFW_KEY_KP_MULTIPLY)) change = down(GLFW_KEY_LEFT_ALT) || down(GLFW_KEY_RIGHT_ALT) ? physical_player.powerplant.decrease_afterburner() : physical_player.powerplant.increase_afterburner(physical_player.aircraft.powerplant.afterburner_stages);

@@ -63,9 +63,11 @@ parser.add_argument('--career-rules',action='store_true',help='declare inherited
 parser.add_argument('--frames',type=int,default=4)
 parser.add_argument('--ticks-per-frame',type=int,default=4,help='declared external timer interval; native frame clamps still execute')
 parser.add_argument('--until-result',action='store_true',help='capture through a natural mission result, with --frames as the upper bound')
+parser.add_argument('--until-landed',action='store_true',help='capture an automatic approach through its natural stopped state')
 parser.add_argument('--inputs',type=Path,help='declared per-frame keyboard events/held keys as JSON')
 parser.add_argument('--lapc-effects',action='store_true',help='execute the original LAPC effects driver and record live cue requests')
 args=parser.parse_args()
+if args.until_result and args.until_landed:parser.error('choose either --until-result or --until-landed')
 inputs=FlightInputs.read(args.inputs)if args.inputs else FlightInputs([])
 if not 1 <= args.frames <= 1024:parser.error('--frames must be between 1 and 1024')
 if not 4 <= args.ticks_per_frame <= 65535:parser.error('--ticks-per-frame must be between 4 and 65535; each supplied interval must complete the native timer polls')
@@ -128,7 +130,7 @@ im.intercept(0xb0eb0,'Fail explicitly at native fatal diagnostics.',fatal)
 # identifies a real dependency; do not silently skip game simulation routines.
 for address in ((0xa6424,0xa6458,0xa629c) if args.lapc_effects else (0xa5ce0,0xa6424,0xa6458,0xa629c)):im.intercept(address,'Exclude startup console/analogue calibration and, for the explicit silent configuration, external audio loading.',lambda current:current.return_from())
 im.intercept(0xb3f2c,'DOS real-mode interrupt transport is hosted, without installing vectors.',lambda current:current.return_from())
-lapc_requests=[]
+lapc_requests=[];sample_requests=[]
 if args.lapc_effects:
  from native_lapc_effects import NativeLAPCEffects
  lapc=NativeLAPCEffects(root,main_song=None,image=im)
@@ -194,6 +196,24 @@ def begin(current):
  for page in range(1,5):
   assert ('read',f'TFX\\SPR\\global_{page}.TM',49152) in loads,('global texture page was not loaded',page)
  entered[0]=True;mouse_buttons[0]=0
+ if args.lapc_effects:
+  # LAPC selects the original null PCM device. Observe its actual variadic
+  # request boundary without replacing the callers or the device callback.
+  def observe_samples(cpu,address,size,unused):
+   if not frames[0]:return
+   stack=cpu.reg_read(r.UC_X86_REG_ESP)
+   priority=struct.unpack('<I',cpu.mem_read(stack+4,4))[0]
+   ids=[]
+   for index in range(106):
+    pointer=struct.unpack('<I',cpu.mem_read(stack+8+index*4,4))[0]
+    if not pointer:break
+    offset=pointer-im.data-0x9860
+    assert offset%26==0 and 0<=offset//26<106,('sample descriptor',hex(pointer))
+    ids.append(offset//26)
+   else:raise RuntimeError('unterminated original sample request')
+   sample_requests.append({'frame':frames[0],'priority':priority,'ids':ids})
+  pointer=current.read(0xac74,'<I')[0]
+  im.cpu.hook_add(UC_HOOK_CODE,observe_samples,begin=pointer,end=pointer)
 im.intercept(0x72018,'Observe native flight entry and end the explicitly supplied arming input; the original session body executes.',begin)
 def actors_snapshot(current):
  result=[]
@@ -281,6 +301,7 @@ def player_parts_snapshot(current,bindings=False):
 
 def snapshot(current):
  return {
+  **({'automatic_landing':[current.read(0x86cf,'<B')[0],*current.read(0x14920,'<3i'),*current.read(0x1492c,'<3i'),current.read(0x14398,'<Q')[0],current.read(0x14378,'<Q')[0],int(current.read(0x1495a,'<H')[0]!=0)]}if args.until_landed else {}),
   'frame':frames[0],
   'mission_progress':{
    'results':[current.read(at,'<i')[0]for at in (0x5c14,0x5c18,0x5c1c,0x5c24,0x5c28,0x5c30,0x5c20,0x5c2c,0x5c34,0x5c38)],
@@ -329,8 +350,15 @@ def snapshot(current):
   'actors':actors_snapshot(current),
  }
 
+landing_checkpoint={};landing_seen=[False]
 def frame_boundary(current):
  snapshots.append(snapshot(current))
+ if args.until_landed:
+  phase=current.read(0x86cf,'<B')[0]
+  landing_seen[0]|=phase!=0
+  if landing_seen[0] and phase==0 and current.read(0x8d3a,'<H')[0] and current.read(0x13444,'<i')[0]==0:
+   landing_checkpoint['frame']=frames[0]
+   current.cpu.emu_stop();return
  if frames[0]==args.frames:
   current.cpu.emu_stop();return
  frames[0]+=1;clock[0]+=args.ticks_per_frame
@@ -343,7 +371,13 @@ terminal={}
 def terminal_boundary(cpu,address,size,unused):
  # This is after the actual frame-tail retirement and before the native
  # result test leaves the flight loop. Keep the final live state intact.
- if args.until_result and not terminal and im.read(0x593a,'<h')[0]:
+ if args.until_landed:
+  phase=im.read(0x86cf,'<B')[0]
+  landing_seen[0]|=phase!=0
+  if landing_seen[0] and phase==0 and im.read(0x8d3a,'<H')[0] and im.read(0x13444,'<i')[0]==0:
+   snapshots.append(snapshot(im));landing_checkpoint['frame']=frames[0]
+   cpu.emu_stop();return
+ if (args.until_result or args.until_landed) and not terminal and im.read(0x593a,'<h')[0]:
   snapshots.append(snapshot(im));terminal['frame']=frames[0]
   cpu.emu_stop()
 im.cpu.hook_add(UC_HOOK_CODE,terminal_boundary,begin=im.native(0x723d7),end=im.native(0x723d7))
@@ -414,14 +448,14 @@ try:
 except RuntimeError:
  # A bounded capture deliberately stops at the next real frame boundary;
  # it does not pretend that launch_game returned through a mission result.
- bounded=len(snapshots)==args.frames+1 and im.cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0x72045)
- completed=terminal and len(snapshots)==frames[0]+1 and im.cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0x723d7)
+ bounded=len(snapshots)==frames[0]+1 and (frames[0]==args.frames or landing_checkpoint) and im.cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0x72045)
+ completed=(terminal or landing_checkpoint) and len(snapshots)==frames[0]+1 and im.cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0x723d7)
  if not (bounded or completed):
   fault={'frame':frames[0],'snapshots':snapshots,'trace':[hex(f)for f in im.trace[-30:]],'registers':{name:im.cpu.reg_read(getattr(r,'UC_X86_REG_'+name))for name in ('EIP','ESP','EAX','EDX','EBX','ECX','ESI','EDI','EBP')},'loads':loads[-15:]}
   (args.output/'failure.json').write_text(json.dumps(fault,indent=2)+'\n')
   raise
 else:raise RuntimeError('Original mission returned before completing the requested capture')
-if args.until_result and terminal:
+if terminal:
  # Continue the same original call and stack through recovery, FINISH and
  # teardown. This supplies no outcome or script variable, and skips no game
  # routine. Any additional external dependency must still be declared.
@@ -440,7 +474,9 @@ record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
  'inputs':inputs.rows(frames[0]),
  'lapc_effects':args.lapc_effects,'lapc_requests':lapc_requests,
+ 'sample_requests':sample_requests if args.lapc_effects else None,
  'terminal':terminal,
+ 'landing_checkpoint':landing_checkpoint,
  'recordings':recordings,
  'projectile_guidance':projectile_guidance,
  'processor_exceptions':im.processor_exceptions,

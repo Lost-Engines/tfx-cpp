@@ -38,6 +38,8 @@ The separate `SOUNDFX=2` LAPC-I effects path is now connected through its origin
 
 Career rules can now be exercised independently of window ownership using the developer direct-launch context. A natural fourteen-frame loss and complete 233-frame successful interception match the original's state, pixels, damage, radio, finite inventory and FINISH results in development and sanitizers. This exposed and corrected the F-117/Eurofighter permission-notice index mismatch, with all 8,192 original permission handlers rechecked. Airspace violation and broader career/campaign branches remain under investigation.
 
+Engine keys now retain their original current-fault/refuelling gates and missing ignition/on/stop samples, with 4,096 complete original calls and a new compact regression. Full 32-frame Arcade/Realistic engine sequences and the broader gear/brake/weapon/fly-past sequence agree under sanitizers, including actual sample priorities/IDs and LAPC requests as well as state and pixels. Private Sound Blaster/Gravis PCM checks still pass; all 205 regressions pass in the three builds. The longer 740-frame career airspace sortie agrees in gameplay and final result but exposes retained cockpit-map border pixels that remain to be corrected. Complete runway/carrier landing captures are also in progress.
+
 The numbered sections below retain the implementation sequence and its verification boundaries.
 
 ## 1. Establish complete-session reference capture
