@@ -125,7 +125,9 @@ void pilot_panel::draw(std::optional<vec2<int16_t>> const &position) {
     for(int py{y - 2}; py <= y + 7; ++py) for(int px{80}; px <= 240; ++px) display.pixels[static_cast<unsigned int>(py * 320 + px)] = 14;
     centred(editing->value(),y,215);
   } else if(slots) {
-    font_data.draw(display,5,{106,14},current == page::load_slots || current == page::discard ? "CHOOSE GAME SLOT TO LOAD" : "CHOOSE SAVE GAME SLOT",223);
+    // Native slot rows and prompts use the small-font painters D2AFC/D2B54.
+    font_id constexpr slot_font{6};
+    font_data.draw(display,slot_font,{106,14},current == page::load_slots || current == page::discard ? "CHOOSE GAME SLOT TO LOAD" : "CHOOSE SAVE GAME SLOT",223);
     for(unsigned int row{0}; row != records.size(); ++row) {
       auto const &record{records[row]};
       std::string const status{record ? assets.statuses.at(number(record->values,"status")) : "-----"};
@@ -133,20 +135,20 @@ void pilot_panel::draw(std::optional<vec2<int16_t>> const &position) {
       std::string const name{record ? text(record->values,"firstname") + " -" + text(record->values,"callsign") + "- " + text(record->values,"pilotname") : "BLANK"};
       int const y{45 + static_cast<int>(row) * 8};
       uint8_t const colour{static_cast<uint8_t>(row == selected ? 156 : 49)};
-      for(auto const &item : {std::pair{55 - font_data.measure(5,status),status},std::pair{71,rank},std::pair{106,name}}) {
-        if(row == selected) font_data.draw(display,5,{item.first + 1,y + 1},item.second,0);
-        font_data.draw(display,5,{item.first,y},item.second,colour);
+      for(auto const &item : {std::pair{55 - font_data.measure(slot_font,status),status},std::pair{71,rank},std::pair{106,name}}) {
+        if(row == selected) font_data.draw(display,slot_font,{item.first + 1,y + 1},item.second,0);
+        font_data.draw(display,slot_font,{item.first,y},item.second,colour);
       }
     }
     std::array<std::string_view,5> constexpr statistics{"score","a2akills","a2gkills","num_miss","num_hours"};
     for(unsigned int index{0}; index != statistics.size(); ++index) {
       auto const value{records[selected] ? std::to_string(std::bit_cast<int32_t>(number(records[selected]->values,statistics[index]))) : "--"};
-      font_data.draw(display,5,{85 - font_data.measure(5,value),147 + static_cast<int>(index) * 8},value,55);
+      font_data.draw(display,slot_font,{85 - font_data.measure(slot_font,value),147 + static_cast<int>(index) * 8},value,55);
     }
     if(current == page::overwrite || current == page::discard) {
       std::string_view const prompt{current == page::overwrite ? "THIS PILOT IS IN ACTIVE DUTY   OVERWRITE ENTRY Y - N" : "THIS PILOT IS NO LONGER IN ACTIVE DUTY   DELETE Y - N"};
-      font_data.draw(display,5,{107,135},prompt,0);
-      font_data.draw(display,5,{106,134},prompt,156);
+      font_data.draw(display,slot_font,{107,135},prompt,0);
+      font_data.draw(display,slot_font,{106,134},prompt,156);
     }
   }
   if(position && current != page::names) draw_pointer(display,assets.pointer,*position);

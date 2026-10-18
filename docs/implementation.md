@@ -5878,3 +5878,26 @@ entry and Control qualification, DOS pilot saving/reloading, the main menu, FWS
 briefing/custom arming/flight, and Tour squadron selection/route review/flight.
 The Runtime install component stages only `tfx`; its Release binary starts and
 omits developer options. CI remains unconfigured.
+
+
+### Pilot slot menu font
+
+The load/save slot panel selected presentation style 5, a title font, for its
+heading, pilot rows, statistics and overwrite/delete prompts. This produced
+oversized glyphs and overlapping numbers despite the static bitmap labels being
+correct. The panel now uses style 6, matching the original small-font measurement
+and drawing calls at `D2AFC`/`D2B54`.
+
+    python3 tools/check_pilot_panel.py
+
+The new comparison exercises all ten selected rows on both load and save pages,
+plus occupied-slot overwrite and inactive-pilot deletion prompts: **27 complete
+indexed frames agree pixel for pixel**. Test-authored DOS saves and matching
+original slot summaries supply the records. Archive background loading, pointer
+setup and physical VGA page changes are declared host boundaries; the original
+heading, row, alignment, shadow, statistics and prompt painters execute unchanged.
+The reference installation and its pilot files are never written.
+
+The separate font check still agrees on all **1,104 glyphs and 132 strings**.
+Pilot creation/loading/replacement, persistence and progression checks pass, as
+does the private-window enrolment/save/reload/briefing/arming/flight sequence.
