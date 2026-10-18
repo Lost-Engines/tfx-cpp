@@ -26,12 +26,14 @@ p.add_argument('--output',type=Path,help='retain native/C++ frames and the read-
 p.add_argument('--frames',type=int,default=4)
 p.add_argument('--ticks-per-frame',type=int,default=4,help='declared external timer interval, before native frame clamps')
 p.add_argument('--until-result',action='store_true',help='compare through a natural result and FINISH, with --frames as the upper bound')
+p.add_argument('--until-landed',action='store_true',help='compare an automatic approach through its natural stopped state')
 p.add_argument('--strict-pixels',action='store_true')
 p.add_argument('--inputs',type=Path,help='compare explicit keyboard events/held keys using a private window and virtual external GLFW devices')
 p.add_argument('--native-capture',type=Path,help='reuse a prior matching native capture without executing the original again')
 p.add_argument('--lapc-effects',action='store_true',help='compare live LAPC effect requests; the host PCM device is muted before start')
 p.add_argument('--rom-dir',type=Path,help='Roland ROM directory for --lapc-effects')
 a=p.parse_args()
+if a.until_result and a.until_landed:p.error('choose either --until-result or --until-landed')
 if a.lapc_effects and (not a.inputs or not a.rom_dir):p.error('--lapc-effects needs --inputs and --rom-dir')
 if not 4 <= a.ticks_per_frame <= 65535:p.error('--ticks-per-frame must be between 4 and 65535')
 inputs=FlightInputs.read(a.inputs)if a.inputs else FlightInputs([])
@@ -46,7 +48,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     device=2 if a.lapc_effects else 0
     (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode())
     if not a.native_capture:
-        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--lapc-effects']if a.lapc_effects else []),*(['--career-rules']if a.career_rules else [])],check=True,timeout=max(300,a.frames*4))
+        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--until-landed']if a.until_landed else []),*(['--lapc-effects']if a.lapc_effects else []),*(['--career-rules']if a.career_rules else [])],check=True,timeout=max(300,a.frames*4))
     expected=json.loads((native/'session.json').read_text())
     assert expected.get('resource_root')=='TFX','native capture predates the corrected DOS texture root; recapture it'
     assert expected['mission']==a.mission and expected['flight_model']==a.flight_model and expected['ticks_per_frame']==a.ticks_per_frame,'native capture configuration differs'
@@ -56,8 +58,12 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         terminal=expected.get('terminal',{})
         assert terminal.get('returned') and 1<=terminal['frame']<=a.frames,'native capture did not return through a result within the requested bound'
         a.frames=terminal['frame']
+    if a.until_landed:
+        landed=expected.get('landing_checkpoint',{})
+        assert 1<=landed.get('frame',0)<=a.frames,'native automatic landing did not stop within the requested bound'
+        a.frames=landed['frame']
     assert [row for row in expected.get('inputs',[])if row['frame']<=a.frames]==inputs.rows(a.frames),'native capture keyboard inputs differ'
-    assert len(expected['snapshots'])>a.frames,'native capture is shorter than the requested session'
+    assert len(expected['snapshots'])==a.frames+1,'reuse a native capture ending at the requested frame; untagged render events cannot be sliced safely'
     if 'reference' in expected:
         for name,key in (('TFX.DAT','executable_sha256'),('DID.DAT','archive_sha256')):
             assert hashlib.sha256((original/name).read_bytes()).hexdigest()==expected['reference'][key],('native capture resource differs',name)
@@ -73,8 +79,12 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     command=['gdb','--quiet','--batch','--return-child-result','-x',str(observer),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',str(a.mission),'--control','keyboard','--flight-model',a.flight_model]
     if a.lapc_effects:command+=['--rom-dir',str(a.rom_dir.resolve())]
     if a.career_rules:command.append('--career-rules')
-    display=None
+    display=None;audio_module=None
     try:
+        if a.lapc_effects:
+            sink='tfx_reference_'+str(os.getpid())
+            audio_module=subprocess.check_output(['pactl','load-module','module-null-sink','sink_name='+sink,'rate=48000','channels=2'],text=True).strip()
+            env['PULSE_SINK']=sink
         if a.inputs:
             import select
             read,write=os.pipe()
@@ -85,6 +95,11 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
                 number=os.read(read,64).decode().strip()
             finally:os.close(read)
             env.update(DISPLAY=':'+number,LIBGL_ALWAYS_SOFTWARE='1',XDG_RUNTIME_DIR=str(root),XMODIFIERS='@im=none',TFX_FLIGHT_INPUTS=json.dumps(inputs.rows(a.frames)),TFX_TICKS_PER_FRAME=str(a.ticks_per_frame),TFX_TOOLS_DIRECTORY=str(tools))
+            # Pulse socket discovery needs the real runtime directory; the
+            # test's only stream explicitly selects its private silent sink.
+            if a.lapc_effects:
+                if 'XDG_RUNTIME_DIR' in os.environ:env['XDG_RUNTIME_DIR']=os.environ['XDG_RUNTIME_DIR']
+                else:env.pop('XDG_RUNTIME_DIR',None)
             for name in ('WAYLAND_DISPLAY','XDG_SESSION_TYPE','DBUS_SESSION_BUS_ADDRESS'):env.pop(name,None)
             command+=['--frames',str(a.frames),'--scale','2']
         else:
@@ -96,6 +111,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
             display.terminate()
             try:display.wait(timeout=3)
             except subprocess.TimeoutExpired:display.kill();display.wait()
+        if audio_module is not None:subprocess.run(['pactl','unload-module',audio_module],check=True)
     (root/'observer.log').write_text(result.stdout+result.stderr)
     if a.inputs and result.returncode==0:
         (root/'cpp.indices').write_bytes((root/f'cpp-frame-{a.frames}.indices').read_bytes())
@@ -107,6 +123,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if a.lapc_effects:
         assert 'CPP_HOST_AUDIO_MUTED' in lines,'host PCM device was not muted before start'
         assert records('CPP_LAPC_CUE ')==[event for event in expected['lapc_requests']if event['frame']<=a.frames],('LAPC effect requests',records('CPP_LAPC_CUE '),expected['lapc_requests'])
+        if expected.get('sample_requests') is not None:
+            wanted=[event for event in expected['sample_requests']if event['frame']<=a.frames]
+            assert records('CPP_SAMPLE_REQUEST ')==wanted,('sample requests',records('CPP_SAMPLE_REQUEST '),wanted)
     if a.until_result:
         finished=records('CPP_FINISH ')
         assert len(finished)==1,('FINISH execution count',finished)
@@ -149,7 +168,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         bits=lambda value:struct.unpack('<Q',struct.pack('<d',value))[0]
         want={'fuel':bits(before_arming['fuel']),'mass':bits(before_arming['raw_fields']['0x14320']),'capacity':bits(before_arming['raw_fields']['0x14770'])}
         assert initial[0]==want,('pre-arming initialization',initial[0],want)
-    for field,prefix in (('mission_progress','CPP_MISSION_PROGRESS '),('player_damage','CPP_PLAYER_DAMAGE '),('cannon','CPP_CANNON '),('radar_pulse','CPP_RADAR_PULSE '),('speed_factor','CPP_SPEED_FACTOR '),('cheat_state','CPP_CHEAT_STATE '),('aiming_flags','CPP_AIMING_FLAGS '),('control_configuration','CPP_CONTROL_CONFIGURATION '),('autopilot_targets','CPP_AUTOPILOT_TARGETS '),('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES '),('player_parts','CPP_PLAYER_PARTS '),('launch_notice','CPP_LAUNCH_NOTICE '),('player_models','CPP_PLAYER_MODELS ')):
+    for field,prefix in (('mission_progress','CPP_MISSION_PROGRESS '),('player_damage','CPP_PLAYER_DAMAGE '),('automatic_landing','CPP_AUTOMATIC_LANDING '),('cannon','CPP_CANNON '),('radar_pulse','CPP_RADAR_PULSE '),('speed_factor','CPP_SPEED_FACTOR '),('cheat_state','CPP_CHEAT_STATE '),('aiming_flags','CPP_AIMING_FLAGS '),('control_configuration','CPP_CONTROL_CONFIGURATION '),('autopilot_targets','CPP_AUTOPILOT_TARGETS '),('body_basis','CPP_BODY '),('sensors','CPP_SENSORS '),('armament','CPP_ARMAMENT '),('projectiles','CPP_PROJECTILES '),('player_parts','CPP_PLAYER_PARTS '),('launch_notice','CPP_LAUNCH_NOTICE '),('player_models','CPP_PLAYER_MODELS ')):
         if field in expected['snapshots'][1]:
             actual_records=records(prefix)
             wanted_records=[snapshot[field] for snapshot in expected['snapshots'][1:a.frames+1]]
@@ -210,6 +229,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         wanted=[snapshot['air_brake']for snapshot in expected['snapshots'][1:a.frames+1]]
         assert actual==wanted,('air-brake fraction/switch',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:3])
     verified=['player','actors','shared RNG','radio','camera','horizon']
+    if a.lapc_effects:
+        verified.append('LAPC requests')
+        if expected.get('sample_requests') is not None:verified.append('sample requests')
     if a.until_result:verified.append('natural result/FINISH campaign values')
     if (native/'radar.json').exists():verified.append('ordered radar inputs')
     if 'projectile_guidance' in expected:verified.append('projectile guidance inputs')
@@ -218,7 +240,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if 'trail_events' in expected:verified.append('smoke samples')
     if 'hud_alert_events' in expected:verified.append('HUD warning requests')
     if expected.get('recordings'):verified.append('recorded model queues')
-    verified += [field for field in ('mission_progress','player_damage','cannon','radar_pulse','speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]
+    verified += [field for field in ('mission_progress','player_damage','automatic_landing','cannon','radar_pulse','speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]
     rules='career'if a.career_rules else 'Arcade'
     print(f'Mission {a.mission}, {a.flight_model}, {rules} rules, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
     if a.strict_pixels:assert not different_frames,('whole-frame pixels',different_frames[:20],differences)

@@ -75,6 +75,7 @@ add_library(tfx_core
   src/flight/player_shared.cpp
   src/flight/player_shared.h
   src/flight/gear_controls.cpp src/flight/gear_controls.h
+  src/flight/engine_controls.cpp src/flight/engine_controls.h
   src/flight/player_frame.cpp
   src/flight/player_frame.h
   src/flight/player_dispatch.cpp
@@ -1029,6 +1030,11 @@ if(BUILD_TESTING)
   target_link_libraries(gear_key_probe PRIVATE tfx_core)
   configure_first_party(gear_key_probe)
   add_test(NAME flight.native_gear_key COMMAND gear_key_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/gear_key.txt")
+
+  add_executable(engine_key_probe tests/engine_key_probe.cpp)
+  target_link_libraries(engine_key_probe PRIVATE tfx_core)
+  configure_first_party(engine_key_probe)
+  add_test(NAME flight.native_engine_keys COMMAND engine_key_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/engine_key.txt")
 
   add_executable(detail_status_probe tests/detail_status_probe.cpp)
   target_link_libraries(detail_status_probe PRIVATE tfx_core)

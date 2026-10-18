@@ -29,8 +29,23 @@ if 'TFX_OBSERVE_LAPC' in os.environ:
    frame=flight_frame+int(bool(virtual_devices and virtual_devices['input_pending']))
    print('CPP_LAPC_CUE '+json.dumps({'frame':frame,'cue':int(gdb.parse_and_eval('cue'))}))
    return False
+ class SampleRequest(gdb.Breakpoint):
+  def stop(self):
+   frame=flight_frame+int(bool(virtual_devices and virtual_devices['input_pending']))
+   if not frame:return False
+   # Linux x86-64 external ABI, at the instruction entry before argument
+   # registers can be repurposed. Optimized forwarding frames lack DWARF args.
+   priority=int(gdb.parse_and_eval('$esi'))&255
+   begin=int(gdb.parse_and_eval('$rdx'));size=int(gdb.parse_and_eval('$rcx'))
+   assert 0<=priority<=2 and 0<size<=106,(priority,size)
+   ids=struct.unpack('<'+'I'*size,gdb.selected_inferior().read_memory(begin,size*4))
+   print('CPP_SAMPLE_REQUEST '+json.dumps({'frame':frame,'priority':priority,'ids':list(ids)}))
+   return False
  SilentOutput('ma_device_start',internal=True)
  LapcCue('tfx::audio::music_player::effect',internal=True)
+ # A disabled PCM voice still receives requests. Its out-of-line entry avoids
+ # counting the runtime's inlined forwarding overloads more than once.
+ SampleRequest("*'tfx::audio::sample_voice::submit(tfx::audio::sample_priority, std::span<unsigned int const, 18446744073709551615ul>)'",internal=True)
 if 'TFX_FLIGHT_INPUTS' in os.environ:
  sys.path.insert(0,os.environ['TFX_TOOLS_DIRECTORY'])
  from virtual_flight_inputs import install
@@ -271,6 +286,8 @@ class FrameReturn(gdb.FinishBreakpoint):
 
   import struct
   physical=player['physical']
+  landing=player['automatic'];approach=landing['approach']
+  print('CPP_AUTOMATIC_LANDING '+json.dumps([int(landing['phase']),*[int(approach[field][axis])for field in ('destination_metres','player_metres')for axis in ('x','y','z')],*[struct.unpack('<Q',struct.pack('<d',float(approach[field])))[0]for field in ('distance_km','pitch_degrees')],int(approach['flaring'])]))
   targets=physical['manual']['controls']['autopilot']
   print('CPP_AUTOPILOT_TARGETS '+json.dumps([int(targets[field])for field in ('enabled','mode','heading')]+[struct.unpack('<Q',struct.pack('<d',float(targets[field])))[0]for field in ('down_metres','metres_per_second')]))
   damage=gdb.parse_and_eval('$damage').dereference()

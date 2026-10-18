@@ -14,6 +14,14 @@ import tempfile
 
 
 CASES = {
+    'career-airfield-landing': (511, 'simple', 1024, [
+        {'frame': 1, 'event': 'l', 'held': ['alt', 'l']},
+        {'frame': 3, 'event': 't'},
+    ]),
+    'career-carrier-landing': (512, 'realistic', 1024, [
+        {'frame': 1, 'event': 'l', 'held': ['alt', 'l']},
+        {'frame': 3, 'event': 't'},
+    ]),
     # Open-loop mouse steering, actual PLOP key sequence and a timed AGM-88
     # release. This reaches a SAM objective and a natural return, without
     # changing position, target, damage or campaign state in either game.
@@ -136,7 +144,7 @@ def main():
             mission, model, frames, inputs = CASES[name]
             if isinstance(inputs, str):
                 inputs = json.loads((Path(__file__).resolve().parent.parent / 'tests/inputs' / inputs).read_text())
-            ticks = 18 if name in ('ground-strike-result', 'crash-result', 'career-crash-result', 'career-airspace-result') else 4
+            ticks = 18 if name in ('ground-strike-result', 'crash-result', 'career-crash-result', 'career-airspace-result', 'career-airfield-landing', 'career-carrier-landing') else 4
             tape = root / f'{name}.json'
             tape.write_text(json.dumps(inputs, indent=2) + '\n')
             command = [
@@ -160,6 +168,8 @@ def main():
                 command.append('--career-rules')
             if name.endswith('-result'):
                 command.append('--until-result')
+            if name.endswith('-landing'):
+                command.append('--until-landed')
             subprocess.run(command, check=True)
             native = args.native_root / name / 'native' if args.native_root else root / name / 'native'
             capture = json.loads((native / 'session.json').read_text())
@@ -167,6 +177,10 @@ def main():
             if name.endswith('-result'):
                 assert capture['terminal']['returned'], 'original mission did not return through its result'
                 assert snapshots[-1]['mission_progress']['ended'], 'flight ended without the mission result gate'
+            if name.endswith('-landing'):
+                assert capture['landing_checkpoint'], 'automatic landing never stopped'
+                assert any(s['automatic_landing'][0] for s in snapshots), 'landing controller never ran'
+                assert snapshots[-1]['automatic_landing'][0] == 0 and snapshots[-1]['speed'] == 0, 'landing did not stop and release the controller'
             if name in ('training-intercept', 'training-result', 'training-simple-result', 'career-intercept-result'):
                 assert any(s['projectiles'] for s in snapshots), 'intercept never released a store'
                 assert any(s['mission_progress']['results'][3] for s in snapshots), 'intercept never downed the enemy'
