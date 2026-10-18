@@ -33,6 +33,7 @@ p.add_argument('--native-capture',type=Path,help='reuse a prior matching native 
 p.add_argument('--lapc-effects',action='store_true',help='compare live LAPC effect requests; the host PCM device is muted before start')
 p.add_argument('--rom-dir',type=Path,help='Roland ROM directory for --lapc-effects')
 p.add_argument('--default-rearming',action='store_true',help='supply DEFAULT/DONE in post-landing arming screens')
+p.add_argument('--observer-addon',type=Path,help='load an additional diagnostic GDB observer before the standard comparison')
 a=p.parse_args()
 if a.until_result and a.until_landed:p.error('choose either --until-result or --until-landed')
 if a.lapc_effects and (not a.inputs or not a.rom_dir):p.error('--lapc-effects needs --inputs and --rom-dir')
@@ -79,7 +80,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     # GDB reads sourced files incrementally. Retain the exact observer beside
     # the capture so ongoing development cannot change a running comparison.
     observer=root/'observe.gdb';observer.write_bytes((tools/'observe_flight_session.gdb').read_bytes())
-    command=['gdb','--quiet','--batch','--return-child-result','-x',str(observer),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',str(a.mission),'--control','keyboard','--flight-model',a.flight_model]
+    command=['gdb','--quiet','--batch','--return-child-result']
+    if a.observer_addon:command+=['-x',str(a.observer_addon.resolve())]
+    command+=['-x',str(observer),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',str(a.mission),'--control','keyboard','--flight-model',a.flight_model]
     if a.lapc_effects:command+=['--rom-dir',str(a.rom_dir.resolve())]
     if a.career_rules:command.append('--career-rules')
     display=None;audio_module=None

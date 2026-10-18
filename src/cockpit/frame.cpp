@@ -34,7 +34,7 @@ vec2d frame::projection_origin(unsigned int const view, vec2<int16_t> const &off
   auto const &layout{assets.viewports.at(view)};
   return {render::centre_x - 1,static_cast<double>(layout.projection_centre_y + (layout.panel.empty() ? 0 : offset.y / 2))};
 }
-void frame::paint(render::framebuffer &target, unsigned int const view, vec2<int16_t> const &offset, render::framebuffer *const coverage) const {
+void frame::paint(render::framebuffer &target, unsigned int const view, vec2<int16_t> const &offset, render::framebuffer *const coverage, panel_copy const copy) const {
   auto const &layout{assets.viewports.at(view)};
   auto const &art{views.at(view)};
   if(art.overlay) {
@@ -43,9 +43,10 @@ void frame::paint(render::framebuffer &target, unsigned int const view, vec2<int
     if(coverage) for(unsigned int index{0}; index != image.coverage.pixels.size(); ++index) if(image.coverage.pixels[index]) coverage->pixels[index] = 255;
   }
   // Native 0x74498/0x74104 copies the planar companion below the 3D viewport.
-  // A full framebuffer host needs this copy every frame, rather than only on
-  // the original three VGA pages' refreshes. Index zero is opaque panel colour.
-  if(!art.panel || layout.bottom >= render::screen_height - 1) return;
+  // The live host retains all three pages and supplies the shared refresh
+  // decision; isolated artwork callers request a copy by default.
+  // Index zero is opaque panel colour.
+  if(copy == panel_copy::preserve || !art.panel || layout.bottom >= render::screen_height - 1) return;
   auto const &panel{*art.panel};
   int const height{render::screen_height - 1 - layout.bottom};
   if(height > static_cast<int>(panel.size.y)) throw std::runtime_error{"cockpit panel does not cover its viewport footer"};
