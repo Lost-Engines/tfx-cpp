@@ -19,6 +19,7 @@
 #include "platform/audio_output.h"
 #include "platform/flight.h"
 #include "platform/presentations.h"
+#include "resources/installation.h"
 #include "world/environment.h"
 
 namespace {
@@ -36,7 +37,7 @@ unsigned int number(std::string_view const text) {
 } // anonymous namespace
 
 auto main(int const argc, char const *const argv[])->int try {
-  std::filesystem::path data_directory{"."};
+  std::optional<std::filesystem::path> data_directory;
   std::optional<std::filesystem::path> rom_directory;
   std::optional<uint8_t> music_override;
   tfx::audio::sound_canvas_model canvas_model{tfx::audio::sound_canvas_model::scc1a};
@@ -61,7 +62,7 @@ auto main(int const argc, char const *const argv[])->int try {
     }};
     if(key == "--help") {
       std::cout << "TFX C++ — native flight reconstruction\n"
-                   "Usage: tfx --data-dir DIRECTORY [--mission 501] [--scale N]\n"
+                   "Usage: tfx [--data-dir DIRECTORY] [--mission 501] [--scale N]\n"
                    "  --data-dir DIRECTORY  Original TFX 2.05 installation (DID.DAT and TFX.DAT)\n"
                    "  --mission N           Enter a mission directly instead of the original front end\n"
                    "  --skip-intro          Start at pilot enrolment without the opening sequence\n"
@@ -70,8 +71,10 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --control NAME        keyboard, mouse or joystick; overrides TFX.CFG\n"
                    "  --joystick N          Select joystick 0..15 (default: first available); enables joystick input\n"
                    "  --music NAME          none, soundblaster-fm, roland-lapc, roland-scc1a or roland-sc55\n"
-                   "  --rom-dir DIRECTORY   Roland control/PCM ROMs (default: game directory)\n"
+                   "  --rom-dir DIRECTORY   Override automatic Roland ROM lookup\n"
                    "  --scale N             Integer pixel scale; 0 selects the largest fitting scale (default)\n"
+                   "\nGame files: current directory, then " << tfx::resources::default_game_directory().string() << "\n"
+                   "ROMs: selected game directory, then the same default asset directory.\n"
                    "\nFlight: hold left/right mouse or =/- for thrust.\n"
                    "Arcade uses mouse steering; other models use the original arrow-key controls.\n"
                    "Keypad * raises afterburner; Alt+keypad * or keypad - lowers it; / switches it off.\n"
@@ -184,7 +187,7 @@ auto main(int const argc, char const *const argv[])->int try {
     else throw std::runtime_error{"unrecognised option: " + std::string{key} + "; use --help"};
   }
   if(career_rules && !direct_mission) throw std::runtime_error{"--career-rules requires --mission"};
-  auto const archive_path{tfx::resources::find_game_archive(data_directory)};
+  auto const archive_path{tfx::resources::select_game_archive(data_directory)};
   auto preferences{tfx::configuration::load(archive_path.parent_path())};
   if(model_selected) preferences.model = model;
   if(music_override) preferences.music = *music_override;
@@ -201,15 +204,28 @@ auto main(int const argc, char const *const argv[])->int try {
     if(preferences.music >= 1 && preferences.music <= 4) {
       try {
         auto const launcher{tfx::resources::read_file(archive_path.parent_path() / "START.EXE")};
-        if(preferences.music == 2) music = std::make_unique<tfx::audio::music_player>(game,launcher,
-          rom_directory.value_or(archive_path.parent_path()),tfx::platform::audio_output::sample_rate);
-        else if(preferences.music == 4) music = std::make_unique<tfx::audio::music_player>(game,launcher,
-          tfx::audio::make_scc_music_device(launcher,std::make_unique<tfx::audio::sc55_synth>(rom_directory.value_or(archive_path.parent_path()),tfx::platform::audio_output::sample_rate,canvas_model)),tfx::platform::audio_output::sample_rate);
-        else music = std::make_unique<tfx::audio::music_player>(game,launcher,
+        if(preferences.music == 2 || preferences.music == 4) {
+          std::string failure;
+          for(auto const &directory : tfx::resources::rom_directories(archive_path.parent_path(),rom_directory)) {
+            try {
+              if(preferences.music == 2) music = std::make_unique<tfx::audio::music_player>(game,launcher,directory,tfx::platform::audio_output::sample_rate);
+              else music = std::make_unique<tfx::audio::music_player>(game,launcher,
+                tfx::audio::make_scc_music_device(launcher,std::make_unique<tfx::audio::sc55_synth>(directory,tfx::platform::audio_output::sample_rate,canvas_model)),tfx::platform::audio_output::sample_rate);
+              break;
+            } catch(std::exception const &error) { failure = error.what(); }
+          }
+          if(!music) throw std::runtime_error{failure};
+        } else music = std::make_unique<tfx::audio::music_player>(game,launcher,
           tfx::audio::make_fm_music_device(launcher,tfx::platform::audio_output::sample_rate),tfx::platform::audio_output::sample_rate);
       } catch(std::exception const &error) {
         std::cerr << "Music unavailable: " << error.what();
-        if(preferences.music == 2 || preferences.music == 4) std::cerr << "; use --rom-dir to select your Roland ROM directory";
+        if(preferences.music == 2 || preferences.music == 4) std::cerr << "; run "
+#ifdef _WIN32
+          "scripts\\fetch-assets.bat"
+#else
+          "scripts/fetch-assets.sh"
+#endif // _WIN32
+          " to fetch the required Roland ROMs";
         std::cerr << ".\n";
       }
     }

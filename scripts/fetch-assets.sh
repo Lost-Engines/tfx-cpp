@@ -1,11 +1,14 @@
 #!/bin/bash
 # Fetch only the external synthesiser ROMs; original game files are supplied separately.
 set -u
-usage() { echo "Usage: $0 [destination]"; echo 'Fetch CM-32L, SC-55 and SCC-1A ROMs (default: roms in the project/package directory).'; }
+usage() { echo "Usage: $0 [destination]"; echo 'Fetch CM-32L, SC-55 and SCC-1A ROMs (default: $XDG_DATA_HOME/tfx or ~/.local/share/tfx).'; }
 if [[ "${1:-}" == --help ]]; then usage; exit 0; fi
 if (( $# > 1 )); then usage >&2; exit 2; fi
 script_dir=$(cd -- "$(dirname -- "$0")" && pwd) || exit 1
-destination=${1:-$script_dir/../roms}
+data_home=${XDG_DATA_HOME:-$HOME/.local/share}
+# Match the runtime and Darker: XDG_DATA_HOME must be an absolute path.
+if [[ "$data_home" != /* ]]; then data_home="$HOME/.local/share"; fi
+destination=${1:-$data_home/tfx}
 if [[ ! -r "$script_dir/roms.txt" ]]; then echo "ERROR: missing ROM manifest: $script_dir/roms.txt" >&2; exit 1; fi
 for dependency in curl unzip; do
   if ! command -v "$dependency" >/dev/null; then echo "ERROR: install $dependency to fetch ROMs." >&2; exit 1; fi
@@ -61,4 +64,3 @@ while read -r expected file url member; do
 done < "$script_dir/roms.txt"
 if (( failed )); then exit 1; fi
 echo "ROMs ready in $PWD"
-echo 'Use --rom-dir with this directory to enable Roland music.'

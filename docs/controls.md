@@ -31,11 +31,11 @@ The 320×200 image is shown with square pixels and nearest-neighbour scaling. Th
 
 ## Sound
 
-Sound Blaster FM music follows the original `MUSIC` setting, and `--music=soundblaster-fm` selects it explicitly. For Roland LAPC-I music, use `--music=roland-lapc --rom-dir=/path/to/roms` with compatible CM-32L/MT-32 control and PCM ROMs. `--music=none` disables music. The original Sound Canvas setting uses SCC-1A emulation; `--music=roland-scc1a` or `--music=roland-sc55` selects the available hardware model, with its matching ROMs in `--rom-dir`. These are compatible alternatives to the original SCC-1, whose exact ROM set is unavailable. Flight music now uses the original theme selection, temporary cues and engine sounds, including engine playback with music switched off. CD playback remains deferred; the explicit FM option selects the synthesised path.
+Sound Blaster FM music follows the original `MUSIC` setting, and `--music=soundblaster-fm` selects it explicitly. For Roland LAPC-I music, use `--music=roland-lapc` with compatible CM-32L/MT-32 control and PCM ROMs. `--music=none` disables music. The original Sound Canvas setting uses SCC-1A emulation; `--music=roland-scc1a` or `--music=roland-sc55` selects the available hardware model, with its matching ROMs found automatically beside the game files or in the default installation directory. `--rom-dir` overrides that lookup for custom locations. These are compatible alternatives to the original SCC-1, whose exact ROM set is unavailable. Flight music now uses the original theme selection, temporary cues and engine sounds, including engine playback with music switched off. CD playback remains deferred; the explicit FM option selects the synthesised path.
 
 For Gravis sampled effects and speech, set `SOUNDFX=4` in the installation's `TFX.CFG` and retain its original `GUS.COM`. This emulates a one-MiB card, with the complete sound bank resident. Music selection remains separate.
 
-For the original LAPC-I effects arrangement, set `SOUNDFX=2` and `MUSIC=2`, with the Roland ROMs available through `--rom-dir`. It uses the original synthesised effects bank during flight, replacing the usual flight music and recorded speech. Leave `SOUNDFX=1` for Sound Blaster effects and speech alongside Roland music.
+For the original LAPC-I effects arrangement, set `SOUNDFX=2` and `MUSIC=2`, with the Roland ROMs in either of those automatic locations. It uses the original synthesised effects bank during flight, replacing the usual flight music and recorded speech. Leave `SOUNDFX=1` for Sound Blaster effects and speech alongside Roland music.
 
 ## Developer commands
 

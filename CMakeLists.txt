@@ -421,6 +421,8 @@ add_library(tfx_core
   src/world/assets.h
   src/resources/archive.cpp
   src/resources/archive.h
+  src/resources/installation.cpp
+  src/resources/installation.h
   src/resources/binary.h
   src/resources/ra.cpp
   src/resources/ra.h
@@ -469,6 +471,10 @@ configure_first_party(tfx)
 include(cmake/install.cmake)
 
 if(BUILD_TESTING)
+  add_executable(installation_tests tests/installation_test.cpp)
+  target_link_libraries(installation_tests PRIVATE tfx_core)
+  configure_first_party(installation_tests)
+  add_test(NAME resources.automatic_installation_and_rom_paths COMMAND installation_tests)
   add_library(gf1_reference SHARED tests/gf1_reference_bridge.cpp)
   target_link_libraries(gf1_reference PRIVATE gf1_backend)
   configure_first_party(gf1_reference)
