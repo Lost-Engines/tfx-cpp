@@ -22,6 +22,28 @@ CASES = {
         {'frame': 2, 'mouse': [0, -256]},
         {'frame': 3, 'event': 't'},
     ]),
+    'career-crash-result': (501, 'arcade', 96, [
+        {'frame': 2, 'mouse': [0, -256]},
+        {'frame': 3, 'event': 't'},
+    ]),
+    'career-intercept-result': (501, 'arcade', 256, [
+        {'frame': 1, 'event': 't'},
+        {'frame': 2, 'event': 'enter'},
+        {'frame': 70, 'event': 'space'},
+    ]),
+    # Escape the airspace through ordinary PLOP, time-warp and reheat keys.
+    # Neither the violation counter nor the forced-return result is supplied.
+    'career-airspace-result': (501, 'arcade', 1024, [
+        {'frame': 1, 'event': 'p', 'held': ['right-shift', 'p']},
+        {'frame': 3, 'event': 'l', 'held': ['right-shift', 'l']},
+        {'frame': 5, 'event': 'o', 'held': ['right-shift', 'o']},
+        {'frame': 7, 'event': 'p', 'held': ['right-shift', 'p']},
+        {'frame': 9, 'event': 't'},
+        {'frame': 11, 'event': 'keypad-multiply'},
+        {'frame': 13, 'event': 'keypad-multiply'},
+        {'frame': 15, 'event': 'keypad-multiply'},
+        {'frame': 17, 'event': 'keypad-multiply'},
+    ]),
     'training-result': (501, 'arcade', 256, [
         {'frame': 1, 'event': 't'},
         {'frame': 2, 'event': 'enter'},
@@ -114,7 +136,7 @@ def main():
             mission, model, frames, inputs = CASES[name]
             if isinstance(inputs, str):
                 inputs = json.loads((Path(__file__).resolve().parent.parent / 'tests/inputs' / inputs).read_text())
-            ticks = 18 if name in ('ground-strike-result', 'crash-result') else 4
+            ticks = 18 if name in ('ground-strike-result', 'crash-result', 'career-crash-result', 'career-airspace-result') else 4
             tape = root / f'{name}.json'
             tape.write_text(json.dumps(inputs, indent=2) + '\n')
             command = [
@@ -134,6 +156,8 @@ def main():
                            '--output', str(root / name / 'native')]
             elif args.native_root:
                 command.extend(['--native-capture', str((args.native_root / name / 'native').resolve())])
+            if name.startswith('career-'):
+                command.append('--career-rules')
             if name.endswith('-result'):
                 command.append('--until-result')
             subprocess.run(command, check=True)
@@ -143,19 +167,26 @@ def main():
             if name.endswith('-result'):
                 assert capture['terminal']['returned'], 'original mission did not return through its result'
                 assert snapshots[-1]['mission_progress']['ended'], 'flight ended without the mission result gate'
-            if name in ('training-intercept', 'training-result', 'training-simple-result'):
+            if name in ('training-intercept', 'training-result', 'training-simple-result', 'career-intercept-result'):
                 assert any(s['projectiles'] for s in snapshots), 'intercept never released a store'
                 assert any(s['mission_progress']['results'][3] for s in snapshots), 'intercept never downed the enemy'
                 assert any(s['mission_progress']['results'][5] for s in snapshots), 'intercept never completed its objective'
+                if name == 'career-intercept-result':
+                    assert snapshots[0]['armament'][7] == 1 and snapshots[70]['armament'][7] == 0, 'career missile was replenished'
+                    assert any('PERMISSION TO FIRE' in event['message'] for event in capture['radio_events']), 'career sortie never exercised the permission notice'
             elif name in ('training-military', 'training-realistic'):
                 assert any(s['projectiles'] for s in snapshots), 'advanced-model sortie never launched a weapon'
             elif name == 'ground-strike-result':
                 assert any(shot[1] == 20 for s in snapshots for shot in s['projectiles']), 'strike never released its AGM-88'
                 assert snapshots[-1]['mission_progress']['credited_targets'] == 1, 'strike never credited its bound objective'
                 assert capture['terminal']['campaign']['a2gkills'] >= 1, 'strike never reached a ground kill'
-            elif name == 'crash-result':
+            elif name in ('crash-result', 'career-crash-result'):
                 assert capture['terminal']['campaign']['status'] == 4, 'crash did not report the aircraft lost'
                 assert capture['terminal']['campaign']['outcome'] == 1, 'crash did not reach the failure outcome'
+            elif name == 'career-airspace-result':
+                assert snapshots[-1]['mission_progress']['violations'] > 0, 'airspace departure never violated orders'
+                assert capture['terminal']['campaign']['status'] == 2, 'departure did not report orders violated'
+                assert capture['terminal']['campaign']['outcome'] == 2, 'departure did not reach the court-martial outcome'
             elif name == 'ground-designation':
                 weapons = {shot[1] for s in snapshots for shot in s['projectiles']}
                 assert {0, 21} <= weapons, 'ground sequence never fired its cannon and Sidearm'

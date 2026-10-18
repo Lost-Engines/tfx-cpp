@@ -59,6 +59,7 @@ parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--mission',type=int,default=501)
 parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
+parser.add_argument('--career-rules',action='store_true',help='declare inherited arcade=0 independently of the flight model')
 parser.add_argument('--frames',type=int,default=4)
 parser.add_argument('--ticks-per-frame',type=int,default=4,help='declared external timer interval; native frame clamps still execute')
 parser.add_argument('--until-result',action='store_true',help='capture through a natural mission result, with --frames as the upper bound')
@@ -177,10 +178,10 @@ im.intercept(0xa6134,'Supply an explicit monotonically advancing launcher timer.
 # Original startup installs Watcom floating formatting and its x87 environment.
 im.call(0xde851);im.call(0xde547);im.call(0xde81e)
 # The presentation graph normally owns these inherited campaign declarations.
-# Match the C++ direct --mission runner: Arcade scoring/permission eligibility
-# is independent of the selected numerical flight model.
+# Arcade scoring/permission eligibility is an explicit inherited value,
+# independent of the selected numerical flight model.
 program=next(p for p in json.loads((root/'analysis/presentations/programs.json').read_text()) if p['name']=='tfx')
-presentation_numbers={'mission':args.mission,'arcade':1}
+presentation_numbers={'mission':args.mission,'arcade':0 if args.career_rules else 1}
 im.write(0x1afee,'<H',len(program['variables']))
 for index,variable in enumerate(program['variables']):
  name=variable['name'];im.write(0x1ad44+index,'<B',variable['string_value']);im.cpu.mem_write(im.data+0x1ad62+index*21,name.encode()+bytes(21-len(name)))

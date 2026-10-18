@@ -20,7 +20,7 @@ environment, renderer, arming and AI code executes. `--flight-model` selects
 any of the four models, and `--output` retains the private frames and observer
 log. `--strict-pixels` requires every captured image to match, not just the last.
 
-All **202 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+All **204 CTests** pass in development, Release and ASan/UBSan. All 128 retail
 missions also compose 64 development frames and 16 sanitizer frames without
 preview warnings. Real private-window controls exercise firing, MFDs,
 missile cameras, designator use, ejection and an automatic FINISH handoff.
@@ -2240,7 +2240,7 @@ broader aftermath/session rendering still have separate consumers to integrate.
 Actor tracking/firing notifications now reach the original rules-of-engagement
 state, radio and sampled audio. Player tracking grants permission and refreshes
 the 30-rendered-frame cockpit notice; its first text notice is suppressed for
-the Eurofighter and for Arcade/training. The firing handler can grant permission
+the F-117 and for Arcade/training. The firing handler can grant permission
 even when another AI aircraft is the target. Its first ordinary-mode request is
 urgent sample 45 followed by the permission text; later firing requests use
 normal sample 44 unless the ejection-stage gate inhibits them. These are separate
@@ -5394,3 +5394,33 @@ warning precedence, the 350-speed limit, aircraft exceptions and flight-state
 gates. All 4,096 original gear-command calls agree, with a 256-row retained
 fixture. The lifetime and gear fixtures bring the asset-free suite to
 **204 passing tests** in development, Release and ASan/UBSan.
+
+### Career-rule complete flights
+
+Window ownership no longer selects permissions or replenished stores. The
+inherited presentation `arcade` variable now supplies those rules throughout
+flight, independently of the numerical flight model. Ordinary direct launches
+still declare Arcade rules; developer `--mission=N --career-rules` declares
+`arcade=0`. It supplies an initial context, not an outcome or persistent pilot.
+
+The maintained `career-crash-result` and `career-intercept-result` comparisons
+execute the same context in the original. All **14 loss frames** and **233
+successful interception frames** agree in state, radio, damage, indexed pixels
+and recovery/FINISH campaign values, in development and ASan/UBSan. The latter
+consumes its missile, receives permission at frame 138 and returns with score
+7,000 and one air kill.
+
+The interception exposed an aircraft-index error in the permission notice:
+native simulation aircraft 1 means the F-117, whereas mission-script aircraft
+start at 1 for the Eurofighter. The game and analytical input conversion now
+retain that distinction. All 8,192 original permission-handler cases agree;
+the compact retained fixture includes the corrected aircraft exceptions.
+
+```sh
+python3 tools/check_combat_sessions.py --case career-crash-result --build build
+python3 tools/check_combat_sessions.py --case career-intercept-result --build build
+python3 tools/check_engagement.py --build build
+```
+
+These are complete direct flights with declared career rules. They do not
+establish every campaign graph or court-martial presentation branch.

@@ -43,7 +43,8 @@ rows=[];expected=[];fixtures=[]
 for index in range(8192):
  row=[(index//96)%2,rng.choice([-32768,-1,0,1,29,30,32767]),index%2,(index//2)%2,1+(index//4)%3,(index//12)%2,(index//24)%2,(index//48)%2,rng.choice([0,1,29,30,31,64])]
  permitted,notice,kind,player,aircraft,arcade,training,inhibited,frames=row
- for at,fmt,value in [(0xe781,'<B',permitted),(0x763c,'<h',notice),(0x11b2a,'<H',aircraft),(0xabe9,'<B',inhibited)]:im.write(at,fmt,value)
+ # Probe inputs use public mission-script aircraft 1..3; native state is 0..2.
+ for at,fmt,value in [(0xe781,'<B',permitted),(0x763c,'<h',notice),(0x11b2a,'<H',aircraft-1),(0xabe9,'<B',inhibited)]:im.write(at,fmt,value)
  im.cpu.mem_write(0x300000,struct.pack('<2i',arcade,training));events.clear()
  im.call(0x76398 if kind else 0x763fc,eax=im.data+0x10f28 if player else 0x300800)
  for _ in range(frames):im.call(0x72372)

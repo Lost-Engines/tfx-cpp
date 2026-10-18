@@ -45,6 +45,11 @@ RelWithDebInfo retains the developer scene inspector and headless captures:
 ./build/tfx --data-dir /path/to/TFX --flight-frames=100 --screenshot=/tmp/tfx.ppm
 ```
 
+Direct missions normally inherit Arcade permissions and replenished stores,
+independently of the numerical flight model. `--mission=501 --career-rules`
+instead supplies the original career rules for analytical flight comparisons;
+it does not enrol a pilot or start a persistent campaign.
+
 The presentation player runs original images, delta animations, captions and palette fades; Space finishes a caption or advances a scene, Escape skips the sequence, and Shift+Q exits. Original menu scripts can also run independently with `--menu`, including the animated main menu (`mastopts`). Other presentation graphs include `cdcolint`, `cdsomint`, `cdfwsint`, `cdyugint` and `cdyugmid`; `--language` selects briefing text. Presentations retain their synthesised music requests; CD playback remains deferred.
 
 In the inspector, WASD moves, R/F rises/descends, arrows or right-drag look around and Shift moves faster. Release builds omit the developer options. No CI or automatic release process is configured.

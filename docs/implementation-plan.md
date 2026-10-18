@@ -36,6 +36,8 @@ The QSound helper's unchanged main now establishes external Creative CSP firmwar
 
 The separate `SOUNDFX=2` LAPC-I effects path is now connected through its original `tunes/fxonly.rld` bank and ordered synth playback, including live engine, gear/brake, weapon and fly-past callers. The original wrappers/master/LA callbacks agree on all 512 MIDI events and timestamps through overlap, exhaustion, mute/resume and bank reuse. A complete 32-frame controls session agrees in state, pixels, radio, damage and effect requests. Active playback now retains its resource independently of released/reused public handles. The Eurofighter gear warning, eligibility and switch sound also have 4,096 original-command comparisons. All 204 regressions pass in the three build configurations. Broader career-rule and encounter comparisons are the next integration work.
 
+Career rules can now be exercised independently of window ownership using the developer direct-launch context. A natural fourteen-frame loss and complete 233-frame successful interception match the original's state, pixels, damage, radio, finite inventory and FINISH results in development and sanitizers. This exposed and corrected the F-117/Eurofighter permission-notice index mismatch, with all 8,192 original permission handlers rechecked. Airspace violation and broader career/campaign branches remain under investigation.
+
 The numbered sections below retain the implementation sequence and its verification boundaries.
 
 ## 1. Establish complete-session reference capture

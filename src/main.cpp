@@ -41,6 +41,7 @@ auto main(int const argc, char const *const argv[])->int try {
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0}, flight_frames{0};
   tfx::simulation::flight_model model{tfx::simulation::flight_model::arcade};
   bool inspect{false}, direct_mission{false}, skip_intro{false}, model_selected{false}, language_selected{false};
+  bool career_rules{false};
   std::optional<tfx::flight::control_source> control_override;
   std::optional<unsigned int> joystick;
   std::string presentation, presentation_function, language{"english"};
@@ -93,6 +94,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "This is a flight integration build; combat, campaign flow and audio are still in progress.\n";
 #ifndef NDEBUG
       std::cout << "\nDeveloper options:\n"
+                   "  --career-rules        Use career permissions/stores with a direct --mission launch\n"
                    "  --menu NAME            Run an original options menu\n"
                    "  --presentation NAME[:FUNCTION]  Play an original presentation graph\n"
                    "  --inspect             Free scene camera: WASD, R/F, arrows/right-drag, Shift\n"
@@ -152,6 +154,7 @@ auto main(int const argc, char const *const argv[])->int try {
       if(scale > 16) throw std::runtime_error{"window scale must be between 0 (automatic) and 16"};
     }
 #ifndef NDEBUG
+    else if(key == "--career-rules") career_rules = true;
     else if(key == "--menu") presentation = "menu:" + std::string{value()};
     else if(key == "--presentation") {
       auto const selection{value()};
@@ -179,6 +182,7 @@ auto main(int const argc, char const *const argv[])->int try {
 #endif // NDEBUG
     else throw std::runtime_error{"unrecognised option: " + std::string{key} + "; use --help"};
   }
+  if(career_rules && !direct_mission) throw std::runtime_error{"--career-rules requires --mission"};
   auto const archive_path{tfx::resources::find_game_archive(data_directory)};
   auto preferences{tfx::configuration::load(archive_path.parent_path())};
   if(model_selected) preferences.model = model;
@@ -292,7 +296,7 @@ auto main(int const argc, char const *const argv[])->int try {
     auto const mission_digits{std::string_view{mission_name}.substr(std::string_view{"miss"}.size())};
     tfx::missions::variables campaign{
       {"mission",static_cast<int32_t>(number(mission_digits))},
-      {"arcade",1},
+      {"arcade",career_rules ? 0 : 1},
     };
     tfx::platform::fly_mission(game,tables,flight,campaign);
   } else tfx::platform::play_game(game,tables,archive_path.parent_path(),language,skip_intro,flight);

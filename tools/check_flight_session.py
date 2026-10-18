@@ -21,6 +21,7 @@ p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--mission',type=int,default=501)
 p.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
+p.add_argument('--career-rules',action='store_true',help='compare career permissions/stores with inherited arcade=0')
 p.add_argument('--output',type=Path,help='retain native/C++ frames and the read-only observer log in a new directory')
 p.add_argument('--frames',type=int,default=4)
 p.add_argument('--ticks-per-frame',type=int,default=4,help='declared external timer interval, before native frame clamps')
@@ -45,12 +46,12 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     device=2 if a.lapc_effects else 0
     (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode())
     if not a.native_capture:
-        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--lapc-effects']if a.lapc_effects else [])],check=True,timeout=max(300,a.frames*4))
+        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--lapc-effects']if a.lapc_effects else []),*(['--career-rules']if a.career_rules else [])],check=True,timeout=max(300,a.frames*4))
     expected=json.loads((native/'session.json').read_text())
     assert expected.get('resource_root')=='TFX','native capture predates the corrected DOS texture root; recapture it'
     assert expected['mission']==a.mission and expected['flight_model']==a.flight_model and expected['ticks_per_frame']==a.ticks_per_frame,'native capture configuration differs'
     assert expected.get('lapc_effects',False)==a.lapc_effects,'native audio capture configuration differs'
-    assert expected['presentation_numbers']=={'mission':a.mission,'arcade':1},'native capture inherited campaign state differs'
+    assert expected['presentation_numbers']=={'mission':a.mission,'arcade':0 if a.career_rules else 1},'native capture inherited campaign state differs'
     if a.until_result:
         terminal=expected.get('terminal',{})
         assert terminal.get('returned') and 1<=terminal['frame']<=a.frames,'native capture did not return through a result within the requested bound'
@@ -71,6 +72,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     observer=root/'observe.gdb';observer.write_bytes((tools/'observe_flight_session.gdb').read_bytes())
     command=['gdb','--quiet','--batch','--return-child-result','-x',str(observer),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission',str(a.mission),'--control','keyboard','--flight-model',a.flight_model]
     if a.lapc_effects:command+=['--rom-dir',str(a.rom_dir.resolve())]
+    if a.career_rules:command.append('--career-rules')
     display=None
     try:
         if a.inputs:
@@ -217,5 +219,6 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if 'hud_alert_events' in expected:verified.append('HUD warning requests')
     if expected.get('recordings'):verified.append('recorded model queues')
     verified += [field for field in ('mission_progress','player_damage','cannon','radar_pulse','speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]
-    print(f'Mission {a.mission}, {a.flight_model}, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
+    rules='career'if a.career_rules else 'Arcade'
+    print(f'Mission {a.mission}, {a.flight_model}, {rules} rules, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
     if a.strict_pixels:assert not different_frames,('whole-frame pixels',different_frames[:20],differences)

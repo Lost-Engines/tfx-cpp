@@ -184,8 +184,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::missions::progress mission_progress{mission_setup};
   tfx::missions::finish_program const mission_finish{selected.script};
   auto const initial_campaign{campaign};
-  bool const campaign_flight{shared_window != nullptr};
-  bool const arcade_rules{!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0)};
+  bool const frontend_flight{shared_window != nullptr};
+  // Presentation state selects game rules independently of window ownership
+  // and the numerical flight model. Direct launches supply that state too.
+  bool const arcade_rules{campaign.contains("arcade") && campaign.at("arcade") != 0};
   // Native release 0x8bd8c keeps stores in Arcade, except the simulator graph.
   bool const unlimited_stores{arcade_rules && (!campaign.contains("simulator") || campaign.at("simulator") == 0)};
   bool result_evaluated{false};
@@ -264,7 +266,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto const launch_stores{armament.flight_stores(launch_airframe.stores_and_mounts.mounts)};
   inventory_handoff const remember_inventory{inspect ? nullptr : &options.launch_inventory,armament};
   armament.fit_default(mission_setup.weapons);
-  if(campaign_flight && !inspect && !mission_setup.default_weapons) {
+  if(frontend_flight && !inspect && !mission_setup.default_weapons) {
     if(!arm_mission(*shared_window,game,tables,armament,mission_setup.aircraft,mission_setup.weapons)) return flight_result::quit;
   }
   if(!mission_setup.default_weapons) {
@@ -491,8 +493,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto const permission_context{[&] {
     return tfx::missions::engagement_context{
       .aircraft{player.aircraft},
-      // Direct diagnostic launches retain their existing Arcade rules exemption; campaign mode comes from the parser.
-      .arcade{!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0)},
+      .arcade{arcade_rules},
       .training{campaign.contains("training") && campaign.at("training") != 0},
       .inhibited{ejected()},
     };
@@ -1300,7 +1301,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .targets{targets},
       .landed{player.landed},
       .speed{player.fixed_speed},
-      .arcade{!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0)},
+      .arcade{arcade_rules},
       .airspace{tfx::missions::airspace_context{
         .position{player.integer_position.x,player.integer_position.z},
         .acceleration_active{acceleration.active},
@@ -1324,7 +1325,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     scene.place_actor(player_visual,vec3d{player.position},player.angles);
     tfx::flight::repair_systems(player_damage,elapsed);
     advance_actors(elapsed);
-    mission_progress.advance_return_countdown(elapsed,!campaign_flight || (campaign.contains("arcade") && campaign.at("arcade") != 0));
+    mission_progress.advance_return_countdown(elapsed,arcade_rules);
     if(mission_progress.force_landed_return) {
       player.fixed_speed = 0;
       player.landed = true;
@@ -1487,7 +1488,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   }
   // Native 0x72588 resumes the parser directly after FINISH and teardown.
   // A direct --mission launch keeps its standalone diagnostic result display.
-  if(campaign_flight && result_evaluated) return flight_result::finished;
+  if(frontend_flight && result_evaluated) return flight_result::finished;
   vec3d position{mission_setup.start.position};
   if(mission_setup.start.landed) position.y = -300;
   double heading{0}, pitch{-.12};
@@ -2043,7 +2044,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     projectiles.finish_frame();
   }
   if(flight_frames) std::cout << "Complete flight frames: " << complete_frames << std::endl;
-  if(campaign_flight && result_evaluated) return flight_result::finished;
+  if(frontend_flight && result_evaluated) return flight_result::finished;
   std::cout << "TFX " << mission_name << " / " << environment.name << " / " << environment.lighting_name << ": " << scene.parts_drawn << " model parts, " << scene.primitives_drawn << " drawing primitives" << std::endl;
   if(!scene.warnings.empty()) {
     unsigned int printed{0};
@@ -2686,7 +2687,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       finish_world(*frame_ticks);
       projectiles.finish_frame();
     }
-    if(campaign_flight && result_evaluated) break;
+    if(frontend_flight && result_evaluated) break;
     ++frames;
     ++interval_frames;
     if(now - title_time >= .5) {
