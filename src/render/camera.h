@@ -26,6 +26,7 @@ struct camera {
   // Retain the original setter inputs as well as its derived basis. Other
   // native world callbacks can reuse the last installed camera verbatim.
   vec3<math::angle> view_angles{0,0,0};
+  // Integer world/terrain anchor; chase smoothing can offset position from it.
   vec3<int32_t> world_anchor{0,0,0};
   point_projection projector() const;
   vec3d transform(vec3d const &world) const;

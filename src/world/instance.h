@@ -38,7 +38,8 @@ struct instance_result {
   bool volume_hit{false};
   bool ejection_requested{false};
   bool surface_present{false};
-  int16_t surface_height{0};
+  // Opcode 73 writes the shared ground height independently of surface contact.
+  std::optional<int16_t> surface_height{};
   int16_t zone{-1};
   int16_t player_zone{0};
   uint16_t message{0};

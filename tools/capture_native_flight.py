@@ -426,7 +426,7 @@ active_terrain=[None]
 def terrain_begin(cpu,address,size,unused):
  if not entered[0]:return
  world_cameras.append(list(struct.unpack('<3i',b''.join(cpu.mem_read(im.native(0x70aa4+at),4)for at in (0x491e1,0x491e7,0x491ed)))))
- record={'frame':frames[0],'height':struct.unpack('<i',cpu.mem_read(cpu.reg_read(r.UC_X86_REG_ESP)+4,4))[0],'cells':[]}
+ record={'frame':frames[0],'height':struct.unpack('<i',cpu.mem_read(cpu.reg_read(r.UC_X86_REG_ESP)+4,4))[0],'anchor':[struct.unpack('<i',struct.pack('<I',cpu.reg_read(reg)&0xffffffff))[0]for reg in (r.UC_X86_REG_EDX,r.UC_X86_REG_EBX,r.UC_X86_REG_ECX)],'shadow_ground_height':im.read(0xabf2,'<h')[0],'cells':[]}
  terrain_passes.append(record);active_terrain[0]=record
 im.cpu.hook_add(UC_HOOK_CODE,terrain_begin,begin=im.native(0xb0ba8),end=im.native(0xb0ba8))
 def terrain_end(cpu,address,size,unused):active_terrain[0]=None

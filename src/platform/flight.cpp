@@ -1424,11 +1424,15 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       bool const contact_explosion{player_visual == crashes.contact};
       if(previously_destroyed && !contact_explosion) scene.actor_event(player_visual,0);
       auto const response{[&](uint16_t const cost) { scene.apply_actor_contact_damage(contact_source,cost);damage_player(100); }};
+      // Main-loop 7210A/72111 clear both outputs before collecting this
+      // frame's contacts. A height-only SSD write can replace zero afterwards.
       ground.present = false;
+      ground.height = 0;
       ground_zone = -1;
       auto const collect{[&](tfx::world::instance_result const &contact) {
         if(contact.zone != -1) ground_zone = contact.zone;
-        if(contact.surface_present) { ground.present = true; ground.height = contact.surface_height; }
+        if(contact.surface_present) ground.present = true;
+        if(contact.surface_height) ground.height = *contact.surface_height;
       }};
       for(auto const handle : fixed_scenery) collect(scene.collide_actor(handle,previous,player.integer_position,contact_damage,response,damage_player,true));
       collect(scene.collide_terrain(previous,player.integer_position,contact_damage,true,response));

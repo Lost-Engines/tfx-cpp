@@ -543,7 +543,10 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
   }
   model_submissions.clear();
   std::vector<terrain_cell> cells;
-  if(native) visit_terrain_cells({static_cast<int32_t>(std::floor(view.position.x)),static_cast<int32_t>(std::floor(view.position.z))},static_cast<int16_t>(radius * 2),[&](terrain_cell const &cell) { cells.push_back(cell); });
+  // 72149 passes the camera's integer anchor (134F0/13500), not its smoothed
+  // Q16 projection translation. Chase offsets can cross a cell boundary while
+  // the original terrain neighbourhood remains centred on that anchor.
+  if(native) visit_terrain_cells({view.world_anchor.x,view.world_anchor.z},static_cast<int16_t>(radius * 2),[&](terrain_cell const &cell) { cells.push_back(cell); });
   else for(int x{first_x}; x <= last_x; ++x) for(int z{first_z}; z <= last_z; ++z) cells.push_back(terrain_cell{
     .source{static_cast<unsigned int>(x),static_cast<unsigned int>(z)},
     .world_cell{x,z},

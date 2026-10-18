@@ -12,7 +12,7 @@ int main(int const argc, char const *const argv[]) try {
   while(std::cin >> previous.x >> previous.y >> previous.z >> current.x >> current.y >> current.z) {
     tfx::world::scene scene{environment,assets};
     auto const contact{scene.collide_terrain(previous,current)};
-    std::cout << contact.collisions << ' ' << contact.volume_hit << ' ' << contact.surface_present << ' ' << contact.surface_height << ' ' << contact.zone << ' ' << contact.player_zone << '\n';
+    std::cout << contact.collisions << ' ' << contact.volume_hit << ' ' << contact.surface_present << ' ' << contact.surface_height.value_or(0) << ' ' << contact.zone << ' ' << contact.player_zone << '\n';
   }
   return EXIT_SUCCESS;
 } catch(std::exception const &error) {

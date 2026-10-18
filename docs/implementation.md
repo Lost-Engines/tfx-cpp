@@ -5519,17 +5519,15 @@ The complete **237-frame Simple runway approach agrees in every captured
 state and indexed pixel**, including the service frame. The **130-frame
 Realistic carrier approach agrees in gameplay state, radio, damage, stores,
 camera and horizon**, and its final image matches after the real arming dialog.
-Five earlier carrier frames retain drawing differences, so that case does not
-yet establish complete image equivalence. The same gameplay/state agreement
-holds under sanitizers. The **246-frame Raptor runway case** also agrees under
-sanitizers in all captured state and its final image, with one intermediate
-image (frame 14) still differing.
+The later submission, thin-face and world-input corrections below resolve its
+five earlier image differences. The **246-frame Raptor runway case** likewise
+has complete image agreement after the thin-face correction, including its
+previously differing frame 14.
 
     python3 tools/check_combat_sessions.py --case career-airfield-landing
     python3 tools/check_combat_sessions.py --case career-carrier-landing
 
-The carrier command deliberately keeps strict pixel checking enabled and
-reports the remaining renderer discrepancies. The absence-of-runway case in
+The carrier command keeps strict pixel checking enabled. The absence-of-runway case in
 mission 605 separately reaches its original refusal and natural aircraft-loss
 result after 36 frames; its captured gameplay/FINISH values agree, with small
 palette-index differences on six intermediate images subsequently resolved by
@@ -5563,8 +5561,8 @@ both copied and retained footers. These component checks complement the full
     python3 tools/check_cockpit_frames.py --build build --retained
     python3 tools/check_combat_sessions.py --case career-airspace-result
 
-The carrier trace retains its separate intermediate world polygon differences.
-They are still reported by strict comparison.
+The subsequent world-input corrections below resolve the carrier trace's
+remaining intermediate world polygon differences.
 
 ### Original model-submission order through complete flight frames
 
@@ -5595,7 +5593,8 @@ development, Release and sanitizer builds.
 their allocators/sorters run. It excludes arming-screen previews, which have
 separate UI comparisons. Queue ordering and final images are both checked;
 neither is substituted for the other. New session captures also retain the
-original view mode. The remaining carrier-image discrepancies stay open.
+original view mode. The subsequent corrections below resolve the carrier's
+remaining discrepancies.
 
 ### Thin Gouraud faces and the planar empty-span rule
 
@@ -5620,3 +5619,39 @@ frames** also agree. A compact thin-face fixture brings the asset-free suite to
     python3 tools/check_gouraud_polygons.py --thin
     python3 tools/check_gouraud_polygons.py --wide-colours
     python3 tools/check_world_polygons.py --gouraud --warped
+
+### Terrain anchors and independent ground-height writes
+
+Main-loop `72149` supplies terrain traversal with integer camera anchors
+`134F0`/`13500`, independently of the smoothed Q16 projection translation.
+Using the latter shifted the entire selected grid by one row on two carrier
+approach frames. The scene now retains that distinction; new complete-session
+captures compare the original traversal anchors directly with the C++ inputs.
+
+SSD opcode 73 writes global ground height independently of whether an object
+reports a surface contact. Its result is now an optional height: a written zero
+and no write have different meanings. The caller consumes each write in order,
+separately from contact presence. Original main-loop `7210A`/`72111` also clears
+presence and height before each new collection. Retaining the preceding height
+after leaving a carrier was incorrect, even when no visible shadow exposed it.
+
+The SSD comparison now observes actual original writes to `ABF2`, in addition to
+the resulting value. All **19,589 persistent states across 703 definitions**
+agree, including write presence. Regression cases retain height-only writes,
+written zero and non-player/missing queries. All **4,800 original world-contact
+queries** also agree across terrain rotations and map seams.
+
+The retained training script **1111** provides a complete Realistic carrier
+approach and real post-landing DEFAULT/DONE arming interaction. All **130 frames,
+9,575 queue insertions, terrain anchors, shadow ground heights, captured gameplay
+state and indexed pixels agree**, in development and ASan/UBSan. This closes the
+five earlier carrier image discrepancies. It supplements the retail mission
+coverage; this retained script is not one of the 128 retail-associated missions.
+
+    python3 tools/check_instances.py --build build
+    python3 tools/check_world_collision.py --build build
+    python3 tools/check_combat_sessions.py --case career-carrier-landing --model-queues
+
+The original visibility, geometry, sorting, collision and landing routines run
+unchanged in their reference captures. Correcting supplied inputs and preserving
+independent outputs replaces no original result with an expected outcome.
