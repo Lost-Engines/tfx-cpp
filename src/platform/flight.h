@@ -1,5 +1,6 @@
 #pragma once
 
+#include "actors/air.h"
 #include "audio/runtime.h"
 #include "cockpit/tactical_map.h"
 #include "flight/cheat.h"
@@ -36,6 +37,7 @@ struct flight_options {
   vec2<int16_t> &projection_origin;
   render::horizon_phase &ground_phase;
   vec3<int32_t> &ground_reference;
+  actors::air_contact &player_contact;
   int16_t &nearby_hostile_count;
   int16_t &last_released_mount;
   bool &flight_information;

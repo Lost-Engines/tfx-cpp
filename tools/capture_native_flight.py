@@ -11,7 +11,7 @@ Requires Unicorn and the independent did-unpack module in the research tree.
 from pathlib import Path
 import argparse,struct,sys,json,hashlib
 from native_reference import r
-from native_dpmi import DpmiReference
+from native_flight_configuration import FlightReference,ConfigurationMouse
 from flight_inputs import FlightInputs,KEYS,DEFAULT_REALISM,realism_settings
 from native_vga import VgaCapture
 from unicorn import UC_HOOK_CODE,UC_HOOK_INSN,UC_HOOK_MEM_WRITE,UC_HOOK_MEM_READ
@@ -86,7 +86,7 @@ root=args.research.resolve();directory=root/'installs/cd_1994_09/TFX'
 args.output.mkdir(parents=True,exist_ok=True)
 sys.path.insert(0,str(root/'did-unpack'))
 from did_unpack import Archive
-im=DpmiReference(directory/'TFX.DAT',data_base=0x100000);video=SessionVideo(im,aperture=0xa0000)
+im=FlightReference(directory/'TFX.DAT',data_base=0x100000);video=SessionVideo(im,aperture=0xa0000)
 if args.x87_backend:
  from native_x87 import hardware_fpatan,hardware_sine_cosine,hardware_tangent
  x87_adapters=(hardware_fpatan(im,args.x87_backend),hardware_sine_cosine(im,args.x87_backend),hardware_tangent(im,args.x87_backend))
@@ -106,7 +106,7 @@ def read(name):
  if name=='tfx.cfg':
   model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[args.flight_model]
   device=2 if args.lapc_effects else 0
-  return f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM={",".join(map(str,args.realism))}\r\n'.encode()
+  return bytes(memory_files.files.setdefault(name,bytearray(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM={",".join(map(str,args.realism))}\r\n'.encode())))
  identifier=archive.hash_name(name)
  if identifier not in entries:raise RuntimeError('missing asset '+name)
  return archive.unpack(entries[identifier])
@@ -128,6 +128,11 @@ def file(current):
  current.cpu.reg_write(r.UC_X86_REG_EAX,len(value));current.return_from()
 for address in (0xc8bec,0xc9c24):im.intercept(address,'Supply resource/file lengths from the original archive or explicit silent configuration.',length)
 for address in (0xc8cf0,0xc9d4c):im.intercept(address,'Supply decoded original bytes at the archive/filesystem boundary.',file)
+def write_file(current):
+ name=string(current.cpu.reg_read(r.UC_X86_REG_EAX)).replace('\\','/').lower()
+ memory_files.files[name]=bytearray(current.cpu.mem_read(current.cpu.reg_read(r.UC_X86_REG_EDX),current.cpu.reg_read(r.UC_X86_REG_EBX)))
+ current.return_from()
+im.intercept(0xc9e7c,'Supply capture-owned filesystem writes; original preference formatting and updates execute.',write_file)
 def join(current):
  name=''.join(string(current.cpu.reg_read(reg)) for reg in (r.UC_X86_REG_EDX,r.UC_X86_REG_EBX,r.UC_X86_REG_ECX));current.cpu.mem_write(current.cpu.reg_read(r.UC_X86_REG_EAX),name.encode('cp437')+bytes(1));current.return_from()
 im.intercept(0x7b494,'Supply the DOS pathname join for archive resources.',join)
@@ -155,6 +160,7 @@ def keyboard(current):
 im.intercept(0xb41e4,'Supply private keyboard transport arrays instead of installing the DOS IRQ handler; native translation initialization executes.',keyboard)
 im.intercept(0xb43b4,'No host keyboard events are pending during startup.',lambda current:current.return_from())
 entered=[False];frames=[0];snapshots=[]
+configuration=ConfigurationMouse(im,inputs,lambda:frames[0])if any('configuration'in row for row in inputs.rows(args.frames))else None
 mouse_polls=[0];mouse_buttons=[0];defaults_applied=[False];inside_arming=[False]
 def begin_arming(current):
  inside_arming[0]=True
@@ -168,19 +174,24 @@ def mouse(current):
  scripted=not entered[0] or (args.default_rearming and inside_arming[0])
  if mouse_polls[0]>128 and scripted:raise RuntimeError('Unconsumed arming mouse script after 128 polls')
  mouse_polls[0]+=1;mouse_buttons[0]=int(mouse_polls[0]%32 in range(8,16)) if scripted else inputs.at(frames[0]).get('buttons',0)
- for offset,value in ((4,197 if defaults_applied[0] else 101),(8,199),(12,mouse_buttons[0])):
+ position=(197 if defaults_applied[0] else 101,199)
+ if configuration and configuration.active:position=configuration.position;mouse_buttons[0]=configuration.buttons
+ for offset,value in ((4,position[0]),(8,position[1]),(12,mouse_buttons[0])):
   pointer=struct.unpack('<I',current.cpu.mem_read(current.cpu.reg_read(r.UC_X86_REG_ESP)+offset,4))[0];current.cpu.mem_write(pointer,struct.pack('<H',value))
  current.return_from()
 im.intercept(0xc72ff,'Supply explicit pointer input on the authored DEFAULT then DONE buttons.',mouse)
 def held_mouse(current):
  scripted=not entered[0] or (args.default_rearming and inside_arming[0])
  if mouse_polls[0]>128 and scripted:raise RuntimeError('Unconsumed arming mouse script after 128 polls')
- mouse_polls[0]+=1;mouse_buttons[0]=int(mouse_polls[0]%32 in range(8,16)) if scripted else inputs.at(frames[0]).get('buttons',0);current.cpu.reg_write(r.UC_X86_REG_EAX,mouse_buttons[0]);current.return_from()
+ mouse_polls[0]+=1;mouse_buttons[0]=int(mouse_polls[0]%32 in range(8,16)) if scripted else inputs.at(frames[0]).get('buttons',0)
+ if configuration and configuration.active:mouse_buttons[0]=configuration.buttons
+ current.cpu.reg_write(r.UC_X86_REG_EAX,mouse_buttons[0]);current.return_from()
 im.intercept(0xc733e,'Supply an explicit button press/release sequence while the original modal controller polls.',held_mouse)
 mouse_motion_frame=[None]
 def relative_mouse(current):
  motion=[0,0]
- if entered[0] and mouse_motion_frame[0]!=frames[0]:
+ if configuration and configuration.active:motion=configuration.motion()
+ elif entered[0] and mouse_motion_frame[0]!=frames[0]:
   motion=inputs.at(frames[0]).get('mouse',motion);mouse_motion_frame[0]=frames[0]
  for offset,value in zip((4,8),motion):
   pointer=struct.unpack('<I',current.cpu.mem_read(current.cpu.reg_read(r.UC_X86_REG_ESP)+offset,4))[0];current.cpu.mem_write(pointer,struct.pack('<h',value))
@@ -197,7 +208,7 @@ def input_port(cpu,port,size,unused):
 im.cpu.hook_add(UC_HOOK_INSN,input_port,None,1,0,r.UC_X86_INS_IN)
 clock=[0]
 def timer(current):
- if not entered[0] or (args.default_rearming and inside_arming[0]):clock[0]+=4
+ if not entered[0] or (args.default_rearming and inside_arming[0]) or (configuration and configuration.active):clock[0]+=4
  current.write(0x16f2c,'<I',clock[0]);current.return_from()
 im.intercept(0xa6134,'Supply an explicit monotonically advancing launcher timer.',timer)
 # Original startup installs Watcom floating formatting and its x87 environment.
@@ -290,6 +301,14 @@ def identify_projectile(cpu,address,size,unused):
 # The shared constructor also builds temporary HUD prediction projectiles.
 im.cpu.hook_add(UC_HOOK_CODE,identify_projectile,begin=im.native(0xa2d79),end=im.native(0xa2d79))
 projectile_guidance=[]
+player_countermeasures=[]
+def observe_player_countermeasure(current,radar):
+ if entered[0] and current.cpu.reg_read(r.UC_X86_REG_EAX)==current.data+0x10f28:
+  strength=struct.unpack('<h',struct.pack('<H',current.cpu.reg_read(r.UC_X86_REG_EDX)&65535))[0]
+  position=list(struct.unpack('<3i',current.cpu.mem_read(current.cpu.reg_read(r.UC_X86_REG_EAX),12)))
+  player_countermeasures.append({'frame':frames[0],'radar':radar,'strength':strength,'position':position})
+for address,radar in ((0xa353c,True),(0xa3588,False)):
+ im.intercept(address,'Observe player decoy requests; original creation, random diversion, motion and retirement execute.',lambda current,radar=radar:observe_player_countermeasure(current,radar))
 def observe_projectile_guidance(cpu,address,size,unused):
  pointer=cpu.reg_read(r.UC_X86_REG_EAX)
  if not entered[0] or pointer not in projectile_ids:return
@@ -343,6 +362,7 @@ def snapshot(current):
   **({'automatic_landing':[current.read(0x86cf,'<B')[0],*current.read(0x14920,'<3i'),*current.read(0x1492c,'<3i'),current.read(0x14398,'<Q')[0],current.read(0x14378,'<Q')[0],int(current.read(0x1495a,'<H')[0]!=0)]}if args.until_landed else {}),
   'frame':frames[0],
   'realism_state':[current.read(field,'<B')[0]for field in (0x5954,0x8f31,0x8e22,0x8e23,0x8e25,0x8f30,0x8867)],
+  'player_contact':list(current.read(0x10f28,'<3i3Hi')),
   **({'aerodynamic_wind':[current.read(field,'<Q')[0]for field in (0x13b60,0x14288,0x13ba0,0x8e28,0x8e30,0x13b58,0x13b50,0x13bc8,0x13cc0,0x13b80,0x13cd0,0x13b70,0x13b48,0x13b30,0x13b38,0x8e38,0x13b90,0x13bc0,0x13b98)]+list(current.read(0x133fc,'<3I'))}if args.realism[4] else {}),
   'view_mode':current.read(0x87b6,'<h')[0],
   'mission_progress':{
@@ -438,8 +458,11 @@ def observe_radio(cpu,address,size,unused):
  radio_events.append({'frame':frames[0],'message':string(cpu.reg_read(r.UC_X86_REG_EAX)),'persistent':address==im.native(0x81254)})
 for file in (0x81198,0x81254):im.cpu.hook_add(UC_HOOK_CODE,observe_radio,begin=im.native(file),end=im.native(file))
 cockpit_displays=[]
+defensive_displays=[]
 def observe_cockpit_displays(cpu,address,size,unused):
- if entered[0]:cockpit_displays.append({'frame':frames[0],'selection':[im.read(field,'<H')[0]for field in (0x713a,0x713c,0x713e,0x7d7c,0x7d7e)]})
+ if entered[0]:
+  cockpit_displays.append({'frame':frames[0],'selection':[im.read(field,'<H')[0]for field in (0x713a,0x713c,0x713e,0x7d7c,0x7d7e)]})
+  defensive_displays.append({'frame':frames[0],'values':[*im.read(0x6c3e,'<2B'),bool(im.read(0x12f29,'<B')[0]),bool(im.read(0x12f26,'<B')[0])]})
 im.cpu.hook_add(UC_HOOK_CODE,observe_cockpit_displays,begin=im.native(0x803e8),end=im.native(0x803e8))
 terrain_passes=[]
 world_cameras=[]
@@ -518,6 +541,8 @@ for index,(filename,contents)in enumerate(memory_files.files.items()):
 record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
  'inputs':inputs.rows(frames[0]),
+ 'configuration_events':configuration.events if configuration else [],
+ 'saved_configuration':bytes(memory_files.files['tfx.cfg']).decode('cp437'),
  'realism':args.realism,
  'palette_capture':'vga-dac6',
  'x87_backend':'hardware'if args.x87_backend else'unicorn',
@@ -529,8 +554,10 @@ record={
  'landing_checkpoint':landing_checkpoint,
  'recordings':recordings,
  'projectile_guidance':projectile_guidance,
+ 'player_countermeasures':player_countermeasures,
  'processor_exceptions':im.processor_exceptions,
  'cockpit_displays':cockpit_displays,
+ 'defensive_displays':defensive_displays,
  'precipitation_events':precipitation_events,
  'preflight_projection':preflight_projection,
  'trail_events':trail_events,'hud_alert_events':hud_alert_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':args.ticks_per_frame,'snapshots':snapshots,'horizons':horizons,'world_cameras':world_cameras,'terrain_passes':terrain_passes,

@@ -16,6 +16,19 @@ flight_frame=0
 import os
 import sys
 virtual_devices=None
+if 'TFX_OBSERVE_COUNTERMEASURES' in os.environ:
+ class PlayerCountermeasure(gdb.Breakpoint):
+  def stop(self):
+   # Linux x86-64 argument registers at the instruction entry, before an
+   # optimized prologue can discard the by-value actor identity's DWARF entry.
+   if int(gdb.parse_and_eval('$esi'))==0:
+    frame=flight_frame+int(bool(virtual_devices and virtual_devices['input_pending']))
+    position=list(struct.unpack('<3i',gdb.selected_inferior().read_memory(int(gdb.parse_and_eval('$rdx')),12)))
+    strength=int(gdb.parse_and_eval('$r8'))&65535
+    if strength>=32768:strength-=65536
+    print('CPP_PLAYER_COUNTERMEASURE '+json.dumps({'frame':frame,'radar':bool(int(gdb.parse_and_eval('$ecx'))&255),'strength':strength,'position':position}))
+   return False
+ PlayerCountermeasure("*'tfx::weapons::runtime::countermeasure(tfx::weapons::actor_identity, vector3<int> const&, bool, short, tfx::math::random_state&)'",internal=True)
 presented_palette=None
 if 'TFX_OBSERVE_PALETTE' in os.environ:
  class PalettePresentation(gdb.Breakpoint):
@@ -168,6 +181,7 @@ silent
 set $navigation_flag = &options.cannon_navigation
 set $cheat = &options.cheat
 set $preferences = &options.preferences
+set $player_contact = &options.player_contact
 continue
 end
 set $player = 0
@@ -202,6 +216,8 @@ silent
 python
 selection=gdb.parse_and_eval('selection')
 print('CPP_COCKPIT_DISPLAYS '+json.dumps({'frame':flight_frame,'selection':[int(selection[field])for field in ('left','centre','right','horizontal_range','bvr_range')]}))
+state=gdb.parse_and_eval('state')
+print('CPP_DEFENSIVE_DISPLAY '+json.dumps({'frame':flight_frame,'values':[int(state['chaff']),int(state['flares']),bool(state['ecm']),bool(state['stealth'])]}))
 end
 continue
 end
@@ -321,6 +337,9 @@ class FrameReturn(gdb.FinishBreakpoint):
   print('CPP_CANNON '+json.dumps([int(cannon['ammunition']),int(cannon['barrel'])]))
   print('CPP_RADAR_PULSE '+json.dumps(bool(gdb.parse_and_eval('$hud').dereference()['radar_display']['pulse'])))
   player=gdb.parse_and_eval('$player').dereference()
+  if 'TFX_OBSERVE_PLAYER_CONTACT' in os.environ:
+   contact=gdb.parse_and_eval('$player_contact').dereference()
+   print('CPP_PLAYER_CONTACT '+json.dumps([int(contact[name][axis])for name in ('position','angles')for axis in ('x','y','z')]+[int(contact['speed'])]))
   if 'TFX_OBSERVE_REALISM' in os.environ:
    configuration=gdb.parse_and_eval('$preferences').dereference()['effects']
    print('CPP_REALISM_STATE '+json.dumps([int(configuration[field])for field in ('g_force','precipitation','crashing','gear_damage','wind','temperature','recovery')]))

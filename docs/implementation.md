@@ -2143,7 +2143,7 @@ and ASan/UBSan builds.
 
 E/S now operate the original aircraft-specific ECM/stealth modes, and Insert /
 keypad 0 and Delete / keypad decimal release player chaff and flares. The original
-Eurofighter ignores E/S; F-117/F-22 mode changes remain mutually exclusive.
+The F-117 ignores E/S; Eurofighter/F-22 mode changes remain mutually exclusive.
 Enabling stealth clears selected/tracked/guidance targets and suppresses the
 normal air-lock controller. ECM reaches the original guided-projectile decoy
 logic. HUD labels and cartridge counts now read mutable flight state, initialized
@@ -5709,5 +5709,57 @@ adapter preserves their actual 80-bit inputs/results for raw floating-state
 comparisons. Original surrounding instructions, initialization, wind controller,
 flight calculations and drawing still execute. This is a reference dependency,
 not a production physics replacement or a relaxed comparison tolerance.
+
+All **208 asset-free regressions** pass in development, Release and ASan/UBSan.
+
+### Live weather changes and defensive flight controls
+
+The complete-session input tape now supports declared logical mouse clicks inside
+the configuration screen opened by backtick. Original `94C8C`, both dialogs,
+widget hit testing, option callbacks and `A6808` preference writing all execute.
+Only external mouse returns, relative motion and capture-owned file output are
+supplied. The C++ comparison operates its real configuration screen through GLFW
+input returns. Neither side receives an assigned setting or flight outcome.
+
+A **96-frame Realistic storm flight** switches wind on, off and on again through
+three actual menu visits. Every captured state, raw wind value, rain request,
+indexed pixel and displayed palette agrees in development and ASan/UBSan. The
+final configuration also agrees byte for byte. This supplements the saved-flag
+startup/reset comparison above with genuinely active wind.
+
+    python3 tools/check_flight_weather_sessions.py --case live-wind
+    python3 tools/check_flight_weather_sessions.py --case live-wind --build build-san
+
+The defensive-control sequence spends both fifteen-cartridge inventories, attempts
+further releases with empty stocks, and presses E/S repeatedly. Complete **64-frame
+comparisons for each playable aircraft** agree in captured state, live decoy
+requests/origins, projectile lifetimes, shared randomness, HUD inputs where
+captured, indexed pixels and displayed palettes. The F-22 comparison also passes
+under ASan/UBSan. Two caller/context errors were exposed:
+
+- Native `75784` publishes the shared player contact through `75114` immediately
+  before actor updates. Earlier key handlers consume the previous published
+  record, including its zeroed cold-start position. Using the newly initialized
+  aircraft position for an immediate first-frame decoy was incorrect. This
+  contact now has application ownership, separate from physical flight state,
+  and is published at the original point after ground servicing.
+- Native ECM/stealth handlers compare the zero-based aircraft index with one:
+  the **F-117** ignores E/S, while Eurofighter and F-22 accept them. The isolated
+  key checker had incorrectly supplied mission-script values directly. Its
+  index conversion and 256-row regression fixture are corrected; all **8,192
+  original key-handler cases** agree with the proper aircraft identities.
+
+    python3 tools/check_combat_sessions.py --case defensive-controls
+    python3 tools/check_combat_sessions.py --case defensive-controls-eurofighter
+    python3 tools/check_combat_sessions.py --case defensive-controls-raptor
+    python3 tools/check_defence.py --build build
+
+New complete captures observe the published contact independently of the physical
+pose, and the defensive HUD's actual inventory/mode inputs. The live X11 test now
+uses an F-22 to exercise its permitted mode changes; real key input, HUD counts,
+ECM motion inputs, stealth sensor suppression and clean shutdown pass under
+ASan/UBSan. The successful **233-frame career interception** and **130-frame
+Realistic carrier landing** still agree in every captured state and indexed
+pixel after the ownership correction, the latter under ASan/UBSan.
 
 All **208 asset-free regressions** pass in development, Release and ASan/UBSan.

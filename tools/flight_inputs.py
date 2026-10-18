@@ -3,6 +3,8 @@
 Each row supplies a frame, optional make-code event and that frame's held keys.
 Optional mouse motion is a signed [dx,dy] pair; buttons is the DOS left/right
 bit mask. The first frame primes desktop cursor capture and must be neutral.
+An optional configuration list supplies logical [x,y] mouse clicks inside the
+modal screen opened by that frame's grave key; the flight clock stays paused.
 Missing frames are neutral. A press is held for its frame unless held is given.
 These are external device inputs, never changes to game state or outcomes.
 """
@@ -19,7 +21,8 @@ def realism_settings(value):
 
 # DOS scan code, GLFW key code. The current capture transport uses keyboard input.
 KEYS={
- 'escape':(1,256),'enter':(28,257),'space':(57,32),'backspace':(14,259),
+ 'escape':(1,256),'enter':(28,257),'space':(57,32),'backspace':(14,259),'grave':(41,96),
+ 'insert':(82,260),'delete':(83,261),
  'up':(72,265),'down':(80,264),'left':(75,263),'right':(77,262),
  'shift':(42,340),'right-shift':(54,344),'control':(29,341),'alt':(56,342),
  't':(20,84),'j':(36,74),'a':(30,65),'c':(46,67),'f':(33,70),
@@ -43,7 +46,7 @@ class FlightInputs:
   self.frames={}
   if not isinstance(rows,list):raise ValueError('flight inputs must be a JSON list')
   for row in rows:
-   if not isinstance(row,dict) or set(row)-{'frame','event','held','mouse','buttons'}:raise ValueError('invalid flight input row')
+   if not isinstance(row,dict) or set(row)-{'frame','event','held','mouse','buttons','configuration'}:raise ValueError('invalid flight input row')
    frame=row.get('frame')
    if type(frame)is not int or not 1<=frame<=65535 or frame in self.frames:raise ValueError('flight input frames must be distinct integers from 1 to 65535')
    event=row.get('event')
@@ -61,6 +64,11 @@ class FlightInputs:
     buttons=row['buttons']
     if type(buttons)is not int or not 0<=buttons<=3:raise ValueError('mouse buttons must be a left/right bit mask from 0 to 3')
     self.frames[frame]['buttons']=buttons
+   if 'configuration' in row:
+    clicks=row['configuration']
+    if event!='grave' or not isinstance(clicks,list) or not 1<=len(clicks)<=32:raise ValueError('configuration requires a grave event and 1 to 32 mouse clicks')
+    if any(not isinstance(point,list) or len(point)!=2 or any(type(value)is not int or not 0<=value<limit for value,limit in zip(point,(320,200)))for point in clicks):raise ValueError('configuration clicks must be logical screen coordinates')
+    self.frames[frame]['configuration']=[list(point)for point in clicks]
   for frame,row in self.frames.items():
    if row['event'] in self.frames.get(frame-1,{}).get('held',[]):raise ValueError('polled key events need a release before another press')
  @classmethod

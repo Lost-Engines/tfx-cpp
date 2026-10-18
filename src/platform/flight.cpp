@@ -520,7 +520,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   std::array<std::optional<tfx::actors::air_threat>,tfx::actors::player_air_target> threats;
   auto const actor_position{[&](tfx::weapons::actor_identity const identity) {
     switch(identity.pool) {
-    case tfx::weapons::actor_pool::player: return vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit};
+    case tfx::weapons::actor_pool::player: return vec3<int32_t>{options.player_contact.position};
     case tfx::weapons::actor_pool::aircraft: return vec3<int32_t>{air_simulation.aircraft()[identity.index]->flight.pose.position};
     case tfx::weapons::actor_pool::surface: return vec3<int32_t>{surface_actors.at(identity.index).state.pose.position};
     }
@@ -1408,11 +1408,15 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       physical_player.powerplant.afterburner_control = render::display_page_count; // Rearming resets the viewport too.
     }
     ground_service.finish_frame(player.landed);
-    air_world.player = tfx::actors::air_contact{
+    // Native 75784/75114 publishes the shared player contact after servicing,
+    // before the actor ticks. Earlier input handlers see its previous value,
+    // including the zeroed cold-start record and retention between missions.
+    options.player_contact = tfx::actors::air_contact{
       .position{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
       .angles{vec3<tfx::math::angle>{player.angles}},
       .speed{std::bit_cast<int32_t>(static_cast<uint32_t>(player.fixed_speed) << tfx::actors::speed_fraction_bits)},
     };
+    air_world.player = options.player_contact;
     scene.place_actor(player_visual,vec3d{player.position},player.angles);
     advance_actors(elapsed);
     mission_progress.advance_return_countdown(elapsed,arcade_rules);

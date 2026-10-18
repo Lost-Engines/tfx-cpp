@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-defence-') as temporary:
   env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
   def run(*args):return subprocess.run(args,env=env,check=True,capture_output=True,text=True,timeout=5)
   conditions=[
-   ('tfx::cockpit::hud::draw','state.chaff == 15 && state.flares == 15 && state.stealth && !state.ecm','INITIAL'),
+   ('tfx::cockpit::hud::draw','state.chaff == 15 && state.flares == 15 && !state.stealth && !state.ecm','INITIAL'),
    ('tfx::cockpit::hud::draw','state.chaff == 14 && state.flares == 15','CHAFF_HUD'),
    ('tfx::cockpit::hud::draw','state.chaff == 14 && state.flares == 14','FLARE_HUD'),
    ('tfx::cockpit::hud::draw','state.ecm && !state.stealth','ECM_HUD'),
@@ -47,7 +47,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-defence-') as temporary:
   debugger=directory/'observe.gdb';debugger.write_text('\n'.join(script+['run'])+'\n')
   log=directory/'game.log'
   with log.open('w') as output:
-   game=subprocess.Popen(['gdb','--quiet','--batch','-x',str(debugger),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission','513','--scale','2'],env=env,stdout=output,stderr=subprocess.STDOUT)
+   game=subprocess.Popen(['gdb','--quiet','--batch','-x',str(debugger),'--args',str((a.build/'tfx').resolve()),'--data-dir',str(install),'--mission','512','--scale','2'],env=env,stdout=output,stderr=subprocess.STDOUT)
    def await_text(label,timeout=30):
     wanted='TFX_DEFENCE_'+label;deadline=time.monotonic()+timeout
     while time.monotonic()<deadline and game.poll() is None:
@@ -62,7 +62,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-defence-') as temporary:
    if not window:raise RuntimeError(log.read_text()[-6000:])
    run('xdotool','windowfocus','--sync',window)
    def tap(key):run('xdotool','keydown',key);time.sleep(.2);run('xdotool','keyup',key);time.sleep(.2)
-   await_text('INITIAL');await_text('STEALTH_SENSOR')
+   await_text('INITIAL');tap('s');await_text('STEALTH_SENSOR')
    tap('Insert');await_text('CHAFF_RELEASE');await_text('CHAFF_HUD')
    tap('Delete');await_text('FLARE_RELEASE');await_text('FLARE_HUD')
    tap('e');await_text('ECM_HUD');await_text('ECM_MOTION')
