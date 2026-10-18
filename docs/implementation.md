@@ -5655,3 +5655,59 @@ coverage; this retained script is not one of the 128 retail-associated missions.
 The original visibility, geometry, sorting, collision and landing routines run
 unchanged in their reference captures. Correcting supplied inputs and preserving
 independent outputs replaces no original result with an expected outcome.
+
+### Complete camera, weather and displayed-palette comparisons
+
+A fresh sweep after the world-ordering, thin-face and terrain corrections agrees
+across all **128 retail missions and 2,048 complete opening frames**, in captured
+state and every indexed pixel. Longer C++ stability sweeps also cover every retail
+mission with up to 8,192 simulation steps in Realistic and Military-spec modes,
+the latter under ASan/UBSan. Those stability runs are not original comparisons;
+missions which naturally finish stop advancing before that upper bound.
+
+Controlled Realistic camera sequences now agree through **160 view-changing
+frames** and a separate **96-frame target-camera flight**. The observer now labels
+native `135C8` as acquisition and `135D0` as confirmed guidance, matching the
+independently checked sensor owner. An acquiring candidate can exist without a
+confirmed lock; the observer previously printed those two fields in reverse.
+
+    python3 tools/check_flight_control_sessions.py --case views
+    python3 tools/check_flight_control_sessions.py --case target-views
+
+Complete captures now observe the actual VGA DAC writes at ports `3C8`/`3C9`,
+alongside every indexed image. The C++ observer reads the palette supplied to the
+production framebuffer's RGB conversion. Independent six-to-eight-bit expansion
+then checks all 768 colour components per frame. `--strict-pixels` rejects either
+image-index or displayed-palette differences. Legacy captures without DAC data
+retain their narrower indexed-image comparison.
+
+An **80-frame infrared/designator/external-view sequence** exposed a retained
+anchor distinction even while its final images agreed. The designator's `B9A6C`
+call changes the projection cache, while the ordinary world pass still uses the
+last normal view's `134F0`/`134F8`/`13500` terrain and lighting anchor. The C++
+ordinary pass now preserves that anchor independently of the moving gimbal.
+
+    python3 tools/check_flight_control_sessions.py --case palettes
+
+The complete-session tools accept the seven original `REALISM` values explicitly
+and observe the live settings after initialization. Native `95F3C` unconditionally
+clears wind at `96411`, including after ground servicing. C++ now retains that
+startup rule; wind can subsequently be enabled through the original flight menu.
+A saved enabled flag alone does not establish an active-wind flight.
+
+Mission 507 with precipitation, temperature and recovery enabled agrees through
+**64 complete Realistic frames** in development and ASan/UBSan: all captured state,
+rain requests, raw wind initialization, indexed pixels and displayed palettes.
+This verifies the storm and startup reset, rather than claiming wind was active.
+
+    python3 tools/check_flight_session.py --mission 507 --flight-model realistic \
+      --realism 0,1,1,1,1,1,1 --x87-backend build --frames 64 --strict-pixels
+
+`--x87-backend` declares hardware adapters for the original FPATAN, FSIN, FCOS and
+FPTAN instructions. Unicorn narrows those instructions to binary64; the existing
+adapter preserves their actual 80-bit inputs/results for raw floating-state
+comparisons. Original surrounding instructions, initialization, wind controller,
+flight calculations and drawing still execute. This is a reference dependency,
+not a production physics replacement or a relaxed comparison tolerance.
+
+All **208 asset-free regressions** pass in development, Release and ASan/UBSan.

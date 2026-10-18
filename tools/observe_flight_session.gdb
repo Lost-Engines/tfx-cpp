@@ -16,6 +16,21 @@ flight_frame=0
 import os
 import sys
 virtual_devices=None
+presented_palette=None
+if 'TFX_OBSERVE_PALETTE' in os.environ:
+ class PalettePresentation(gdb.Breakpoint):
+  def stop(self):
+   global presented_palette
+   if flight_frame and renderer_pointer is not None and int(gdb.parse_and_eval('this'))==int(current_renderer()['output'].address):
+    pointer=int(gdb.parse_and_eval('&colours'))
+    presented_palette=(flight_frame,bytes(gdb.selected_inferior().read_memory(pointer,768)))
+   return False
+ PalettePresentation('tfx::render::framebuffer::colourise',internal=True)
+class PrecipitationEntry(gdb.Breakpoint):
+ def stop(self):
+  if flight_frame:print('CPP_PRECIPITATION '+json.dumps({'frame':flight_frame,'count':int(gdb.parse_and_eval('requested_count'))}))
+  return False
+PrecipitationEntry('tfx::render::precipitation::paint',internal=True)
 if 'TFX_OBSERVE_MODEL_QUEUES' in os.environ:
  model_queue_arming=False
  class QueueArmingReturn(gdb.FinishBreakpoint):
@@ -152,6 +167,7 @@ commands
 silent
 set $navigation_flag = &options.cannon_navigation
 set $cheat = &options.cheat
+set $preferences = &options.preferences
 continue
 end
 set $player = 0
@@ -305,20 +321,32 @@ class FrameReturn(gdb.FinishBreakpoint):
   print('CPP_CANNON '+json.dumps([int(cannon['ammunition']),int(cannon['barrel'])]))
   print('CPP_RADAR_PULSE '+json.dumps(bool(gdb.parse_and_eval('$hud').dereference()['radar_display']['pulse'])))
   player=gdb.parse_and_eval('$player').dereference()
+  if 'TFX_OBSERVE_REALISM' in os.environ:
+   configuration=gdb.parse_and_eval('$preferences').dereference()['effects']
+   print('CPP_REALISM_STATE '+json.dumps([int(configuration[field])for field in ('g_force','precipitation','crashing','gear_damage','wind','temperature','recovery')]))
   print('CPP_VIEW_MODE '+json.dumps(int(gdb.parse_and_eval('$views').dereference()['state']['current'])))
   body=player['physical']['view']['orientation']
   print('CPP_LAUNCH_NOTICE '+json.dumps(int(gdb.parse_and_eval('$aiming').dereference()['tracking']['launch_frames'])))
   print('CPP_BODY '+json.dumps([int(body[axis][component]) for component in ('x','y','z') for axis in ('right','down','forward')]))
+  if 'TFX_OBSERVE_WIND' in os.environ:
+   wind=player['physical']['wind']
+   def double_bits(value):return struct.unpack('<Q',gdb.selected_inferior().read_memory(int(value.address),8))[0]
+   fields=('simulation_seconds','smooth_speed','target_speed','direction','vertical_angle','renewal_after','direction_wobble_scale','direction_phase_frequency','direction_phase_offset','direction_envelope_frequency','vertical_phase_frequency','vertical_phase_offset','vertical_scale')
+   values=[double_bits(wind[field])for field in fields]
+   values.extend(double_bits(wind['upper_wind'][axis])for axis in ('x','y'))
+   values.extend(double_bits(wind[field])for field in ('upper_mix','legacy_gust_period','legacy_gust_target','legacy_gust_smoothing'))
+   values.extend(struct.unpack('<I',gdb.selected_inferior().read_memory(int(wind['velocity_ned'][axis].address),4))[0]for axis in ('x','y','z'))
+   print('CPP_AERODYNAMIC_WIND '+json.dumps(values))
   radar=gdb.parse_and_eval('$radar').dereference()
   seeker=gdb.parse_and_eval('$seeker').dereference()
   def identity(value):
    return int(value['_M_payload']['_M_payload']['_M_value']) if bool(value['_M_payload']['_M_engaged']) else -1
-  values=[int(radar['cursor']),identity(radar['selected']),*[identity(radar['slots']['_M_elems'][i]) for i in range(20)],int(radar['hostile_nearby']),int(radar['nearby_hostile_count']),identity(seeker['guidance']),identity(seeker['tracking'])]
+  # Native 135C8 is the acquisition candidate; 135D0 is confirmed guidance.
+  values=[int(radar['cursor']),identity(radar['selected']),*[identity(radar['slots']['_M_elems'][i]) for i in range(20)],int(radar['hostile_nearby']),int(radar['nearby_hostile_count']),identity(seeker['tracking']),identity(seeker['guidance'])]
   values += [int(seeker[name][axis]) for name in ('reticle','projected') for axis in ('x','y')]
   values += [int(seeker[name]) for name in ('lock_ticks','acquisition_ticks','too_close')]
   print('CPP_SENSORS '+json.dumps(values))
 
-  import struct
   physical=player['physical']
   landing=player['automatic'];navigation=physical['autopilot']['navigation']
   # These original globals belong to ordinary route guidance too. Observe
@@ -377,6 +405,11 @@ class FrameReturn(gdb.FinishBreakpoint):
   raw=bytes(gdb.selected_inferior().read_memory(int(image.address),64000))
   rendered_frames+=1
   Path(f'cpp-frame-{rendered_frames}.indices').write_bytes(raw)
+  if 'TFX_OBSERVE_PALETTE' in os.environ:
+   if presented_palette is None or presented_palette[0]!=rendered_frames:raise RuntimeError('no palette was presented for this flight frame')
+   palette_bytes=presented_palette[1]
+   Path(f'cpp-frame-{rendered_frames}.rgb').write_bytes(palette_bytes)
+   print('CPP_PALETTE '+json.dumps({'frame':rendered_frames,'sha256':hashlib.sha256(palette_bytes).hexdigest()}))
   print('CPP_RENDER '+json.dumps({'sha256':hashlib.sha256(raw).hexdigest(),'pattern_seed':int(renderer['procedural_seed'])}))
   if virtual_devices:virtual_devices['in_frame']=False
   return False

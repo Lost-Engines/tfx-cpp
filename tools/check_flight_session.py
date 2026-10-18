@@ -14,13 +14,15 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from flight_inputs import FlightInputs
+from flight_inputs import FlightInputs,DEFAULT_REALISM,realism_settings
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--mission',type=int,default=501)
 p.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
+p.add_argument('--realism',type=realism_settings,default=DEFAULT_REALISM,help='seven original REALISM values: G effects, precipitation, crashing, gear damage, wind, temperature, recovery')
+p.add_argument('--x87-backend',type=Path,help='build directory supplying hardware transcendental adapters to the original capture')
 p.add_argument('--career-rules',action='store_true',help='compare career permissions/stores with inherited arcade=0')
 p.add_argument('--output',type=Path,help='retain native/C++ frames and the read-only observer log in a new directory')
 p.add_argument('--frames',type=int,default=4)
@@ -49,12 +51,14 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     for name in (('TFX.DAT','DID.DAT','START.EXE')if a.lapc_effects else ('TFX.DAT','DID.DAT')):(install/name).symlink_to(original/name)
     model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[a.flight_model]
     device=2 if a.lapc_effects else 0
-    (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode())
+    (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM={",".join(map(str,a.realism))}\r\n'.encode())
     if not a.native_capture:
-        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--until-landed']if a.until_landed else []),*(['--lapc-effects']if a.lapc_effects else []),*(['--career-rules']if a.career_rules else []),*(['--default-rearming']if a.default_rearming else []),*(['--model-queues']if a.model_queues else [])],check=True,timeout=max(300,a.frames*4))
+        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,'--realism',','.join(map(str,a.realism)),*(['--x87-backend',str(a.x87_backend.resolve())]if a.x87_backend else []),*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--until-landed']if a.until_landed else []),*(['--lapc-effects']if a.lapc_effects else []),*(['--career-rules']if a.career_rules else []),*(['--default-rearming']if a.default_rearming else []),*(['--model-queues']if a.model_queues else [])],check=True,timeout=max(300,a.frames*4))
     expected=json.loads((native/'session.json').read_text())
     assert expected.get('resource_root')=='TFX','native capture predates the corrected DOS texture root; recapture it'
     assert expected['mission']==a.mission and expected['flight_model']==a.flight_model and expected['ticks_per_frame']==a.ticks_per_frame,'native capture configuration differs'
+    assert expected.get('realism',list(DEFAULT_REALISM))==list(a.realism),'native realism configuration differs'
+    assert expected.get('x87_backend','unicorn')==('hardware'if a.x87_backend else'unicorn'),'native transcendental backend differs'
     assert expected.get('lapc_effects',False)==a.lapc_effects,'native audio capture configuration differs'
     assert expected.get('default_rearming',False)==a.default_rearming,'native arming input policy differs'
     assert ('model_queue_insertions' in expected)==a.model_queues,'native model-queue capture policy differs'
@@ -69,12 +73,21 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         assert landed.get('finalizer') and 1<=landed.get('frame',0)<=a.frames,'native automatic landing did not reach touchdown within the requested bound'
         a.frames=landed['frame']
     assert [row for row in expected.get('inputs',[])if row['frame']<=a.frames]==inputs.rows(a.frames),'native capture keyboard inputs differ'
+    if expected.get('palette_capture') and not a.inputs:
+        # Observe the actual RGB presentation boundary. Neutral virtual devices
+        # preserve the same declared controls/timer as a headless comparison.
+        a.inputs=root/'neutral-inputs.json';a.inputs.write_text('[]\n')
     assert len(expected['snapshots'])==a.frames+1,'reuse a native capture ending at the requested frame; untagged render events cannot be sliced safely'
     if 'reference' in expected:
         for name,key in (('TFX.DAT','executable_sha256'),('DID.DAT','archive_sha256')):
             assert hashlib.sha256((original/name).read_bytes()).hexdigest()==expected['reference'][key],('native capture resource differs',name)
     env=dict(os.environ)
     if a.model_queues:env['TFX_OBSERVE_MODEL_QUEUES']='1'
+    if expected.get('palette_capture'):
+        assert expected['palette_capture']=='vga-dac6','unknown native palette capture'
+        env['TFX_OBSERVE_PALETTE']='1'
+    if 'aerodynamic_wind' in expected['snapshots'][1]:env['TFX_OBSERVE_WIND']='1'
+    if 'realism_state' in expected['snapshots'][1]:env['TFX_OBSERVE_REALISM']='1'
     if a.default_rearming:env['TFX_DEFAULT_REARMING']='1'
     if a.lapc_effects:env['TFX_OBSERVE_LAPC']='1'
     # LSan cannot inspect a process under ptrace; ordinary sanitizer tests keep it enabled.
@@ -152,6 +165,12 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         actual=records('CPP_RADAR_INPUT ')
         assert actual==wanted,('live radar inputs',[(got,want)for got,want in zip(actual,wanted)if got!=want][:3],len(actual),len(wanted))
     before=integers('CPP_PRE ');after=integers('CPP_POST ');world=records('CPP_WORLD ')
+    if 'realism_state' in expected['snapshots'][1]:
+        actual=records('CPP_REALISM_STATE ');wanted=[snapshot['realism_state']for snapshot in expected['snapshots'][1:a.frames+1]]
+        assert actual==wanted,('live realism settings',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:4],len(actual),len(wanted))
+    if 'aerodynamic_wind' in expected['snapshots'][1]:
+        actual=records('CPP_AERODYNAMIC_WIND ');wanted=[snapshot['aerodynamic_wind']for snapshot in expected['snapshots'][1:a.frames+1]]
+        assert actual==wanted,('aerodynamic wind',[(i,[(j,x,y)for j,(x,y)in enumerate(zip(got,want))if x!=y])for i,(got,want)in enumerate(zip(actual,wanted),1)if got!=want][:4],len(actual),len(wanted))
     assert len(before)==len(after)==len(world)==a.frames,(len(before),len(after),len(world),a.frames)
     for index,(cpp_pre,cpp_post,cpp_world) in enumerate(zip(before,after,world)):
         native_pre=expected['snapshots'][index];native_post=expected['snapshots'][index+1]
@@ -195,6 +214,15 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     renders=records('CPP_RENDER ')
     assert len(renders)==a.frames,('render count',len(renders),a.frames)
     different_frames=[]
+    different_palettes=[]
+    if expected.get('palette_capture'):
+        palettes=records('CPP_PALETTE ')
+        assert [item['frame']for item in palettes]==list(range(1,a.frames+1)),('palette observation count/order',len(palettes),a.frames)
+        for index,palette in enumerate(palettes,1):
+            dac=(native/f'frame-{index}.dac').read_bytes()
+            assert len(dac)==768 and max(dac)<=63,('invalid native DAC capture',index)
+            colours=bytes((component*255+31)//63 for component in dac)
+            if palette['sha256']!=hashlib.sha256(colours).hexdigest():different_palettes.append(index)
     for index,render in enumerate(renders,1):
         original_image=(native/f'frame-{index}.indices').read_bytes()
         if render['sha256']!=hashlib.sha256(original_image).hexdigest():different_frames.append(index)
@@ -245,6 +273,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         actual=records('CPP_COCKPIT_DISPLAYS ')
         wanted=[event for event in expected['cockpit_displays']if event['frame']<=a.frames]
         assert actual==wanted,('cockpit display inputs',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:3],len(actual),len(wanted))
+    if 'precipitation_events' in expected:
+        actual=records('CPP_PRECIPITATION ');wanted=expected['precipitation_events']
+        assert actual==wanted,('precipitation inputs',[(i,x,y)for i,(x,y)in enumerate(zip(actual,wanted),1)if x!=y][:3],len(actual),len(wanted))
     if 'air_brake' in expected['snapshots'][1]:
         actual=records('CPP_AIR_BRAKE ')
         wanted=[snapshot['air_brake']for snapshot in expected['snapshots'][1:a.frames+1]]
@@ -257,6 +288,9 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if (native/'radar.json').exists():verified.append('ordered radar inputs')
     if 'projectile_guidance' in expected:verified.append('projectile guidance inputs')
     if 'cockpit_displays' in expected:verified.append('cockpit display inputs')
+    if 'precipitation_events' in expected:verified.append('precipitation inputs')
+    if 'realism_state' in expected['snapshots'][1]:verified.append('live realism settings')
+    if 'aerodynamic_wind' in expected['snapshots'][1]:verified.append('aerodynamic wind')
     if a.model_queues:verified.append('model queue inputs')
     if 'autopilot_targets' in expected['snapshots'][1]:verified.append('autopilot targets')
     if 'trail_events' in expected:verified.append('smoke samples')
@@ -265,4 +299,6 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     verified += [field for field in ('mission_progress','player_damage','automatic_landing','cannon','radar_pulse','speed_factor','cheat_state','aiming_flags','control_configuration','body_basis','view_mode','sensors','animation','armament','projectiles','player_parts','launch_notice','player_models') if field in expected['snapshots'][1]]
     rules='career'if a.career_rules else 'Arcade'
     print(f'Mission {a.mission}, {a.flight_model}, {rules} rules, {a.frames} complete frames: {", ".join(verified)} agree. Images: {len(different_frames)}/{a.frames} frames differ; final image {differences}/64000 different indices.')
+    if expected.get('palette_capture'):print(f'Displayed palettes: {len(different_palettes)}/{a.frames} frames differ.')
     if a.strict_pixels:assert not different_frames,('whole-frame pixels',different_frames[:20],differences)
+    if a.strict_pixels:assert not different_palettes,('whole-frame palettes',different_palettes[:20])

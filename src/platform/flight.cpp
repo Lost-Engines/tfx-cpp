@@ -1100,6 +1100,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       },
       .surface_celsius{surface_celsius()},
     },mission_setup.speed_factor,wind_parameters,player_damage,options.session_random);
+    // Original 95F3C/96411 clears the live wind setting, including a saved
+    // REALISM=... wind enable. It can be enabled again from the flight menu.
+    preferences.effects.wind = 0;
     player_render_basis = player.orientation;
     physical_player.powerplant.afterburner_control = render::display_page_count; // Shared native cockpit refresh clock.
     physical_player.mounted_stores = armament.flight_stores(airframe.stores_and_mounts.mounts);
@@ -1396,6 +1399,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         },
         .surface_celsius{surface_celsius()},
       },1.0f,wind_parameters,player_damage,air_simulation.random_stream());
+      preferences.effects.wind = 0; // The same 96411 reset runs after servicing.
       automatic_landing = retained_approach; // Shared approach scratch survives 8FAD4.
       // 8FAD4/95F3C retain route and guidance scratch, including the coordinates
       // shared with the approach callback. This is not a new mission launch.
@@ -2036,6 +2040,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       // callback, which installs the new gimbal and paints a second world.
       if(!scene.last_camera()) throw std::runtime_error{"designator has no inherited world camera"};
       auto primary{*scene.last_camera()};
+      // The gimbal replaces the projection cache, but not 134F0/134F8/13500.
+      // The ordinary pass keeps the last normal view's terrain/lighting anchor.
+      primary.world_anchor = vec3<int32_t>{view_motion.last_pose().anchor};
       primary.projection_origin = cockpit_frame.projection_origin(view_index(),cockpit_position.value());
       primary.viewport_minimum = {0,0};primary.viewport_maximum = {tfx::render::screen_width - 1,tfx::render::screen_height - 1};
       prepare_lighting(primary);

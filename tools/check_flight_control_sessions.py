@@ -34,9 +34,42 @@ AUTOPILOT_INPUTS = [
 ]
 
 CASES = {
-    'autopilot': ('realistic', 64, AUTOPILOT_INPUTS),
-    'air-brake': ('arcade', 16, [{'frame': frame, 'event': 'b'} for frame in (1, 3, 5, 9, 13)]),
-    'mouse': ('arcade', 32, [
+    'views': (501, 'realistic', 160, [
+        {'frame': 1, 'event': 'f5'},
+        {'frame': 17, 'event': 'f6'},
+        {'frame': 33, 'event': 'f7'},
+        {'frame': 49, 'event': 'enter'},
+        {'frame': 51, 'event': 'f9'},
+        {'frame': 67, 'event': 'f10'},
+        {'frame': 87, 'event': 'f2'},
+        {'frame': 103, 'event': 'f3'},
+        {'frame': 119, 'event': 'f4'},
+        {'frame': 135, 'event': 'f1', 'held': ['right-shift', 'f1']},
+        {'frame': 151, 'event': 'f1'},
+    ]),
+    'target-views': (501, 'realistic', 96, [
+        {'frame': 1, 'event': 'enter'},
+        {'frame': 3, 'event': 'f9'},
+        {'frame': 19, 'event': 'f7'},
+        {'frame': 35, 'event': 'f10'},
+        {'frame': 51, 'event': 'f10'},
+        {'frame': 67, 'event': 'f1'},
+        {'frame': 83, 'event': 'f1', 'held': ['right-shift', 'f1']},
+    ]),
+    'palettes': (601, 'realistic', 80, [
+        {'frame': 1, 'event': 'n', 'held': ['right-shift', 'n']},
+        {'frame': 17, 'event': 'n', 'held': ['right-shift', 'n']},
+        {'frame': 19, 'event': 'o'},
+        {'frame': 21, 'event': 'z'},
+        {'frame': 29, 'event': 'f1'},
+        {'frame': 37, 'event': 'n', 'held': ['right-shift', 'n']},
+        {'frame': 45, 'event': 'f5'},
+        {'frame': 61, 'event': 'n', 'held': ['right-shift', 'n']},
+        {'frame': 73, 'event': 'f1'},
+    ]),
+    'autopilot': (501, 'realistic', 64, AUTOPILOT_INPUTS),
+    'air-brake': (501, 'arcade', 16, [{'frame': frame, 'event': 'b'} for frame in (1, 3, 5, 9, 13)]),
+    'mouse': (501, 'arcade', 32, [
         *({'frame': frame, 'mouse': [4, -2]} for frame in range(3, 13)),
         {'frame': 14, 'buttons': 1},
         {'frame': 15, 'buttons': 1},
@@ -61,7 +94,7 @@ def main():
     args = parser.parse_args()
     if args.capture_only and args.native_capture:
         parser.error('--capture-only cannot reuse an original capture')
-    model, frames, inputs = CASES[args.case]
+    mission, model, frames, inputs = CASES[args.case]
     model = args.flight_model or model
     if args.case == 'mouse' and model != 'arcade':
         parser.error('the relative mouse sequence exercises Arcade steering')
@@ -73,7 +106,7 @@ def main():
         tape.write_text(json.dumps(inputs, indent=2) + '\n')
         tool = 'capture_native_flight.py' if args.capture_only else 'check_flight_session.py'
         command = [sys.executable, '-B', str(Path(__file__).with_name(tool)),
-                   '--research', str(args.research.resolve()), '--mission', '501',
+                   '--research', str(args.research.resolve()), '--mission', str(mission),
                    '--flight-model', model, '--frames', str(frames),
                    '--inputs', str(tape), '--output', str(root / 'session')]
         if not args.capture_only:
@@ -83,7 +116,19 @@ def main():
         subprocess.run(command, check=True)
         native = args.native_capture or (root / 'session' if args.capture_only else root / 'session/native')
         snapshots = json.loads((native / 'session.json').read_text())['snapshots']
-        if args.case == 'autopilot':
+        if args.case == 'views':
+            reached={snapshot['view_mode'] for snapshot in snapshots}
+            # Fly-past discards the tactical/target requests queued before its
+            # natural return. Those modes have their own sequence below.
+            assert reached >= {0,3,4,9,12,13,20,26}, ('camera sequence missed a required original view',sorted(reached))
+        elif args.case == 'target-views':
+            reached={snapshot['view_mode'] for snapshot in snapshots}
+            assert reached >= {0,3,9,10,11,28}, ('target-camera sequence missed a required original view',sorted(reached))
+        elif args.case == 'palettes':
+            assert any(snapshot['view_mode']==19 for snapshot in snapshots), 'palette sequence never entered the laser designator'
+            colours={(native / f'frame-{frame}.dac').read_bytes()for frame in range(1,frames+1)}
+            assert len(colours)>1, 'palette sequence never changed the displayed DAC palette'
+        elif args.case == 'autopilot':
             assert snapshots[3]['autopilot_targets'][0] == 1, 'autopilot never engaged'
             assert snapshots[33]['autopilot_targets'][0] == 0, 'autopilot never disengaged'
             assert {snapshot['autopilot_targets'][1] for snapshot in snapshots} >= {0, 1, 2, 3}, 'not all ordinary modes were selected'
