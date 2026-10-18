@@ -5,7 +5,10 @@ Optional mouse motion is a signed [dx,dy] pair; buttons is the DOS left/right
 bit mask. The first frame primes desktop cursor capture and must be neutral.
 An optional configuration list supplies logical [x,y] mouse clicks inside the
 modal screen opened by that frame's grave key; the flight clock stays paused.
-Missing frames are neutral. A press is held for its frame unless held is given.
+An optional arming list supplies [x,y,buttons] actions during cheat Ctrl+D;
+zero buttons lets the pointer settle without clicking. Each action has a
+release/make/release cycle; the final action repeats up to four times to cover
+the original polling/release waits. Missing frames are neutral. A press is held for its frame unless held is given.
 These are external device inputs, never changes to game state or outcomes.
 """
 import json
@@ -46,7 +49,7 @@ class FlightInputs:
   self.frames={}
   if not isinstance(rows,list):raise ValueError('flight inputs must be a JSON list')
   for row in rows:
-   if not isinstance(row,dict) or set(row)-{'frame','event','held','mouse','buttons','configuration'}:raise ValueError('invalid flight input row')
+   if not isinstance(row,dict) or set(row)-{'frame','event','held','mouse','buttons','configuration','arming'}:raise ValueError('invalid flight input row')
    frame=row.get('frame')
    if type(frame)is not int or not 1<=frame<=65535 or frame in self.frames:raise ValueError('flight input frames must be distinct integers from 1 to 65535')
    event=row.get('event')
@@ -64,7 +67,13 @@ class FlightInputs:
     buttons=row['buttons']
     if type(buttons)is not int or not 0<=buttons<=3:raise ValueError('mouse buttons must be a left/right bit mask from 0 to 3')
     self.frames[frame]['buttons']=buttons
+   if 'arming' in row:
+    clicks=row['arming']
+    if event!='d' or 'control' not in held or not isinstance(clicks,list) or not 1<=len(clicks)<=64:raise ValueError('arming requires Ctrl+D and 1 to 64 pointer actions')
+    if any(not isinstance(point,list) or len(point)!=3 or any(type(value)is not int or not 0<=value<limit for value,limit in zip(point,(320,200,4)))for point in clicks):raise ValueError('arming actions must contain logical X/Y and DOS mouse button bits')
+    self.frames[frame]['arming']=[list(point)for point in clicks]
    if 'configuration' in row:
+
     clicks=row['configuration']
     if event!='grave' or not isinstance(clicks,list) or not 1<=len(clicks)<=32:raise ValueError('configuration requires a grave event and 1 to 32 mouse clicks')
     if any(not isinstance(point,list) or len(point)!=2 or any(type(value)is not int or not 0<=value<limit for value,limit in zip(point,(320,200)))for point in clicks):raise ValueError('configuration clicks must be logical screen coordinates')

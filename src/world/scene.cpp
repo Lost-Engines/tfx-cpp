@@ -198,6 +198,17 @@ std::optional<flight::landing_port> scene::actor_landing_port(scene_handle const
   return landing_port(actors.at(handle.value).state);
 }
 
+// Target origins remain usable when an SSD declares no custom aim offset.
+vec2<int16_t> scene::actor_target_offset(scene_handle const handle) const {
+  auto const &custom{actors.at(handle.value).state.custom};
+  return custom.size() >= 2 ? vec2<int16_t>{math::signed_word(custom[0]),math::signed_word(custom[1])} : vec2<int16_t>{0,0};
+}
+
+vec2<int16_t> scene::terrain_target_offset(vec2<int32_t> const &cell) {
+  auto const &custom{terrain_instance(static_cast<unsigned int>(cell.x),static_cast<unsigned int>(cell.y)).custom};
+  return custom.size() >= 2 ? vec2<int16_t>{math::signed_word(custom[0]),math::signed_word(custom[1])} : vec2<int16_t>{0,0};
+}
+
 std::vector<vec3<int16_t>> scene::actor_damage_centres(scene_handle const handle) const {
   return actors.at(handle.value).state.damage_centres();
 }

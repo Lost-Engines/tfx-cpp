@@ -58,7 +58,7 @@ for field,fmt in ((0x13428,'<f'),(0x13444,'<i'),(0x14778,'<d'),(0x133f4,'<f'),(0
 rng=random.Random(0x7fb98);cases=[]
 for index in range(1024):
     mode=1 if index<32 else 0 if index<48 else rng.randrange(3)
-    weapon=rng.choice([0,1,3,4,5] if mode!=2 else [0,8,18,20,22])
+    weapon=rng.choice([0,1,3,4,5] if mode!=2 else [0,8,18,19,20,22])
     present=1 if index<64 else int(index%5!=0);locked=int(4<=index<28) if index<32 else int(present and index%3!=0)
     acquiring=int(present and not locked and index%2==0)
     projected=[(160,56),(0,0),(319,199),(-10,80),(200,100)][index%5]

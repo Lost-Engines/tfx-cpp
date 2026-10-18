@@ -1,9 +1,20 @@
 #pragma once
 
+#include <functional>
 #include "actors/surface.h"
 #include "flight/aircraft.h"
 
 namespace tfx::sensors {
+
+// Native 0x93128 locks the mission cruise destination immediately, independently
+// of laser designation, aircraft radar, stealth and the projection range.
+struct cruise_target {
+  vec3<int32_t> position_q8;
+  vec2<int32_t> reticle_q8;
+  vec2<int16_t> projected;
+};
+cruise_target acquire_cruise_target(vec3<int32_t> const &player, vec2<int32_t> const &destination_q8,
+  std::function<vec2<int16_t>(vec3<int32_t> const&)> const &project);
 
 struct surface_contact {
   unsigned int slot;

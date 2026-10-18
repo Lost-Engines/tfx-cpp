@@ -2,13 +2,14 @@
 #include <utility>
 #include "presentation/drawing.h"
 #include "render/sprites.h"
+#include "weapons/definition.h"
 #include "cockpit/landing_display.h"
 
 namespace tfx::cockpit {
 namespace {
 
 int32_t constexpr short_sight_range_limit{7004}, compact_sight_range{24720};
-uint8_t constexpr lock_blink_frames{9}, launch_message_frames{5}, anti_radiation_category{11};
+uint8_t constexpr lock_blink_frames{9}, launch_message_frames{5};
 
 } // anonymous namespace
 
@@ -93,7 +94,7 @@ weapon_effects weapon_display::draw_forward(render::software_renderer &renderer,
         if(cue.acquiring) targets.edge_marker(renderer,target_state,coverage);
         else targets.direction(renderer,cue.reading,target_state,state.limited ? vec2<int>{0,2 + offset.y} : vec2<int>{89 + offset.x,2 + offset.y},state.limited ? vec2<int>{319,144 + offset.y} : vec2<int>{231 + offset.x,96 + offset.y},coverage);
       }
-    } else if(state.mode == aiming_mode::ground && state.ground_lock && state.ground_marker && state.category != anti_radiation_category) {
+    } else if(state.mode == aiming_mode::ground && state.ground_lock && state.ground_marker && state.category != weapons::cruise_missile_category) {
       // Native ground-designation rectangle keeps fixed X limits in both views.
       auto const &centre{*state.ground_marker};
       vec2<int> const low{state.limited ? 89 : 10,state.limited ? 2 + offset.y : 10};

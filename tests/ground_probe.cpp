@@ -3,6 +3,7 @@
 #include <iostream>
 #include <utility>
 #include "sensors/ground.h"
+#include "render/point_projection.h"
 #include "world/instance.h"
 
 int main(int const argc, char const *const argv[]) try {
@@ -13,7 +14,18 @@ int main(int const argc, char const *const argv[]) try {
   char command{0};
   while(input >> command) {
     std::vector<int64_t> values;
-    if(command == 'L') {
+    if(command == 'C') {
+      vec3<int32_t> player;vec2<int32_t> destination;
+      tfx::render::point_projection projection;
+      input >> player.x >> player.y >> player.z >> destination.x >> destination.y;
+      for(auto &value : projection.matrix.data) input >> value;
+      input >> projection.position_q16.x >> projection.position_q16.y >> projection.position_q16.z >> projection.origin.x >> projection.origin.y;
+      auto const target{tfx::sensors::acquire_cruise_target(player,destination,[&](vec3<int32_t> const &position) {
+        if(auto const point{projection.integer(position)}) return vec2<int16_t>{*point};
+        return vec2<int16_t>{-1,-1};
+      })};
+      values = {target.position_q8.x,target.position_q8.y,target.position_q8.z,target.reticle_q8.x,target.reticle_q8.y,target.projected.x,target.projected.y};
+    } else if(command == 'L') {
       unsigned int zoom{0};vec3<int32_t> player,target;input >> zoom >> player.x >> player.y >> player.z >> target.x >> target.y >> target.z;
       tfx::sensors::designator state{.zoom{static_cast<uint8_t>(zoom)}};
       tfx::sensors::follow_designation(state,player,target);

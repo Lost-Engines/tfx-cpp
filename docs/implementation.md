@@ -5956,3 +5956,44 @@ pixel blocks at scales 1, 2 and 6, automatic desktop fitting, a non-multiple
 also checks rotation capture, focus-loss release/reacquisition, custom pylon
 placement and the loading-logo transition before flight. It uses disposable
 installations and never sends input to the user's desktop.
+
+
+### AGM-109H automatic mission targeting
+
+The cruise-missile branch of native `93328` calls `93128` before aircraft-radar
+and stealth checks. The flight loop now executes that separate controller:
+it locks the mission's first bound target automatically, using its initialized
+SSD aim offset and a height ten world units above ground. Cycling the ground
+preview with N does not redirect the cruise destination. Its 32,767-unit
+horizontal projection cutoff hides the reticle without discarding the lock.
+The same designation supplies the HUD, range indicator, F9 observer and missile
+runtime; it is kept separate from aircraft-pool identities.
+
+The forward HUD's lock-acquired result now reaches the audio owner. Native
+`7FC50` requests urgent sample 74 (`tracking`) for the cruise destination and
+non-leader contacts; aircraft formation leaders use normal-priority samples
+74 and 71 (`lookslik`). Cheat rearming also preserves its restored flight
+palette, avoiding an extra fixed-palette blend and its accumulated rounding.
+
+`check_cruise_target.py` executes the original acquisition and point projector
+in 4,096 cases, including exact range boundaries, signed wrapping, invisible
+points and retained timers. A compact native fixture adds
+`sensors.native_cruise_target` to CTest. The forward-HUD comparison now includes
+weapon 19 alongside the other ground stores.
+
+`check_cruise_session.py` uses actual Shift+PLOP/Ctrl+D input and arming-screen
+mouse actions to mount AGM-109H on an F-117 in mission 703. All 24 complete frames
+agree in captured gameplay state, indexed pixels and displayed palettes,
+including the tracking request, F9 ground-target view and the original refusal
+to fire while landed. The input transport observes the end of the opening fade
+before clicking, and resumes its external clock after the modal return; no
+inventory, target or outcome is injected. `--airborne` supplies an explicitly
+authored airborne start to exercise actual release and guidance separately;
+its additional 24 complete frames also agree in every captured state, pixel,
+palette and sound request.
+
+```sh
+python3 tools/check_cruise_target.py --build build
+python3 tools/check_cruise_session.py --build build --rom-dir roms
+python3 tools/check_cruise_session.py --build build --airborne --rom-dir roms
+```
