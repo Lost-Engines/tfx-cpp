@@ -39,14 +39,16 @@ int main(int const argc, char const *const argv[]) try {
       position.advance(assets.viewports.at(view).bottom,view == 0);
       std::cout << position.value().x << ' ' << position.value().y << ' ' << position.step_index() << ' ' << std::to_underlying(position.movement()) << '\n';
     }
-  } else if(mode == "frame") {
+  } else if(mode == "frame" || mode == "frame-retained") {
     tfx::cockpit::frame const frame{assets,game};
     unsigned int view{0};vec2<int16_t> requested;
     while(std::cin >> view >> requested.x >> requested.y) {
+      bool copy{true};
+      if(mode == "frame-retained" && !(std::cin >> copy)) throw std::runtime_error{"missing footer-copy decision"};
       auto const offset{frame.clamp(view,requested)};
       auto const origin{frame.projection_origin(view,offset)};
       tfx::render::framebuffer pixels, coverage;pixels.pixels.fill(99);
-      frame.paint(pixels,view,offset,&coverage);
+      frame.paint(pixels,view,offset,&coverage,copy ? tfx::cockpit::panel_copy::refresh : tfx::cockpit::panel_copy::preserve);
       for(int const value : {static_cast<int>(offset.x),static_cast<int>(offset.y),static_cast<int>(origin.x),static_cast<int>(origin.y)}) for(unsigned int byte{0}; byte != 4; ++byte) std::cout.put(static_cast<char>(static_cast<uint32_t>(value) >> (byte * 8)));
       std::cout.write(reinterpret_cast<char const*>(pixels.pixels.data()),pixels.pixels.size());
       std::cout.write(reinterpret_cast<char const*>(coverage.pixels.data()),coverage.pixels.size());

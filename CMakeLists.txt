@@ -354,6 +354,7 @@ add_library(tfx_core
   src/resources/executable_tables.h
   src/render/framebuffer.cpp
   src/render/framebuffer.h
+  src/render/display_pages.cpp src/render/display_pages.h
   src/render/ilbm.cpp
   src/render/ilbm.h
   src/render/aperture.h
@@ -1041,6 +1042,11 @@ if(BUILD_TESTING)
   target_link_libraries(ground_service_probe PRIVATE tfx_core)
   configure_first_party(ground_service_probe)
   add_test(NAME flight.native_ground_service COMMAND ground_service_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/ground_service.txt")
+
+  add_executable(display_pages_probe tests/display_pages_probe.cpp)
+  target_link_libraries(display_pages_probe PRIVATE tfx_core)
+  configure_first_party(display_pages_probe)
+  add_test(NAME render.native_display_pages COMMAND display_pages_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/display_pages.txt")
 
   add_executable(detail_status_probe tests/detail_status_probe.cpp)
   target_link_libraries(detail_status_probe PRIVATE tfx_core)

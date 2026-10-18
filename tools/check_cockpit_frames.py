@@ -18,6 +18,7 @@ from native_vga import VgaCapture
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
+parser.add_argument('--retained',action='store_true',help='also compare overlay-only draws that retain the previous footer pixels')
 args=parser.parse_args();directory=args.research/'installs/cd_1994_09/TFX';probe=str((args.build/'cockpit_frame_probe').resolve())
 sys.path.insert(0,str(args.research/'did-unpack'));from did_unpack import Archive
 archive=Archive.read(directory/'DID.DAT');entries={e.identifier:e for e in archive.entries}
@@ -57,9 +58,11 @@ def copy_panel(im):
     im.return_from(32)
 im.intercept(0xc87c4,'Supply the original VGA-to-VGA footer transfer at the hardware-copy boundary; preserve its complete native rectangle.',copy_panel)
 cases=[(view,x,y) for view in (0,1,3,7,19,28) for x in (-8,0,8) for y in (-100,-1,0,1,14,28,50,54,55,200,32767)]
-output=subprocess.check_output([probe,str(directory),'frame'],input=('\n'.join(' '.join(map(str,row)) for row in cases)+'\n').encode())
+if args.retained:cases=[(*row,copy)for row in cases for copy in (0,1)]
+output=subprocess.check_output([probe,str(directory),'frame-retained'if args.retained else'frame'],input=('\n'.join(' '.join(map(str,row)) for row in cases)+'\n').encode())
 stride=128016;assert len(output)==len(cases)*stride
-for index,(view,x,y) in enumerate(cases):
+for index,row in enumerate(cases):
+    view,x,y=row[:3];copy=row[3]if args.retained else 1
     centre,bottom,callback,panel,overlay=layouts[view];at=0x5da4+view*20
     if overlay:
         raw=archive.unpack(entries[archive.hash_name(overlay)]);current_overlay=0x300000 if view==0 else 0x310000;im.cpu.mem_write(current_overlay,raw);im.write(at+12,'<H',1)
@@ -69,7 +72,8 @@ for index,(view,x,y) in enumerate(cases):
         for plane in range(4):decoded[plane::4]=raw[plane*size:(plane+1)*size]
         current_panel=bytes(decoded)
     im.write(at+6,'<H',0x1234 if panel else 0)
-    im.write(0x87b6,'<H',view);im.write(0x10be8,'<h',x);im.write(0x10be6,'<h',y);im.write(0x10bed,'<B',3)
+    im.write(0x87b6,'<H',view);im.write(0x10be8,'<h',x);im.write(0x10be6,'<h',y);im.write(0x10bed,'<B',3 if copy else 0)
+    if args.retained:im.write(0x10be2,'<h',y)
     video.reset();copies.clear();projection.clear()
     for plane in video.planes:plane[:]=bytes([99])*16000
     im.call(0x74498,limit=2000000)

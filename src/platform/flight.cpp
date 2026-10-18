@@ -74,6 +74,7 @@
 #include "flight/engine_controls.h"
 #include "flight/ground_service.h"
 #include "render/framebuffer.h"
+#include "render/display_pages.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
 #include "resources/executable_tables.h"
@@ -184,6 +185,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto &ground_phase{options.ground_phase};
   bool sky_animation{false};
   tfx::render::software_renderer renderer{tables}, camera_renderer{tables};
+  tfx::render::display_pages frame_pages;
   tfx::missions::timeline mission_time{mission_setup};
   tfx::missions::progress mission_progress{mission_setup};
   tfx::flight::ground_service ground_service;
@@ -1001,6 +1003,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::simulation::timer_ticks constexpr first_animation_ticks{5}; // Native 0x7202f.
   tfx::simulation::timer_ticks previous_animation_ticks{first_animation_ticks};
   auto const restart{[&]{
+    frame_pages.reset();
     previous_animation_ticks = first_animation_ticks;
     acceleration.cancel();
     ground = initial_ground;
@@ -1090,6 +1093,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .surface_celsius{surface_celsius()},
     },mission_setup.speed_factor,wind_parameters,player_damage,options.session_random);
     player_render_basis = player.orientation;
+    physical_player.powerplant.afterburner_control = render::display_page_count; // Shared native cockpit refresh clock.
     physical_player.mounted_stores = armament.flight_stores(airframe.stores_and_mounts.mounts);
     // The modal screen updates store statistics through 95DC8. Automatic
     // DEFAULT_WEAP fitting skips those previews until the first flight tick.
@@ -1389,6 +1393,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       // shared with the approach callback. This is not a new mission launch.
       physical_player.autopilot.navigation = retained_navigation;
       physical_player.autopilot.guidance = retained_guidance;
+      physical_player.powerplant.afterburner_control = render::display_page_count; // Rearming resets the viewport too.
     }
     ground_service.finish_frame(player.landed);
     air_world.player = tfx::actors::air_contact{
@@ -1661,8 +1666,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     state.stealth = defences.stealth;
     state.stall_recovery = player.recovering;
     state.hook = player.arrestor_hook;
-    // This host repaints the full framebuffer, so request a full refresh of cached indicators.
-    state.redraw_phase = 2;
+    state.redraw_phase = physical_player.powerplant.afterburner_control;
     state.afterburner_pips = player.afterburner;
     state.low_speed_ground_contact = player.low_speed_ground_contact;
     state.landed = player.landed;
@@ -1737,6 +1741,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         return vec2<int16_t>{static_cast<int16_t>(std::clamp(screen.x,-32768.0,32767.0)),static_cast<int16_t>(std::clamp(screen.y,-32768.0,32767.0))};
       });
     })};
+    physical_player.powerplant.afterburner_control = instruments.animation().redraw_phase;
     player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::fuel)] = result.fuel_condition;
     if(result.threat_sound) sample(audio::sample_priority::urgent,audio::sample_id::threat);
   }};
@@ -1890,6 +1895,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       renderer.text(140,80,"PAUSED",15);
       return;
     }
+    if(!inspect) frame_pages.begin_frame(renderer.output);
     auto const prepare_lighting{[&](tfx::render::camera const &view) {
       auto const projected_view{view.projector()};
       if(!night_flak) palette_lighting.flash(tfx::render::glare_level(projected_view,{
@@ -1991,6 +1997,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     scene.set_carried_models(carried);
     int16_t const horizon_phase{ground_phase.sample()};
     if(!inspect && !result_evaluated) update_refuelling();
+    int16_t const requested_offset_y{cockpit_position.value().y};
     if(!inspect && !designator_view) {
       if(!tables.instruments().viewports[view_index()].panel.empty()) cockpit_position.move_to(cockpit_frame.clamp(view_index(),cockpit_position.value()));
       views.offset(cockpit_position.value());
@@ -2073,10 +2080,14 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       // Several loss/ejection viewports have no display callback at all.
       // They neither draw nor advance the retained radio ticker.
       auto const radio_window{!callback || designator_view || callback == 0x80704 || hide_external_information ? std::optional<std::string>{} : radio.advance(launch_elapsed,acceleration.active)};
+      auto const paint_cockpit{[&] {
+        bool const refresh{frame_pages.refresh_panel(physical_player.powerplant.afterburner_control,requested_offset_y)};
+        cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value(),nullptr,refresh ? cockpit::panel_copy::refresh : cockpit::panel_copy::preserve);
+      }};
       if(!designator_view && view_index() == tfx::cockpit::forward_cockpit) {
-        cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
+        paint_cockpit();
         draw_instruments(radio_window);
-      } else if(!designator_view && callback == 0x80704) cockpit_frame.paint(renderer.output,view_index(),cockpit_position.value());
+      } else if(!designator_view && callback == 0x80704) paint_cockpit();
       else {
         if(!designator_view && callback == 0x80794 && options.flight_information) external_instruments.draw(renderer,{
           .height{player.position.y},
@@ -2096,13 +2107,16 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       engagement.finish_frame();
       launch_warning = projectiles.first_targeting_player();
       flight_frame = renderer.output;
+      views.redraw(physical_player.powerplant.afterburner_control);
       if(designator_view) views.ready();
       if(views.value().ready) {
         views.consume();
         cockpit_position.move_to(views.value().offset);
         designator_view = views.value().current == tfx::cockpit::view_mode::designator;
       }
+      physical_player.powerplant.afterburner_control = views.value().redraw;
     }
+    if(!inspect) frame_pages.finish_frame(renderer.output);
   }};
   // A diagnostic still/inspector can draw an unadvanced scene. Ordinary
   // flight first advances the simulation, then consumes camera/HUD/SSD state.

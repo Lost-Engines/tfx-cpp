@@ -7,6 +7,8 @@
 
 namespace tfx::cockpit {
 
+enum class panel_copy { preserve, refresh };
+
 class frame {
 private:
   struct artwork {
@@ -20,7 +22,7 @@ public:
   frame(instrument_assets const &assets, resources::archive const &game);
   vec2<int16_t> clamp(unsigned int view, vec2<int16_t> const &offset) const;
   vec2d projection_origin(unsigned int view, vec2<int16_t> const &offset) const;
-  void paint(render::framebuffer &target, unsigned int view, vec2<int16_t> const &offset, render::framebuffer *coverage = nullptr) const;
+  void paint(render::framebuffer &target, unsigned int view, vec2<int16_t> const &offset, render::framebuffer *coverage = nullptr, panel_copy copy = panel_copy::refresh) const;
 };
 
 enum class cockpit_motion { idle, up, down, flak_shake, ground_bump };

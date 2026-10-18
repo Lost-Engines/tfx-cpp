@@ -20,7 +20,7 @@ environment, renderer, arming and AI code executes. `--flight-model` selects
 any of the four models, and `--output` retains the private frames and observer
 log. `--strict-pixels` requires every captured image to match, not just the last.
 
-All **206 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+All **207 CTests** pass in development, Release and ASan/UBSan. All 128 retail
 missions also compose 64 development frames and 16 sanitizer frames without
 preview warnings. Real private-window controls exercise firing, MFDs,
 missile cameras, designator use, ejection and an automatic FINISH handoff.
@@ -5465,13 +5465,12 @@ All **205 asset-free regressions** pass in the three build configurations.
 
 The maintained career airspace sortie uses actual PLOP, time-warp and reheat
 keys. Original execution reaches its natural orders-violation FINISH at frame
-740. C++ agrees on every captured gameplay state, warning and final campaign
-value. Strict pixel comparison remains open: starting at frame 511, a single
-moving-map border column retains different cockpit pixels as the schematic
-leaves the viewport. Doubling the independent moving-map checks to **640 full
-pixel/coverage frames**, including map edges and all VGA alignments, still
-passes. The remaining difference concerns integration with retained cockpit
-pages; it is not counted as complete image equivalence.
+740. C++ now agrees on **every captured gameplay state, warning, final campaign
+value and all 740 indexed images**. The former discrepancy began at frame 511,
+where a single moving-map border column retained different cockpit pixels as
+the schematic left the viewport. The map painter itself already agreed in
+**640 full pixel/coverage frames**, including map edges and all VGA alignments;
+the missing behavior was the display-page lifetime described below.
 
 ### Ground service and complete landing captures
 
@@ -5521,8 +5520,10 @@ state and indexed pixel**, including the service frame. The **130-frame
 Realistic carrier approach agrees in gameplay state, radio, damage, stores,
 camera and horizon**, and its final image matches after the real arming dialog.
 Five earlier carrier frames retain drawing differences, so that case does not
-yet establish complete image equivalence. The 246-frame Raptor runway case is
-also retained for sanitizer comparison.
+yet establish complete image equivalence. The same gameplay/state agreement
+holds under sanitizers. The **246-frame Raptor runway case** also agrees under
+sanitizers in all captured state and its final image, with one intermediate
+image (frame 14) still differing.
 
     python3 tools/check_combat_sessions.py --case career-airfield-landing
     python3 tools/check_combat_sessions.py --case career-carrier-landing
@@ -5532,3 +5533,34 @@ reports the remaining renderer discrepancies. The absence-of-runway case in
 mission 605 separately reaches its original refusal and natural aircraft-loss
 result after 36 frames; its captured gameplay/FINISH values agree, with small
 palette-index differences on six intermediate images still open.
+
+### Retained display pages and the shared cockpit refresh clock
+
+Original VGA output rotates through three retained pages. The native page
+segments in the first four frames are A3E8, A7D0, A000, A3E8, with 16,000 bytes
+per plane/page. Repainting a single host framebuffer and unconditionally
+recopying the cockpit footer erased pixels that DOS kept between page visits.
+The live renderer now preserves three complete indexed buffers, rotates them
+after completed drawings, and leaves paused frames on their current page.
+
+The footer and instrument caches also share native byte `10BED`. Reheat keys,
+view changes and MFD page selection can request another three-page refresh.
+Native `74104` compares the raw cockpit Y with its retained value, requests
+refresh when it changes, then decrements the byte before painting overlays,
+the optional footer and instruments. The host now passes that same clock
+through those owners. Overlays still draw when the footer is retained.
+
+All **8,192 original refresh-decision prefixes** agree, including repeated Y,
+signed boundary values, byte countdowns and resets. The capture stops before
+the original clamp/painter suffix; it replaces no instructions. A 512-row
+asset-free fixture is the 207th regression. The independent static-frame check
+also agrees on **396 complete pixel/coverage/offset/origin images**, covering
+both copied and retained footers. These component checks complement the full
+740-frame career comparison above; they do not substitute for it.
+
+    python3 tools/check_display_pages.py --build build
+    python3 tools/check_cockpit_frames.py --build build --retained
+    python3 tools/check_combat_sessions.py --case career-airspace-result
+
+The carrier and no-runway traces retain their separate intermediate world
+polygon differences. They are still reported by strict comparison.
