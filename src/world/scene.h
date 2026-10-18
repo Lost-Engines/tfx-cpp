@@ -21,7 +21,7 @@ struct scene_handle {
   bool operator==(scene_handle const&) const = default;
 };
 enum class scene_pass { primary, instrument };
-enum class submission_phase { before_terrain, before_actors, after_actors };
+enum class submission_phase { before_sky, before_actors, after_actors };
 struct scene_events {
   bool animated{false};
   bool eject_player{false};
@@ -40,6 +40,7 @@ private:
     bool visible{true};
   };
   std::map<unsigned int,moving_instance> actors;
+  std::vector<scene_handle> actor_order;
   unsigned int next_actor{0};
   instance &terrain_instance(unsigned int x, unsigned int z);
   std::function<void(effect_record const&)> effect_sink{};
@@ -89,6 +90,9 @@ public:
   void set_query_reference(vec3<int32_t> const *position);
   void set_carried_models(std::span<models::shape const *const> models);
   scene_handle create_actor(std::string const &definition, vec3d const &position, vec3<math::angle> const &angles);
+  // Submit these actors first; other actors retain their existing order.
+  // Allocation/animation/collision identities are independent of drawing.
+  void set_actor_draw_order(std::span<scene_handle const> order);
   void place_actor(scene_handle handle, vec3d const &position, vec3<math::angle> const &angles);
   void show_actor(scene_handle handle, bool visible);
   bool terrain_intact(unsigned int x, unsigned int z);

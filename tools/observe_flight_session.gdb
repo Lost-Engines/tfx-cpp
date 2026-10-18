@@ -16,6 +16,27 @@ flight_frame=0
 import os
 import sys
 virtual_devices=None
+if 'TFX_OBSERVE_MODEL_QUEUES' in os.environ:
+ model_queue_arming=False
+ class QueueArmingReturn(gdb.FinishBreakpoint):
+  def stop(self):
+   global model_queue_arming
+   model_queue_arming=False
+   return False
+ class QueueArmingEntry(gdb.Breakpoint):
+  def stop(self):
+   global model_queue_arming
+   model_queue_arming=True
+   QueueArmingReturn(internal=True)
+   return False
+ QueueArmingEntry('tfx::platform::arm_mission',internal=True)
+ class ModelQueueInsert(gdb.Breakpoint):
+  def stop(self):
+   if flight_frame and not model_queue_arming:
+    queue=gdb.parse_and_eval('this').dereference()
+    print('CPP_MODEL_QUEUE_INSERT '+json.dumps({'frame':flight_frame,'priority':int(gdb.parse_and_eval('priority')),'slot':int(queue['current'])}))
+   return False
+ ModelQueueInsert('tfx::render::model_queue::insert',internal=True)
 if 'TFX_OBSERVE_LAPC' in os.environ:
  class SilentOutput(gdb.Breakpoint):
   def stop(self):
@@ -145,6 +166,13 @@ set $aiming = 0
 set $progress = 0
 set $cannon = 0
 set $hud = 0
+set $views = 0
+break tfx::cockpit::view_camera::advance
+commands
+silent
+set $views = &views
+continue
+end
 set $player_model_handle = -1
 break tfx::cockpit::hud::hud
 commands
@@ -275,6 +303,7 @@ class FrameReturn(gdb.FinishBreakpoint):
   print('CPP_CANNON '+json.dumps([int(cannon['ammunition']),int(cannon['barrel'])]))
   print('CPP_RADAR_PULSE '+json.dumps(bool(gdb.parse_and_eval('$hud').dereference()['radar_display']['pulse'])))
   player=gdb.parse_and_eval('$player').dereference()
+  print('CPP_VIEW_MODE '+json.dumps(int(gdb.parse_and_eval('$views').dereference()['state']['current'])))
   body=player['physical']['view']['orientation']
   print('CPP_LAUNCH_NOTICE '+json.dumps(int(gdb.parse_and_eval('$aiming').dereference()['tracking']['launch_frames'])))
   print('CPP_BODY '+json.dumps([int(body[axis][component]) for component in ('x','y','z') for axis in ('right','down','forward')]))

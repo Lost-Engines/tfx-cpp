@@ -248,6 +248,14 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     fixed_scenery.push_back(handle);
     fixed_positions_q8.emplace_back(placement.position);
   }
+  // 7572C submits ascending slots in the other-air pool, then allied air,
+  // then surface actors and the fixed-scenery list. Authored creation order
+  // can interleave those pools and changes the queue's equal-depth ties.
+  std::vector<tfx::world::scene_handle> actor_draw_order;
+  for(auto const &visual : air_visuals) if(visual) actor_draw_order.push_back(*visual);
+  for(auto const &actor : surface_actors) actor_draw_order.push_back(actor.visual);
+  actor_draw_order.insert(actor_draw_order.end(),fixed_scenery.begin(),fixed_scenery.end());
+  scene.set_actor_draw_order(actor_draw_order);
   std::vector<tfx::missions::surface_target_candidate> surface_targets;
   for(auto const &actor : surface_actors) surface_targets.push_back({
     .slot{actor.state.pose.slot},
@@ -1966,7 +1974,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
     }};
     auto const paint_scene{[&](tfx::render::camera const &view, vec3<int32_t> const &reference, bool const primary) {
-      if(primary && ejection.value().stage == tfx::flight::ejection_stage::pilot) scene.queue_actor(aircraft_visual,vec3d{ejection.value().aircraft_position_q8} / tfx::actors::position_unit,ejection.value().aircraft_orientation.angles(),nullptr,tfx::world::submission_phase::before_terrain);
+      if(primary && ejection.value().stage == tfx::flight::ejection_stage::pilot) scene.queue_actor(aircraft_visual,vec3d{ejection.value().aircraft_position_q8} / tfx::actors::position_unit,ejection.value().aircraft_orientation.angles(),nullptr,tfx::world::submission_phase::before_sky);
       queue_projectiles(reference);
       scene.set_query_reference(inspect ? nullptr : &player.integer_position);
       if(!inspect) select_actor_draw_region(reference);

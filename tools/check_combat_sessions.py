@@ -106,6 +106,12 @@ CASES = {
         {'frame': 2, 'event': 'enter'},
         {'frame': 70, 'event': 'space'},
     ]),
+    'training-missile-view': (501, 'arcade', 96, [
+        {'frame': 1, 'event': 't'},
+        {'frame': 2, 'event': 'enter'},
+        {'frame': 70, 'event': 'space'},
+        {'frame': 72, 'event': 'f8'},
+    ]),
     'ground-designation': (507, 'arcade', 96, [
         {'frame': 1, 'event': 'o'},
         {'frame': 3, 'event': 'z'},
@@ -148,6 +154,7 @@ def main():
     parser.add_argument('--output', type=Path, help='retain captures in a new directory')
     parser.add_argument('--native-root', type=Path, help='reuse matching prior case/native captures')
     parser.add_argument('--capture-only', action='store_true', help='execute only the original game')
+    parser.add_argument('--model-queues', action='store_true', help='also compare model queue insertion order')
     args = parser.parse_args()
     if args.capture_only and args.native_root:
         parser.error('--capture-only cannot reuse a native capture')
@@ -182,6 +189,8 @@ def main():
                 command.extend(['--native-capture', str((args.native_root / name / 'native').resolve())])
             if name.startswith('career-'):
                 command.append('--career-rules')
+            if args.model_queues:
+                command.append('--model-queues')
             if name == 'career-carrier-landing':
                 command.append('--default-rearming')
             if name.endswith('-result'):
@@ -208,6 +217,9 @@ def main():
                     assert any('PERMISSION TO FIRE' in event['message'] for event in capture['radio_events']), 'career sortie never exercised the permission notice'
             elif name in ('training-military', 'training-realistic'):
                 assert any(s['projectiles'] for s in snapshots), 'advanced-model sortie never launched a weapon'
+            elif name == 'training-missile-view':
+                assert any(s['projectiles'] for s in snapshots), 'missile-camera sequence never launched a weapon'
+                assert any(s['view_mode'] == 6 for s in snapshots), 'F8 never entered the original missile camera'
             elif name == 'ground-strike-result':
                 assert any(shot[1] == 20 for s in snapshots for shot in s['projectiles']), 'strike never released its AGM-88'
                 assert snapshots[-1]['mission_progress']['credited_targets'] == 1, 'strike never credited its bound objective'
