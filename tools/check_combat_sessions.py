@@ -22,6 +22,9 @@ DEFENSIVE_INPUTS = [
 ]
 
 CASES = {
+    'hostile-loss-result': (602, 'arcade', 128, [
+        {'frame': 1, 'event': 't'},
+    ]),
     'defensive-controls': (513, 'arcade', 64, DEFENSIVE_INPUTS),
     'defensive-controls-raptor': (512, 'arcade', 64, DEFENSIVE_INPUTS),
     'defensive-controls-eurofighter': (501, 'arcade', 64, DEFENSIVE_INPUTS),
@@ -178,7 +181,7 @@ def main():
             mission, model, frames, inputs = CASES[name]
             if isinstance(inputs, str):
                 inputs = json.loads((Path(__file__).resolve().parent.parent / 'tests/inputs' / inputs).read_text())
-            ticks = 18 if name in ('ground-strike-result', 'crash-result', 'career-crash-result', 'career-airspace-result', 'career-airfield-landing', 'career-raptor-runway-landing', 'career-no-runway-result', 'career-carrier-landing') else 4
+            ticks = 18 if name in ('hostile-loss-result', 'ground-strike-result', 'crash-result', 'career-crash-result', 'career-airspace-result', 'career-airfield-landing', 'career-raptor-runway-landing', 'career-no-runway-result', 'career-carrier-landing') else 4
             tape = root / f'{name}.json'
             tape.write_text(json.dumps(inputs, indent=2) + '\n')
             command = [
@@ -212,6 +215,10 @@ def main():
             native = args.native_root / name / 'native' if args.native_root else root / name / 'native'
             capture = json.loads((native / 'session.json').read_text())
             snapshots = capture['snapshots']
+            if name == 'hostile-loss-result':
+                assert any(snapshot['projectiles'] for snapshot in snapshots), 'the hostile encounter produced no weapons'
+                assert snapshots[-1]['player_damage'][0] != snapshots[0]['player_damage'][0], 'the unattended player took no damage'
+                assert capture['terminal']['campaign']['status'] == 4, 'hostile fire did not reach aircraft loss'
             if name.startswith('defensive-controls'):
                 decoys = capture['player_countermeasures']
                 assert len(decoys) == 30, ('the two fifteen-cartridge inventories were not exhausted', len(decoys))

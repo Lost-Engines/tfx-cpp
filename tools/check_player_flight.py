@@ -21,6 +21,7 @@ p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--scenes',type=int,default=48)
 p.add_argument('--horizon',action='store_true')
 p.add_argument('--model-changes',action='store_true')
+p.add_argument('--early-engine-faults',action='store_true',help='fail the right engine before any autopilot handover; retain separate indicator/factor inputs')
 a=p.parse_args();path=a.research/'installs/cd_1994_09/TFX/TFX.DAT';im=NativeReference(path);im.call(0xde851);im.cpu.mem_map(0x300000,0x4000);backends=(hardware_fpatan(im,a.build),hardware_sine_cosine(im,a.build),hardware_tangent(im,a.build));rng=random.Random(0x8f56c)
 data_size=(im.layout['objects'][2]['virtual_size']+4095)&~4095;baseline=bytes(im.cpu.mem_read(im.data,data_size));terrain_type=[50];callbacks=[];timer=[4,0];placing=[False]
 im.intercept(0x8f686,'Stop only the initial-placement prefix; subsequent complete player callbacks execute',lambda image:image.cpu.emu_stop() if placing[0] else None)
@@ -42,6 +43,9 @@ for i in range(a.scenes):
   action={8:3,9:6,36:4,50:6,60:2,61:6,84:6}.get(t,255)
   keys=rng.choice([0,0,0,1,2,4,8,16]) if t<8 or t>60 else 0
   ticks.append([rng.choice([2,4,6]),bits(.04),keys,int(t<30),int(t>80),0,(i//24)%2,action,3 if t%31==0 else 0,int(t>=76 and i%3==0),255,0,0,rng.randrange(-128,129),rng.randrange(-128,129),3 if landed and t==0 else 255,14 if t==32 else 255,11 if t==36 else 255,1 if t==60 and i%6==1 else 255])
+ if a.early_engine_faults:
+  ticks[3][17]=11
+  ticks[5][16]=14
  if a.model_changes:
   for t,row in enumerate(ticks): row.append((0,2,1,6)[((i//3)+(t//12)*((i%3)+1))%4])
  scenes.append((start,ticks))

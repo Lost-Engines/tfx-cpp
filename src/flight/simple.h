@@ -33,7 +33,7 @@ struct simple_update {
 };
 
 void initialise_simple(simple_state &state, vec3<int32_t> const &position, vec3<math::angle> const &angles, float speed, bool landed, ground_contact ground = {});
-void advance_simple_disabled(simple_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {});
-simple_update advance_simple(simple_state &state, simple_inputs const &inputs, simulation::timer_ticks elapsed, ground_contact ground = {});
+void advance_simple_disabled(simple_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks elapsed, ground_contact ground = {});
+simple_update advance_simple(simple_state &state, simple_inputs const &inputs, vec2<system_condition> const &engine_conditions, simulation::timer_ticks elapsed, ground_contact ground = {});
 
 } // namespace tfx::flight

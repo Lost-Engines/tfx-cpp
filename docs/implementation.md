@@ -5813,3 +5813,68 @@ It reproduced `LANG=4` incorrectly choosing Spanish before the fix. All five sav
 selections and five explicit overrides now pass in development and ASan/UBSan.
 The executable's help also reflects the already corrected ECM/stealth aircraft
 restrictions and Arcade's mouse steering.
+
+### Hostile damage, engine indicators and the loss camera
+
+Mission 602 now has a maintained **120-frame complete hostile encounter**. Only
+the ordinary time-warp key is pressed. Incoming weapons appear from frame 18;
+the unattended player suffers hits, loses systems and power, falls, hits scenery
+and returns through FINISH on frame 120. Development and ASan/UBSan match every
+captured state, indexed pixel and displayed palette, including the complete result
+table.
+
+    python3 tools/check_combat_sessions.py --case hostile-loss-result
+
+This interacting sequence exposed three context distinctions:
+
+- Basic-flight throttle/fuel read the live engine factors, while their target
+  speed penalty at `8CADA` reads the instrument status bytes. A freshly failed
+  engine loses power before its status is normalized at the frame tail. Those
+  inputs now remain separate through Arcade, Simple and disabled-aircraft
+  callbacks. **432 original factor/status combinations** agree in exact speed
+  and throttle bits and form an asset-free regression.
+- Damage accumulation must enter Watcom's `127F` floating environment. Its
+  isolated checker had omitted original FPU initialization and consequently
+  compared both sides using the host/default extended arithmetic. Startup is
+  now included, the production routine uses the existing scoped environment,
+  and the **8,192 damage/repair references** were regenerated from that original
+  execution. Small accumulated values and 40/80/97-percent reports explicitly
+  exercise the rounding distinction.
+- The loss orbit follows the published `DATA:12B88` record. `7D3F8` refreshes it
+  on the ordinary loss path; the earlier contact-explosion return skips that
+  write. Using the current physical position moved the impact frame's camera
+  too soon. The host now retains this independent target through that transition.
+
+    python3 tools/check_basic_engine_indicators.py
+    python3 tools/check_damage.py
+    python3 tools/check_player_flight.py --early-engine-faults
+
+The early-fault sequence agrees through **4,608 complete original outer player
+callbacks**, across 48 initialized scenes, all three aircraft and all four flight
+models. It injects system conditions at the damage boundary before autopilot
+handover; it is distinct from the naturally hit mission above. All **209
+asset-free checks** pass in development, Release and ASan/UBSan.
+
+### Post-flight campaign control flow
+
+    python3 tools/check_campaign_segments.py
+
+**680 campaign segments across 96 real mission subroutine call sites** agree in
+action order, numeric variables and return stacks in development, Release and
+ASan/UBSan. Expected execution uses the original branch, assignment and return
+handlers with the retail graph and its actual suspended caller. Cases cover
+normal/retry paths, death, missing-in-action, safe ejection, repeated-ejection
+discipline, court-martial, promotion and defeat.
+
+Flight outcome/status variables are explicit supplied inputs in this comparison.
+Media are observed rather than painted, and execution stops at the next external
+launch, menu, planner or child-parser boundary. This broadens progression
+coverage without claiming those 680 cases are naturally completed sorties or
+whole front-end playthroughs. The complete flight/result, serialization and
+private-window save/continue tests remain separate evidence.
+
+The Release private-window front-end check also passes after these fixes: name
+entry and Control qualification, DOS pilot saving/reloading, the main menu, FWS
+briefing/custom arming/flight, and Tour squadron selection/route review/flight.
+The Runtime install component stages only `tfx`; its Release binary starts and
+omits developer options. CI remains unconfigured.

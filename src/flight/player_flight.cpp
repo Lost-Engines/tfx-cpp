@@ -113,6 +113,7 @@ player_flight_events player_flight::advance(damage_state &damage, math::random_s
   damage.systems[std::to_underlying(aircraft_system::right_engine)] = physical.powerplant.engine_condition[1];
   view.left_engine = physical.powerplant.engine_factor.x != 0;
   view.right_engine = physical.powerplant.engine_factor.y != 0;
+  vec2<system_condition> const engine_conditions{physical.powerplant.engine_condition[0],physical.powerplant.engine_condition[1]};
   auto const dispatch{select_player_callback({
     .model{physical.model},
     .elapsed{context.elapsed},
@@ -184,10 +185,10 @@ player_flight_events player_flight::advance(damage_state &damage, math::random_s
     }
     case player_callback::disabled_aircraft:
       basic.displayed_g_load = 0; // Native disabled-callback tail 0x8e7fd.
-      if(physical.model == aerodynamic_model::arcade) advance_disabled(view,context.basic_controls,context.elapsed,ground);
+      if(physical.model == aerodynamic_model::arcade) advance_disabled(view,context.basic_controls,engine_conditions,context.elapsed,ground);
       else {
         basic.gear.condition = gear_condition;
-        advance_simple_disabled(basic,context.basic_controls,context.elapsed,ground);
+        advance_simple_disabled(basic,context.basic_controls,engine_conditions,context.elapsed,ground);
       }
       break;
     case player_callback::simple: {
@@ -199,7 +200,7 @@ player_flight_events player_flight::advance(damage_state &damage, math::random_s
         .joystick{vec2<int16_t>{context.physics.input.joystick}},
         .alt{context.physics.input.alt},
         .surface_type{context.surface_type},
-      },context.elapsed,ground)};
+      },engine_conditions,context.elapsed,ground)};
       events.gear_sounds = std::move(update.gear_sounds);
       events.horizon_motion = update.horizon_motion;
       gear_condition = basic.gear.condition;
@@ -211,7 +212,7 @@ player_flight_events player_flight::advance(damage_state &damage, math::random_s
       // body matrix. Arcade reuses the body, not that display-only attitude.
       if(simple_body) view.orientation = basic.ground.body;
       if(physical.autopilot.recovery.model_reset_requested && view.landed) view.position.y = static_cast<float>(static_cast<calculation>(ground.height) - basic_parameters(view.aircraft).gear_height);
-      auto const update{advance_arcade(view,context.basic_controls,context.elapsed,ground,context.physics.time_warp)};
+      auto const update{advance_arcade(view,context.basic_controls,engine_conditions,context.elapsed,ground,context.physics.time_warp)};
       previous_position = update.movement_origin;
       events.horizon_motion = update.horizon_motion;
       simple_body = false;

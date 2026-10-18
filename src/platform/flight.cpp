@@ -336,6 +336,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto &fuel_display{player_flight.fuel};
   fuel_display = instrument_setup.fuel;
   auto const &player_disabled{mission_progress.player_ejected};
+  // Native DATA:12B88 is the loss camera's published target, distinct from
+  // live physics. The contact-explosion return retains its previous pose.
+  vec3<int32_t> disabled_camera_position_q8{0,0,0};
   auto &simple_player{player_flight.basic};
   auto &physical_player{player_flight.physical};
   auto &automatic_landing{player_flight.automatic};
@@ -859,7 +862,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     if(ground_designation) context.tracking_target_q8.emplace(vec3<int32_t>{designated_point});
     else if(seeker.guidance && air_simulation.aircraft()[*seeker.guidance]) context.tracking_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*seeker.guidance]->flight.pose.position});
     else if(radar.selected && air_simulation.aircraft()[*radar.selected]) context.tracking_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*radar.selected]->flight.pose.position});
-    if(player_disabled) context.impact_target_q8.emplace(vec3<int32_t>{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)});
+    if(player_disabled) context.impact_target_q8.emplace(vec3<int32_t>{disabled_camera_position_q8});
     else if(impact_aircraft && air_simulation.aircraft()[*impact_aircraft]) context.impact_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*impact_aircraft]->flight.pose.position});
     if(context.impact_target_q8) context.observed_target_q8.emplace(vec3<int32_t>{*context.impact_target_q8});
     else if(seeker.guidance && air_simulation.aircraft()[*seeker.guidance]) context.observed_target_q8.emplace(vec3<int32_t>{air_simulation.aircraft()[*seeker.guidance]->flight.pose.position});
@@ -1490,6 +1493,12 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       // Native 0x7d42b resets the player SSD every cheat frame until loss/
       // ejection. Collision and already-started aftermath still run below.
       if(options.cheat.value().enabled && !player_disabled) scene.actor_event(player_visual,0);
+      // Native 7D3F8 publishes this record only on the ordinary loss path.
+      // The earlier kapow/contact-explosion branch skips it (7D298).
+      if(player_visual != crashes.contact && (!options.cheat.value().enabled || player_disabled)
+        && (scene.actor_destroyed(player_visual) || player.collision)) {
+        disabled_camera_position_q8 = vec3<int32_t>{vec3<uint32_t>{player.integer_position} * static_cast<uint32_t>(tfx::actors::position_unit)};
+      }
       auto const loss{mission_progress.observe_player_loss({
         .fatal{scene.actor_destroyed(player_visual)},
         .collision{player.collision != 0},

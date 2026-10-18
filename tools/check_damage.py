@@ -15,7 +15,7 @@ def main():
     parser.add_argument('--build',type=Path,default=Path('build'))
     parser.add_argument('--save-fixture',type=Path)
     args=parser.parse_args();rng=random.Random(0x8f460)
-    image=NativeReference(args.data_dir/'TFX.DAT');notifications=[]
+    image=NativeReference(args.data_dir/'TFX.DAT');image.call(0xde851);notifications=[]
     def notify(im):
         assert im.cpu.reg_read(r.UC_X86_REG_EDX)==13
         notifications.append(13);im.return_from()
@@ -24,6 +24,9 @@ def main():
     for case in range(8192):
         severity=rng.choice((-32768,-1,0,1,2,5,10,49,50,99,100,200,32767,32768,65535,65536));invulnerable=int(case%4==0);elapsed=rng.choice((0,1,4,10,55,1080,1081,30000,65535));low=rng.randrange(65536);high=rng.randrange(65536)
         accumulated=struct.unpack('<Q',struct.pack('<d',rng.uniform(-100,100)))[0];display_selection=rng.randrange(-32768,32768)
+        if case < 4:
+            severity=(40,80,97,80)[case];invulnerable=0
+            accumulated=struct.unpack('<Q',struct.pack('<d',(0,.2,.6,1.1)[case]))[0]
         conditions=[rng.choice((0,1,2,11,14,255)) for _ in range(12)];repair=[rng.choice((0,1,1079,1080,1081,32767,65535)) for _ in range(12)]
         rows.append([severity,invulnerable,elapsed,low,high,accumulated,display_selection,*conditions,*repair])
         image.write(0x13250,'<H',invulnerable);image.write(0x8e18,'<Q',accumulated);image.write(0x713e,'<h',display_selection);image.write(0x7d70,'<12B',*conditions);image.write(0x1328c,'<12H',*repair);image.write(0x13476,'<H',elapsed)

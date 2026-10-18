@@ -1,6 +1,7 @@
 #pragma once
 
 #include "flight/stores.h"
+#include "flight/damage.h"
 #include "flight/basic_parameters.h"
 #include "math/attitude.h"
 #include "simulation/timing.h"
@@ -66,16 +67,18 @@ struct arcade_state {
 
 void initialise_arcade(arcade_state &state, vec3<int32_t> const &position, vec3<math::angle> const &angles, float speed, bool landed, ground_contact ground = {});
 // Shared native 0x8c6e8/0x8cc80 stages; Simple consumes twice Arcade's fuel.
-void update_basic_speed(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, bool arcade, bool gear_drag);
+// Engine factors and indicator bytes are distinct native inputs. A newly
+// failed engine has zero power before its indicator becomes normal/off.
+void update_basic_speed(arcade_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks elapsed, bool arcade, bool gear_drag);
 void consume_basic_fuel(arcade_state &state, simulation::timer_ticks elapsed, bool arcade);
-void update_basic_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground, bool arcade, bool gear_drag);
-void advance_disabled(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {});
+void update_basic_disabled(arcade_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks elapsed, ground_contact ground, bool arcade, bool gear_drag);
+void advance_disabled(arcade_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks elapsed, ground_contact ground = {});
 struct arcade_update {
   vec3f movement_origin;
   int16_t horizon_motion{0};
 };
 // Native Arcade overwrites the outer movement snapshot after ground/gear
 // adjustments, immediately before translation. The frame tail measures from it.
-arcade_update advance_arcade(arcade_state &state, flight_controls const &controls, simulation::timer_ticks elapsed, ground_contact ground = {}, bool time_warp = false);
+arcade_update advance_arcade(arcade_state &state, flight_controls const &controls, vec2<system_condition> const &engine_conditions, simulation::timer_ticks elapsed, ground_contact ground = {}, bool time_warp = false);
 
 } // namespace tfx::flight

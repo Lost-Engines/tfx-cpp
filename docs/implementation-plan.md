@@ -8,14 +8,14 @@ The aim is to reach a substantially complete, automatically exercised game befor
 
 ## Current next work
 
-- Extend complete original-session comparisons to hostile/friendly encounters. Coupled refuelling, live wind changes and stock depletion/defensive modes now have complete strict comparisons. Exercise actual controls and natural outcomes; do not set internal state to manufacture success.
-- Broaden persistent campaign coverage beyond the verified training result/save/continue sequence, including authorisation penalties and later campaign branches.
+- Continue broadening complete original-session coverage where playtesting or analysis identifies a specific uncertainty. Hostile fire through loss/FINISH, coupled refuelling, live wind changes and stock depletion/defensive modes now have strict comparisons. Exercise actual controls and natural outcomes; do not set internal state to manufacture success.
+- Broaden persistent campaign playthrough coverage beyond the verified training result/save/continue sequence. Separately, 680 post-flight control-flow segments now cover 96 mission callers and the authored recovery/discipline/promotion branches with explicitly supplied flight results.
 - Keep every captured state, indexed image and (for new captures) displayed palette strict. Investigate divergent inputs or update order before attributing differences to the original.
-- Finish native packaging/startup checks without adding CI. CD music remains deferred. Optional QSound processing requires external Creative CSP firmware/driver support; it is an established dependency, not an unimplemented software effect.
+- Keep native packaging minimal: the Runtime install component contains only the executable. CI remains unconfigured and CD music deferred. Optional QSound processing requires external Creative CSP firmware/driver support; it is an established dependency, not an unimplemented software effect.
 
 The latest corpus sweep matches all 128 retail missions through sixteen complete
 frames. The runway and carrier approaches now match every intermediate image,
-closing their earlier renderer gaps. There are 208 passing asset-free regressions
+closing their earlier renderer gaps. There are 209 passing asset-free regressions
 in development, Release and ASan/UBSan. The chronological notes below preserve the
 implementation sequence; later entries supersede earlier open-work statements.
 
