@@ -754,6 +754,7 @@ if(BUILD_TESTING)
   target_link_libraries(gouraud_polygon_probe PRIVATE tfx_core)
   configure_first_party(gouraud_polygon_probe)
   add_test(NAME render.native_gouraud_polygons COMMAND gouraud_polygon_probe ${PROJECT_SOURCE_DIR}/tests/reference/gouraud_polygons.txt)
+  add_test(NAME render.native_thin_gouraud_polygons COMMAND gouraud_polygon_probe ${PROJECT_SOURCE_DIR}/tests/reference/gouraud_polygons_thin.txt)
 
   add_executable(remap_renderer_probe tests/remap_renderer_probe.cpp)
   target_link_libraries(remap_renderer_probe PRIVATE tfx_core)

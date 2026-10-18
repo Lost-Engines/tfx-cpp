@@ -260,8 +260,12 @@ void integer_gouraud_polygon(framebuffer &output, std::span<indexed_vertex const
       .right_shade{right.shade()},
     });
   });
+  int constexpr vga_plane_mask{3};
   for(auto const &span : spans | std::views::reverse) {
-    if(span.left > span.right) return;
+    // The native Gouraud painter tests its four-pixel VGA group before the
+    // individual plane masks. An empty span within that group skips a row;
+    // only a crossed group ends the polygon. Thin faces can widen again above.
+    if((span.right | vga_plane_mask) < span.left) return;
     shaded_span(output,span.row,span.left,span.right,span.left_shade,span.right_shade,remap);
   }
 }

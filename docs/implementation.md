@@ -5596,3 +5596,27 @@ their allocators/sorters run. It excludes arming-screen previews, which have
 separate UI comparisons. Queue ordering and final images are both checked;
 neither is substituted for the other. New session captures also retain the
 original view mode. The remaining carrier-image discrepancies stay open.
+
+### Thin Gouraud faces and the planar empty-span rule
+
+One carrier-approach discrepancy isolated a complete shaded F-22 triangle with
+identical projected coordinates, palette attributes and lookup row in both
+renderers. The original painted nineteen pixels; C++ painted one. A narrow
+scanline near its bottom had crossed integer endpoints, and C++ incorrectly
+stopped the entire polygon before drawing its wider rows above.
+
+The painter selected by original `BD95C` first rounds the right endpoint to its
+four-pixel VGA plane group for that early-return test. An empty span inside the
+same group skips its row; a crossed group ends the polygon. The integer Gouraud
+path now preserves that distinction without changing its palette interpolation,
+plane-edge rounding or the separate flat/texture paths.
+
+All **1,024 original thin-face frames** agree, covering each plane phase, small
+faces, varying attributes, reversed winding and viewport clipping. The existing
+**1,024 full-word attribute frames** and **1,024 varied-depth projected Gouraud
+frames** also agree. A compact thin-face fixture brings the asset-free suite to
+**208 passing regressions** in development, Release and ASan/UBSan.
+
+    python3 tools/check_gouraud_polygons.py --thin
+    python3 tools/check_gouraud_polygons.py --wide-colours
+    python3 tools/check_world_polygons.py --gouraud --warped

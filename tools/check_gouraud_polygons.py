@@ -20,6 +20,7 @@ p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--record',type=Path)
 p.add_argument('--wide-colours',action='store_true',help='also exercise differences across the entire 8.8 colour word')
 p.add_argument('--cases',type=int,default=1024)
+p.add_argument('--thin',action='store_true',help='exercise thin faces with empty scanlines in all four VGA plane phases')
 a=p.parse_args();im=NativeReference(a.research/'installs/cd_1994_09/TFX/TFX.DAT',data_base=0x100000);vga=VgaCapture(im,aperture=0xa0000);im.cpu.mem_map(0x300000,4096);rng=random.Random(0xbd95c)
 code=lambda off:im.native(0x70aa4+off)
 im.cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=10000)
@@ -42,6 +43,16 @@ for case in range(a.cases):
  if case%19==0:points.reverse()
  if case%23==0:points=[(20,20),(20,20),(20,20)]
  if case%29==0:points=[(20,20),(100,100),(180,180)]
+ if a.thin:
+  if case<16:
+   x,y=20+case%4,20+case//4;points=[(x+3,y),(x+8,y+9),(x,y+1)]
+  else:
+   while True:
+    x,y=rng.randrange(-16,320),rng.randrange(-32,200)
+    width,height=rng.randrange(1,17),rng.randrange(1,65)
+    points=hull([(x+rng.randrange(width+1),y+rng.randrange(height+1))for _ in range(rng.randrange(3,12))])
+    if len(points)>=3:break
+   if case%19==0:points.reverse()
  bank=case%2;base=rng.randrange(16)*4096;shades=[base+rng.randrange(4096) for _ in points]
  if a.wide_colours and case>=32 and case%7==0:shades=[rng.randrange(65536) for _ in points]
  if case%11==0:shades=[base]*len(points)
@@ -61,7 +72,7 @@ for case,row in enumerate(rows):
  if want!=got:
   differences=[(i%320,i//320,x,y) for i,(x,y) in enumerate(zip(got,want)) if x!=y]
   raise AssertionError((case,row,len(differences),differences[:30]))
- if case<32 or case%31==0 or (a.wide_colours and case%7==0):
+ if case<32 or case%31==0 or (a.wide_colours and case%7==0) or (a.thin and case<128):
   digest=14695981039346656037
   for byte in want:digest=((digest^byte)*1099511628211)&0xffffffffffffffff
   fixtures.append(row+[digest])
