@@ -30,6 +30,8 @@ Ground-objective completion now has a successful 338-frame SAM strike and natura
 
 The immediate work is broader campaign/encounter coverage and remaining audio paths. Original execution now establishes that all 33 environments used by the 128 retail missions disable the retained older sprite-explosion subsystem; that path belongs outside the retail implementation scope. No interactive checkpoint is required for these analytical and automated checks. Commands and detailed evidence are in [implementation.md](implementation.md) and [recording.md](recording.md).
 
+The Gravis four-voice request controller now matches 8,192 complete original requests, including persistent cooldowns, resident rotation, stream selection, shared priorities and exact first-item delivery. Its compact fixture passes in all three builds, bringing the regression count to 199. Sample-RAM allocation and live GF1 playback remain the next audio integration stages.
+
 The numbered sections below retain the implementation sequence and its verification boundaries.
 
 ## 1. Establish complete-session reference capture

@@ -699,6 +699,30 @@ Typed telemetry now feeds the original clock, fuel, throttle, ECM/stealth and ch
 python3 tools/check_mfd.py
 ```
 
+### Gravis sampled-effects request controller
+
+Gravis selects a separate four-voice sampled-effects path, rather than another
+OSL music driver. Original `0xdda88`/`0xddadc` validate the complete sequence
+before changing a cooldown. Entirely resident sequences rotate through voices
+1–3; any streamed item selects voice zero. The rotating cursor advances even
+when that resident voice is busy and priority rejects the request. Priority is
+shared across voices, and a background request requires a stopped voice.
+Accepted requests stop and replace their selected queue, including sequences
+whose samples all have zero length.
+
+The translated controller agrees in **8,192 complete original variadic
+requests and persistent cooldown updates**, including 2,507 accepted requests
+across all four voices. Original validation, queue assembly and first-item
+dispatch execute; stopped flags and sample residence are supplied at their
+hardware/resource boundaries. Exact stop/start calls are checked. A 256-case
+synthetic fixture adds the 199th asset-free regression, passing in development,
+Release and ASan/UBSan. This verifies scheduling; live Gravis playback and
+sample-RAM allocation are still being connected.
+
+```sh
+python3 tools/check_gus_scheduler.py
+```
+
 Seven original page painters now consume typed flight, fuel, damage and inventory telemetry: stores, gauges, flight data, four fuel cells, system warnings, aircraft schematic and engine load. Their backgrounds, monochrome masks, labels, positions, display mount ordering, formats and conversion factors come from the external assets. Selected stores retain the original readiness colours and aircraft-specific mount arrangement; failed systems retain their outlined cells. The fuel display preserves the signed-word comparisons inside its dword subtraction loop.
 
 **588 complete native pixel/coverage frames agree**, covering both outer display positions, all three aircraft, damage states, fractional values, viewport clipping and fuel-cell boundaries. All **eighteen original outer-page selections** agree independently. The two dispatch tables differ: the right display adds the moving map and engine load, while the left supplies the aircraft schematic and ground database; gauges occupy different indices. Scene-dependent camera, ground database, moving-map and control/autopilot pages remain separate integration work.
