@@ -87,6 +87,7 @@ struct instrument_assets {
   std::string radar_format;
   std::string nearby_fighters_message;
   std::string cleared_for_takeoff_message;
+  std::string ground_service_message;
   std::string time_warp_message;
   std::array<std::string,2> cheat_messages;
   std::array<std::string,2> airspace_messages;

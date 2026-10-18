@@ -48,7 +48,7 @@ int main(int const argc, char const *const argv[]) try {
       std::cout.write(reinterpret_cast<char const*>(extra.data()),sizeof(extra));
       std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());
       std::cout.write(reinterpret_cast<char const*>(coverage.pixels.data()),coverage.pixels.size());
-    } else if(std::string_view{argv[2]} == "selection") {
+    } else if(std::string_view{argv[2]} == "selection" || std::string_view{argv[2]} == "destination") {
       tfx::flight::landing_input input;unsigned int craft,route_count,sites_count,carrier_count;
       std::cin >> craft >> input.inhibited >> input.crashed >> input.ejected >> input.damaged >> input.realistic >> route_count;
       input.aircraft = static_cast<tfx::flight::player_aircraft>(craft + 1);
@@ -67,9 +67,10 @@ int main(int const argc, char const *const argv[]) try {
         std::cin >> surface.position_q8.x >> surface.position_q8.y >> surface.position_q8.z >> surface.port.offset.x >> surface.port.offset.y >> surface.port.heading >> surface.destroyed >> flags >> side >> type;
         if(!(flags & 24) && side == 1 && type == 50) carriers.push_back(std::move(surface));
       }
-      auto const result{controller.toggle(input,route,[&](vec2<int16_t> const &cell) -> std::optional<tfx::flight::landing_port> {
+      auto const terrain{[&](vec2<int16_t> const &cell) -> std::optional<tfx::flight::landing_port> {
         auto const found{sites.find({cell.x,cell.y})};return found == sites.end() ? std::nullopt : std::optional{found->second};
-      },carriers)};
+      }};
+      auto const result{std::string_view{argv[2]} == "destination" ? controller.select_runway(route,terrain,carriers) : controller.toggle(input,route,terrain,carriers)};
       for(auto const value : words(controller.value())) std::cout << value << ' ';
       std::cout << result.navigation << ' ' << result.afterburner_stop_sample << ' ' << (result.music_cue ? static_cast<int>(*result.music_cue) : -1) << ' ' << (result.waypoint ? static_cast<int>(*result.waypoint) : -1) << ' ' << result.controls.has_value();
       if(result.controls) {

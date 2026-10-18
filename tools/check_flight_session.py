@@ -26,12 +26,13 @@ p.add_argument('--output',type=Path,help='retain native/C++ frames and the read-
 p.add_argument('--frames',type=int,default=4)
 p.add_argument('--ticks-per-frame',type=int,default=4,help='declared external timer interval, before native frame clamps')
 p.add_argument('--until-result',action='store_true',help='compare through a natural result and FINISH, with --frames as the upper bound')
-p.add_argument('--until-landed',action='store_true',help='compare an automatic approach through its natural stopped state')
+p.add_argument('--until-landed',action='store_true',help='compare an automatic approach through its natural touchdown finalizer')
 p.add_argument('--strict-pixels',action='store_true')
 p.add_argument('--inputs',type=Path,help='compare explicit keyboard events/held keys using a private window and virtual external GLFW devices')
 p.add_argument('--native-capture',type=Path,help='reuse a prior matching native capture without executing the original again')
 p.add_argument('--lapc-effects',action='store_true',help='compare live LAPC effect requests; the host PCM device is muted before start')
 p.add_argument('--rom-dir',type=Path,help='Roland ROM directory for --lapc-effects')
+p.add_argument('--default-rearming',action='store_true',help='supply DEFAULT/DONE in post-landing arming screens')
 a=p.parse_args()
 if a.until_result and a.until_landed:p.error('choose either --until-result or --until-landed')
 if a.lapc_effects and (not a.inputs or not a.rom_dir):p.error('--lapc-effects needs --inputs and --rom-dir')
@@ -48,11 +49,12 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     device=2 if a.lapc_effects else 0
     (install/'TFX.CFG').write_bytes(f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode())
     if not a.native_capture:
-        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--until-landed']if a.until_landed else []),*(['--lapc-effects']if a.lapc_effects else []),*(['--career-rules']if a.career_rules else [])],check=True,timeout=max(300,a.frames*4))
+        subprocess.run([sys.executable,'-B',str(tools/'capture_native_flight.py'),'--research',str(a.research.resolve()),'--output',str(native),'--mission',str(a.mission),'--frames',str(a.frames),'--ticks-per-frame',str(a.ticks_per_frame),'--flight-model',a.flight_model,*(['--inputs',str(a.inputs.resolve())]if a.inputs else []),*(['--until-result']if a.until_result else []),*(['--until-landed']if a.until_landed else []),*(['--lapc-effects']if a.lapc_effects else []),*(['--career-rules']if a.career_rules else []),*(['--default-rearming']if a.default_rearming else [])],check=True,timeout=max(300,a.frames*4))
     expected=json.loads((native/'session.json').read_text())
     assert expected.get('resource_root')=='TFX','native capture predates the corrected DOS texture root; recapture it'
     assert expected['mission']==a.mission and expected['flight_model']==a.flight_model and expected['ticks_per_frame']==a.ticks_per_frame,'native capture configuration differs'
     assert expected.get('lapc_effects',False)==a.lapc_effects,'native audio capture configuration differs'
+    assert expected.get('default_rearming',False)==a.default_rearming,'native arming input policy differs'
     assert expected['presentation_numbers']=={'mission':a.mission,'arcade':0 if a.career_rules else 1},'native capture inherited campaign state differs'
     if a.until_result:
         terminal=expected.get('terminal',{})
@@ -60,7 +62,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         a.frames=terminal['frame']
     if a.until_landed:
         landed=expected.get('landing_checkpoint',{})
-        assert 1<=landed.get('frame',0)<=a.frames,'native automatic landing did not stop within the requested bound'
+        assert landed.get('finalizer') and 1<=landed.get('frame',0)<=a.frames,'native automatic landing did not reach touchdown within the requested bound'
         a.frames=landed['frame']
     assert [row for row in expected.get('inputs',[])if row['frame']<=a.frames]==inputs.rows(a.frames),'native capture keyboard inputs differ'
     assert len(expected['snapshots'])==a.frames+1,'reuse a native capture ending at the requested frame; untagged render events cannot be sliced safely'
@@ -68,6 +70,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
         for name,key in (('TFX.DAT','executable_sha256'),('DID.DAT','archive_sha256')):
             assert hashlib.sha256((original/name).read_bytes()).hexdigest()==expected['reference'][key],('native capture resource differs',name)
     env=dict(os.environ)
+    if a.default_rearming:env['TFX_DEFAULT_REARMING']='1'
     if a.lapc_effects:env['TFX_OBSERVE_LAPC']='1'
     # LSan cannot inspect a process under ptrace; ordinary sanitizer tests keep it enabled.
     env['ASAN_OPTIONS']=env.get('ASAN_OPTIONS','')+':detect_leaks=0'
@@ -118,6 +121,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     assert result.returncode==0,(result.stdout+result.stderr)[-6000:]
     assert 'exited normally' in result.stdout and 'ERROR:' not in result.stderr,(result.stdout+result.stderr)[-6000:]
     lines=result.stdout.splitlines()
+    if a.default_rearming:assert 'CPP_DEFAULT_REARMING_COMPLETE' in lines,'declared post-landing arming input never completed a dialog'
     def integers(prefix):return [[int(value) for value in line[len(prefix):].split()] for line in lines if line.startswith(prefix)]
     def records(prefix):return [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
     if a.lapc_effects:

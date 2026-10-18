@@ -20,7 +20,9 @@ parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--build',type=Path,default=Path('build'))
 parser.add_argument('--record',type=Path,help='write a compact native guidance-state fixture')
 parser.add_argument('--selection',action='store_true',help='compare destination and key-handler state instead of HUD frames')
+parser.add_argument('--destination-only',action='store_true',help='compare complete A0BC0 directly, including Alt+L selection messages')
 a=parser.parse_args();directory=a.research/'installs/cd_1994_09/TFX';im=NativeReference(directory/'TFX.DAT',data_base=0x100000)
+if a.destination_only:a.selection=True
 fields=[(0x8f82,'B'),(0x8f8b,'B'),(0x8f8c,'B'),(0x14984,'h'),(0x14986,'h'),(0x8f84,'h'),(0x8f86,'h'),(0x8f88,'H'),(0x1497c,'i'),(0x14978,'i'),(0x14938,'H'),(0x1493a,'H'),(0x14980,'h'),(0x14982,'h'),(0x14974,'i'),(0x8f8a,'B')]
 def set_state(values):
     for (field,fmt),value in zip(fields,values):im.write(field,'<'+fmt,value)
@@ -113,7 +115,7 @@ else:
         row.append(len(carriers))
         for carrier in carriers:row.extend(carrier)
         cases.append(row)
-    output=subprocess.check_output([str((a.build/'landing_probe').resolve()),str(directory),'selection'],input=('\n'.join(' '.join(str(int(value)) for value in row) for row in cases)+'\n').encode()).decode().splitlines()
+    output=subprocess.check_output([str((a.build/'landing_probe').resolve()),str(directory),'destination' if a.destination_only else 'selection'],input=('\n'.join(' '.join(str(int(value)) for value in row) for row in cases)+'\n').encode()).decode().splitlines()
     assert len(output)==len(cases)
     counts=Counter()
     for index,(row,line) in enumerate(zip(cases,output)):
@@ -132,7 +134,7 @@ else:
             im.write(0x128c8+slot*4,'<I',address);im.cpu.mem_write(address,struct.pack('<3i',x,y,z));im.cpu.mem_write(address+0x24,struct.pack('<H',handle));im.cpu.mem_write(address+0x2f,bytes([flags]));im.cpu.mem_write(address+0x2a,struct.pack('<I',profile));im.cpu.mem_write(profile+0x1f,bytes([side]));ports[handle]=(kind,ox,oz,heading,destroyed)
         im.write(0xabe9,'<B',inhibited);im.write(0x86ce,'<B',crashed);im.write(0x12c04,'<H',ejected);im.write(0x11b2a,'<H',craft);im.write(0x1347a,'<B',6 if realistic else 0);im.write(0x8e18,'<d',1 if damaged else 0)
         im.write(0xac58,'<i',-16384);im.write(0xac5c,'<i',0);messages.clear();stops.clear();voices.clear()
-        im.call(0x847ec,limit=2000000)
+        im.call(0xa0bc0 if a.destination_only else 0x847ec,limit=2000000)
         navigation=bool(stops);waypoint=im.read(0x597c,'<H')[0]
         expected=state()+[int(navigation),int(bool(stops)),voices[0] if voices else -1,waypoint-1 if waypoint!=65535 else -1,int(navigation)]
         if navigation:expected.extend([im.read(0x14962,'<H')[0],*[im.read(field,'<Q')[0] for field in (0x14360,0x148b8,0x148b0,0x148a8)]])
@@ -141,4 +143,4 @@ else:
         assert actual==expected,(index,row,actual,expected)
         counts['engaged' if state()[0] else 'disabled']+=1
         if state()[0]:counts['carrier' if state()[1] else 'runway']+=1
-    print(f'ILS key/destination selection agrees in {len(cases)} original updates: {dict(counts)}')
+    print(f'ILS {"direct destination" if a.destination_only else "key/destination"} selection agrees in {len(cases)} original updates: {dict(counts)}')

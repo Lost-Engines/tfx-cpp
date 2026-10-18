@@ -63,9 +63,10 @@ parser.add_argument('--career-rules',action='store_true',help='declare inherited
 parser.add_argument('--frames',type=int,default=4)
 parser.add_argument('--ticks-per-frame',type=int,default=4,help='declared external timer interval; native frame clamps still execute')
 parser.add_argument('--until-result',action='store_true',help='capture through a natural mission result, with --frames as the upper bound')
-parser.add_argument('--until-landed',action='store_true',help='capture an automatic approach through its natural stopped state')
+parser.add_argument('--until-landed',action='store_true',help='capture an automatic approach through its natural touchdown finalizer')
 parser.add_argument('--inputs',type=Path,help='declared per-frame keyboard events/held keys as JSON')
 parser.add_argument('--lapc-effects',action='store_true',help='execute the original LAPC effects driver and record live cue requests')
+parser.add_argument('--default-rearming',action='store_true',help='supply DEFAULT/DONE pointer input in post-landing arming dialogs too')
 args=parser.parse_args()
 if args.until_result and args.until_landed:parser.error('choose either --until-result or --until-landed')
 inputs=FlightInputs.read(args.inputs)if args.inputs else FlightInputs([])
@@ -141,18 +142,27 @@ def keyboard(current):
 im.intercept(0xb41e4,'Supply private keyboard transport arrays instead of installing the DOS IRQ handler; native translation initialization executes.',keyboard)
 im.intercept(0xb43b4,'No host keyboard events are pending during startup.',lambda current:current.return_from())
 entered=[False];frames=[0];snapshots=[]
-mouse_polls=[0];mouse_buttons=[0];defaults_applied=[False]
+mouse_polls=[0];mouse_buttons=[0];defaults_applied=[False];inside_arming=[False]
+def begin_arming(current):
+ inside_arming[0]=True
+ if not entered[0] or args.default_rearming:
+  mouse_polls[0]=0;defaults_applied[0]=False
+def end_arming(current):inside_arming[0]=False
+im.intercept(0x8b47c,'Observe arming entry so declared DEFAULT/DONE input stays inside the actual modal screen.',begin_arming)
+im.intercept(0x8b5cb,'Observe the common arming return; flight pointer input resumes afterwards.',end_arming)
 im.intercept(0x8978c,'Observe the original DEFAULT button action; its complete native body executes.',lambda current:defaults_applied.__setitem__(0,True))
 def mouse(current):
- if mouse_polls[0]>128 and not entered[0]:raise RuntimeError('Unconsumed mouse script after 128 polls')
- mouse_polls[0]+=1;mouse_buttons[0]=inputs.at(frames[0]).get('buttons',0) if entered[0] else int(mouse_polls[0]%32 in range(8,16))
+ scripted=not entered[0] or (args.default_rearming and inside_arming[0])
+ if mouse_polls[0]>128 and scripted:raise RuntimeError('Unconsumed arming mouse script after 128 polls')
+ mouse_polls[0]+=1;mouse_buttons[0]=int(mouse_polls[0]%32 in range(8,16)) if scripted else inputs.at(frames[0]).get('buttons',0)
  for offset,value in ((4,197 if defaults_applied[0] else 101),(8,199),(12,mouse_buttons[0])):
   pointer=struct.unpack('<I',current.cpu.mem_read(current.cpu.reg_read(r.UC_X86_REG_ESP)+offset,4))[0];current.cpu.mem_write(pointer,struct.pack('<H',value))
  current.return_from()
 im.intercept(0xc72ff,'Supply explicit pointer input on the authored DEFAULT then DONE buttons.',mouse)
 def held_mouse(current):
- if mouse_polls[0]>128 and not entered[0]:raise RuntimeError('Unconsumed mouse script after 128 polls')
- mouse_polls[0]+=1;mouse_buttons[0]=inputs.at(frames[0]).get('buttons',0) if entered[0] else int(mouse_polls[0]%32 in range(8,16));current.cpu.reg_write(r.UC_X86_REG_EAX,mouse_buttons[0]);current.return_from()
+ scripted=not entered[0] or (args.default_rearming and inside_arming[0])
+ if mouse_polls[0]>128 and scripted:raise RuntimeError('Unconsumed arming mouse script after 128 polls')
+ mouse_polls[0]+=1;mouse_buttons[0]=int(mouse_polls[0]%32 in range(8,16)) if scripted else inputs.at(frames[0]).get('buttons',0);current.cpu.reg_write(r.UC_X86_REG_EAX,mouse_buttons[0]);current.return_from()
 im.intercept(0xc733e,'Supply an explicit button press/release sequence while the original modal controller polls.',held_mouse)
 mouse_motion_frame=[None]
 def relative_mouse(current):
@@ -174,7 +184,7 @@ def input_port(cpu,port,size,unused):
 im.cpu.hook_add(UC_HOOK_INSN,input_port,None,1,0,r.UC_X86_INS_IN)
 clock=[0]
 def timer(current):
- if not entered[0]:clock[0]+=4
+ if not entered[0] or (args.default_rearming and inside_arming[0]):clock[0]+=4
  current.write(0x16f2c,'<I',clock[0]);current.return_from()
 im.intercept(0xa6134,'Supply an explicit monotonically advancing launcher timer.',timer)
 # Original startup installs Watcom floating formatting and its x87 environment.
@@ -350,14 +360,16 @@ def snapshot(current):
   'actors':actors_snapshot(current),
  }
 
-landing_checkpoint={};landing_seen=[False]
+landing_checkpoint={};landing_seen=[False];landing_finalised=[False]
+if args.until_landed:
+ im.intercept(0xa02c8,'Observe touchdown finalization without replacing its stop, gear, pose or post-landing service effects.',lambda current:landing_finalised.__setitem__(0,True))
 def frame_boundary(current):
  snapshots.append(snapshot(current))
  if args.until_landed:
   phase=current.read(0x86cf,'<B')[0]
   landing_seen[0]|=phase!=0
-  if landing_seen[0] and phase==0 and current.read(0x8d3a,'<H')[0] and current.read(0x13444,'<i')[0]==0:
-   landing_checkpoint['frame']=frames[0]
+  if landing_seen[0] and landing_finalised[0] and phase==0:
+   landing_checkpoint.update(frame=frames[0],finalizer=True)
    current.cpu.emu_stop();return
  if frames[0]==args.frames:
   current.cpu.emu_stop();return
@@ -374,8 +386,8 @@ def terminal_boundary(cpu,address,size,unused):
  if args.until_landed:
   phase=im.read(0x86cf,'<B')[0]
   landing_seen[0]|=phase!=0
-  if landing_seen[0] and phase==0 and im.read(0x8d3a,'<H')[0] and im.read(0x13444,'<i')[0]==0:
-   snapshots.append(snapshot(im));landing_checkpoint['frame']=frames[0]
+  if landing_seen[0] and landing_finalised[0] and phase==0:
+   snapshots.append(snapshot(im));landing_checkpoint.update(frame=frames[0],finalizer=True)
    cpu.emu_stop();return
  if (args.until_result or args.until_landed) and not terminal and im.read(0x593a,'<h')[0]:
   snapshots.append(snapshot(im));terminal['frame']=frames[0]
@@ -473,6 +485,7 @@ for index,(filename,contents)in enumerate(memory_files.files.items()):
 record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
  'inputs':inputs.rows(frames[0]),
+ 'default_rearming':args.default_rearming,
  'lapc_effects':args.lapc_effects,'lapc_requests':lapc_requests,
  'sample_requests':sample_requests if args.lapc_effects else None,
  'terminal':terminal,

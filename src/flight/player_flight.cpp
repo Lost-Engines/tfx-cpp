@@ -51,6 +51,9 @@ void player_flight::initialise(aerodynamic_airframe const &aircraft, loadout con
   else initialise_arcade(basic.flight,context.position,context.angles,basic_mach,context.landed,ground);
   basic.reported_speed = context.landed ? 0 : .5f;
   physical = launch_aerodynamic_flight(aircraft,stores,context,wind,damage,random);
+  // Native 6C3C is shared with the cockpit gauge and survives initialization.
+  // An immediate automatic approach skips the usual fuel-burn conversion.
+  physical.powerplant.fuel_readout = fuel.reading;
   publish_shared_player(basic,physical);
   basic.ground.body = physical.view.orientation;
   basic.ground.visible = physical.view.orientation;

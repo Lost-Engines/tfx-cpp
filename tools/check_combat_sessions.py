@@ -14,11 +14,27 @@ import tempfile
 
 
 CASES = {
+    'career-carrier-landing': (1111, 'realistic', 1024, [
+        {'frame': 1, 'event': 'p', 'held': ['right-shift', 'p']},
+        {'frame': 3, 'event': 'l', 'held': ['right-shift', 'l']},
+        {'frame': 5, 'event': 'o', 'held': ['right-shift', 'o']},
+        {'frame': 7, 'event': 'p', 'held': ['right-shift', 'p']},
+        {'frame': 9, 'event': 'l', 'held': ['alt', 'l']},
+        {'frame': 11, 'event': 't'},
+    ]),
     'career-airfield-landing': (511, 'simple', 1024, [
         {'frame': 1, 'event': 'l', 'held': ['alt', 'l']},
         {'frame': 3, 'event': 't'},
     ]),
-    'career-carrier-landing': (512, 'realistic', 1024, [
+    # The automatic selector in mission 512 chooses Columbia's runway too,
+    # despite the authored instruction to land on a carrier.
+    'career-raptor-runway-landing': (512, 'realistic', 1024, [
+        {'frame': 1, 'event': 'l', 'held': ['alt', 'l']},
+        {'frame': 3, 'event': 't'},
+    ]),
+    # This sea sortie has no eligible runway/deck. Keep the original refusal
+    # and subsequent loss rather than calling it a successful carrier approach.
+    'career-no-runway-result': (605, 'realistic', 96, [
         {'frame': 1, 'event': 'l', 'held': ['alt', 'l']},
         {'frame': 3, 'event': 't'},
     ]),
@@ -144,7 +160,7 @@ def main():
             mission, model, frames, inputs = CASES[name]
             if isinstance(inputs, str):
                 inputs = json.loads((Path(__file__).resolve().parent.parent / 'tests/inputs' / inputs).read_text())
-            ticks = 18 if name in ('ground-strike-result', 'crash-result', 'career-crash-result', 'career-airspace-result', 'career-airfield-landing', 'career-carrier-landing') else 4
+            ticks = 18 if name in ('ground-strike-result', 'crash-result', 'career-crash-result', 'career-airspace-result', 'career-airfield-landing', 'career-raptor-runway-landing', 'career-no-runway-result', 'career-carrier-landing') else 4
             tape = root / f'{name}.json'
             tape.write_text(json.dumps(inputs, indent=2) + '\n')
             command = [
@@ -166,6 +182,8 @@ def main():
                 command.extend(['--native-capture', str((args.native_root / name / 'native').resolve())])
             if name.startswith('career-'):
                 command.append('--career-rules')
+            if name == 'career-carrier-landing':
+                command.append('--default-rearming')
             if name.endswith('-result'):
                 command.append('--until-result')
             if name.endswith('-landing'):
@@ -180,7 +198,7 @@ def main():
             if name.endswith('-landing'):
                 assert capture['landing_checkpoint'], 'automatic landing never stopped'
                 assert any(s['automatic_landing'][0] for s in snapshots), 'landing controller never ran'
-                assert snapshots[-1]['automatic_landing'][0] == 0 and snapshots[-1]['speed'] == 0, 'landing did not stop and release the controller'
+                assert snapshots[-1]['automatic_landing'][0] == 0 and capture['landing_checkpoint']['finalizer'], 'landing did not reach its finalizer and release the controller'
             if name in ('training-intercept', 'training-result', 'training-simple-result', 'career-intercept-result'):
                 assert any(s['projectiles'] for s in snapshots), 'intercept never released a store'
                 assert any(s['mission_progress']['results'][3] for s in snapshots), 'intercept never downed the enemy'
@@ -201,6 +219,9 @@ def main():
                 assert snapshots[-1]['mission_progress']['violations'] > 0, 'airspace departure never violated orders'
                 assert capture['terminal']['campaign']['status'] == 2, 'departure did not report orders violated'
                 assert capture['terminal']['campaign']['outcome'] == 2, 'departure did not reach the court-martial outcome'
+            elif name == 'career-no-runway-result':
+                assert any(event['message'] == 'NO RUNWAYS TO LAND ON' for event in capture['radio_events']), 'sortie did not refuse an unavailable approach'
+                assert capture['terminal']['campaign']['status'] == 4, 'sortie did not reach its natural aircraft-loss result'
             elif name == 'ground-designation':
                 weapons = {shot[1] for s in snapshots for shot in s['projectiles']}
                 assert {0, 21} <= weapons, 'ground sequence never fired its cannon and Sidearm'

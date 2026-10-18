@@ -20,7 +20,7 @@ environment, renderer, arming and AI code executes. `--flight-model` selects
 any of the four models, and `--output` retains the private frames and observer
 log. `--strict-pixels` requires every captured image to match, not just the last.
 
-All **205 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+All **206 CTests** pass in development, Release and ASan/UBSan. All 128 retail
 missions also compose 64 development frames and 16 sanitizer frames without
 preview warnings. Real private-window controls exercise firing, MFDs,
 missile cameras, designator use, ejection and an automatic FINISH handoff.
@@ -5473,7 +5473,62 @@ pixel/coverage frames**, including map edges and all VGA alignments, still
 passes. The remaining difference concerns integration with retained cockpit
 pages; it is not counted as complete image equivalence.
 
-Automatic runway/carrier approach captures are also under investigation. The
-capture tool can stop at a naturally stopped landing controller and retains
-an intervening mission result for diagnosis. No landing outcome is supplied
-to either game. These cases do not yet establish complete approach equivalence.
+### Ground service and complete landing captures
+
+The original `71E44` landing-service controller is connected after completion
+checks and before the other actors. A stopped, landed aircraft is serviced
+once, provided it has not crashed, ejected, resolved its mission or violated
+orders. Initial ground starts are already marked serviced; taking off clears
+that latch. Fuel, ammunition, countermeasures and system conditions are
+restored, the score receives the original 10,000-point credit, and missions
+without DEFAULT_WEAPONS reopen their real arming screen. Its closing input
+and elapsed UI time are consumed before flight resumes.
+
+All **8,192 complete original eligibility calls** agree, including persistence
+through repeated stops, takeoff and initializer changes. Refit, output delivery
+and physical initialization are declared consumer boundaries in that isolated
+check. Its 256-row regression is the 206th asset-free test.
+
+    python3 tools/check_ground_service.py --build build
+
+Complete approaches separately exercise the real initialization and frame
+loops. Mission 511 reaches its runway finalizer after 237 frames; mission 512
+uses the same Columbia runway and takes 246, despite its carrier instruction.
+Mission 1111 provides a genuine 130-frame carrier landing, including actual
+DEFAULT/DONE input in its post-landing arming screen. The capture stops only
+after original touchdown finalizer `A02C8` executes and the complete frame
+returns. An unexpected mission loss is retained for diagnosis, rather than
+being presented as a successful approach.
+
+These comparisons exposed missing caller behavior: Alt+L must invoke the F5
+handler's complete cockpit-departure sequence, and the direct ILS destination
+selector must emit its engaged announcement. Both the key/toggle path and the
+direct selector now agree in **1,536 original calls each**.
+
+    python3 tools/check_landing.py --build build
+    python3 tools/check_landing.py --build build --destination-only
+
+Ground service retains the original route/guidance scratch. It also reuses
+the mission's authored initial-ground flag: an airborne-start mission can
+therefore reset to its cell centre at fixed speed 250 after servicing. This
+surprising original behavior is retained. The renderer basis exported before
+service survives for that frame even though the physical basis is reset.
+The cockpit fuel gauge likewise survives initialization; an immediate
+automatic approach must not replace its reading with an uninitialized zero.
+
+The complete **237-frame Simple runway approach agrees in every captured
+state and indexed pixel**, including the service frame. The **130-frame
+Realistic carrier approach agrees in gameplay state, radio, damage, stores,
+camera and horizon**, and its final image matches after the real arming dialog.
+Five earlier carrier frames retain drawing differences, so that case does not
+yet establish complete image equivalence. The 246-frame Raptor runway case is
+also retained for sanitizer comparison.
+
+    python3 tools/check_combat_sessions.py --case career-airfield-landing
+    python3 tools/check_combat_sessions.py --case career-carrier-landing
+
+The carrier command deliberately keeps strict pixel checking enabled and
+reports the remaining renderer discrepancies. The absence-of-runway case in
+mission 605 separately reaches its original refusal and natural aircraft-loss
+result after 36 frames; its captured gameplay/FINISH values agree, with small
+palette-index differences on six intermediate images still open.

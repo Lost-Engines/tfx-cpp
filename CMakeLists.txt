@@ -76,6 +76,7 @@ add_library(tfx_core
   src/flight/player_shared.h
   src/flight/gear_controls.cpp src/flight/gear_controls.h
   src/flight/engine_controls.cpp src/flight/engine_controls.h
+  src/flight/ground_service.cpp src/flight/ground_service.h
   src/flight/player_frame.cpp
   src/flight/player_frame.h
   src/flight/player_dispatch.cpp
@@ -1035,6 +1036,11 @@ if(BUILD_TESTING)
   target_link_libraries(engine_key_probe PRIVATE tfx_core)
   configure_first_party(engine_key_probe)
   add_test(NAME flight.native_engine_keys COMMAND engine_key_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/engine_key.txt")
+
+  add_executable(ground_service_probe tests/ground_service_probe.cpp)
+  target_link_libraries(ground_service_probe PRIVATE tfx_core)
+  configure_first_party(ground_service_probe)
+  add_test(NAME flight.native_ground_service COMMAND ground_service_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/ground_service.txt")
 
   add_executable(detail_status_probe tests/detail_status_probe.cpp)
   target_link_libraries(detail_status_probe PRIVATE tfx_core)

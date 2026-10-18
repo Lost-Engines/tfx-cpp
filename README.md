@@ -26,7 +26,7 @@ Mission 501 is the first Fighter Weapons School engagement. Direct launches use 
 
 ## Playing
 
-The original menus, briefings, mission planning, arming, flight, combat and results are connected. All four flight models are available, along with the original cockpit/MFDs, cameras, weather, damage, refuelling and automatic landing. Campaign flights return to the authored presentations and retain DOS-compatible `TFXSAV.0`–`TFXSAV.9` pilot files.
+The original menus, briefings, mission planning, arming, flight, combat and results are connected. All four flight models are available, along with the original cockpit/MFDs, cameras, weather, damage, refuelling and automatic landing. Landing and stopping can refuel, repair and rearm your aircraft through the original arming screen. Campaign flights return to the authored presentations and retain DOS-compatible `TFXSAV.0`–`TFXSAV.9` pilot files.
 
 Arcade uses mouse steering. The other flight models support keyboard and joystick controls; `--flight-model` and `--control` override the saved choices. Press **backtick** in flight for configuration and realism settings, and **P** to pause. Press Escape twice to eject; **Shift+Q** opens the quit/enrol confirmation.
 

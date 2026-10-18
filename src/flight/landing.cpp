@@ -27,6 +27,7 @@ vec3<int32_t> runway(landing_state const &state) {
 landing_system::landing_system(landing_state initial) : state{std::move(initial)} {}
 landing_state const &landing_system::value() const { return state; }
 void landing_system::reset() { state = {}; }
+void landing_system::disengage() { state.enabled = false; }
 void landing_system::prepare_beacon() {
   auto position{runway(state)};
   position.y = 0;
@@ -54,7 +55,6 @@ landing_selection landing_system::toggle(landing_input const &input, std::span<v
   result.waypoint = selected.waypoint;
   result.messages = std::move(selected.messages);
   if(!state.enabled) return result;
-  result.messages.push_back(landing_radio::engaged);
   result.music_cue = input.damaged ? 8u : 7u;
   result.controls.emplace(landing_controls{
     .configuration{3},
@@ -90,6 +90,7 @@ landing_selection landing_system::select_runway(std::span<vec3<int32_t> const> c
   state.enabled = found;
   if(!found) { result.messages.push_back(landing_radio::no_runway);return result; }
   prepare_beacon();
+  result.messages.push_back(landing_radio::engaged);
   return result;
 }
 landing_cue landing_system::advance(vec3<int32_t> const &player, bool const speed_request,

@@ -72,6 +72,7 @@
 #include "render/g_effects.h"
 #include "flight/gear_controls.h"
 #include "flight/engine_controls.h"
+#include "flight/ground_service.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
@@ -132,6 +133,8 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   flight_options const &options, missions::variables &campaign, window *const shared_window) {
   auto &preferences{options.preferences};
   auto *const sound{options.sound};
+  auto *active_window{shared_window};
+  bool service_modal_closed{false};
   auto const sample{[&](audio::sample_priority const priority, auto const id) { if(sound) sound->sample(priority,id); }};
   auto const lapc_effect{[&](audio::lapc_effect_cue const cue) { if(sound) sound->lapc_effect(cue); }};
   auto const reheat_sound{[&](flight::afterburner_change const change) {
@@ -183,6 +186,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   tfx::render::software_renderer renderer{tables}, camera_renderer{tables};
   tfx::missions::timeline mission_time{mission_setup};
   tfx::missions::progress mission_progress{mission_setup};
+  tfx::flight::ground_service ground_service;
   tfx::missions::finish_program const mission_finish{selected.script};
   auto const initial_campaign{campaign};
   bool const frontend_flight{shared_window != nullptr};
@@ -336,6 +340,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   std::vector<vec2<uint8_t>> player_route;
   for(auto const &point : actor_program.player_route) player_route.emplace_back(static_cast<uint8_t>(point.x / tfx::world::cell_units),static_cast<uint8_t>(point.z / tfx::world::cell_units));
   auto &player{simple_player.flight};
+  // The player callback exports the renderer basis. A later ground-service
+  // reset replaces the physics basis without exporting this cache again.
+  math::attitude player_render_basis;
   scene.set_query_reference(&player.integer_position);
   tfx::flight::simple_inputs simple_controls;
   tfx::flight::mouse_flight_input mouse_control;
@@ -830,7 +837,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .position_q8{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
       .position_f32{vec3f{player.position}},
       .angles{vec3<tfx::math::angle>{player.angles}},
-      .basis{player.orientation},
+      .basis{player_render_basis},
       .body_basis{&body_basis()},
       .elapsed{launch_elapsed},
       .pan{view_pan},
@@ -1024,6 +1031,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     fuel_display = instrument_setup.fuel;
     defences = initial_defences;
     armament.pylons = initial_stores;
+    ground_service.reset();
     armament.selected = 0;
     bool const ground_weapons{mission_setup.aircraft == tfx::flight::player_aircraft::nighthawk};
     armament.select(ground_weapons ? tfx::weapons::weapon_role::ground : tfx::weapons::weapon_role::air,false);
@@ -1081,6 +1089,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       },
       .surface_celsius{surface_celsius()},
     },mission_setup.speed_factor,wind_parameters,player_damage,options.session_random);
+    player_render_basis = player.orientation;
     physical_player.mounted_stores = armament.flight_stores(airframe.stores_and_mounts.mounts);
     // The modal screen updates store statistics through 95DC8. Automatic
     // DEFAULT_WEAP fitting skips those previews until the first flight tick.
@@ -1236,6 +1245,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .water_world{environment.lighting.water_world},
     })};
     if(update.aerodynamic.ground.cockpit_bump) cockpit_position.bump();
+    player_render_basis = player.orientation;
     if(preferences.effects.g_force != tfx::configuration::g_effects::none) tfx::render::advance_g_effects(g_effects,simple_player.displayed_g_load,preferences.effects.g_force,elapsed);
     else g_effects = {};
     if(update.horizon_motion) ground_phase.advance(*update.horizon_motion);
@@ -1295,6 +1305,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     // messages. Suspension bumps apply now; later flak starts next frame.
     cockpit_position.advance(tables.instruments().viewports[view_index()].bottom,!designator_view && views.value().current == tfx::cockpit::view_mode::cockpit);
     for(auto const index : mission_time.begin_frame()) radio.show(mission_setup.messages[index].text);
+    // Native 871D4 precedes completion and ground service. A refill repairs
+    // conditions afterwards; its existing repair clocks survive until next tick.
+    tfx::flight::repair_systems(player_damage,elapsed);
     std::vector<tfx::missions::target_life> targets;
     for(auto const &target : mission_targets) targets.push_back(target_intact(target) ? tfx::missions::target_life::alive : tfx::missions::target_life::dead);
     for(auto const &event : mission_progress.begin_frame({
@@ -1318,13 +1331,72 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         sample(audio::sample_priority::urgent,audio::sample_id::mission_complete);
       }
     }
+    // Native 71E44 runs after objective/landing checks and before other actors.
+    if(ground_service.begin_frame({
+      .landed{player.landed},
+      .speed{player.fixed_speed},
+      .resolved{mission_progress.resolved},
+      .crashed{player.collision != 0},
+      .disabled{player_disabled || ejected()},
+      .violations{mission_progress.violations},
+    })) {
+      if(sound) sound->music_cue(audio::music_cue_id::normal_flight);
+      player.fuel = physical_player.powerplant.fuel = physical_player.stores.fuel_capacity;
+      campaign["score"] = std::bit_cast<int32_t>(static_cast<uint32_t>(campaign["score"]) + static_cast<uint32_t>(flight::ground_service_reward));
+      if(mission_setup.default_weapons) armament.fit_default(mission_setup.weapons);
+      else {
+        if(!active_window) throw std::runtime_error{"ground rearming requires a window for the original arming screen"};
+        glfwSetInputMode(active_window->get(),GLFW_CURSOR,GLFW_CURSOR_NORMAL);
+        if(!arm_mission(*active_window,game,tables,armament,player.aircraft,mission_setup.weapons)) return;
+        auto const &thumbnail{tables.arming_art().rows.back()};
+        options.projection_origin = (thumbnail.minimum + thumbnail.maximum) / int16_t{2};
+        service_modal_closed = true;
+      }
+      reset_weapon_targets();
+      uint8_t constexpr restored_countermeasures{15};
+      defences.chaff = defences.flares = restored_countermeasures;
+      landing.disengage();
+      cannon.ammunition = tfx::weapons::initial_cannon_ammunition;
+      radio.show(tables.instruments().ground_service_message);
+      scene.actor_event(player_visual,14);
+      scene.actor_event(player_visual,0);
+      player_damage.systems.fill(flight::system_condition::normal);
+      player_damage.systems[std::to_underlying(flight::aircraft_system::landing_gear)] = flight::system_condition::active;
+      // 8FAD4 restores BASIC Mach 1 and snaps heading to a cardinal direction.
+      // 8C184/8C318 reuse the authored initial-ground flag, even after a landing.
+      math::angle constexpr heading_bias{0x1000}, cardinal_mask{0xc000};
+      auto const heading{static_cast<math::angle>(static_cast<math::angle>(player.angles.y + heading_bias) & cardinal_mask)};
+      auto const retained_approach{automatic_landing};
+      auto const retained_navigation{physical_player.autopilot.navigation};
+      auto const retained_guidance{physical_player.autopilot.guidance};
+      auto const &aircraft{tables.aerodynamic_airframes.at(std::to_underlying(player.aircraft) - 1)};
+      auto const stores{armament.flight_stores(aircraft.stores_and_mounts.mounts)};
+      player_flight.initialise(aircraft,stores,{
+        .position{vec3<int32_t>{player.integer_position}},
+        .angles{vec3<math::angle>{0,heading,0}},
+        .model{preferences.model},
+        .player_route_points{static_cast<unsigned int>(player_route.size())},
+        .ground_elevation_steps{ground.height},
+        .landed{mission_setup.start.landed},
+        .wind{
+          .terrain_wind_boost{environment.lighting.cloud_layer},
+          .weather_wind_boost{environment.lighting.storm},
+        },
+        .surface_celsius{surface_celsius()},
+      },1.0f,wind_parameters,player_damage,air_simulation.random_stream());
+      automatic_landing = retained_approach; // Shared approach scratch survives 8FAD4.
+      // 8FAD4/95F3C retain route and guidance scratch, including the coordinates
+      // shared with the approach callback. This is not a new mission launch.
+      physical_player.autopilot.navigation = retained_navigation;
+      physical_player.autopilot.guidance = retained_guidance;
+    }
+    ground_service.finish_frame(player.landed);
     air_world.player = tfx::actors::air_contact{
       .position{vec3<int32_t>{vec3<long double>{player.position} * tfx::actors::position_unit}},
       .angles{vec3<tfx::math::angle>{player.angles}},
       .speed{std::bit_cast<int32_t>(static_cast<uint32_t>(player.fixed_speed) << tfx::actors::speed_fraction_bits)},
     };
     scene.place_actor(player_visual,vec3d{player.position},player.angles);
-    tfx::flight::repair_systems(player_damage,elapsed);
     advance_actors(elapsed);
     mission_progress.advance_return_countdown(elapsed,arcade_rules);
     if(mission_progress.force_landed_return) {
@@ -2060,6 +2132,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   std::unique_ptr<tfx::platform::window> owned_window;
   if(!shared_window) owned_window = std::make_unique<tfx::platform::window>(scale);
   auto &window{shared_window ? *shared_window : *owned_window};
+  active_window = &window;
   // Wayland maps the window after its first buffer: present before waiting for focus.
   window.present(renderer.output.colourise(*frame_colours));
   auto *const host{window.get()};
@@ -2417,7 +2490,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
               else {
                 result = landing.select_runway(actor_program.player_route,[&](auto const &cell) { return scene.terrain_landing_port(cell); },carriers);
                 if(landing.value().enabled) {
-                  views.enqueue(tfx::cockpit::view_mode::chase,player.fixed_speed);
+                  // Native 8428E calls the actual F5 handler, including its
+                  // cockpit departure sequence, before enabling the approach.
+                  views.press(tfx::cockpit::view_key::chase,{
+                    .speed{player.fixed_speed},
+                  });
                   automatic_landing.phase = tfx::flight::automatic_landing_phase::prepare;
                   result.navigation = true;
                   result.controls.emplace(tfx::flight::landing_controls{
@@ -2697,6 +2774,14 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         roll_input -= controls.roll_delta;
         if(simple_controls.source == tfx::flight::control_source::mouse && !arcade_mode) mouse_control.advance({controls.roll_delta,controls.pitch_delta});
         advance_world(controls,step->world_ticks,step->physics_seconds,down(GLFW_KEY_SPACE),store_trigger);
+        if(service_modal_closed) {
+          service_modal_closed = false;
+          previous_time = glfwGetTime();
+          timer_fraction = 0;
+          captured = mouse_started = false;
+          held.fill(false);
+          pitch_input = roll_input = 0;
+        }
         store_trigger = false;
         frame_ticks = step->world_ticks;
         flight_clock.begin({
