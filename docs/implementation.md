@@ -5287,3 +5287,37 @@ in development, Release and ASan/UBSan. The silent private Pulse/X11 test verifi
 live gear, airbrake and cannon output, GF1 stereo pan, sound off/on, preserved
 configuration and clean shutdown. Optional QSound and broader complete-flight
 audio coverage remain separate work; CD playback remains deferred.
+
+### Optional QSound dependencies
+
+`Q2.COM` SHA-256
+`24d626ce3a436296cd4cbfeb4123c8eb0b26765cb73f6678346512fb064edbbf`
+is a flat real-mode program, distinct from the Gravis helper. Its RIFF/CSP
+strings are parser tokens, not an embedded QSound firmware image.
+
+Original CS:0962 main calls CS:070D, which first searches the directory named
+by the DOS `SOUND` environment variable. CS:05A8 tries
+`\CSP\WFM0001z.CSP` down through `WFM0001a.CSP`, examining RIFF function/code
+chunks for a supported format. CS:039A separately opens the character device
+`CSPXXXX0`, requests its far entry point through DOS IOCTL 4402, and invokes
+that driver to allocate/load/start processing. The helper publishes magic
+`62951413` and the driver pointers only after successful setup.
+
+`tools/check_qsound_dependencies.py` executes unchanged main against three
+initialized C-runtime environment roots, supplying DOS file-not-found at the
+external file boundary. All 26 names are searched in each case and no interface
+is published. A separate unchanged CS:039A run establishes the absent-device
+failure. Neither path substitutes a hardware-detection or processing result.
+
+```sh
+python3 tools/check_qsound_dependencies.py --output build/qsound-dependencies.json
+```
+
+The retained TFX installation has neither those Creative firmware files nor a
+CSP DOS driver. The [Linux ALSA CSP implementation](https://github.com/torvalds/linux/blob/master/sound/isa/sb/sb16_csp.c)
+likewise loads microcode into a separate hardware processor and sends QSound
+codec parameters. The three per-sample TFX parameter words do not provide that
+algorithm. The reconstruction currently plays unprocessed SB samples; QSound
+processing is explicitly unavailable. Accurate support would require the
+appropriate external firmware and processor implementation or independently
+verified processing behaviour. This does not prevent ordinary SB16 playback.
