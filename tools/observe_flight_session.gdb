@@ -16,6 +16,12 @@ flight_frame=0
 import os
 import sys
 virtual_devices=None
+if 'TFX_OBSERVE_REFUELLING' in os.environ:
+ class RefuellingEntry(gdb.Breakpoint):
+  def stop(self):
+   gdb.execute('set $refuelling = this',to_string=True)
+   return False
+ RefuellingEntry('tfx::flight::refuelling::advance',internal=True)
 if 'TFX_OBSERVE_COUNTERMEASURES' in os.environ:
  class PlayerCountermeasure(gdb.Breakpoint):
   def stop(self):
@@ -365,6 +371,13 @@ class FrameReturn(gdb.FinishBreakpoint):
   values += [int(seeker[name][axis]) for name in ('reticle','projected') for axis in ('x','y')]
   values += [int(seeker[name]) for name in ('lock_ticks','acquisition_ticks','too_close')]
   print('CPP_SENSORS '+json.dumps(values))
+  if 'TFX_OBSERVE_REFUELLING' in os.environ:
+   refuel=gdb.parse_and_eval('$refuelling').dereference()['state']
+   values=[int(refuel[field])for field in ('enabled','saved_weapon_mode','phase','delay')]
+   values.extend(int(refuel['divisors'][axis])for axis in ('x','y','z'))
+   values.extend((identity(refuel['selected']),int(refuel['horizontal_distance'])))
+   values.extend(int(refuel['angle_errors'][axis])for axis in ('x','y','z'))
+   print('CPP_REFUELLING '+json.dumps(values))
 
   physical=player['physical']
   landing=player['automatic'];navigation=physical['autopilot']['navigation']

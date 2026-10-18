@@ -65,6 +65,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--mission',type=int,default=501)
+parser.add_argument('--mission-file',type=Path,help='declared test-authored loose mission source; --mission must name an absent archive entry')
 parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
 parser.add_argument('--realism',type=realism_settings,default=DEFAULT_REALISM,help='seven original REALISM values: G effects, precipitation, crashing, gear damage, wind, temperature, recovery')
 parser.add_argument('--x87-backend',type=Path,help='build directory supplying hardware FPATAN/FSIN/FCOS/FPTAN for exact raw floating-state checks')
@@ -98,11 +99,17 @@ memory_files=MemoryFiles(im)
 im.cpu.mem_map(0,4096)
 im.cpu.mem_map(0x400000,0x4000000);heap=[0x410000]
 archive=Archive.read(directory/'DID.DAT');entries={x.identifier:x for x in archive.entries};loads=[]
+scenario_name=f'missions/miss{args.mission}.mis'
+scenario=args.mission_file.read_bytes()if args.mission_file else None
+if scenario is not None:
+ if archive.hash_name(scenario_name)in entries:parser.error('a test-authored mission must not shadow an original archive entry; choose an unused --mission number')
+ if not scenario.endswith(b'\r\n')or b'\n'in scenario.replace(b'\r\n',b''):parser.error('the original mission tokenizer requires CRLF line endings, including the final line')
 def string(address):
  if not address:return '<null>'
  return bytes(im.cpu.mem_read(address,256)).split(bytes(1))[0].decode('cp437')
 def read(name):
  name=name.replace('\\','/').lstrip('/').lower().removeprefix('tfx/')
+ if scenario is not None and name==scenario_name:return scenario
  if name=='tfx.cfg':
   model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[args.flight_model]
   device=2 if args.lapc_effects else 0
@@ -358,11 +365,14 @@ def player_parts_snapshot(current,bindings=False):
  return [bound_models.get(instance+16+29*part+9,65535)if bindings else list(current.cpu.mem_read(instance+16+29*part,8))for part in range(count)]
 
 def snapshot(current):
+ tanker=current.read(0x13af4,'<I')[0]
+ selected_tanker=list(current.read(0x10f6c,'<50I')).index(tanker)if tanker else -1
  return {
   **({'automatic_landing':[current.read(0x86cf,'<B')[0],*current.read(0x14920,'<3i'),*current.read(0x1492c,'<3i'),current.read(0x14398,'<Q')[0],current.read(0x14378,'<Q')[0],int(current.read(0x1495a,'<H')[0]!=0)]}if args.until_landed else {}),
   'frame':frames[0],
   'realism_state':[current.read(field,'<B')[0]for field in (0x5954,0x8f31,0x8e22,0x8e23,0x8e25,0x8f30,0x8867)],
   'player_contact':list(current.read(0x10f28,'<3i3Hi')),
+  'refuelling':[current.read(0x7785,'<B')[0],current.read(0x13268,'<B')[0],current.read(0x13b04,'<B')[0],current.read(0x8c82,'<h')[0],*current.read(0x8c7c,'<3h'),selected_tanker,current.read(0x13af0,'<i')[0],*current.read(0x13af8,'<3i')],
   **({'aerodynamic_wind':[current.read(field,'<Q')[0]for field in (0x13b60,0x14288,0x13ba0,0x8e28,0x8e30,0x13b58,0x13b50,0x13bc8,0x13cc0,0x13b80,0x13cd0,0x13b70,0x13b48,0x13b30,0x13b38,0x8e38,0x13b90,0x13bc0,0x13b98)]+list(current.read(0x133fc,'<3I'))}if args.realism[4] else {}),
   'view_mode':current.read(0x87b6,'<h')[0],
   'mission_progress':{
@@ -540,6 +550,7 @@ for index,(filename,contents)in enumerate(memory_files.files.items()):
  recordings.append({'name':filename,'file':target,'closed':not any(handle[0]==filename for handle in memory_files.handles.values())})
 record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
+ 'test_mission_sha256':hashlib.sha256(scenario).hexdigest()if scenario is not None else None,
  'inputs':inputs.rows(frames[0]),
  'configuration_events':configuration.events if configuration else [],
  'saved_configuration':bytes(memory_files.files['tfx.cfg']).decode('cp437'),

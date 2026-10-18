@@ -8,7 +8,7 @@ The aim is to reach a substantially complete, automatically exercised game befor
 
 ## Current next work
 
-- Extend complete original-session comparisons to coupled refuelling and hostile/friendly encounters. Live wind changes and stock depletion/defensive modes now have complete strict comparisons. Exercise actual controls and natural outcomes; do not set internal state to manufacture success.
+- Extend complete original-session comparisons to hostile/friendly encounters. Coupled refuelling, live wind changes and stock depletion/defensive modes now have complete strict comparisons. Exercise actual controls and natural outcomes; do not set internal state to manufacture success.
 - Broaden persistent campaign coverage beyond the verified training result/save/continue sequence, including authorisation penalties and later campaign branches.
 - Keep every captured state, indexed image and (for new captures) displayed palette strict. Investigate divergent inputs or update order before attributing differences to the original.
 - Finish native packaging/startup checks without adding CI. CD music remains deferred. Optional QSound processing requires external Creative CSP firmware/driver support; it is an established dependency, not an unimplemented software effect.
