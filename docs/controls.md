@@ -1,5 +1,7 @@
 # Controls and configuration
 
+For Gravis sampled effects and speech, set `SOUNDFX=4` in the installation's `TFX.CFG` and retain its original `GUS.COM`. This emulates a one-MiB card, with the complete sound bank resident. Music selection remains separate.
+
 These follow the original September 1994 TFX 2.05 controls. Start the game with `--data-dir /path/to/TFX`; use `--help` for command-line options.
 
 Startup reads the original `TFX.CFG`; `--flight-model` overrides its model selection. Without a configuration, Arcade is selected. Arcade uses mouse steering. Select `--flight-model=simple`, `--flight-model=military-spec` or `--flight-model=realistic` for the other original models, using arrow keys and Alt+left/right for rudder. These retain their different flight dynamics, aircraft-specific handling, gear damage and carrier arrestor behaviour. `--control=keyboard`, `--control=mouse` or `--control=joystick` overrides the configured input in the non-Arcade models. Simple supports keyboard/joystick steering; joystick steering is available in the three non-Arcade models. `--joystick=N` selects a particular device (0–15), otherwise the first available stick is used. An absent stick falls back to keyboard input.

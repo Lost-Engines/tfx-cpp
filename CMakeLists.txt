@@ -8,6 +8,7 @@ endif()
 include(CTest)
 include(cmake/dependencies.cmake)
 include(cmake/dbopl.cmake)
+include(cmake/gf1.cmake)
 include(cmake/sc55.cmake)
 
 function(configure_first_party target)
@@ -25,6 +26,8 @@ add_library(tfx_audio
   src/audio/sample_scheduler.cpp src/audio/sample_scheduler.h
   src/audio/gus_scheduler.cpp src/audio/gus_scheduler.h
   src/audio/gus_memory.cpp src/audio/gus_memory.h
+  src/audio/gus_driver.cpp src/audio/gus_driver.h
+  src/audio/gus_samples.cpp src/audio/gus_samples.h
   src/audio/sample_bank.cpp src/audio/sample_bank.h
   src/audio/sample_voice.cpp src/audio/sample_voice.h
   src/audio/runtime.cpp src/audio/runtime.h src/audio/requests.h
@@ -421,7 +424,7 @@ add_library(tfx_core
 target_compile_definitions(tfx_core PUBLIC VECTORSTORM_NO_BOOST)
 configure_first_party(tfx_core)
 
-target_link_libraries(tfx_audio PUBLIC tfx_core PRIVATE MT32Emu::mt32emu PRIVATE dosbox_opl_core PRIVATE sc55_backend)
+target_link_libraries(tfx_audio PUBLIC tfx_core PRIVATE MT32Emu::mt32emu PRIVATE dosbox_opl_core PRIVATE sc55_backend PRIVATE gf1_backend)
 
 if(APPLE)
   set_source_files_properties(src/platform/miniaudio_implementation.c PROPERTIES LANGUAGE OBJC)
@@ -461,6 +464,10 @@ target_link_libraries(tfx PRIVATE tfx_audio PRIVATE pcm_device PRIVATE tfx_core 
 configure_first_party(tfx)
 
 if(BUILD_TESTING)
+  add_library(gf1_reference SHARED tests/gf1_reference_bridge.cpp)
+  target_link_libraries(gf1_reference PRIVATE gf1_backend)
+  configure_first_party(gf1_reference)
+  set_target_properties(gf1_reference PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
   add_executable(recording_tests tests/recording_test.cpp)
   target_link_libraries(recording_tests PRIVATE tfx_core)
   configure_first_party(recording_tests)
@@ -1005,6 +1012,14 @@ if(BUILD_TESTING)
   target_link_libraries(gus_memory_probe PRIVATE tfx_audio)
   configure_first_party(gus_memory_probe)
   add_test(NAME audio.native_gus_sample_ram COMMAND gus_memory_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/gus_memory.txt")
+  add_executable(gus_driver_probe tests/gus_driver_probe.cpp)
+  target_link_libraries(gus_driver_probe PRIVATE tfx_audio)
+  configure_first_party(gus_driver_probe)
+  add_test(NAME audio.native_gus_registers COMMAND gus_driver_probe --synthetic "${PROJECT_SOURCE_DIR}/tests/fixtures/gus_driver.txt")
+  add_executable(gus_samples_probe tests/gus_samples_probe.cpp)
+  target_link_libraries(gus_samples_probe PRIVATE tfx_audio)
+  configure_first_party(gus_samples_probe)
+  add_test(NAME audio.native_gus_pcm COMMAND gus_samples_probe --synthetic "${PROJECT_SOURCE_DIR}/tests/fixtures/gus_samples.txt" "${PROJECT_SOURCE_DIR}/tests/fixtures/gus_samples.expected")
 
   add_executable(detail_status_probe tests/detail_status_probe.cpp)
   target_link_libraries(detail_status_probe PRIVATE tfx_core)

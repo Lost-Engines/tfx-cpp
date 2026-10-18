@@ -20,7 +20,7 @@ environment, renderer, arming and AI code executes. `--flight-model` selects
 any of the four models, and `--output` retains the private frames and observer
 log. `--strict-pixels` requires every captured image to match, not just the last.
 
-All **197 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+All **202 CTests** pass in development, Release and ASan/UBSan. All 128 retail
 missions also compose 64 development frames and 16 sanitizer frames without
 preview warnings. Real private-window controls exercise firing, MFDs,
 missile cameras, designator use, ejection and an automatic FINISH handoff.
@@ -5228,3 +5228,62 @@ zero, small positive/negative values, both positions and all three aircraft.
 python3 tools/check_combat_sessions.py --case crash-result
 python3 tools/check_mfd.py
 ```
+
+### Connected Gravis effects and original interrupt-driven PCM
+
+The `SOUNDFX=4` path now uses an emulated one-MiB GF1, distinct from the
+single-stream Sound Blaster path. All 103 named resources fit in resident RAM;
+voices 1–3 rotate for resident requests while voice 0 remains reserved for the
+original streaming arrangement. Lower-RAM streaming is not selected or exposed.
+The original active-voice count is 32, whose oscillator frequency base is 19,293.
+All four logical voices receive the native volume 256. The initial resident
+cursor is one, so the first request selects voice two.
+
+The translated register driver loads rate and volume tables from the user's
+`GUS.COM`; no original instructions execute in production. The pinned DOSBox
+GF1 core is isolated from its DOS frontend. Its chip clock, stereo pan and
+unsigned-to-signed DMA transfer remain separate from the host's 48 kHz output.
+A bounded lock protects requests and device callbacks. Disabling effects rejects
+new requests while allowing an already accepted queue to finish.
+
+`tools/native_gus_device.py` boots the actual relocated GUS.COM in a private
+16-bit DOS environment, stops before child launch, and delivers real DMA/wave
+IRQs through its installed handlers. All four RAM capacities detect correctly.
+The allocator leaves destinations unaligned, but command 0 writes only
+`address >> 4` to the GF1: later uploads can overwrite the preceding sample's
+last fifteen bytes. The translation preserves that behaviour. Every byte of
+synthetic aligned/unaligned transfers and the stopped stereo tail agree across
+256/512/768/1024 KiB.
+
+`tools/native_gus_samples.py` additionally executes the game's C52D0/C4F5C/DDE2C
+loader and DDF68 callback installation. Original TFX allocates, copies and patches
+its 144-byte real-mode client; that client runs unchanged when the original
+GUS.COM interrupt handler ends a voice. The reference supplies only DOS/DPMI
+transport and declared PCM file contents. Queue arithmetic, scheduling,
+callbacks, allocation and driver instructions are not replaced.
+
+8,192 complete original register operations agree, including semantic reads,
+reverse addresses, dword frequency wrapping and test-authored volume tables.
+The complete queued comparison agrees for 207 actions and 214,170 stereo
+frames, including overlapping requests, rejected priorities, signed cooldowns,
+disabled submissions, varied callback sizes and a 30-item sequence. All 106
+retail slots and 103 actual resources additionally agree over **526 actions and
+551,160 frames at 48 kHz**, in every PCM sample and observed queue field.
+These comparisons validate the translation against original code on the same
+GF1 core; they are not physical-card recordings or independent proof of that
+core's analogue output.
+
+```sh
+python3 tools/check_gus_device.py --build build
+python3 tools/check_gus_driver.py --build build
+python3 tools/check_gus_samples.py --build build
+python3 tools/check_gus_samples.py --build build --retail --rate 48000
+python3 tools/check_window_audio.py --build build --data-dir /path/to/TFX --gravis --cannon --air-brake
+```
+
+The register and test-authored PCM/state fixtures run without game assets as
+`audio.native_gus_registers` and `audio.native_gus_pcm`. All **202 CTests** pass
+in development, Release and ASan/UBSan. The silent private Pulse/X11 test verifies
+live gear, airbrake and cannon output, GF1 stereo pan, sound off/on, preserved
+configuration and clean shutdown. Optional QSound and broader complete-flight
+audio coverage remain separate work; CD playback remains deferred.

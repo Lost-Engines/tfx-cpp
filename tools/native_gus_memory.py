@@ -1,8 +1,8 @@
-"""Bounded original GUS.COM command-5 execution for RAM allocation checks.
+"""Relocated original GUS.COM with bounded software-interrupt commands.
 
-RAM size is an explicit detected-hardware input. This executes the original
-real-mode software-interrupt entry, dispatch and allocator, without booting
-DOS, spawning its child or replacing any allocator instructions.
+Allocation-only checks supply detected RAM explicitly and do not boot DOS.
+The device reference subclass boots the original driver on GF1 hardware.
+Both execute the unchanged real-mode software-interrupt entry and dispatcher.
 """
 import hashlib
 from pathlib import Path
@@ -20,7 +20,7 @@ class GusMemoryReference:
         raw = Path(filename).read_bytes()
         if hashlib.sha256(raw).hexdigest() != self.SHA256:
             raise ValueError('Gravis allocation reference requires the September 1994 GUS.COM')
-        header = struct.unpack('<14H', raw[:28])
+        header = self.header = struct.unpack('<14H', raw[:28])
         assert header[0] == 0x5a4d
         self.cpu = Uc(UC_ARCH_X86, UC_MODE_16)
         self.cpu.mem_map(0, 0x200000)
@@ -42,17 +42,24 @@ class GusMemoryReference:
         assert ram_kib in (256, 512, 768, 1024)
         self.cpu.mem_write(self.data + 0xdc4, struct.pack('<2I', 32768, ram_kib * 1024 - 32768))
 
-    def allocate(self, size):
-        self.cpu.mem_write(self.data + 0xdb4, struct.pack('<4I', size, 0, 0, 0))
+    def prepare_command(self, command, arguments):
+        assert len(arguments) <= 4
+        self.cpu.mem_write(self.data + 0xdb4, struct.pack('<4I', *arguments, *([0] * (4 - len(arguments)))))
         for register, value in ((r.UC_X86_REG_CS, self.LOAD_SEGMENT), (r.UC_X86_REG_IP, 0x248f),
                                 (r.UC_X86_REG_SS, 0x9000), (r.UC_X86_REG_SP, 0xff00),
-                                (r.UC_X86_REG_DS, 0x1000), (r.UC_X86_REG_AX, 5),
+                                (r.UC_X86_REG_DS, 0x1000), (r.UC_X86_REG_AX, command),
                                 (r.UC_X86_REG_EFLAGS, 0x202)):
             self.cpu.reg_write(register, value)
         self.cpu.mem_write(0x9ff00, struct.pack('<3H', 0x100, 0xf000, 0x202))
-        self.cpu.emu_start(self.LOAD_SEGMENT * 16 + 0x248f, self.RETURN, count=1000)
+
+    def command(self, command, *arguments):
+        self.prepare_command(command, arguments)
+        self.cpu.emu_start(self.LOAD_SEGMENT * 16 + 0x248f, self.RETURN, count=10000)
         assert self.cpu.reg_read(r.UC_X86_REG_CS) * 16 + self.cpu.reg_read(r.UC_X86_REG_IP) == self.RETURN
-        return struct.unpack('<I', self.cpu.mem_read(self.data + 0xdb8, 4))[0] or None
+        return struct.unpack('<4I', self.cpu.mem_read(self.data + 0xdb4, 16))
+
+    def allocate(self, size):
+        return self.command(5, size)[1] or None
 
     def remaining(self):
         return struct.unpack('<I', self.cpu.mem_read(self.data + 0xdc8, 4))[0]

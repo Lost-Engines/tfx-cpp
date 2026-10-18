@@ -4,10 +4,23 @@
 
 namespace tfx::audio {
 
+namespace {
+std::variant<sample_voice,gus_samples> make_effects(sample_bank const &bank, unsigned int const rate,
+    std::optional<gus_parameters> const &gravis) {
+  if(!gravis) return std::variant<sample_voice,gus_samples>{std::in_place_type<sample_voice>,bank,rate};
+  std::vector<gus_sample_data> samples;
+  for(unsigned int index{0}; index != bank.entries().size(); ++index) samples.push_back({
+    .pcm{bank.pcm(index)},
+    .rate{bank.entries()[index].rate},
+    .retrigger_delay{bank.entries()[index].retrigger_delay},
+  });
+  return std::variant<sample_voice,gus_samples>{std::in_place_type<gus_samples>,samples,*gravis,rate};
+}
+}
 runtime::runtime(std::span<sample_definition const> const definitions, resources::archive const &game,
-    unsigned int const output_rate, bool const sound_enabled, std::unique_ptr<music_player> music) :
-    bank{definitions,game}, effects{bank,output_rate}, available{sound_enabled}, enabled{sound_enabled}, music{std::move(music)} {
-  effects.enable(enabled);
+    unsigned int const output_rate, bool const sound_enabled, std::unique_ptr<music_player> music, std::optional<gus_parameters> const &gravis) :
+    bank{definitions,game}, effects{make_effects(bank,output_rate,gravis)}, available{sound_enabled}, enabled{sound_enabled}, music{std::move(music)} {
+  std::visit([&](auto &device) { device.enable(enabled); },effects);
 }
 bool runtime::sound_available() const { return available; }
 bool runtime::music_available() const { return music != nullptr; }
@@ -21,16 +34,16 @@ void runtime::update_flight(flight_audio_state const &state) { if(music) music->
 void runtime::music_cue(uint8_t const cue) { if(music) music->cue(cue); }
 void runtime::music_cue(music_cue_id const cue) { music_cue(std::to_underlying(cue)); }
 bool runtime::sound_enabled() const { return enabled; }
-void runtime::enable_sound(bool const value) { enabled = available && value;effects.enable(enabled); }
-void runtime::advance(simulation::timer_ticks const elapsed) { effects.advance(elapsed); }
-void runtime::sample(sample_priority const priority, unsigned int const id) { effects.submit(priority,{&id,1}); }
+void runtime::enable_sound(bool const value) { enabled = available && value;std::visit([&](auto &device) { device.enable(enabled); },effects); }
+void runtime::advance(simulation::timer_ticks const elapsed) { std::visit([&](auto &device) { device.advance(elapsed); },effects); }
+void runtime::sample(sample_priority const priority, unsigned int const id) { sequence(priority,{&id,1}); }
 void runtime::sample(sample_priority const priority, sample_id const id) { sample(priority,std::to_underlying(id)); }
-void runtime::sequence(sample_priority const priority, std::initializer_list<unsigned int> const ids) { effects.submit(priority,ids); }
-void runtime::sequence(sample_priority const priority, std::span<unsigned int const> const ids) { effects.submit(priority,ids); }
+void runtime::sequence(sample_priority const priority, std::initializer_list<unsigned int> const ids) { sequence(priority,std::span<unsigned int const>{ids}); }
+void runtime::sequence(sample_priority const priority, std::span<unsigned int const> const ids) { std::visit([&](auto &device) { device.submit(priority,ids); },effects); }
 void runtime::render(std::span<float> const stereo) noexcept {
   std::ranges::fill(stereo,0);
   // Device callbacks must not propagate exceptions into the platform backend.
-  try { if(music) music->render(stereo);effects.render(stereo); } catch(...) { std::ranges::fill(stereo,0); }
+  try { if(music) music->render(stereo);std::visit([&](auto &device) { device.render(stereo); },effects); } catch(...) { std::ranges::fill(stereo,0); }
 }
 
 } // namespace tfx::audio

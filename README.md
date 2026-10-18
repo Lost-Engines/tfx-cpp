@@ -14,7 +14,7 @@ cmake --build build -j
 
 Requires CMake 3.30+, a compiler and standard library with C++26 support, and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, install `libglfw3-dev` and `libgl1-mesa-dev` for the desktop dependencies. The faithful numerical flight backend currently requires x87 support.
 
-Select the directory containing the reference `TFX.DAT` and `DID.DAT`. Keep `START.EXE` there for synthesised music. Existing `TFX.CFG` settings are read on startup. Pilot saves and configuration changes use the selected installation directory, which should be writable.
+Select the directory containing the reference `TFX.DAT` and `DID.DAT`. Keep `START.EXE` there for synthesised music, and `GUS.COM` for Gravis effects. Existing `TFX.CFG` settings are read on startup. Pilot saves and configuration changes use the selected installation directory, which should be writable.
 
 Normal startup plays the introduction and opens pilot enrolment. `--skip-intro` goes straight to enrolment. To try a mission directly:
 
@@ -38,7 +38,7 @@ See [controls and configuration](docs/controls.md) for weapons, autopilot, camer
 
 ## Sound
 
-Sampled Sound Blaster effects and speech, FM music, Roland LAPC-I and Sound Canvas emulation are connected. `--music=soundblaster-fm` selects synthesised FM music explicitly; `--music=none` disables music. Roland modes require the matching ROMs selected with `--rom-dir`. Details are in [controls and configuration](docs/controls.md).
+Sampled Sound Blaster and Gravis effects and speech, FM music, Roland LAPC-I and Sound Canvas emulation are connected. The saved `SOUNDFX=4` setting selects Gravis. `--music=soundblaster-fm` selects synthesised FM music explicitly; `--music=none` disables music. Roland modes require the matching ROMs selected with `--rom-dir`. Details are in [controls and configuration](docs/controls.md).
 
 CD music remains deferred. The original hybrid SB/CD setting can request CD playback; select FM explicitly to use synthesised flight music instead.
 
