@@ -168,29 +168,47 @@ im.intercept(0xb41e4,'Supply private keyboard transport arrays instead of instal
 im.intercept(0xb43b4,'No host keyboard events are pending during startup.',lambda current:current.return_from())
 entered=[False];frames=[0];snapshots=[]
 configuration=ConfigurationMouse(im,inputs,lambda:frames[0])if any('configuration'in row for row in inputs.rows(args.frames))else None
-mouse_polls=[0];mouse_buttons=[0];defaults_applied=[False];inside_arming=[False]
+mouse_polls=[0];mouse_buttons=[0];defaults_applied=[False];inside_arming=[False];arming_actions=[];arming_events=[]
 def begin_arming(current):
+ global arming_actions
+ arming_actions=[list(action)for action in inputs.at(frames[0]).get('arming',[])]if entered[0] else []
  inside_arming[0]=True
- if not entered[0] or args.default_rearming:
+ if not entered[0] or args.default_rearming or arming_actions:
   mouse_polls[0]=0;defaults_applied[0]=False
-def end_arming(current):inside_arming[0]=False
+def end_arming(current):
+ if arming_actions:
+  assert mouse_polls[0]>=32*(len(arming_actions)-1)+8,'native arming returned before its final declared click'
+  arming_events.append({'frame':frames[0],'clicks':arming_actions.copy()})
+ inside_arming[0]=False
+ arming_actions.clear()
+def arming_pointer():
+ if not arming_actions:return (197 if defaults_applied[0] else 101,199),1
+ step=min((max(1,mouse_polls[0])-1)//32,len(arming_actions)-1)
+ x,y,buttons=arming_actions[step]
+ return (x,y),buttons
 im.intercept(0x8b47c,'Observe arming entry so declared DEFAULT/DONE input stays inside the actual modal screen.',begin_arming)
 im.intercept(0x8b5cb,'Observe the common arming return; flight pointer input resumes afterwards.',end_arming)
 im.intercept(0x8978c,'Observe the original DEFAULT button action; its complete native body executes.',lambda current:defaults_applied.__setitem__(0,True))
+def arming_pressed():
+ # A 31-poll final cycle prevents phase-lock with the original's unconditional
+ # mouse-release wait. Four retries cover each phase of its four-poll idle loop.
+ period=31 if arming_actions and mouse_polls[0]>32*(len(arming_actions)-1)else 32
+ return int(mouse_polls[0]%period in range(8,16))
 def mouse(current):
- scripted=not entered[0] or (args.default_rearming and inside_arming[0])
- if mouse_polls[0]>128 and scripted:raise RuntimeError('Unconsumed arming mouse script after 128 polls')
- mouse_polls[0]+=1;mouse_buttons[0]=int(mouse_polls[0]%32 in range(8,16)) if scripted else inputs.at(frames[0]).get('buttons',0)
- position=(197 if defaults_applied[0] else 101,199)
+ scripted=not entered[0] or ((args.default_rearming or arming_actions) and inside_arming[0])
+ if mouse_polls[0]>max(128,32*(len(arming_actions)+4)) and scripted:raise RuntimeError(f'Unconsumed arming pointer input after {mouse_polls[0]} polls')
+ mouse_polls[0]+=1;position,mask=arming_pointer()if scripted else((197 if defaults_applied[0] else 101,199),0)
+ mouse_buttons[0]=mask*arming_pressed() if scripted else inputs.at(frames[0]).get('buttons',0)
  if configuration and configuration.active:position=configuration.position;mouse_buttons[0]=configuration.buttons
  for offset,value in ((4,position[0]),(8,position[1]),(12,mouse_buttons[0])):
   pointer=struct.unpack('<I',current.cpu.mem_read(current.cpu.reg_read(r.UC_X86_REG_ESP)+offset,4))[0];current.cpu.mem_write(pointer,struct.pack('<H',value))
  current.return_from()
 im.intercept(0xc72ff,'Supply explicit pointer input on the authored DEFAULT then DONE buttons.',mouse)
 def held_mouse(current):
- scripted=not entered[0] or (args.default_rearming and inside_arming[0])
- if mouse_polls[0]>128 and scripted:raise RuntimeError('Unconsumed arming mouse script after 128 polls')
- mouse_polls[0]+=1;mouse_buttons[0]=int(mouse_polls[0]%32 in range(8,16)) if scripted else inputs.at(frames[0]).get('buttons',0)
+ scripted=not entered[0] or ((args.default_rearming or arming_actions) and inside_arming[0])
+ if mouse_polls[0]>max(128,32*(len(arming_actions)+4)) and scripted:raise RuntimeError(f'Unconsumed arming pointer input after {mouse_polls[0]} polls')
+ mouse_polls[0]+=1;position,mask=arming_pointer()if scripted else((197 if defaults_applied[0] else 101,199),0)
+ mouse_buttons[0]=mask*arming_pressed() if scripted else inputs.at(frames[0]).get('buttons',0)
  if configuration and configuration.active:mouse_buttons[0]=configuration.buttons
  current.cpu.reg_write(r.UC_X86_REG_EAX,mouse_buttons[0]);current.return_from()
 im.intercept(0xc733e,'Supply an explicit button press/release sequence while the original modal controller polls.',held_mouse)
@@ -215,7 +233,7 @@ def input_port(cpu,port,size,unused):
 im.cpu.hook_add(UC_HOOK_INSN,input_port,None,1,0,r.UC_X86_INS_IN)
 clock=[0]
 def timer(current):
- if not entered[0] or (args.default_rearming and inside_arming[0]) or (configuration and configuration.active):clock[0]+=4
+ if not entered[0] or ((args.default_rearming or arming_actions) and inside_arming[0]) or (configuration and configuration.active):clock[0]+=4
  current.write(0x16f2c,'<I',clock[0]);current.return_from()
 im.intercept(0xa6134,'Supply an explicit monotonically advancing launcher timer.',timer)
 # Original startup installs Watcom floating formatting and its x87 environment.
@@ -558,6 +576,7 @@ record={
  'palette_capture':'vga-dac6',
  'x87_backend':'hardware'if args.x87_backend else'unicorn',
  'default_rearming':args.default_rearming,
+ 'arming_events':arming_events,
  'lapc_effects':args.lapc_effects,'lapc_requests':lapc_requests,
  'sample_requests':sample_requests if args.lapc_effects else None,
  **({'model_queue_scope':'flight','model_queue_insertions':model_queue_insertions}if args.model_queues else {}),

@@ -9,6 +9,7 @@ namespace tfx::weapons {
 
 enum class weapon_id : uint8_t { cannon, sidewinder_s, sidewinder_l, asraam, amraam, aaam, aa_arm, fuel_tank, mk82, gbu10, gbu24, gbu16, gbu12, gbu24_blu, cbu55, jp233, csw, durandal, maverick, agm109, harm, sidearm, harpoon, submunition, chaff, flare, cargo };
 unsigned int constexpr weapon_count{27};
+uint8_t constexpr cruise_missile_category{11};
 enum class weapon_role : uint8_t { air, ground, external_tank = 6 };
 enum class flight_stage {
   finished, attached, falling, accelerating, coasting, guided, sea_skimming,

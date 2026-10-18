@@ -335,6 +335,25 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   uint16_t view_pan{0};
   tfx::flight::keyboard_state keyboard;
   unsigned int ground_target_page{0};
+  vec2<int32_t> const cruise_destination_q8{[&]() -> vec2<int32_t> {
+    if(mission_targets.empty()) return {0,0};
+    // Native 70C40 binds once at launch to the first target's initialized SSD
+    // custom X/Z offset, without rotating it. N only changes the preview/HUD.
+    auto const offset{std::visit([&](auto const &reference) {
+      using target_type = std::decay_t<decltype(reference)>;
+      if constexpr(std::is_same_v<target_type,tfx::missions::fixed_target>) return scene.actor_target_offset(fixed_scenery.at(reference.index));
+      else if constexpr(std::is_same_v<target_type,tfx::missions::surface_target>) {
+        auto const actor{std::ranges::find_if(surface_actors,[&](auto const &entry) { return entry.state.pose.slot == reference.slot; })};
+        if(actor == surface_actors.end()) throw std::runtime_error{"bound cruise target has lost its surface slot"};
+        return scene.actor_target_offset(actor->visual);
+      } else return scene.terrain_target_offset(reference.cell);
+    },mission_targets.front())};
+    auto const &position{mission_setup.targets.front().position};
+    return {
+      std::bit_cast<int32_t>((static_cast<uint32_t>(position.x) + static_cast<uint32_t>(offset.x)) * tfx::actors::position_unit),
+      std::bit_cast<int32_t>((static_cast<uint32_t>(position.z) + static_cast<uint32_t>(offset.y)) * tfx::actors::position_unit),
+    };
+  }()};
   auto &fuel_display{player_flight.fuel};
   fuel_display = instrument_setup.fuel;
   auto const &player_disabled{mission_progress.player_ejected};
@@ -941,7 +960,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     refresh_ground_contacts();
     if(auto const slot{tfx::sensors::next_radiation_target(radiation_cursor,ground_contacts)}) {
       designated_point = vec3<int32_t>{surface_actors[surface_index(*slot)].state.pose.position};
-      ground_designation.emplace(tfx::weapons::target_reference{.designated{true}});
+      ground_designation.emplace(tfx::weapons::target_reference{
+        .designated{true},
+      });
       mobile_designation.reset();
     } else ground_designation.reset();
   }};
@@ -1012,6 +1033,21 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         return vec2<int16_t>{-1,-1};
       }},
     });
+    if(tables.weapons[weapon].category == tfx::weapons::cruise_missile_category) {
+      auto const target{tfx::sensors::acquire_cruise_target(player.integer_position,cruise_destination_q8,[&](vec3<int32_t> const &position) {
+        if(auto const point{projection.integer(position)}) return vec2<int16_t>{*point};
+        return vec2<int16_t>{-1,-1};
+      })};
+      designated_point = vec3<int32_t>{target.position_q8};
+      ground_designation.emplace(tfx::weapons::target_reference{
+        .designated{true},
+      });
+      mobile_designation.reset();
+      radar.selected.reset();
+      seeker.tracking.reset();seeker.guidance.reset();
+      seeker.projected = vec2<int16_t>{target.projected};
+      seeker.reticle = vec2<int32_t>{target.reticle_q8};
+    }
   }};
   tfx::simulation::timer_ticks constexpr first_animation_ticks{5}; // Native 0x7202f.
   tfx::simulation::timer_ticks previous_animation_ticks{first_animation_ticks};
@@ -1815,7 +1851,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       .cannon{weapon_index == 0},
       .ammunition{cannon.ammunition},
       .suppressed{seeker.too_close},
-      .air_lock{seeker.guidance.has_value()},
+      .air_lock{seeker.guidance.has_value() || (weapon.category == tfx::weapons::cruise_missile_category && ground_designation.has_value())},
       .ground_lock{ground_designation.has_value()},
       .limited{limited},
       .elapsed{launch_elapsed},
@@ -1918,7 +1954,13 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }
       if(state.mode != tfx::cockpit::aiming_mode::navigation && weapon.category == tfx::weapons::bomb_impact_category) state.bomb_impact.emplace(project_prediction(projectiles.predict_bomb_impact(weapon_index,anchor,player.angles,player.fixed_speed,movement_height_bounds)));
     }
-    aiming.draw_forward(renderer,state);
+    if(aiming.draw_forward(renderer,state).lock_acquired) {
+      // Native 7FC50: formation leaders receive the two-sample announcement;
+      // other aircraft and the cruise ground point use the urgent tracking call.
+      bool const leader{seeker.guidance && air_simulation.aircraft()[*seeker.guidance] && air_simulation.aircraft()[*seeker.guidance]->flight.pose.leader == 255};
+      if(leader && sound) sound->sequence(audio::sample_priority::normal,{std::to_underlying(audio::sample_id::tracking),std::to_underlying(audio::sample_id::looks_like)});
+      else sample(audio::sample_priority::urgent,audio::sample_id::tracking);
+    }
   }};
   auto const draw{[&]{
     if(paused && !inspect) {
@@ -2333,7 +2375,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         environment.lighting.status = tfx::world::apply_detail_status(environment.lighting.status,preferences.detail);
         if(preferences.effects.g_force == tfx::configuration::g_effects::none) { g_effects = {};palette_lighting.flash(tfx::render::lighting_stages); }
       }
-      palette_selection.invalidate_normal();
+      // Arming saves/restores the displayed DAC bank. Forcing another normal
+      // blend here would accumulate fixed-palette rounding after every rearm.
+      if(!rearm_prompt) palette_selection.invalidate_normal();
       mouse_control = {};
       pitch_input = roll_input = 0;
       store_trigger = false;

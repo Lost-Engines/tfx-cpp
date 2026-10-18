@@ -89,7 +89,7 @@ void air_lock::clear(vec2<int16_t> const &centre) {
 
 void advance_air_lock(air_lock &state, air_contacts &radar, std::span<air_contact const> const contacts, weapons::definition const &weapon, lock_context const &context) {
   // 0x93328 has separate controllers for laser, anti-radiation, cruise and anti-ship weapons.
-  if(weapon.category == 3 || weapon.category == 8 || weapon.category == 11 || weapon.category == 12 || weapon.category == 13 || context.sensor_suppressed) return;
+  if(weapon.category == 3 || weapon.category == 8 || weapon.category == weapons::cruise_missile_category || weapon.category == 12 || weapon.category == 13 || context.sensor_suppressed) return;
   if(!radar.selected) radar.next();
   if(!radar.selected) return;
   if(!radar.count()) { state.guidance.reset(); state.tracking.reset(); radar.selected.reset(); return; }

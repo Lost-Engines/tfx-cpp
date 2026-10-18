@@ -655,6 +655,7 @@ if(BUILD_TESTING)
   target_link_libraries(ground_probe PRIVATE tfx_core)
   configure_first_party(ground_probe)
   add_test(NAME sensors.native_ground_geometry_and_selection COMMAND ground_probe ${PROJECT_SOURCE_DIR}/tests/reference/ground_sensors.txt)
+  add_test(NAME sensors.native_cruise_target COMMAND ground_probe ${PROJECT_SOURCE_DIR}/tests/reference/cruise_target.txt)
 
   add_executable(world_contacts_probe tests/world_contacts_probe.cpp)
   target_link_libraries(world_contacts_probe PRIVATE tfx_core)

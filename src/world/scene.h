@@ -105,6 +105,8 @@ public:
   int16_t terrain_type(vec3<int32_t> const &position);
   std::optional<flight::landing_port> terrain_landing_port(vec2<int16_t> const &cell);
   std::optional<flight::landing_port> actor_landing_port(scene_handle handle) const;
+  vec2<int16_t> actor_target_offset(scene_handle handle) const;
+  vec2<int16_t> terrain_target_offset(vec2<int32_t> const &cell);
   std::vector<vec3<int16_t>> actor_damage_centres(scene_handle handle) const;
   uint16_t actor_impact_damage(scene_handle handle) const;
   // An optional query reference is copied into the deferred submission.

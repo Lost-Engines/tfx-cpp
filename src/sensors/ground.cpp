@@ -13,6 +13,27 @@ bool available(surface_contact const &contact) { return !(contact.flags & (std::
 
 } // anonymous namespace
 
+cruise_target acquire_cruise_target(vec3<int32_t> const &player, vec2<int32_t> const &destination_q8,
+    std::function<vec2<int16_t>(vec3<int32_t> const&)> const &project) {
+  int32_t constexpr target_height{-10}, projection_range_limit{32767}, offscreen{-50};
+  cruise_target result{
+    .position_q8{destination_q8.x,target_height * actors::position_unit,destination_q8.y},
+    // The out-of-range branch writes -50 directly, even to the Q8 reticle.
+    .reticle_q8{offscreen,offscreen},
+    .projected{offscreen,offscreen},
+  };
+  auto const magnitude{[](int32_t const value) {
+    return value < 0 ? std::bit_cast<int32_t>(0u - static_cast<uint32_t>(value)) : value;
+  }};
+  int32_t const dx{add(player.x,std::bit_cast<int32_t>(0u - static_cast<uint32_t>(destination_q8.x >> actors::position_fraction_bits)))};
+  int32_t const dz{add(player.z,std::bit_cast<int32_t>(0u - static_cast<uint32_t>(destination_q8.y >> actors::position_fraction_bits)))};
+  if(std::max(magnitude(dx),magnitude(dz)) < projection_range_limit) {
+    result.projected = project({word(destination_q8.x >> actors::position_fraction_bits),target_height,word(destination_q8.y >> actors::position_fraction_bits)});
+    result.reticle_q8 = {static_cast<int32_t>(result.projected.x) * actors::position_unit,static_cast<int32_t>(result.projected.y) * actors::position_unit};
+  }
+  return result;
+}
+
 vec3<int32_t> ground_intersection(vec3<int32_t> const &player, math::angle const pitch, math::angle const heading) {
   // Native 0x93040 intersects the Y=0 plane, truncating distance to a signed word before the heading transform.
   auto const &sine{math::sine_table()};

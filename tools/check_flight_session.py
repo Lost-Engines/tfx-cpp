@@ -154,6 +154,8 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if a.default_rearming:assert 'CPP_DEFAULT_REARMING_COMPLETE' in lines,'declared post-landing arming input never completed a dialog'
     def integers(prefix):return [[int(value) for value in line[len(prefix):].split()] for line in lines if line.startswith(prefix)]
     def records(prefix):return [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
+    if 'arming_events' in expected:
+        assert records('CPP_ARMING_EVENT ')==expected['arming_events'],('arming pointer input',records('CPP_ARMING_EVENT '),expected['arming_events'])
     if 'configuration_events' in expected:
         assert records('CPP_CONFIGURATION_EVENT ')==expected['configuration_events'],('configuration pointer input',records('CPP_CONFIGURATION_EVENT '),expected['configuration_events'])
         assert (install/'TFX.CFG').read_bytes()==expected['saved_configuration'].encode('cp437'),'saved configuration bytes differ'
@@ -312,6 +314,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-flight-session-') as temporary:
     if 'projectile_guidance' in expected:verified.append('projectile guidance inputs')
     if 'cockpit_displays' in expected:verified.append('cockpit display inputs')
     if 'precipitation_events' in expected:verified.append('precipitation inputs')
+    if expected.get('arming_events'):verified.append('arming pointer input')
     if 'configuration_events' in expected:verified.append('configuration input and persistence')
     if 'player_countermeasures' in expected:verified.append('player countermeasure requests')
     if 'defensive_displays' in expected:verified.append('defensive HUD inputs')
