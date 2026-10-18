@@ -84,10 +84,11 @@ void view_control::centre(view_key_context const &context) {
   queue(view_mode::centre_head);
   queue(view_mode::virtual_cockpit);
 }
-void view_control::press(view_key const key, view_key_context const &context) {
-  if(context.inhibited || context.crashed || context.ejected) return;
+view_key_events view_control::press(view_key const key, view_key_context const &context) {
+  view_key_events result;
+  if(context.inhibited || context.crashed || context.ejected) return result;
   // F5 intentionally lacks the automatic-landing gate used by the other keys.
-  if(key != view_key::chase && context.landing) return;
+  if(key != view_key::chase && context.landing) return result;
   auto const queue{[&](view_mode const view) { enqueue(view,context.speed); }};
   switch(key) {
   case view_key::front:
@@ -179,6 +180,7 @@ void view_control::press(view_key const key, view_key_context const &context) {
     math::advance_position(state.fixed_position,angles,math::signed_word(static_cast<uint16_t>(context.speed >> 1)),context.height_bounds.x,context.height_bounds.y);
     // Native also computes a bearing into an otherwise unused stack temporary.
     queue(view_mode::fly_past);
+    result.fly_past_sound = true;
     break;
   }
   case view_key::tactical:
@@ -218,6 +220,7 @@ void view_control::press(view_key const key, view_key_context const &context) {
     }
     break;
   }
+  return result;
 }
 
 } // namespace tfx::cockpit

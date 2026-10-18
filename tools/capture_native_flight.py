@@ -63,6 +63,7 @@ parser.add_argument('--frames',type=int,default=4)
 parser.add_argument('--ticks-per-frame',type=int,default=4,help='declared external timer interval; native frame clamps still execute')
 parser.add_argument('--until-result',action='store_true',help='capture through a natural mission result, with --frames as the upper bound')
 parser.add_argument('--inputs',type=Path,help='declared per-frame keyboard events/held keys as JSON')
+parser.add_argument('--lapc-effects',action='store_true',help='execute the original LAPC effects driver and record live cue requests')
 args=parser.parse_args()
 inputs=FlightInputs.read(args.inputs)if args.inputs else FlightInputs([])
 if not 1 <= args.frames <= 1024:parser.error('--frames must be between 1 and 1024')
@@ -87,7 +88,8 @@ def read(name):
  name=name.replace('\\','/').lstrip('/').lower().removeprefix('tfx/')
  if name=='tfx.cfg':
   model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[args.flight_model]
-  return f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX=0\r\nMUSIC=0\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode()
+  device=2 if args.lapc_effects else 0
+  return f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode()
  identifier=archive.hash_name(name)
  if identifier not in entries:raise RuntimeError('missing asset '+name)
  return archive.unpack(entries[identifier])
@@ -123,9 +125,14 @@ def fatal(current):
 im.intercept(0xb0eb0,'Fail explicitly at native fatal diagnostics.',fatal)
 # Start with external hardware boundaries only. Expand only when execution
 # identifies a real dependency; do not silently skip game simulation routines.
-for address in (0xa5ce0,0xa6424,0xa6458,0xa629c):im.intercept(address,'Exclude external DOS audio loading and startup console/analogue calibration; the supplied configuration selects silent keyboard flight.',lambda current:current.return_from())
+for address in ((0xa6424,0xa6458,0xa629c) if args.lapc_effects else (0xa5ce0,0xa6424,0xa6458,0xa629c)):im.intercept(address,'Exclude startup console/analogue calibration and, for the explicit silent configuration, external audio loading.',lambda current:current.return_from())
 im.intercept(0xb3f2c,'DOS real-mode interrupt transport is hosted, without installing vectors.',lambda current:current.return_from())
-im.intercept(0xa4ddc,'The explicit silent configuration has no external DOS audio device to initialize.',lambda current:current.return_from())
+lapc_requests=[]
+if args.lapc_effects:
+ from native_lapc_effects import NativeLAPCEffects
+ lapc=NativeLAPCEffects(root,main_song=None,image=im)
+ im.intercept(0xa6068,'Observe live LAPC cue requests without replacing their controller, OSL master or LA driver.',lambda current:lapc_requests.append({'frame':frames[0],'cue':current.cpu.reg_read(r.UC_X86_REG_EAX)&255}))
+else:im.intercept(0xa4ddc,'The explicit silent configuration has no external DOS audio device to initialize.',lambda current:current.return_from())
 def keyboard(current):
  current.write(0x1b234,'<I',0x403000);current.write(0x1b238,'<I',0x403100);current.write(0x1b23c,'<I',0x403200);current.return_from()
 im.intercept(0xb41e4,'Supply private keyboard transport arrays instead of installing the DOS IRQ handler; native translation initialization executes.',keyboard)
@@ -431,6 +438,7 @@ for index,(filename,contents)in enumerate(memory_files.files.items()):
 record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
  'inputs':inputs.rows(frames[0]),
+ 'lapc_effects':args.lapc_effects,'lapc_requests':lapc_requests,
  'terminal':terminal,
  'recordings':recordings,
  'projectile_guidance':projectile_guidance,

@@ -18,9 +18,11 @@ std::variant<sample_voice,gus_samples> make_effects(sample_bank const &bank, uns
 }
 }
 runtime::runtime(std::span<sample_definition const> const definitions, resources::archive const &game,
-    unsigned int const output_rate, bool const sound_enabled, std::unique_ptr<music_player> music, std::optional<gus_parameters> const &gravis) :
-    bank{definitions,game}, effects{make_effects(bank,output_rate,gravis)}, available{sound_enabled}, enabled{sound_enabled}, music{std::move(music)} {
-  std::visit([&](auto &device) { device.enable(enabled); },effects);
+    unsigned int const output_rate, sound_device const device, std::unique_ptr<music_player> music, std::optional<gus_parameters> const &gravis) :
+    bank{definitions,game}, effects{make_effects(bank,output_rate,gravis)}, available{device != sound_device::none},
+    sampled{device == sound_device::sound_blaster || device == sound_device::sound_blaster16 || device == sound_device::gravis},
+    enabled{available}, music{std::move(music)} {
+  std::visit([&](auto &output) { output.enable(enabled && sampled); },effects);
 }
 bool runtime::sound_available() const { return available; }
 bool runtime::music_available() const { return music != nullptr; }
@@ -33,8 +35,9 @@ void runtime::end_flight() { if(music) music->end_flight(); }
 void runtime::update_flight(flight_audio_state const &state) { if(music) music->update_flight(state); }
 void runtime::music_cue(uint8_t const cue) { if(music) music->cue(cue); }
 void runtime::music_cue(music_cue_id const cue) { music_cue(std::to_underlying(cue)); }
+void runtime::lapc_effect(lapc_effect_cue const cue) { if(music) music->effect(cue); }
 bool runtime::sound_enabled() const { return enabled; }
-void runtime::enable_sound(bool const value) { enabled = available && value;std::visit([&](auto &device) { device.enable(enabled); },effects); }
+void runtime::enable_sound(bool const value) { enabled = available && value;std::visit([&](auto &device) { device.enable(enabled && sampled); },effects); }
 void runtime::advance(simulation::timer_ticks const elapsed) { std::visit([&](auto &device) { device.advance(elapsed); },effects); }
 void runtime::sample(sample_priority const priority, unsigned int const id) { sequence(priority,{&id,1}); }
 void runtime::sample(sample_priority const priority, sample_id const id) { sample(priority,std::to_underlying(id)); }

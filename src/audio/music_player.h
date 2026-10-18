@@ -7,6 +7,7 @@
 #include "audio/music_clock.h"
 #include "audio/music_control.h"
 #include "audio/osl_sequencer.h"
+#include "audio/requests.h"
 #include "resources/archive.h"
 
 namespace tfx::audio {
@@ -21,6 +22,7 @@ private:
   mutable std::mutex mutex;
   std::optional<osl_resource_id> resource;
   std::optional<osl_playing_id> playing;
+  bool effect_bank{false};
   std::optional<uint8_t> preselected;
   bool enabled;
   bool ticks_enabled;
@@ -46,6 +48,7 @@ public:
   void end_flight();
   void update_flight(flight_audio_state const &state);
   void cue(uint8_t cue);
+  void effect(lapc_effect_cue cue);
   void select(int16_t index);
   void stop();
   void enable(bool enabled);

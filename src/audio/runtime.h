@@ -14,12 +14,13 @@ private:
   sample_bank bank;
   std::variant<sample_voice,gus_samples> effects;
   bool const available;
+  bool const sampled;
   bool enabled;
   std::unique_ptr<music_player> music;
 
 public:
   runtime(std::span<sample_definition const> definitions, resources::archive const &game, unsigned int output_rate,
-    bool sound_enabled, std::unique_ptr<music_player> music = {}, std::optional<gus_parameters> const &gravis = {});
+    sound_device device, std::unique_ptr<music_player> music = {}, std::optional<gus_parameters> const &gravis = {});
   bool sound_available() const;
   bool sound_enabled() const;
   bool music_available() const;
@@ -32,6 +33,7 @@ public:
   void update_flight(flight_audio_state const &state);
   void music_cue(uint8_t cue);
   void music_cue(music_cue_id cue);
+  void lapc_effect(lapc_effect_cue cue);
   void enable_sound(bool enabled);
   void advance(simulation::timer_ticks elapsed);
   void sample(sample_priority priority, unsigned int id);

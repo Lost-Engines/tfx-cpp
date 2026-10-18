@@ -1,5 +1,6 @@
 #include "math/floating_environment.h"
 #include "simple.h"
+#include "gear_controls.h"
 #include "world/environment.h"
 #include <cmath>
 #include <limits>
@@ -64,7 +65,7 @@ simple_update advance_simple(simple_state &state, simple_inputs const &inputs, s
   math::floating_environment const environment;
   auto &flight{state.flight};
   auto const &parameters{basic_parameters(flight.aircraft)};
-  if(flight.aircraft == player_aircraft::eurofighter && flight.gear_down && flight.fixed_speed > 350 && !flight.collision && state.gear.condition != system_condition::failed) {
+  if(flight.aircraft == player_aircraft::eurofighter && flight.gear_down && flight.fixed_speed > eurofighter_maximum_gear_speed && !flight.collision && state.gear.condition != system_condition::failed) {
     flight.gear_down = false;
     state.gear.condition = system_condition::normal;
   }

@@ -6,6 +6,8 @@
 
 namespace tfx::audio {
 
+enum class sound_device : uint8_t { none, sound_blaster, lapc, sound_blaster16, gravis };
+
 enum class music_cue_id : uint8_t {
   mission_start,
   aircraft_lost,
@@ -43,6 +45,19 @@ enum class sample_id : unsigned int {
   mayday = 72,
   missile_release = 73,
   afterburner = 75,
+  fly_past = 76,
+};
+// Orders in the separate bank used by the original LAPC-I effects selection.
+// These are explicit callers of A6068, independent of SB speech/sample IDs.
+enum class lapc_effect_cue : uint8_t {
+  engine_start,
+  afterburner_start,
+  engine_stop,
+  fly_past,
+  mechanical_switch = 5,
+  missile_release = 16,
+  bomb_release = 18,
+  cannon_fire = 20,
 };
 
 // Native 0x8bd8c/0xa4f10: the shared release sound followed by the

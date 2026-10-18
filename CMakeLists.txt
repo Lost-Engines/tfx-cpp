@@ -74,6 +74,7 @@ add_library(tfx_core
   src/flight/player_flight.h
   src/flight/player_shared.cpp
   src/flight/player_shared.h
+  src/flight/gear_controls.cpp src/flight/gear_controls.h
   src/flight/player_frame.cpp
   src/flight/player_frame.h
   src/flight/player_dispatch.cpp
@@ -969,6 +970,10 @@ if(BUILD_TESTING)
   target_link_libraries(osl_parameters_test PRIVATE tfx_audio)
   configure_first_party(osl_parameters_test)
   add_test(NAME audio.native_osl_parameter_alias COMMAND osl_parameters_test)
+  add_executable(osl_lifetime_test tests/osl_lifetime_test.cpp)
+  target_link_libraries(osl_lifetime_test PRIVATE tfx_audio)
+  configure_first_party(osl_lifetime_test)
+  add_test(NAME audio.native_osl_playback_lifetime COMMAND osl_lifetime_test "${PROJECT_SOURCE_DIR}/tests/fixtures/osl_lifetime.txt")
   add_executable(music_poll_probe tests/music_poll_probe.cpp)
   target_link_libraries(music_poll_probe PRIVATE tfx_audio)
   configure_first_party(music_poll_probe)
@@ -1020,6 +1025,10 @@ if(BUILD_TESTING)
   target_link_libraries(gus_samples_probe PRIVATE tfx_audio)
   configure_first_party(gus_samples_probe)
   add_test(NAME audio.native_gus_pcm COMMAND gus_samples_probe --synthetic "${PROJECT_SOURCE_DIR}/tests/fixtures/gus_samples.txt" "${PROJECT_SOURCE_DIR}/tests/fixtures/gus_samples.expected")
+  add_executable(gear_key_probe tests/gear_key_probe.cpp)
+  target_link_libraries(gear_key_probe PRIVATE tfx_core)
+  configure_first_party(gear_key_probe)
+  add_test(NAME flight.native_gear_key COMMAND gear_key_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/gear_key.txt")
 
   add_executable(detail_status_probe tests/detail_status_probe.cpp)
   target_link_libraries(detail_status_probe PRIVATE tfx_core)

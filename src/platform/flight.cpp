@@ -70,6 +70,7 @@
 #include "render/palette_lighting.h"
 #include "render/glare.h"
 #include "render/g_effects.h"
+#include "flight/gear_controls.h"
 #include "render/framebuffer.h"
 #include "render/software_renderer.h"
 #include "resources/archive.h"
@@ -131,6 +132,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto &preferences{options.preferences};
   auto *const sound{options.sound};
   auto const sample{[&](audio::sample_priority const priority, auto const id) { if(sound) sound->sample(priority,id); }};
+  auto const lapc_effect{[&](audio::lapc_effect_cue const cue) { if(sound) sound->lapc_effect(cue); }};
   auto const reheat_sound{[&](flight::afterburner_change const change) {
     if(change != flight::afterburner_change::none) sample(audio::sample_priority::normal,
       change == flight::afterburner_change::started || change == flight::afterburner_change::increased ? audio::sample_id::afterburner : audio::sample_id::afterburner_stop);
@@ -683,7 +685,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   auto const emit_store{[&](tfx::weapons::release const &shot) {
     // Native 0x8bd8c announces release, opens internal bays, then constructs
     // the projectile. Alt+J suppresses audio but retains the bay event.
-    if(sound && !shot.jettisoned) sound->sequence(audio::sample_priority::normal,audio::store_release_sequence(tables.weapons.at(shot.weapon).category));
+    if(!shot.jettisoned) {
+      auto const sequence{audio::store_release_sequence(tables.weapons.at(shot.weapon).category)};
+      lapc_effect(sequence.back() == std::to_underlying(audio::sample_id::bomb_release) ? audio::lapc_effect_cue::bomb_release : audio::lapc_effect_cue::missile_release);
+      if(sound) sound->sequence(audio::sample_priority::normal,sequence);
+    }
     if(player.aircraft != tfx::flight::player_aircraft::eurofighter) scene.actor_event(player_visual,5);
     projectiles.launch(shot);
     options.last_released_mount = shot.mount;
@@ -1124,6 +1130,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .landed{player.landed},
       },tables.cannon_mounts,air_simulation.random_stream())}) {
         sample(audio::sample_priority::normal,audio::sample_id::cannon_fire);
+        lapc_effect(audio::lapc_effect_cue::cannon_fire);
         projectiles.launch(*shot);
       }
     }};
@@ -1245,7 +1252,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       else if(event == tfx::flight::afterburner_change::stopped) scene.actor_event(player_visual,10);
     }
     for(auto const event : update.landing.ordered) {
-      if(event == flight::automatic_landing_event::gear_lowered || event == flight::automatic_landing_event::gear_raised) sample(audio::sample_priority::normal,audio::sample_id::gear);
+      if(event == flight::automatic_landing_event::gear_lowered || event == flight::automatic_landing_event::gear_raised) {
+        sample(audio::sample_priority::normal,audio::sample_id::gear);
+        lapc_effect(audio::lapc_effect_cue::mechanical_switch);
+      }
       else if(event == flight::automatic_landing_event::afterburner_stopped) sample(audio::sample_priority::normal,audio::sample_id::afterburner_stop);
       else if(event == flight::automatic_landing_event::stopped) sample(audio::sample_priority::urgent,audio::sample_id::landing_stopped);
       if(event == tfx::flight::automatic_landing_event::gear_lowered) scene.actor_event(player_visual,3);
@@ -1259,6 +1269,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
     }
     if(update.pilot_ended) mission_progress.ended = true;
     if(!ejected()) {
+      if(!landing_callback && previous_gear != player.gear_down && player_damage.condition(tfx::flight::aircraft_system::landing_gear) != tfx::flight::system_condition::failed) {
+        sample(audio::sample_priority::normal,audio::sample_id::gear);
+        lapc_effect(audio::lapc_effect_cue::mechanical_switch);
+      }
       if(!landing_callback && std::ranges::find(update.model_entries,player.gear_down ? 3u : 4u) == update.model_entries.end() && previous_gear != player.gear_down && player_damage.condition(tfx::flight::aircraft_system::landing_gear) != tfx::flight::system_condition::failed) {
         player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::landing_gear)] = player.gear_down ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
         scene.actor_event(player_visual,player.gear_down ? 3u : 4u);
@@ -2491,7 +2505,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       }};
       views.offset(cockpit_position.value());
       auto const select_view{[&](tfx::cockpit::view_key const action) {
-        views.press(action,view_keys);
+        auto const events{views.press(action,view_keys)};
+        if(events.fly_past_sound && (player.left_engine || player.right_engine)) {
+          sample(audio::sample_priority::normal,audio::sample_id::fly_past);
+          lapc_effect(audio::lapc_effect_cue::fly_past);
+        }
         cockpit_position.move_to(views.value().offset);
       }};
       for(auto const &[key,action] : view_bindings) if(pressed(key)) select_view(action);
@@ -2526,13 +2544,41 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
         .right{held_directions.right},
       };
       if(pressed(GLFW_KEY_SPACE)) store_trigger = true;
+      if(pressed(GLFW_KEY_G)) {
+        auto const request{tfx::flight::press_gear_key({
+          .aircraft{player.aircraft},
+          .speed{player.fixed_speed},
+          .gear_down{physical_player.gear_fraction != 0},
+          .condition{player_damage.condition(tfx::flight::aircraft_system::landing_gear)},
+          .inhibited{refuelling.value().phase != 0},
+          .crashed{player.collision != 0},
+          .disabled{player_disabled || ejected()},
+          .automatic_landing{automatic_landing.phase != tfx::flight::automatic_landing_phase::inactive},
+          .landed{player.landed},
+        })};
+        if(request.speed_warning) radio.show(tables.instruments().gear_speed_warning);
+        if(request.gear_down) {
+          sample(audio::sample_priority::normal,audio::sample_id::gear);
+          lapc_effect(audio::lapc_effect_cue::mechanical_switch);
+          player.gear_down = *request.gear_down;
+          physical_player.gear_fraction = player.gear_down ? 1 : 0;
+          player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::landing_gear)] = player.gear_down ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
+          scene.actor_event(player_visual,player.gear_down ? 3u : 4u);
+        }
+      }
       if(!player.collision && !player_disabled && !ejected()) {
         bool const raise_cockpit{pressed(GLFW_KEY_PAGE_UP)}, raise_keypad{pressed(GLFW_KEY_KP_9)};
         bool const lower_cockpit{pressed(GLFW_KEY_PAGE_DOWN)}, lower_keypad{pressed(GLFW_KEY_KP_3)};
         if(raise_cockpit || raise_keypad) cockpit_position.raise();
         if(lower_cockpit || lower_keypad) cockpit_position.lower();
-        if(pressed(GLFW_KEY_LEFT_BRACKET)) player.left_engine = !player.left_engine;
-        if(pressed(GLFW_KEY_RIGHT_BRACKET)) player.right_engine = !player.right_engine;
+        if(pressed(GLFW_KEY_LEFT_BRACKET)) {
+          lapc_effect(player.left_engine ? audio::lapc_effect_cue::engine_stop : audio::lapc_effect_cue::engine_start);
+          player.left_engine = !player.left_engine;
+        }
+        if(pressed(GLFW_KEY_RIGHT_BRACKET)) {
+          lapc_effect(player.right_engine ? audio::lapc_effect_cue::engine_stop : audio::lapc_effect_cue::engine_start);
+          player.right_engine = !player.right_engine;
+        }
         if(!player.left_engine && !player.right_engine && player.afterburner) {
           physical_player.powerplant.stop_afterburner();
           player.afterburner = 0;
@@ -2547,14 +2593,9 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
           player.afterburner = physical_player.powerplant.afterburner;
           player.throttle = physical_player.powerplant.throttle;
           reheat_sound(change);
+          if(change == flight::afterburner_change::started || change == flight::afterburner_change::increased) lapc_effect(audio::lapc_effect_cue::afterburner_start);
           if(change == tfx::flight::afterburner_change::started) scene.actor_event(player_visual,9);
           else if(change == tfx::flight::afterburner_change::stopped) scene.actor_event(player_visual,10);
-        }
-        if(pressed(GLFW_KEY_G) && player_damage.condition(tfx::flight::aircraft_system::landing_gear) != tfx::flight::system_condition::failed) {
-          sample(audio::sample_priority::normal,audio::sample_id::gear);
-          player.gear_down = !player.gear_down;
-          player_damage.systems[std::to_underlying(tfx::flight::aircraft_system::landing_gear)] = player.gear_down ? tfx::flight::system_condition::active : tfx::flight::system_condition::normal;
-          scene.actor_event(player_visual,player.gear_down ? 3u : 4u);
         }
         if(pressed(GLFW_KEY_H) && !down(GLFW_KEY_LEFT_ALT) && !down(GLFW_KEY_RIGHT_ALT)) {
           player.arrestor_hook = !player.arrestor_hook;
@@ -2578,6 +2619,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
             }
           }
           sample(audio::sample_priority::normal,audio::sample_id::air_brake);
+          lapc_effect(audio::lapc_effect_cue::mechanical_switch);
         }
       }
       timer_fraction += real_elapsed * tfx::simulation::timer_hz;

@@ -40,6 +40,9 @@ enum class view_mode : int16_t {
 unsigned int constexpr view_queue_capacity{10};
 
 enum class view_key { front, left, right, rear, chase, fly_past, tactical, missile, target, virtual_cockpit };
+struct view_key_events {
+  bool fly_past_sound{false};
+};
 struct view_key_context {
   bool inhibited{false};
   bool crashed{false};
@@ -96,7 +99,7 @@ public:
   void start_impact_orbit(int32_t speed);
   void ready();
   void consume();
-  void press(view_key key, view_key_context const &context);
+  view_key_events press(view_key key, view_key_context const &context);
 };
 
 } // namespace tfx::cockpit

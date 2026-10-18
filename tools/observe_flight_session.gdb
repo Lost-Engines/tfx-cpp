@@ -1,4 +1,4 @@
-# Read-only observation of the actual headless game, called from a private cwd.
+# Observe the actual game with declared host input/audio boundaries, in a private cwd.
 set pagination off
 set confirm off
 set startup-with-shell off
@@ -16,6 +16,21 @@ flight_frame=0
 import os
 import sys
 virtual_devices=None
+if 'TFX_OBSERVE_LAPC' in os.environ:
+ class SilentOutput(gdb.Breakpoint):
+  def stop(self):
+   # The audio callback still runs, but no PCM reaches the user's speakers.
+   # This changes only the external host device, before playback starts.
+   gdb.execute('set pDevice->masterVolumeFactor.value = 0',to_string=True)
+   print('CPP_HOST_AUDIO_MUTED')
+   return False
+ class LapcCue(gdb.Breakpoint):
+  def stop(self):
+   frame=flight_frame+int(bool(virtual_devices and virtual_devices['input_pending']))
+   print('CPP_LAPC_CUE '+json.dumps({'frame':frame,'cue':int(gdb.parse_and_eval('cue'))}))
+   return False
+ SilentOutput('ma_device_start',internal=True)
+ LapcCue('tfx::audio::music_player::effect',internal=True)
 if 'TFX_FLIGHT_INPUTS' in os.environ:
  sys.path.insert(0,os.environ['TFX_TOOLS_DIRECTORY'])
  from virtual_flight_inputs import install

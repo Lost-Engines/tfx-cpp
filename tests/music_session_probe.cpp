@@ -31,8 +31,9 @@ public:
 } // namespace
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 4) throw std::runtime_error{"expected START.EXE DID.DAT lapc|scc|fm"};
+  if(argc != 4) throw std::runtime_error{"expected START.EXE DID.DAT lapc|scc|fm|lapc-effects"};
   bool const scc{std::string_view{argv[3]} == "scc"}, fm{std::string_view{argv[3]} == "fm"};
+  bool const effects{std::string_view{argv[3]} == "lapc-effects"};
   auto const launcher{tfx::resources::read_file(argv[1])};
   tfx::resources::archive const game{std::filesystem::path{argv[2]}};
   auto const executable{tfx::resources::read_file(std::filesystem::path{argv[2]}.parent_path() / "TFX.DAT")};
@@ -45,11 +46,32 @@ int main(int const argc, char const *const argv[]) try {
     hardware = scc ? tfx::audio::make_scc_music_device(launcher,std::move(output)) : tfx::audio::make_la_music_device(launcher,std::move(output));
   }
   tfx::audio::music_player player{game,launcher,std::move(hardware),48000};
-  player.configure(scc ? tfx::audio::music_mode::sound_canvas : fm ? tfx::audio::music_mode::fm : tfx::audio::music_mode::lapc,3,profiles);
+  player.configure(scc ? tfx::audio::music_mode::sound_canvas : fm ? tfx::audio::music_mode::fm : tfx::audio::music_mode::lapc,effects ? 2 : 3,profiles);
   tfx::audio::flight_audio_state state{
     .throttle{.8f},
     .engines_running{true}
   };
+  if(effects) {
+    player.begin_flight(state);
+    std::array<float,960> pcm;
+    std::array<tfx::audio::lapc_effect_cue,8> constexpr cues{
+      tfx::audio::lapc_effect_cue::engine_start,tfx::audio::lapc_effect_cue::afterburner_start,
+      tfx::audio::lapc_effect_cue::engine_stop,tfx::audio::lapc_effect_cue::fly_past,
+      tfx::audio::lapc_effect_cue::mechanical_switch,tfx::audio::lapc_effect_cue::missile_release,
+      tfx::audio::lapc_effect_cue::bomb_release,tfx::audio::lapc_effect_cue::cannon_fire,
+    };
+    for(unsigned int frame{0}; frame != 1000; ++frame) {
+      if(frame == 150) player.enable(false);
+      if(frame == 250) player.enable(true);
+      if(frame == 400) player.end_flight();
+      if(frame == 500) player.begin_flight(state);
+      if(frame < 12 || frame % 17 == 0) player.effect(cues[frame % cues.size()]);
+      player.update_flight(state);
+      player.render(pcm);
+    }
+    player.end_flight();
+    return 0;
+  }
   player.select(12);player.begin_flight(state);
   std::array<float,960> pcm;
   for(unsigned int frame{0}; frame != 1000; ++frame) {

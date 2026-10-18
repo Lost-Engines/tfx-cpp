@@ -69,6 +69,7 @@ struct instrument_assets {
   std::string controls_bank;
   std::array<std::string,8> pilot_notices;
   std::string automatic_landing_gear_failure;
+  std::string gear_speed_warning;
   std::string autopilot_bank;
   std::string autopilot_number_format;
   std::string autopilot_label;

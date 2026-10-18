@@ -23,7 +23,9 @@ assert hashlib.sha256(launcher).hexdigest()=='c5a60c7791c971a872aaed1e19ef2638aa
 rng=random.Random(0x7120);rows=[]
 for index in range(4096):
  operation=0 if index%127==0 else rng.randrange(1,11)
- row=[operation,rng.randrange(16),rng.choice([0,rng.randrange(128)]),rng.randrange(128),rng.choice([0x2000,rng.randrange(65536)]),rng.randrange(128),rng.randrange(128),rng.randrange(128)]
+ # OSL shares 32 channels even though MIDI has only 16 channel numbers. The
+ # original LA callback does not clamp the resulting status bytes.
+ row=[operation,rng.randrange(32),rng.choice([0,rng.randrange(128)]),rng.randrange(128),rng.choice([0x2000,rng.randrange(65536)]),rng.randrange(128),rng.randrange(128),rng.randrange(128)]
  if operation==6 and index%3==0:row[2]=row[6]
  if operation==10:row += [244,*rng.randbytes(244)]
  rows.append(row)
