@@ -3,15 +3,16 @@
 #include "presentation/arming_screen.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc < 3) throw std::runtime_error{"usage: arming_preview_probe DATA_DIRECTORY sequence|picks|frames|flow|fades|animations"};
+  if(argc < 3) throw std::runtime_error{"usage: arming_preview_probe DATA_DIRECTORY sequence|incomplete|picks|frames|flow|fades|animations"};
   tfx::resources::archive const game{tfx::resources::find_game_archive(argv[1])};
   tfx::resources::executable_tables const tables{tfx::resources::find_game_archive(argv[1]).parent_path() / "TFX.DAT"};
-  if(std::string_view{argv[2]} == "sequence") {
+  if(std::string_view{argv[2]} == "sequence" || std::string_view{argv[2]} == "incomplete") {
+    bool const incomplete{std::string_view{argv[2]} == "incomplete"};
     unsigned int selected{0};
     std::cin >> selected;
     auto const aircraft{static_cast<tfx::flight::player_aircraft>(selected + 1)};
     tfx::weapons::armament inventory{aircraft,tables.weapons,tables.arming};
-    tfx::presentation::arming_screen screen{game,tables,inventory,aircraft,0};
+    tfx::presentation::arming_screen screen{game,tables,inventory,aircraft,0,incomplete ? tfx::presentation::arming_entry::mission_incomplete : tfx::presentation::arming_entry::normal};
     auto const output{[&] {
       auto const &pixels{screen.image().pixels};
       std::cout.write(reinterpret_cast<char const*>(pixels.data()),pixels.size());
@@ -21,7 +22,7 @@ int main(int const argc, char const *const argv[]) try {
     int x{0}, y{0}, dx{0}, dy{0};
     unsigned int buttons{0};
     while(std::cin >> x >> y >> dx >> dy >> buttons) {
-      screen.advance({static_cast<int16_t>(x),static_cast<int16_t>(y)},{static_cast<int16_t>(dx),static_cast<int16_t>(dy)},static_cast<uint8_t>(buttons));
+      if(screen.advance({static_cast<int16_t>(x),static_cast<int16_t>(y)},{static_cast<int16_t>(dx),static_cast<int16_t>(dy)},static_cast<uint8_t>(buttons))) throw std::runtime_error{"notice dismissal activated DONE"};
       output();
     }
   } else if(std::string_view{argv[2]} == "fades") {

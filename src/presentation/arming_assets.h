@@ -9,6 +9,7 @@
 
 namespace tfx::presentation {
 
+enum class arming_entry { normal, mission_incomplete };
 enum class arming_action { rotate, idle, defaults, done, clear_all, clear_mount, overview, scroll_up, scroll_down, scroll_thumb, select_store };
 struct arming_region {
   vec2<int16_t> minimum;
@@ -26,6 +27,7 @@ struct arming_assets {
   std::array<std::string,14> categories;
   std::string inertia_format, drag_format, internal, maximum, mass_format, store_mass_format, store_drag_format;
   std::array<std::string,2> unavailable;
+  std::string mission_incomplete;
   std::array<vec2<int16_t>,4> unavailable_box;
   std::vector<arming_region> regions;
   std::array<arming_region,6> rows;

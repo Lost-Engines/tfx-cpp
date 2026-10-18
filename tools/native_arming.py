@@ -82,10 +82,16 @@ class NativeArming(NativePlanner):
             self.image.call(address,limit=10000000)
         self.image.write(0x132fc,'<I',self.image.native(0x89590))
 
-    def open_screen(self):
+    def open_screen(self,*,incomplete=False):
         im=self.image
         self.events.clear();self.palettes.clear()
         im.write(0x11b3d,'<B',0)
+        if incomplete:
+            # Execute the service wrapper's actual prefix, up to its call of
+            # the shared arming screen. This installs the incomplete callback.
+            im.cpu.reg_write(r.UC_X86_REG_ESP,im.STACK)
+            im.cpu.emu_start(im.native(0x8b5e0),im.native(0x8b47c),count=100)
+            assert im.cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0x8b47c)
         im.cpu.reg_write(r.UC_X86_REG_ESP,im.STACK)
         im.cpu.emu_start(im.native(0x8b47c),im.native(0x8b502),count=10000000)
         assert im.cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0x8b502)
@@ -106,6 +112,10 @@ class NativeArming(NativePlanner):
         self.image.write(0x1330e,'<h',selected)
         self.image.write(0x14358,'<d',previous_drag)
         if selected>=first:self.image.call(0x8b1cc,eax=selected-first)
+        # Execute the outer loop's actual right-button dispatch before its draw.
+        self.cpu.reg_write(r.UC_X86_REG_ESP,self.image.STACK)
+        self.cpu.emu_start(self.image.native(0x8b591),self.image.native(0x8b5a4),count=1000)
+        assert self.cpu.reg_read(r.UC_X86_REG_EIP)==self.image.native(0x8b5a4)
         self.image.call(0x8a7d0)
         self.image.call(0x8b184,limit=20000000)
         return self.displayed

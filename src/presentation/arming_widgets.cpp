@@ -52,8 +52,8 @@ void draw_arming_unavailable(render::software_renderer &renderer, arming_assets 
   renderer.text(126,95,assets.unavailable[0],56);
   renderer.text(126,105,assets.unavailable[1],56);
 }
-void draw_arming_store_label(render::software_renderer &renderer, std::string const &label, vec2<int> const &position) {
-  int const half_width{static_cast<int>(label.size()) * 3};
+namespace {
+void caption_panel(render::software_renderer &renderer, std::string const &label, vec2<int> const &position, int const half_width) {
   auto const x{static_cast<int16_t>(position.x)}, y{static_cast<int16_t>(position.y)};
   auto const left{static_cast<int16_t>(x - half_width - 4)}, right{static_cast<int16_t>(x + half_width + 2)};
   auto const top{static_cast<int16_t>(y - 2)}, bottom{static_cast<int16_t>(y + 6)};
@@ -62,6 +62,16 @@ void draw_arming_store_label(render::software_renderer &renderer, std::string co
   panel(renderer,corners,76,{1,1});
   renderer.text(x + 2 - half_width,y + 2,label,15);
   renderer.text(x + 1 - half_width,y + 1,label,56);
+}
+
+} // anonymous namespace
+
+void draw_arming_store_label(render::software_renderer &renderer, std::string const &label, vec2<int> const &position) {
+  caption_panel(renderer,label,position,static_cast<int>(label.size()) * 3);
+}
+void draw_arming_mission_incomplete(render::software_renderer &renderer, arming_assets const &assets) {
+  // Native 8A66C calls 89268 with twice the message length, unlike store labels.
+  caption_panel(renderer,assets.mission_incomplete,{160,100},static_cast<int>(assets.mission_incomplete.size()) * 2);
 }
 
 flight::store_effects draw_arming_widgets(render::software_renderer &renderer, arming_assets const &assets,

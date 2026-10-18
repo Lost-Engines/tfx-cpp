@@ -5,7 +5,7 @@
 
 namespace tfx::presentation {
 
-enum class arming_mode { idle, rotating, placing, clearing, overview, unavailable, scrolling, complete };
+enum class arming_mode { idle, rotating, placing, clearing, overview, unavailable, scrolling, complete, mission_incomplete };
 struct arming_state {
   arming_mode mode{arming_mode::idle};
   unsigned int first_store{1};
@@ -25,7 +25,7 @@ private:
   void remove_previews();
 
 public:
-  arming_controller(weapons::armament &inventory, arming_assets const &assets, unsigned int default_fit);
+  arming_controller(weapons::armament &inventory, arming_assets const &assets, unsigned int default_fit, arming_entry entry = arming_entry::normal);
   ~arming_controller();
   arming_controller(arming_controller const&) = delete;
   arming_controller &operator=(arming_controller const&) = delete;

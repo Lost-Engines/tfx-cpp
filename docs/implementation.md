@@ -5997,3 +5997,28 @@ python3 tools/check_cruise_target.py --build build
 python3 tools/check_cruise_session.py --build build --rom-dir roms
 python3 tools/check_cruise_session.py --build build --airborne --rom-dir roms
 ```
+
+
+### Incomplete-mission landing notice
+
+Landing for service before completing the objective enters the original arming
+screen with `MISSION INCOMPLETE RE-ARM PLANE`. Native service wrapper `8B5E0`
+installs callback `8A66C`; startup and cheat rearming use the ordinary idle
+callback instead. The first left click dismisses the notice without activating
+the widget underneath. Right click also dismisses it; Escape retains the
+original empty-loadout fallback.
+The wording comes from the executable, and its caption uses the original
+panel dimensions and text placement.
+
+`check_arming_previews.py --incomplete` executes the service wrapper's entry
+and compares 99 complete original/C++ frames across all three aircraft,
+including dismissal over DONE without click-through. `--dismiss right` checks
+the outer loop’s earlier right-click cancellation. The full flight observer
+also records which entry callback actual landings and cheat rearming select.
+The carrier-landing case reaches the notice at frame 130; all 130 complete
+flight frames agree in gameplay state, indexed pixels and displayed palettes.
+
+```sh
+python3 tools/check_arming_previews.py --incomplete
+python3 tools/check_combat_sessions.py --case career-carrier-landing
+```

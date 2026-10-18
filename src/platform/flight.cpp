@@ -1403,7 +1403,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       else {
         if(!active_window) throw std::runtime_error{"ground rearming requires a window for the original arming screen"};
         glfwSetInputMode(active_window->get(),GLFW_CURSOR,GLFW_CURSOR_NORMAL);
-        if(!arm_mission(*active_window,game,tables,armament,player.aircraft,mission_setup.weapons)) return;
+        if(!arm_mission(*active_window,game,tables,armament,player.aircraft,mission_setup.weapons,tfx::presentation::arming_entry::mission_incomplete)) return;
         auto const &thumbnail{tables.arming_art().rows.back()};
         options.projection_origin = (thumbnail.minimum + thumbnail.maximum) / int16_t{2};
         service_modal_closed = true;

@@ -6,6 +6,7 @@
 
 namespace tfx::presentation {
 
+void draw_arming_mission_incomplete(render::software_renderer &renderer, arming_assets const &assets);
 void draw_arming_unavailable(render::software_renderer &renderer, arming_assets const &assets);
 void draw_arming_store_label(render::software_renderer &renderer, std::string const &label, vec2<int> const &position);
 
