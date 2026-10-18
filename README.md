@@ -40,6 +40,20 @@ See [controls and configuration](docs/controls.md) for weapons, autopilot, camer
 
 Sampled Sound Blaster and Gravis effects and speech, FM music, Roland LAPC-I and Sound Canvas emulation are connected. The saved `SOUNDFX=4` setting selects Gravis; `SOUNDFX=2` with `MUSIC=2` selects the original LAPC-I synthesised flight effects. `--music=soundblaster-fm` selects synthesised FM music explicitly; `--music=none` disables music. Roland modes require the matching ROMs selected with `--rom-dir`. Details are in [controls and configuration](docs/controls.md).
 
+To fetch the Roland ROMs on Linux or macOS:
+
+```sh
+./scripts/fetch-assets.sh
+./build/tfx --data-dir /path/to/TFX --music=roland-scc1a --rom-dir ./roms
+```
+
+On Windows, run `scripts\fetch-assets.bat`. Both scripts default to a `roms`
+directory in the project or beside the packaged executable; pass a destination to
+choose another directory. They fetch CM-32L/LAPC-I, SC-55 v1.21 and SCC-1A v1.30
+ROMs, verify every file on each run and retry interrupted downloads. Linux/macOS
+needs `curl`, `unzip` and `sha256sum` or `shasum`; Windows uses its built-in
+`curl.exe`, `certutil.exe` and `tar.exe`. **Game data are not downloaded yet.**
+
 CD music remains deferred. The original hybrid SB/CD setting can request CD playback; select FM explicitly to use synthesised flight music instead.
 
 ## Development status
@@ -50,7 +64,7 @@ The original and C++ launch/flight loops match across all 128 retail mission set
 ctest --test-dir build --output-on-failure
 ```
 
-For a minimal installation, `cmake --install build-rel --component Runtime --prefix /path/to/output` copies just the executable from a Release build. Original game data remain separate.
+For a minimal installation, `cmake --install build-rel --component Runtime --prefix /path/to/output` copies the executable and the matching platform’s fetch script and ROM manifest from a Release build. Original game data and ROMs remain separate.
 
 [Verification details](docs/implementation.md) distinguish complete-session evidence from isolated checks; the [implementation plan](docs/implementation-plan.md) tracks further coverage. The research tree is the sibling `tfx-reverse` directory.
 

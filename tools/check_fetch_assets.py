@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""Check Bash ROM fetching against a private HTTP fixture, without game data or public downloads."""
+import argparse
+import collections
+import hashlib
+import http.server
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import threading
+import zipfile
+
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--script',type=Path,default=Path(__file__).resolve().parents[1]/'scripts/fetch-assets.sh')
+args=parser.parse_args()
+with tempfile.TemporaryDirectory(prefix='tfx-fetch-test-') as temporary:
+    root=Path(temporary);scripts=root/'scripts';scripts.mkdir()
+    script=scripts/args.script.name;shutil.copy2(args.script,script)
+    payloads={'keep.rom':b'valid existing ROM','repair.rom':b'replacement bytes','new.rom':b'new ROM','first.bin':b'first ZIP ROM','second.bin':b'second ZIP ROM'}
+    bundle=root/'bundle.zip'
+    with zipfile.ZipFile(bundle,'w',compression=zipfile.ZIP_DEFLATED) as archive:
+        for name in ('first.bin','second.bin'):archive.writestr('roms/'+name,payloads[name])
+        archive.writestr('unrelated/leave-me-out.bin',b'not needed')
+    requests=collections.Counter();agents=[];fail_archive=False;corrupt=False
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self,*unused):pass
+        def do_GET(self):
+            requests[self.path]+=1;agents.append(self.headers.get('User-Agent'))
+            if (self.path=='/repair.rom' and requests[self.path]==1) or (self.path=='/bundle.zip' and fail_archive):
+                self.send_error(503);return
+            body=bundle.read_bytes() if self.path=='/bundle.zip' else b'wrong bytes' if self.path=='/repair.rom' and corrupt else payloads[self.path[1:]]
+            self.send_response(200);self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
+    server=http.server.ThreadingHTTPServer(('127.0.0.1',0),Handler)
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    try:
+        url=f'http://127.0.0.1:{server.server_port}'
+        manifest=[]
+        for name,data in payloads.items():
+            archive=name.endswith('.bin')
+            manifest.append(f'{hashlib.sha256(data).hexdigest()} {name} {url}/'+('bundle.zip roms/'+name if archive else name+' -'))
+        # Windows packages have CRLF manifests; Bash must also accept those.
+        (scripts/'roms.txt').write_bytes(('\r\n'.join(['# test ROMs',*manifest])+'\r\n').encode())
+        destination=root/'destination with spaces !';destination.mkdir()
+        (destination/'keep.rom').write_bytes(payloads['keep.rom']);os.utime(destination/'keep.rom',ns=(1000000000,1000000000))
+        original=(destination/'keep.rom').stat()
+        (destination/'repair.rom').write_bytes(b'damaged ROM')
+        def run(expected=0,env=None):
+            result=subprocess.run(['/bin/bash',str(script),str(destination)],env=env,capture_output=True,text=True,timeout=45)
+            assert result.returncode==expected,(result.returncode,result.stdout,result.stderr)
+            assert not list(destination.glob('.fetch-assets*')),'temporary download files were left behind'
+            return result
+        def verify():
+            for name,data in payloads.items():assert (destination/name).read_bytes()==data,name
+            assert {path.name for path in destination.iterdir()}==set(payloads),'unrelated archive files were extracted'
+        run();verify()
+        assert (destination/'keep.rom').stat().st_mtime_ns==original.st_mtime_ns,'valid existing ROM was replaced'
+        assert requests=={'/repair.rom':2,'/new.rom':1,'/bundle.zip':1},requests
+        assert set(agents)=={'Lost Engines TFX CPP'},agents
+        before=requests.copy();run();assert requests==before,'verified ROMs were downloaded again'
+        print('Fetch: missing/damaged ROM repair, HTTP retry, user agent, one shared archive, selective extraction, CRLF manifest, spaced paths and cached reuse passed')
+        corrupt=True;(destination/'repair.rom').write_bytes(b'old damaged copy')
+        run(1);assert (destination/'repair.rom').read_bytes()==b'old damaged copy','failed verification replaced the original'
+        corrupt=False;run();verify()
+        print('Fetch: incorrect downloads fail verification, preserve existing files, clean staging and recover on rerun')
+        for name in ('first.bin','second.bin'):(destination/name).unlink()
+        fail_archive=True;before=requests['/bundle.zip'];run(1)
+        assert requests['/bundle.zip']-before==4,'a failed shared archive was retried separately for each ROM'
+        fail_archive=False;run();verify()
+        print('Fetch: shared archive failures produce a nonzero exit and one retry sequence; rerun restores the missing ROMs')
+        if shutil.which('shasum'):
+            commands=root/'mac-style-path';commands.mkdir()
+            for command in ('curl','unzip','dirname','mkdir','mktemp','rm','mv','shasum'):(commands/command).symlink_to(shutil.which(command))
+            env=dict(os.environ,PATH=str(commands));(destination/'new.rom').unlink()
+            run(env=env);verify()
+            print('Fetch: macOS shasum fallback passed with sha256sum absent from PATH')
+    finally:
+        server.shutdown();server.server_close();thread.join(timeout=5)
