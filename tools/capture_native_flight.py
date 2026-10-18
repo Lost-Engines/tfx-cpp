@@ -12,17 +12,24 @@ from pathlib import Path
 import argparse,struct,sys,json,hashlib
 from native_reference import r
 from native_dpmi import DpmiReference
-from flight_inputs import FlightInputs,KEYS
+from flight_inputs import FlightInputs,KEYS,DEFAULT_REALISM,realism_settings
 from native_vga import VgaCapture
 from unicorn import UC_HOOK_CODE,UC_HOOK_INSN,UC_HOOK_MEM_WRITE,UC_HOOK_MEM_READ
 
 class SessionVideo(VgaCapture):
  def __init__(self,image,aperture=0xa0000):
   self.vram=[bytearray(65536) for _ in range(4)]
+  self.dac=bytearray(768);self.dac_at=0
   self.image=image;self.aperture=aperture;image.cpu.mem_map(aperture,65536);self.reset()
   image.cpu.hook_add(UC_HOOK_INSN,self._out,None,1,0,r.UC_X86_INS_OUT)
   image.cpu.hook_add(UC_HOOK_MEM_READ,self._read,begin=aperture,end=aperture+65535)
   image.cpu.hook_add(UC_HOOK_MEM_WRITE,self._write,begin=aperture,end=aperture+65535)
+ def _out(self,cpu,port,size,value,unused):
+  if port in (0x3c8,0x3c9):
+   assert size==1,('unexpected DAC port width',port,size)
+   if port==0x3c8:self.dac_at=(value&255)*3
+   else:self.dac[self.dac_at]=value&63;self.dac_at=(self.dac_at+1)%768
+  super()._out(cpu,port,size,value,unused)
  def get(self,field):return struct.unpack('<H',self.image.cpu.mem_read(self.image.native(0x70aa4+field),2))[0]
  def reset(self,colour=0):
   for plane in self.vram:plane[:]=bytes([colour])*65536
@@ -59,6 +66,8 @@ parser.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--mission',type=int,default=501)
 parser.add_argument('--flight-model',choices=('arcade','simple','military-spec','realistic'),default='arcade')
+parser.add_argument('--realism',type=realism_settings,default=DEFAULT_REALISM,help='seven original REALISM values: G effects, precipitation, crashing, gear damage, wind, temperature, recovery')
+parser.add_argument('--x87-backend',type=Path,help='build directory supplying hardware FPATAN/FSIN/FCOS/FPTAN for exact raw floating-state checks')
 parser.add_argument('--career-rules',action='store_true',help='declare inherited arcade=0 independently of the flight model')
 parser.add_argument('--frames',type=int,default=4)
 parser.add_argument('--ticks-per-frame',type=int,default=4,help='declared external timer interval; native frame clamps still execute')
@@ -78,6 +87,9 @@ args.output.mkdir(parents=True,exist_ok=True)
 sys.path.insert(0,str(root/'did-unpack'))
 from did_unpack import Archive
 im=DpmiReference(directory/'TFX.DAT',data_base=0x100000);video=SessionVideo(im,aperture=0xa0000)
+if args.x87_backend:
+ from native_x87 import hardware_fpatan,hardware_sine_cosine,hardware_tangent
+ x87_adapters=(hardware_fpatan(im,args.x87_backend),hardware_sine_cosine(im,args.x87_backend),hardware_tangent(im,args.x87_backend))
 from native_recording import MemoryFiles
 memory_files=MemoryFiles(im)
 # Native 0x75940 clears its shot pointer with zero, then reads flat address
@@ -94,7 +106,7 @@ def read(name):
  if name=='tfx.cfg':
   model={'arcade':0,'simple':1,'realistic':2,'military-spec':3}[args.flight_model]
   device=2 if args.lapc_effects else 0
-  return f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM=0,0,1,1,0,0,0\r\n'.encode()
+  return f'CONTROL=0\r\nMODEL={model}\r\nSOUNDFX={device}\r\nMUSIC={device}\r\nREALISM={",".join(map(str,args.realism))}\r\n'.encode()
  identifier=archive.hash_name(name)
  if identifier not in entries:raise RuntimeError('missing asset '+name)
  return archive.unpack(entries[identifier])
@@ -237,6 +249,7 @@ def actors_snapshot(current):
  return result
 
 def sensor_snapshot(current):
+ # The last two actor identities are acquisition (135C8), then guidance (135D0).
  # The original reuses the air-guidance scratch pointer for a designated
  # ground point during weapon release. This array enumerates aircraft only;
  # actual projectile guidance coordinates are observed separately below.
@@ -250,6 +263,12 @@ def sensor_snapshot(current):
  return [current.read(0x76d0,'<h')[0],identity(current.read(0x11108,'<I')[0]),*[identity(p) for p in slots],int(current.read(0x763e,'<H')[0]!=0),current.read(0x7774,'<h')[0],identity(current.read(0x135c8,'<I')[0]),identity(current.read(0x135d0,'<I')[0]),*current.read(0x135c0,'<2i'),*current.read(0x135cc,'<2h'),*current.read(0x135d4,'<2h'),int(current.read(0x8860,'<B')[0]!=0)]
 
 hud_alert_events=[]
+precipitation_events=[]
+def observe_precipitation(current):
+ if entered[0] and frames[0]:
+  count=struct.unpack('<h',struct.pack('<H',current.cpu.reg_read(r.UC_X86_REG_EAX)&65535))[0]
+  precipitation_events.append({'frame':frames[0],'count':count})
+im.intercept(0x78d8c,'Observe original rain-field inputs; drift, projection and VGA drawing execute unchanged.',observe_precipitation)
 def observe_hud_alert(current):
  if not entered[0]:return
  pointer=current.cpu.reg_read(r.UC_X86_REG_EAX)-current.data
@@ -323,6 +342,8 @@ def snapshot(current):
  return {
   **({'automatic_landing':[current.read(0x86cf,'<B')[0],*current.read(0x14920,'<3i'),*current.read(0x1492c,'<3i'),current.read(0x14398,'<Q')[0],current.read(0x14378,'<Q')[0],int(current.read(0x1495a,'<H')[0]!=0)]}if args.until_landed else {}),
   'frame':frames[0],
+  'realism_state':[current.read(field,'<B')[0]for field in (0x5954,0x8f31,0x8e22,0x8e23,0x8e25,0x8f30,0x8867)],
+  **({'aerodynamic_wind':[current.read(field,'<Q')[0]for field in (0x13b60,0x14288,0x13ba0,0x8e28,0x8e30,0x13b58,0x13b50,0x13bc8,0x13cc0,0x13b80,0x13cd0,0x13b70,0x13b48,0x13b30,0x13b38,0x8e38,0x13b90,0x13bc0,0x13b98)]+list(current.read(0x133fc,'<3I'))}if args.realism[4] else {}),
   'view_mode':current.read(0x87b6,'<h')[0],
   'mission_progress':{
    'results':[current.read(at,'<i')[0]for at in (0x5c14,0x5c18,0x5c1c,0x5c24,0x5c28,0x5c30,0x5c20,0x5c2c,0x5c34,0x5c38)],
@@ -457,6 +478,7 @@ def capture_frame(cpu,address,size,unused):
  if entered[0]:
   frame=bytes(video.pixels())
   (args.output/f'frame-{frames[0]}.indices').write_bytes(frame)
+  (args.output/f'frame-{frames[0]}.dac').write_bytes(video.dac)
 im.cpu.hook_add(UC_HOOK_CODE,capture_frame,begin=im.native(0x723bf),end=im.native(0x723bf))
 
 
@@ -496,6 +518,9 @@ for index,(filename,contents)in enumerate(memory_files.files.items()):
 record={
  'reference':{'executable_sha256':hashlib.sha256((directory/'TFX.DAT').read_bytes()).hexdigest(),'archive_sha256':hashlib.sha256((directory/'DID.DAT').read_bytes()).hexdigest()},
  'inputs':inputs.rows(frames[0]),
+ 'realism':args.realism,
+ 'palette_capture':'vga-dac6',
+ 'x87_backend':'hardware'if args.x87_backend else'unicorn',
  'default_rearming':args.default_rearming,
  'lapc_effects':args.lapc_effects,'lapc_requests':lapc_requests,
  'sample_requests':sample_requests if args.lapc_effects else None,
@@ -506,6 +531,7 @@ record={
  'projectile_guidance':projectile_guidance,
  'processor_exceptions':im.processor_exceptions,
  'cockpit_displays':cockpit_displays,
+ 'precipitation_events':precipitation_events,
  'preflight_projection':preflight_projection,
  'trail_events':trail_events,'hud_alert_events':hud_alert_events,'resource_root':'TFX','mission':args.mission,'presentation_numbers':presentation_numbers,'flight_model':args.flight_model,'ticks_per_frame':args.ticks_per_frame,'snapshots':snapshots,'horizons':horizons,'world_cameras':world_cameras,'terrain_passes':terrain_passes,
  'radio_events':radio_events,'grid':string(im.data+0x11974).lower()[:8],'environment':string(im.data+0x11960).lower(),

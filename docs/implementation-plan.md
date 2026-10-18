@@ -2,9 +2,22 @@
 
 Reference: September 1994 TFX 2.05. The project remains a native C++26 reconstruction using original installation data and the existing software-rendering/window approach. CD music remains deferred, and CI remains unconfigured.
 
-The executable starts the original introduction, enrolment and menus, with DOS-compatible pilot save/load, briefing/review/arming and authored results handoff. All four player flight models, keyboard/mouse/joystick acquisition, autopilot, recovery, refuelling and automatic landing are connected. Aircraft and surface routes/combat, carried stores, sensors, damage, mission rules, cockpit displays and cameras also run. Backtick now opens the original configuration/realism dialogs with live settings and compatible preference saving. Complete audio device/trigger integration, complete campaign/session coverage, remaining collision/sensor details and exact world-renderer/weather fidelity remain unfinished. See [implementation.md](implementation.md) for verification boundaries.
+The executable starts the original introduction, enrolment and menus, with DOS-compatible pilot save/load, briefing/review/arming and authored results handoff. All four player flight models, keyboard/mouse/joystick acquisition, autopilot, recovery, refuelling and automatic landing are connected. Aircraft and surface routes/combat, carried stores, sensors, damage, mission rules, cockpit displays and cameras also run. Backtick opens the original configuration/realism dialogs with live settings and compatible preference saving. The remaining work is broader interacting-encounter and campaign coverage, rather than those systems' initial implementation. See [implementation.md](implementation.md) for verification boundaries.
 
 The aim is to reach a substantially complete, automatically exercised game before requesting interactive review. The order below brings the largest uncertainties—runtime timing, aerodynamics and context-dependent callbacks—into the early work. Each increment should include its verification and be committed independently.
+
+## Current next work
+
+- Extend complete original-session comparisons to live realism changes, refuelling, countermeasures and hostile/friendly encounters. Exercise actual controls and natural outcomes; do not set internal state to manufacture success.
+- Broaden persistent campaign coverage beyond the verified training result/save/continue sequence, including authorisation penalties and later campaign branches.
+- Keep every captured state, indexed image and (for new captures) displayed palette strict. Investigate divergent inputs or update order before attributing differences to the original.
+- Finish native packaging/startup checks without adding CI. CD music remains deferred. Optional QSound processing requires external Creative CSP firmware/driver support; it is an established dependency, not an unimplemented software effect.
+
+The latest corpus sweep matches all 128 retail missions through sixteen complete
+frames. The runway and carrier approaches now match every intermediate image,
+closing their earlier renderer gaps. There are 208 passing asset-free regressions
+in development, Release and ASan/UBSan. The chronological notes below preserve the
+implementation sequence; later entries supersede earlier open-work statements.
 
 ## Progress
 
@@ -14,7 +27,7 @@ Cockpit/HUD instruments, sensors, all camera controllers, scenery animation/coll
 
 FM, LAPC-I and Sound Canvas music use the original OSL drivers through DBOPL, Munt and Nuked Sound Canvas. Standard sampled Sound Blaster and Gravis effects/speech and the original flight music/cue selection are connected. Optional QSound processing and complete-session audio coverage remain open. CD music is deferred as requested.
 
-Alt+V recording and automatic post-flight WNN/replay are connected. The original format has byte-exact writer/reader comparisons; nineteen replay frames and their palettes agree pixel for pixel. A private-window campaign test records a complete successful training flight, observes both WNN introductions and replay, then continues to the next mission. The original filename editor now supports case-sensitive typing, backspace, scrolling, its 18-character limit and Enter; 115 complete original widget frames agree. All 195 asset-free regressions pass in development, Release and ASan/UBSan.
+Alt+V recording and automatic post-flight WNN/replay are connected. The original format has byte-exact writer/reader comparisons; nineteen replay frames and their palettes agree pixel for pixel. A private-window campaign test records a complete successful training flight, observes both WNN introductions and replay, then continues to the next mission. The original filename editor now supports case-sensitive typing, backspace, scrolling, its 18-character limit and Enter; 115 complete original widget frames agree.
 
 The wider retail-session sweep found and corrected launch fuel ordering: physical initialisation consumes the previous pylon inventory before new stores are fitted. Mission 604 now matches sixteen complete original frames in all four flight models, and a landed tank-equipped launch matches its first-frame refill. A successful recorded training flight also verifies inventory retention into the next mission. Rotated/near-clipped model lines now have 1,024 complete original-program comparisons.
 
@@ -38,7 +51,7 @@ The separate `SOUNDFX=2` LAPC-I effects path is now connected through its origin
 
 Career rules can now be exercised independently of window ownership using the developer direct-launch context. A natural fourteen-frame loss and complete 233-frame successful interception match the original's state, pixels, damage, radio, finite inventory and FINISH results in development and sanitizers. This exposed and corrected the F-117/Eurofighter permission-notice index mismatch, with all 8,192 original permission handlers rechecked. Airspace violation and broader career/campaign branches remain under investigation.
 
-Engine keys retain their original current-fault/refuelling gates and ignition/on/stop samples, with 4,096 original-call comparisons. Full live control sequences agree in state, pixels and actual sound requests. Ground service refuels, repairs and rearms through the real arming screen; 8,192 original eligibility calls and a complete 237-frame runway landing agree, including every indexed pixel. The 130-frame carrier approach agrees in captured gameplay state and final image, with five earlier images still exposing renderer differences. Retaining the original three display pages and shared refresh clock now also makes the complete 740-frame career airspace sortie agree in every captured state and pixel. The refresh controller has 8,192 original-code comparisons and 396 complete cockpit composition images. All 207 regressions pass in the three builds. Remaining intermediate world-polygon discrepancies and broader campaign/encounter coverage are the next work.
+Engine keys retain their original current-fault/refuelling gates and ignition/on/stop samples, with 4,096 original-call comparisons. Full live control sequences agree in state, pixels and actual sound requests. Ground service refuels, repairs and rearms through the real arming screen; 8,192 original eligibility calls and a complete 237-frame runway landing agree, including every indexed pixel. The 130-frame carrier approach and 246-frame Raptor runway approach now agree in every captured state and indexed pixel after the thin-face and terrain-anchor corrections. Retaining the original three display pages and shared refresh clock also makes the complete 740-frame career airspace sortie agree in every captured state and pixel. The refresh controller has 8,192 original-code comparisons and 396 complete cockpit composition images. Broader campaign/encounter coverage is the next work.
 
 The numbered sections below retain the implementation sequence and its verification boundaries.
 

@@ -1,4 +1,4 @@
-"""Shared declared keyboard input for original/C++ flight captures.
+"""Shared declared external inputs for original/C++ flight captures.
 
 Each row supplies a frame, optional make-code event and that frame's held keys.
 Optional mouse motion is a signed [dx,dy] pair; buttons is the DOS left/right
@@ -8,6 +8,14 @@ These are external device inputs, never changes to game state or outcomes.
 """
 import json
 from pathlib import Path
+
+DEFAULT_REALISM=(0,0,1,1,0,0,0)
+
+def realism_settings(value):
+ values=tuple(int(field)for field in value.split(','))
+ if len(values)!=7 or any(not 0<=field<=255 for field in values):
+  raise ValueError('expected seven comma-separated unsigned bytes for REALISM')
+ return values
 
 # DOS scan code, GLFW key code. The current capture transport uses keyboard input.
 KEYS={
