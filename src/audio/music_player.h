@@ -44,6 +44,8 @@ public:
   music_player(resources::archive const &game, std::span<uint8_t const> launcher,
     std::filesystem::path const &rom_directory, unsigned int output_rate, bool enabled = true);
   void configure(music_mode mode, uint8_t sound_device, lapc_order_profiles const &orders);
+  void set_cd_mode(bool active);
+  std::optional<uint8_t> preselected_index() const;
   void begin_flight(flight_audio_state const &state);
   void end_flight();
   void update_flight(flight_audio_state const &state);

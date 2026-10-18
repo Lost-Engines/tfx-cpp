@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Bash ROM fetching against a private HTTP fixture, without game data or public downloads."""
+"""Check Bash game/ROM fetching against a private HTTP fixture, without game data or public downloads."""
 import argparse
 import collections
 import hashlib
@@ -18,7 +18,7 @@ args=parser.parse_args()
 with tempfile.TemporaryDirectory(prefix='tfx-fetch-test-') as temporary:
     root=Path(temporary);scripts=root/'scripts';scripts.mkdir()
     script=scripts/args.script.name;shutil.copy2(args.script,script)
-    payloads={'keep.rom':b'valid existing ROM','repair.rom':b'replacement bytes','new.rom':b'new ROM','first.bin':b'first ZIP ROM','second.bin':b'second ZIP ROM'}
+    payloads={'cd/track01.bin':b'reference data track','cd/track02.bin':b'reference audio track','cd/tfx.cue':b'FILE \"track01.bin\" BINARY\r\n','keep.rom':b'valid existing ROM','repair.rom':b'replacement bytes','new.rom':b'new ROM','first.bin':b'first ZIP ROM','second.bin':b'second ZIP ROM'}
     bundle=root/'bundle.zip'
     with zipfile.ZipFile(bundle,'w',compression=zipfile.ZIP_DEFLATED) as archive:
         for name in ('first.bin','second.bin'):archive.writestr('roms/'+name,payloads[name])
@@ -36,11 +36,18 @@ with tempfile.TemporaryDirectory(prefix='tfx-fetch-test-') as temporary:
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
     try:
         url=f'http://127.0.0.1:{server.server_port}'
-        manifest=[]
+        manifest=[];game_manifest=[]
         for name,data in payloads.items():
+            if name.startswith('cd/'):
+                member='cd-cue.txt' if name.endswith('.cue') else '-'
+                location='-' if name.endswith('.cue') else url+'/'+name
+                game_manifest.append(f'{hashlib.sha256(data).hexdigest()} {name} {location} {member}')
+                continue
             archive=name.endswith('.bin')
             manifest.append(f'{hashlib.sha256(data).hexdigest()} {name} {url}/'+('bundle.zip roms/'+name if archive else name+' -'))
         # Windows packages have CRLF manifests; Bash must also accept those.
+        (scripts/'game-files.txt').write_bytes(('\r\n'.join(game_manifest)+'\r\n').encode())
+        (scripts/'cd-cue.txt').write_bytes(payloads['cd/tfx.cue'])
         (scripts/'roms.txt').write_bytes(('\r\n'.join(['# test ROMs',*manifest])+'\r\n').encode())
         destination=root/'destination with spaces !';destination.mkdir()
         (destination/'keep.rom').write_bytes(payloads['keep.rom']);os.utime(destination/'keep.rom',ns=(1000000000,1000000000))
@@ -53,10 +60,10 @@ with tempfile.TemporaryDirectory(prefix='tfx-fetch-test-') as temporary:
             return result
         def verify():
             for name,data in payloads.items():assert (destination/name).read_bytes()==data,name
-            assert {path.name for path in destination.iterdir()}==set(payloads),'unrelated archive files were extracted'
+            assert {str(path.relative_to(destination)) for path in destination.rglob('*') if path.is_file()}==set(payloads),'unrelated archive files were extracted'
         run();verify()
         assert (destination/'keep.rom').stat().st_mtime_ns==original.st_mtime_ns,'valid existing ROM was replaced'
-        assert requests=={'/repair.rom':2,'/new.rom':1,'/bundle.zip':1},requests
+        assert requests=={'/cd/track01.bin':1,'/cd/track02.bin':1,'/repair.rom':2,'/new.rom':1,'/bundle.zip':1},requests
         assert set(agents)=={'Lost Engines TFX CPP'},agents
         before=requests.copy();run();assert requests==before,'verified ROMs were downloaded again'
         print('Fetch: missing/damaged ROM repair, HTTP retry, user agent, one shared archive, selective extraction, CRLF manifest, spaced paths and cached reuse passed')
@@ -84,7 +91,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-fetch-test-') as temporary:
         print('Fetch: no-argument XDG/HOME destinations, relative XDG rejection and launch-directory independence passed')
         if shutil.which('shasum'):
             commands=root/'mac-style-path';commands.mkdir()
-            for command in ('curl','unzip','dirname','mkdir','mktemp','rm','mv','shasum'):(commands/command).symlink_to(shutil.which(command))
+            for command in ('curl','unzip','dirname','mkdir','mktemp','rm','mv','cp','shasum'):(commands/command).symlink_to(shutil.which(command))
             env=dict(os.environ,PATH=str(commands));(destination/'new.rom').unlink()
             run(env=env);verify()
             print('Fetch: macOS shasum fallback passed with sha256sum absent from PATH')

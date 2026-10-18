@@ -70,9 +70,14 @@ void play_game(resources::archive const &game, resources::executable_tables cons
   std::filesystem::path const &save_directory, std::string const &language, bool const skip_intro,
   flight_options const &options) {
   presentation::frontend frontend{game,tables,save_directory,language,skip_intro,[&](presentation::audio_request const &request) {
-    if(!options.sound || request.device != 0) return; // CD remains deferred.
-    if(request.operation == 0) options.sound->select_music(request.index);
-    else if(request.operation == 1) options.sound->stop_music();
+    if(!options.sound) return;
+    if(request.device == 0) {
+      if(request.operation == 0) options.sound->select_music(request.index);
+      else if(request.operation == 1) options.sound->stop_music();
+    } else if(request.device == 1) {
+      if(request.operation == 0) options.sound->select_cd(request.index);
+      else if(request.operation == 1) options.sound->stop_cd();
+    }
   }};
   frontend_keys controls{frontend,{}};
   bool finished{false};
@@ -190,6 +195,9 @@ void play_presentation(resources::archive const &game, resources::executable_tab
       if(sound && request.device == 0) {
         if(request.operation == 0) sound->select_music(request.index);
         else if(request.operation == 1) sound->stop_music();
+      } else if(sound && request.device == 1) {
+        if(request.operation == 0) sound->select_cd(request.index);
+        else if(request.operation == 1) sound->stop_cd();
       }
       session->complete();
       action = session->advance(counters(elapsed),controls.input);

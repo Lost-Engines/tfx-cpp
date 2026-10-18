@@ -54,7 +54,7 @@ independently of the numerical flight model. `--mission=501 --career-rules`
 instead supplies the original career rules for analytical flight comparisons;
 it does not enrol a pilot or start a persistent campaign.
 
-The presentation player runs original images, delta animations, captions and palette fades; Space finishes a caption or advances a scene, Escape skips the sequence, and Shift+Q exits. Original menu scripts can also run independently with `--menu`, including the animated main menu (`mastopts`). Other presentation graphs include `cdcolint`, `cdsomint`, `cdfwsint`, `cdyugint` and `cdyugmid`; `--language` selects briefing text. Presentations retain their synthesised music requests; CD playback remains deferred.
+The presentation player runs original images, delta animations, captions and palette fades; Space finishes a caption or advances a scene, Escape skips the sequence, and Shift+Q exits. Original menu scripts can also run independently with `--menu`, including the animated main menu (`mastopts`). Other presentation graphs include `cdcolint`, `cdsomint`, `cdfwsint`, `cdyugint` and `cdyugmid`; `--language` selects briefing text. Presentations retain their original synthesised and CD music requests.
 
 In the inspector, WASD moves, R/F rises/descends, arrows or right-drag look around and Shift moves faster. Release builds omit the developer options. No CI or automatic release process is configured.
 
@@ -67,3 +67,19 @@ The optional reference check compares every decoded archive entry byte for byte 
 
 The research tools and captures currently live in the sibling `tfx-reverse` directory. Native comparison commands, verified behaviour and current rendering limitations are in [implementation.md](implementation.md). The remaining work and automated verification gates are in the [implementation plan](implementation-plan.md).
 
+
+## CD soundtrack sources
+
+The fetch scripts supply `cd/tfx.cue` and its individual BIN tracks in the default
+game directory. The game streams their audio directly and prepares the reference
+runtime files without an external extractor. Existing configuration and pilots
+are retained. `--music=soundblaster-cd` (alias `cd`) selects the original SB/CD
+mode; the original introduction still uses synthesised music.
+
+`--cd-cue FILE` selects a different CUE/BIN image. `--cd-audio-dir DIRECTORY`
+selects local numbered FLAC, WAV, Ogg Vorbis or MP3 tracks. Either source option
+selects CD mode unless `--music` explicitly overrides it. Choose one source,
+rather than supplying both. Rips retain physical CD numbering: the first audio
+track is `track02`, with an appropriate extension. `track-02`, `track_02` and
+case variations also work. If several formats exist for a track, FLAC takes
+precedence, followed by WAV, Ogg and MP3.

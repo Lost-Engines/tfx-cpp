@@ -22,6 +22,7 @@ function(configure_first_party target)
 endfunction()
 
 add_library(tfx_audio
+  src/audio/cd_player.cpp src/audio/cd_player.h
   src/audio/radar_voice.cpp src/audio/radar_voice.h
   src/audio/sample_scheduler.cpp src/audio/sample_scheduler.h
   src/audio/gus_scheduler.cpp src/audio/gus_scheduler.h
@@ -419,6 +420,7 @@ add_library(tfx_core
   src/world/definition.h
   src/world/assets.cpp
   src/world/assets.h
+  src/resources/cd_image.cpp src/resources/cd_image.h
   src/resources/archive.cpp
   src/resources/archive.h
   src/resources/installation.cpp
@@ -437,8 +439,9 @@ if(APPLE)
 endif()
 add_library(pcm_device STATIC src/platform/miniaudio_implementation.c)
 target_include_directories(pcm_device SYSTEM PUBLIC "${miniaudio_SOURCE_DIR}")
-target_compile_definitions(pcm_device PUBLIC MA_NO_ENGINE MA_NO_RESOURCE_MANAGER MA_NO_NODE_GRAPH MA_NO_DECODING MA_NO_ENCODING MA_NO_GENERATION MA_NO_NULL)
+target_compile_definitions(pcm_device PUBLIC MA_NO_ENGINE MA_NO_RESOURCE_MANAGER MA_NO_NODE_GRAPH MA_NO_ENCODING MA_NO_GENERATION MA_NO_NULL)
 target_link_libraries(pcm_device PRIVATE Threads::Threads PRIVATE ${CMAKE_DL_LIBS})
+target_link_libraries(tfx_audio PUBLIC pcm_device)
 if(UNIX)
   target_link_libraries(pcm_device PRIVATE m)
 endif()
@@ -471,6 +474,10 @@ configure_first_party(tfx)
 include(cmake/install.cmake)
 
 if(BUILD_TESTING)
+  add_executable(cd_probe tests/cd_probe.cpp)
+  target_link_libraries(cd_probe PRIVATE tfx_audio)
+  configure_first_party(cd_probe)
+  add_test(NAME audio.cd_image_and_local_streaming COMMAND cd_probe self-test)
   add_executable(music_render tools/render_music.cpp)
   target_link_libraries(music_render PRIVATE tfx_audio)
   configure_first_party(music_render)

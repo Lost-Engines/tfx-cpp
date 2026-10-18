@@ -63,4 +63,4 @@ for index,(row,line) in enumerate(zip(cases,output)):
  actual=list(map(int,line.split()));assert actual==expected,(index,row,actual,expected,events)
  if index<256:fixtures.append(' '.join(map(str,row))+' '+' '.join(map(str,expected)))
 if a.record:a.record.write_text('\n'.join(fixtures)+'\n')
-print(f'{len(cases)} complete original flight music frame updates agree, including {accepted} selected plays, engine shutdown, throttle cache/thresholds and sequencer-driven transient returns; CD timing remains an explicit deferred boundary')
+print(f'{len(cases)} complete original flight music frame updates agree, including {accepted} selected plays, engine shutdown, throttle cache/thresholds and sequencer-driven transient returns; CD timing is checked separately by check_cd_control.py')

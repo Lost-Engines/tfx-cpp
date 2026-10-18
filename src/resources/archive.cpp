@@ -160,7 +160,7 @@ std::filesystem::path find_game_archive(std::filesystem::path const &directory) 
     auto const path{directory / name};
     if(std::filesystem::is_regular_file(path)) return path;
   }
-  throw std::runtime_error{"TFX needs the original game files. Use --data-dir /path/to/TFX to select an installation containing DID.DAT (TFX 2.05 is the reference version). Searched: " + directory.string()};
+  throw std::runtime_error{"TFX needs the original game files. Run scripts/fetch-assets.sh (Windows: scripts\\fetch-assets.bat) to fetch the reference CD and ROMs, or use --data-dir /path/to/TFX to select an installation containing DID.DAT (TFX 2.05 is the reference version). Searched: " + directory.string()};
 }
 
 } // namespace tfx::resources
