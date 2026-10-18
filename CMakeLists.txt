@@ -23,6 +23,7 @@ endfunction()
 add_library(tfx_audio
   src/audio/radar_voice.cpp src/audio/radar_voice.h
   src/audio/sample_scheduler.cpp src/audio/sample_scheduler.h
+  src/audio/gus_scheduler.cpp src/audio/gus_scheduler.h
   src/audio/sample_bank.cpp src/audio/sample_bank.h
   src/audio/sample_voice.cpp src/audio/sample_voice.h
   src/audio/runtime.cpp src/audio/runtime.h src/audio/requests.h
@@ -995,6 +996,10 @@ if(BUILD_TESTING)
   target_link_libraries(sample_scheduler_probe PRIVATE tfx_audio)
   configure_first_party(sample_scheduler_probe)
   add_test(NAME audio.native_sample_scheduler COMMAND sample_scheduler_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/sample_scheduler.txt")
+  add_executable(gus_scheduler_probe tests/gus_scheduler_probe.cpp)
+  target_link_libraries(gus_scheduler_probe PRIVATE tfx_audio)
+  configure_first_party(gus_scheduler_probe)
+  add_test(NAME audio.native_gus_scheduler COMMAND gus_scheduler_probe "${PROJECT_SOURCE_DIR}/tests/fixtures/gus_scheduler.txt")
 
   add_executable(detail_status_probe tests/detail_status_probe.cpp)
   target_link_libraries(detail_status_probe PRIVATE tfx_core)
