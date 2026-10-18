@@ -1872,8 +1872,8 @@ workaround is applied. The music switch sends the original zero/restored volume
 and gates subsequent sequencer ticks while the synthesiser continues rendering
 its existing voices and reverb. One PCM device mixes this with sampled effects.
 
-The game does **not** run the sequencer at the standalone auditions' requested
-50 Hz. Its launcher supplies `BX=0xffff` when initialising MEDIT, disabling that
+The earlier standalone auditions followed a requested 50 Hz clock; the game
+does **not** use that rate. Its launcher supplies `BX=0xffff` when initialising MEDIT, disabling that
 library's private PIT programming. The shared game IRQ at master offset `0x1e03`
 calls the music tick while enabled, with PIT divisor `0x5555` (21,845), about
 54.62 Hz. Requested clock changes, including zero, do not reprogram or stop this
@@ -1881,7 +1881,9 @@ shared IRQ. `tools/check_osl_sequencer.py --host-irq` executes the complete
 original shared handler and verifies both PIT writes and its game counter:
 **31 LA resources, 175,459 complete ticks and 891,656 MIDI bytes** agree. This
 extends the isolated comparison through the zero-clock request in `air.rld`.
-The retained research FLACs remain explicitly labelled standalone auditions.
+The research FLACs now use this verified game clock and native song volume 75,
+while remaining standalone first-traversal auditions rather than interactive
+flight sessions.
 
 Music timing retains the shared clock phase across track changes and mute/resume.
 Its rational sample clock has callback-boundary tests at 8, 44.1, 48 and 96 kHz.
@@ -6021,4 +6023,30 @@ flight frames agree in gameplay state, indexed pixels and displayed palettes.
 ```sh
 python3 tools/check_arming_previews.py --incomplete
 python3 tools/check_combat_sessions.py --case career-carrier-landing
+```
+
+
+### Offline game-timed music exports
+
+The `music_render` target pairs the production OSL sequencer and `music_clock`
+with the same FM, Munt and Sound Canvas devices used by the game. It settles
+reset before loading the resource, begins at order zero and volume 75, and
+renders through a boundary measured independently by the original shared IRQ.
+Backwards jumps exclude the first repeated notes; a real driver stop supplies
+the following two-second release tail.
+
+The research batch independently executes original MEDIT/device code for every
+resource. All 104 hardware auditions of the 81 resources agree in the complete
+16-field playback-state trace and exact rationally scheduled sample boundary.
+The 23 SCC resources each have separate SCC-1A v1.30 and SC-55 v1.21 exports.
+Every 48 kHz/24-bit, maximum-compression FLAC was decoded and compared to its
+floating-point render after the recorded fixed gain. Identical audio shares a
+file, leaving 100 stored FLACs; native captures and source/ROM/renderer provenance
+remain separate. The audio-browser check covers the four intro players, hardware
+filters, actual SC-55 FLAC loading and the distinct SCC-1A file.
+
+```sh
+cmake --build build-rel --target music_render -j
+python3 ../tfx-reverse/tools/render_music_archive.py
+python3 ../tfx-reverse/tools/map_music_scenes.py
 ```
