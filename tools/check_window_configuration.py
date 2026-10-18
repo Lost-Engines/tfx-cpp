@@ -12,7 +12,7 @@ import struct
 import subprocess
 import tempfile
 import time
-from window_input import confirm_flight_quit
+from window_input import move_game_pointer,confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -56,7 +56,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-x11-configuration-') as temporary:
      time.sleep(.05)
     raise RuntimeError('missing title '+text+'\n'+output()[-5000:])
    def click(x,y):
-    run('xdotool','mousemove','--window',window,str(round(x*2)),str(round(y*2.4)))
+    move_game_pointer(env,window,x,y)
     run('xdotool','mousedown','1');time.sleep(.12);run('xdotool','mouseup','1');time.sleep(.15)
    tap('grave');await_title('Configuration')
    before=output().count('TFX_WINDOW_TICK');time.sleep(.4);assert output().count('TFX_WINDOW_TICK')==before,'simulation advanced while configuration was open'

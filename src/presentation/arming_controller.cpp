@@ -65,7 +65,7 @@ void arming_controller::advance(vec2<int16_t> const &position, vec2<int16_t> con
   if(buttons & 2) { cancel();return; }
   switch(current.mode) {
   case arming_mode::rotating:
-    current.angles += vec2<math::angle>{static_cast<math::angle>(movement.x * 16),static_cast<math::angle>(movement.y * 16)};
+    current.angles += vec2<math::angle>{static_cast<math::angle>(movement.y * 16),static_cast<math::angle>(movement.x * 16)};
     if(click) cancel();
     return;
   case arming_mode::placing:

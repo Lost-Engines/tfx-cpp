@@ -6,6 +6,7 @@ an aircraft-loss result; no damage, outcome or FINISH values are injected.
 A private X11 display and installation isolate every save and input operation.
 """
 import argparse
+from window_input import move_game_pointer
 import json
 import os
 from pathlib import Path
@@ -63,12 +64,12 @@ with tempfile.TemporaryDirectory(prefix='tfx-campaign-return-') as temporary:
                 title=run('xdotool','getwindowname',window).stdout
                 if 'Arming' in title and not armed:
                     time.sleep(1)
-                    run('xdotool','mousemove','--window',window,'394','475');time.sleep(.2)
+                    move_game_pointer(env,window,197,198);time.sleep(.2)
                     run('xdotool','mousedown','1');time.sleep(.15);run('xdotool','mouseup','1');armed=True
                 log.seek(0);text=log.read()
                 if a.enrol_menu and 'TFX miss605 /' in text:
                     def click(x,y):
-                        run('xdotool','mousemove','--window',window,str(round(x*2)),str(round(y*2.4)))
+                        move_game_pointer(env,window,x,y)
                         run('xdotool','mousedown','1');time.sleep(.15);run('xdotool','mouseup','1');time.sleep(.2)
                     tap('grave');time.sleep(.4);click(80,172);click(160,132)
                     time.sleep(1.5)

@@ -14,7 +14,7 @@ import select
 import subprocess
 import tempfile
 import time
-from window_input import confirm_flight_quit
+from window_input import move_game_pointer,confirm_flight_quit
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build',type=Path,default=Path('build'))
@@ -60,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-') as temporary:
    run('xdotool','windowfocus','--sync',window)
    def tap(key):run('xdotool','keydown',key);time.sleep(.12);run('xdotool','keyup',key);time.sleep(.15)
    def click(x,y):
-    run('xdotool','mousemove','--window',window,str(round(x*2)),str(round(y*2.4)))
+    move_game_pointer(env,window,x,y)
     run('xdotool','mousedown','1');time.sleep(.12);run('xdotool','mouseup','1');time.sleep(.2)
    def samples(start):
     data=pcm.read_bytes()[start:];data=data[:len(data)//8*8];values=array.array('f');values.frombytes(data)

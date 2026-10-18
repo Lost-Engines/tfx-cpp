@@ -65,3 +65,23 @@ actual=subprocess.check_output([str((args.build/'arming_controls_probe').resolve
 assert len(actual)==len(expected)==len(positions)
 for position,got,want in zip(positions,actual,expected):assert list(map(int,got.split()))==want,(position,got,want)
 print(f'Arming controls agree in {len(cases)} native placement/clearing/exit sequences and {len(positions)} native hit tests')
+
+# Exercise the original relative input and absolute placement conversions too.
+# The earlier tests supply a picked mount and therefore cannot establish these axes.
+native.buttons=0
+motions=[(x,y,dx,dy) for x,y in ((0,0),(160,100),(319,199)) for dx,dy in ((1,0),(-1,0),(0,1),(0,-1),(37,-19))]
+motions += [(rng.randrange(320),rng.randrange(200),rng.randrange(-2048,2049),rng.randrange(-2048,2049)) for _ in range(1024)]
+expected=[]
+for x,y,dx,dy in motions:
+    native.position=(x,y);native.movement=(dx,dy)
+    im.write(0x13302,'<2H',0x14f0,0x7130)
+    im.call(0x89210)
+    angles=list(im.read(0x13302,'<2H'))
+    picked[0]=-1;im.write(0xabec,'<h',-1)
+    im.call(0x898ec,limit=1000000)
+    point=[im.read(field,'<i')[0] for field in (0x132f8,0x132f4,0x132f0)]
+    expected.append(angles+point)
+actual=subprocess.check_output([str((args.build/'arming_controls_probe').resolve()),str(args.data_dir),'--motion'],input=''.join(' '.join(map(str,row))+'\n' for row in motions).encode()).splitlines()
+assert len(actual)==len(expected)
+for row,got,want in zip(motions,actual,expected):assert list(map(int,got.split()))==want,(row,got,want)
+print(f'{len(motions)} original rotation and placement-coordinate cases agree, including independent horizontal/vertical movement and wrapped angles')

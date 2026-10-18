@@ -3,10 +3,28 @@
 #include "presentation/arming_screen.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc < 3) throw std::runtime_error{"usage: arming_preview_probe DATA_DIRECTORY picks|frames"};
+  if(argc < 3) throw std::runtime_error{"usage: arming_preview_probe DATA_DIRECTORY sequence|picks|frames|flow|fades|animations"};
   tfx::resources::archive const game{tfx::resources::find_game_archive(argv[1])};
   tfx::resources::executable_tables const tables{tfx::resources::find_game_archive(argv[1]).parent_path() / "TFX.DAT"};
-  if(std::string_view{argv[2]} == "fades") {
+  if(std::string_view{argv[2]} == "sequence") {
+    unsigned int selected{0};
+    std::cin >> selected;
+    auto const aircraft{static_cast<tfx::flight::player_aircraft>(selected + 1)};
+    tfx::weapons::armament inventory{aircraft,tables.weapons,tables.arming};
+    tfx::presentation::arming_screen screen{game,tables,inventory,aircraft,0};
+    auto const output{[&] {
+      auto const &pixels{screen.image().pixels};
+      std::cout.write(reinterpret_cast<char const*>(pixels.data()),pixels.size());
+    }};
+    output();
+    for(unsigned int frame{0}; frame != 40; ++frame) screen.advance({100,75},{0,0},0);
+    int x{0}, y{0}, dx{0}, dy{0};
+    unsigned int buttons{0};
+    while(std::cin >> x >> y >> dx >> dy >> buttons) {
+      screen.advance({static_cast<int16_t>(x),static_cast<int16_t>(y)},{static_cast<int16_t>(dx),static_cast<int16_t>(dy)},static_cast<uint8_t>(buttons));
+      output();
+    }
+  } else if(std::string_view{argv[2]} == "fades") {
     tfx::weapons::armament inventory{tfx::flight::player_aircraft::eurofighter,tables.weapons,tables.arming};
     tfx::presentation::arming_screen screen{game,tables,inventory,tfx::flight::player_aircraft::eurofighter,0};
     auto const output{[&] {
@@ -45,7 +63,7 @@ int main(int const argc, char const *const argv[]) try {
         auto const move{[&](vec2<int16_t> const &point, uint8_t const buttons = 0) { screen.advance(point,{0,0},buttons); }};
         if(plane == 1) { move({308,86},1);move({308,86},1);move({308,86}); }
         move({250,30},1);move({250,30});
-        vec2<int16_t> const mount{plane == 0 ? int16_t{226} : plane == 1 ? int16_t{190} : int16_t{169},plane == 0 ? int16_t{154} : plane == 1 ? int16_t{111} : int16_t{145}};
+        vec2<int16_t> const mount{plane == 0 ? int16_t{214} : plane == 1 ? int16_t{171} : int16_t{205},plane == 0 ? int16_t{166} : plane == 1 ? int16_t{130} : int16_t{109}};
         move(mount);move(mount);move(mount,1);move(mount);move(mount,2);move(mount);
         screen.press(1);
         bool finished{false};

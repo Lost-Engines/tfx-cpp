@@ -2,6 +2,8 @@
 
 These follow the original September 1994 TFX 2.05 controls. Start the game with `--data-dir /path/to/TFX`; use `--help` for command-line options.
 
+In the arming screen, click the aircraft to rotate it with the mouse; click again or right-click to stop. Rotation captures the mouse inside the window and releases it on focus loss. Select a weapon, then click an available pylon to mount it; right-click ends placement.
+
 The saved `LANG` values are 1 English, 2 French, 3 German, 4 Italian and 5 Spanish. `--language=NAME` overrides the saved choice for this run.
 
 Startup reads the original `TFX.CFG`; `--flight-model` overrides its model selection. Without a configuration, Arcade is selected. Arcade uses mouse steering. Select `--flight-model=simple`, `--flight-model=military-spec` or `--flight-model=realistic` for the other original models, using arrow keys and Alt+left/right for rudder. These retain their different flight dynamics, aircraft-specific handling, gear damage and carrier arrestor behaviour. `--control=keyboard`, `--control=mouse` or `--control=joystick` overrides the configured input in the non-Arcade models. Simple supports keyboard/joystick steering; joystick steering is available in the three non-Arcade models. `--joystick=N` selects a particular device (0–15), otherwise the first available stick is used. An absent stick falls back to keyboard input.
@@ -24,7 +26,7 @@ Apostrophe toggles aerial refuelling: the nearest allied tanker supplies the ori
 
 The original cheat is available: hold **right Shift** and type **PLOP** to toggle it. Its original damage protection and collision behaviour are retained. With the cheat enabled, Ctrl+D opens in-flight arming; missions that require default stores refit those immediately.
 
-The 320×200 image is shown at a corrected 4:3 aspect with nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
+The 320×200 image is shown with square pixels and nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
 
 
 ## Sound

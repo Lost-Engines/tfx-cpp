@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise presentation keys on a private X11 display, never the user's desktop."""
 import argparse
+from window_input import move_game_pointer
 import os
 from pathlib import Path
 import select
@@ -33,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-presentation-input-') as temporary:
             run('xdotool','windowfocus','--sync',window);time.sleep(1)
             run('xdotool','key','space');time.sleep(1)
             if game.poll() is not None:raise RuntimeError('Space skipped the whole presentation instead of one scene')
-            run('xdotool','key',key)
+            run('xdotool','keydown',key);time.sleep(.12);run('xdotool','keyup',key)
             output=game.communicate(timeout=10)[0]
             if game.returncode:raise RuntimeError(output)
             print('Private X11 presentation: Space advances one scene;',key,'ends the sequence cleanly')
@@ -45,8 +46,8 @@ with tempfile.TemporaryDirectory(prefix='tfx-presentation-input-') as temporary:
             time.sleep(.05)
         if window is None:raise RuntimeError('native menu window did not appear')
         run('xdotool','windowfocus','--sync',window);time.sleep(1)
-        # 320x200 art is displayed as 640x480: click the FWS box at logical (120,76).
-        run('xdotool','mousemove','--window',window,'240','182')
+        # Click the FWS box at logical (120,76), independent of window scale.
+        move_game_pointer(environment,window,120,76)
         run('xdotool','mousedown','1');time.sleep(1)
         if game.poll() is not None:raise RuntimeError('menu exited before mouse release')
         run('xdotool','mouseup','1')

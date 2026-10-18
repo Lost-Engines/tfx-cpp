@@ -5901,3 +5901,58 @@ The reference installation and its pilot files are never written.
 The separate font check still agrees on all **1,104 glyphs and 132 strings**.
 Pilot creation/loading/replacement, persistence and progression checks pass, as
 does the private-window enrolment/save/reload/briefing/arming/flight sequence.
+
+
+## Arming preview transforms, mouse axes and square pixels
+
+The arming renderer now uses the same native Q15 model basis, Q16 camera
+translation, detail selection, facing tests and distance-palette rows as flight.
+Its previous floating transform halved model vertices independently of camera
+translation. The main aircraft and miniature pointer consequently appeared too
+small. The weapon thumbnail view also had pitch/yaw exchanged; the miniature
+pointer's fixed camera roll had been assigned to its actor instead. F-117/F-22
+component anchors now retain their SSD world-axis placement while their bodies
+rotate, using the existing scene placement and orientation helpers.
+
+Original `89210` adds relative mouse Y to pitch and X to yaw. `898EC`/`89927`
+map absolute mouse X to aircraft X and mouse Y to Z, retaining the original
+height and query origin. Those axes now agree for rotation, store placement
+and clearing. The host uses GLFW's disabled cursor during rotation, retains
+unbounded logical coordinates for continued movement, preserves slow movement
+at large window scales, and releases capture on cancellation, exit or focus
+loss.
+
+    python3 tools/check_arming_previews.py --output build/arming-preview-check
+    python3 tools/check_arming_controls.py
+    python3 tools/check_arming_picks.py
+    build/arming_preview_probe /path/to/TFX flow
+    python3 tools/check_window_pixels.py
+    python3 tools/check_frontend_window.py --data-dir /path/to/TFX
+    python3 tools/check_window_rearming.py
+
+The complete preview comparison runs the original model/SSD loaders, camera
+setters, animation, shape interpreter, rasterizer, palette lookup and widgets:
+**99 complete arming frames agree in every indexed pixel**, covering all three
+aircraft, one full miniature-pointer revolution, store-thumbnail rotation,
+weapon-bay animation and screen-edge clipping. DOS files, allocation, external
+devices and VGA page transport remain declared host boundaries. The same
+comparison passes in RelWithDebInfo and Release. Controller comparisons cover
+**1,039 original mouse/placement conversions**, **3,072 control sequences** and
+**7,241 widget hit tests**; SSD selection still matches **12,860 swept/boundary
+queries** and **60 bay-animation states**. Actual pointer selection, mounting,
+cancellation and exit preserve the chosen paired stores on all three aircraft.
+The private-window rearming check also observes updated flight-store mass,
+drag and role after mounting a tank.
+
+The pre-flight TFX logo is `iff/raw/tfxstat.lbm`, loaded by original `7D594`
+after arming; it is independent of the startup intro. Its resource and forty
+palette fade stages are confirmed against that original routine. Normal
+front-end launches now show it even with `--skip-intro`.
+
+Window presentation uses square 320×200 pixels, integer nearest-neighbour
+scaling and centred margins when resized. Private X11 checks verify uniform
+pixel blocks at scales 1, 2 and 6, automatic desktop fitting, a non-multiple
+997×743 window and real menu clicks through its margins. The frontend test
+also checks rotation capture, focus-loss release/reacquisition, custom pylon
+placement and the loading-logo transition before flight. It uses disposable
+installations and never sends input to the user's desktop.

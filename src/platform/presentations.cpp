@@ -41,6 +41,31 @@ struct frontend_keys {
 };
 } // anonymous namespace
 
+bool show_loading_screen(window &window, resources::archive const &game) {
+  // Native 7D594 shows this image after arming, independently of the startup intro.
+  auto const bytes{game.read("iff/raw/tfxstat.lbm")};
+  auto const screen{resources::decode_screen(bytes)};
+  render::dac_palette palette;
+  std::ranges::copy(std::span{bytes}.subspan(4,palette.size()),palette.begin());
+  unsigned int constexpr fade_stages{40};
+  double constexpr retrace_hz{70};
+  window.title("TFX C++ — Loading");
+  double next{glfwGetTime()};
+  for(unsigned int level{1}; level <= fade_stages; ++level) {
+    for(;;) {
+      double const now{glfwGetTime()};
+      if(now >= next) break;
+      if(!window.poll()) return false;
+      glfwWaitEventsTimeout(std::min(.01,next - now));
+    }
+    if(!window.poll()) return false;
+    auto const colours{render::decode_palette(presentation::fade_palette(palette,level,fade_stages))};
+    window.present(screen.image.colourise(colours));
+    next += 1.0 / retrace_hz;
+  }
+  return true;
+}
+
 void play_game(resources::archive const &game, resources::executable_tables const &tables,
   std::filesystem::path const &save_directory, std::string const &language, bool const skip_intro,
   flight_options const &options) {

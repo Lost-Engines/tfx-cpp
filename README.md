@@ -32,7 +32,7 @@ Arcade uses mouse steering. The other flight models support keyboard and joystic
 
 **Alt+V** starts or stops a flight recording. Its default filename is `video.rec`, editable in the configuration menu. A new recording replaces that file. After a campaign flight, the original WNN sequence and recorded flight play automatically.
 
-The 320×200 image uses nearest-neighbour scaling and corrected 4:3 proportions. The initial floating window chooses the largest integer scale that fits the desktop; `--scale=3` overrides it. Focus loss releases mouse capture.
+The 320×200 image uses nearest-neighbour scaling and square pixels. The initial floating window chooses the largest integer scale that fits the desktop; `--scale=3` overrides it. Focus loss releases mouse capture.
 
 See [controls and configuration](docs/controls.md) for weapons, autopilot, cameras, MFDs, joystick bindings, recordings and developer commands. The original manual remains the best guide to flying the missions.
 

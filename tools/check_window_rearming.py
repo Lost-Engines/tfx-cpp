@@ -40,7 +40,7 @@ while struct.unpack_from('<H',raw,collision)[0]==28:
  lo=struct.unpack_from('<3h',raw,collision+2);hi=struct.unpack_from('<3h',raw,collision+8);slot,=struct.unpack_from('<h',raw,collision+14)
  if tank_mask&(1<<slot)and lo[1]<=130<=hi[1]:
   x=(lo[0]+hi[0])//2;z=(lo[2]+hi[2])//2+160
-  mount=((640-z)//4,(400-x)//4);break
+  mount=((640-x)//4,(400-z)//4);break
  collision+=16
 assert mount is not None,'no legal original tank mount'
 definitions=[(im.read(0x809c+weapon*48+31,'<h')[0],im.read(0x809c+weapon*48+44,'<I')[0],int(im.read(0x809c+weapon*48+20,'<B')[0]==6))for weapon in range(27)]

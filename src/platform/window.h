@@ -30,6 +30,7 @@ public:
   GLFWwindow *get() const;
   bool focused() const;
   bool poll();
+  std::optional<vec2d> cursor_coordinates() const;
   std::optional<vec2<int16_t>> cursor_position() const;
   void title(std::string const &text);
   void present(std::span<render::rgba_pixel const> pixels);
