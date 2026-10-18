@@ -6,12 +6,13 @@ training marker, desktop display or input device is read or changed.
 """
 import argparse
 import os
+import re
 from pathlib import Path
 import select
 import subprocess
 import tempfile
 import time
-from window_input import confirm_flight_quit
+from window_input import confirm_flight_quit, move_game_pointer
 
 parser=argparse.ArgumentParser(__doc__)
 parser.add_argument('--build',type=Path,default=Path('build'))
@@ -47,23 +48,42 @@ with tempfile.TemporaryDirectory(prefix='tfx-frontend-window-') as temporary:
                 # weapon row and the dedicated SSD's mount-1 selection volume.
                 time.sleep(1)
                 def click(x,y,button=1):
-                    run('xdotool','mousemove','--window',window,str(x),str(y));time.sleep(.15)
+                    move_game_pointer(environment,window,x,y);time.sleep(.15)
                     run('xdotool','mousedown',str(button));time.sleep(.1);run('xdotool','mouseup',str(button));time.sleep(.15)
-                click(500,72)     # Logical pointer (250,30): AIM 9S.
-                click(452,370)    # Logical pointer (226,154): paired mounts 1/6.
-                click(452,370,3)  # End placement, retaining the selected stores.
+                # Rotation uses a disabled GLFW cursor, so a large relative
+                # movement must remain captured inside this private window.
+                click(100,75)
+                run('xdotool','mousemove_relative','--','2000','0');time.sleep(.2)
+                pointer=dict(line.split('=',1) for line in run('xdotool','getmouselocation','--shell').stdout.splitlines() if '=' in line)
+                geometry=dict(line.split('=',1) for line in run('xdotool','getwindowgeometry','--shell',window).stdout.splitlines() if '=' in line)
+                assert int(geometry['X']) <= int(pointer['X']) < int(geometry['X'])+int(geometry['WIDTH']), 'rotation mouse escaped the game window'
+                # Losing focus releases capture; returning reacquires it without
+                # applying the outside-window mouse movement to the aircraft.
+                root=re.search(r'Window id: (0x[0-9a-f]+)',run('xwininfo','-root').stdout).group(1)
+                run('xdotool','windowfocus',root);time.sleep(.15)
+                run('xdotool','mousemove','900','650');time.sleep(.1)
+                outside=dict(line.split('=',1) for line in run('xdotool','getmouselocation','--shell').stdout.splitlines() if '=' in line)
+                assert int(outside['X'])==900 and int(outside['Y'])==650,'focus loss retained mouse capture'
+                run('xdotool','windowfocus','--sync',window);time.sleep(.2)
+                run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(.2)
+                click(250,30)     # Logical pointer (250,30): AIM 9S.
+                click(214,166)    # Logical pointer (214,166): paired mounts 1/6.
+                click(214,166,3)  # End placement, retaining the selected stores.
                 run('import','-window',window,'/tmp/tfx-arming-window.png')
-                click(394,475)    # Original DONE button hotspot.
-                deadline=time.monotonic()+10
+                click(197,198)    # Original DONE button hotspot.
+                deadline=time.monotonic()+10;loading=False
                 while time.monotonic()<deadline and game.poll() is None:
+                    loading |= 'Loading' in run('xdotool','getwindowname',window).stdout
                     log.seek(0)
-                    if 'TFX miss501 /' in log.read():return
+                    if 'TFX miss501 /' in log.read():
+                        assert loading,'--skip-intro incorrectly suppressed the pre-flight TFX logo'
+                        return
                     time.sleep(.1)
                 log.seek(0);raise RuntimeError('arming DONE did not launch flight: '+run('xdotool','getwindowname',window).stdout+'\n'+log.read()[-4000:])
             def enter_fws(window):
                 log.seek(0);log.truncate();
-                # Original 4:3 viewport mapping: logical (120,76) -> (240,182).
-                run('xdotool','mousemove','--window',window,'240','182');run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(1)
+                # Click the original FWS box using logical game coordinates.
+                move_game_pointer(environment,window,120,76);run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(1)
                 deadline=time.monotonic()+15
                 armed=False
                 while time.monotonic()<deadline and game.poll() is None:
@@ -79,7 +99,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-frontend-window-') as temporary:
                 log.seek(0);raise RuntimeError('authored training path did not reach flight: '+title+'\n'+log.read()[-4000:])
             def enter_tour(window):
                 log.seek(0);log.truncate()
-                run('xdotool','mousemove','--window',window,'300','250');run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(1)
+                move_game_pointer(environment,window,150,104);run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(1)
                 deadline=time.monotonic()+15
                 while time.monotonic()<deadline and game.poll() is None:
                     tap('Escape')
@@ -88,7 +108,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-frontend-window-') as temporary:
                 # The same function first plays several briefing scenes before its menu.
                 for _ in range(8):tap('Escape')
                 time.sleep(1)
-                run('xdotool','mousemove','--window',window,'300','360');run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(1)
+                move_game_pointer(environment,window,150,150);run('xdotool','mousedown','1');time.sleep(.1);run('xdotool','mouseup','1');time.sleep(1)
                 run('xdotool','mousedown','3')
                 try:
                     deadline=time.monotonic()+20

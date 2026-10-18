@@ -10,7 +10,7 @@
 namespace tfx::render {
 
 int constexpr screen_width{320}, screen_height{200};
-int constexpr display_width{320}, display_height{240};
+int constexpr display_width{screen_width}, display_height{screen_height};
 int constexpr centre_x{screen_width / 2}, centre_y{screen_height / 2};
 double constexpr focal_length{128};
 using palette = std::array<vec3<uint8_t>, 256>;

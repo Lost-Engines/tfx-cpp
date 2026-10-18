@@ -60,6 +60,7 @@
 #include "missions/recovery.h"
 #include "platform/window.h"
 #include "platform/arming.h"
+#include "platform/presentations.h"
 #include "platform/flight.h"
 #include "platform/configuration.h"
 #include "platform/tactical_map.h"
@@ -284,6 +285,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   if(frontend_flight && !inspect && !mission_setup.default_weapons) {
     if(!arm_mission(*shared_window,game,tables,armament,mission_setup.aircraft,mission_setup.weapons)) return flight_result::quit;
   }
+  if(frontend_flight && !inspect && !show_loading_screen(*shared_window,game)) return flight_result::quit;
   if(!mission_setup.default_weapons) {
     // Original arming leaves the last weapon thumbnail's aperture installed.
     // Direct launches reproduce DEFAULT/DONE's renderer handoff too.

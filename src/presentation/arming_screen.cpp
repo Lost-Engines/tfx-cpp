@@ -11,6 +11,8 @@ arming_screen::arming_screen(resources::archive const &game, resources::executab
   auto const bytes{game.read("iff/raw/" + tables.arming_art().backdrop)};
   background = resources::decode_screen(bytes);
   std::ranges::copy(resources::binary_view{bytes}.slice(4,palette.size()),palette.begin());
+  // Native 8B4D7 runs the idle pointer once before preparing both display pages.
+  controls.advance({100,75},{0,0},0);
   // The original prepares both display pages before the forty-retrace fade-in.
   draw({100,75},{0,0},0);
   draw({100,75},{0,0},0);
@@ -39,6 +41,9 @@ void arming_screen::draw(vec2<int16_t> const &position, vec2<int16_t> const &mov
   preview.draw_cursor(renderer,controls.state(),position);
 }
 void arming_screen::press(uint8_t const scan) { key = scan; }
+bool arming_screen::rotating() const {
+  return controls.state().mode == arming_mode::rotating;
+}
 bool arming_screen::advance(vec2<int16_t> const &position, vec2<int16_t> const &movement, uint8_t const buttons) {
   if(entering) {
     if(fade_level < 40) ++fade_level;

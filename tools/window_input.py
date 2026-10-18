@@ -9,9 +9,11 @@ def move_game_pointer(environment,window,x,y):
  geometry=run('xdotool','getwindowgeometry','--shell',str(window)).stdout
  dimensions=dict(line.split('=',1)for line in geometry.splitlines()if '='in line)
  width,height=int(dimensions['WIDTH']),int(dimensions['HEIGHT'])
- scale=min(width/320,height/240)
- left,top=(width-320*scale)/2,(height-240*scale)/2
- run('xdotool','mousemove','--window',str(window),str(round(left+x*scale)),str(round(top+y*1.2*scale)))
+ available=min(width/320,height/200)
+ scale=int(available) if available>=1 else available
+ left=(width-int(320*scale))//2
+ top=height-(height-int(200*scale))//2-int(200*scale)
+ run('xdotool','mousemove','--window',str(window),str(round(left+x*scale)),str(round(top+y*scale)))
 
 
 def click_game_pixel(environment,window,x,y):

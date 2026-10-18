@@ -2,6 +2,7 @@
 #include <iostream>
 #include <utility>
 #include "presentation/arming_controller.h"
+#include "presentation/arming_preview.h"
 #include "resources/executable_tables.h"
 #include "resources/archive.h"
 
@@ -9,7 +10,17 @@ int main(int const argc, char const *const argv[]) try {
   if(argc < 2) throw std::runtime_error{"usage: arming_controls_probe DATA_DIRECTORY [--hits]"};
   tfx::resources::executable_tables const tables{tfx::resources::find_game_archive(argv[1]).parent_path() / "TFX.DAT"};
   tfx::weapons::armament inventory{tfx::flight::player_aircraft::eurofighter,tables.weapons,tables.arming};
-  if(argc == 3) {
+  if(argc == 3 && std::string_view{argv[2]} == "--motion") {
+    int x{0}, y{0}, dx{0}, dy{0};
+    while(std::cin >> x >> y >> dx >> dy) {
+      tfx::presentation::arming_controller controller{inventory,tables.arming_art(),0};
+      controller.advance({100,75},{0,0},1);
+      controller.advance({100,75},{static_cast<int16_t>(dx),static_cast<int16_t>(dy)},0);
+      auto const point{tfx::presentation::arming_preview::pointer_point({static_cast<int16_t>(x),static_cast<int16_t>(y)})};
+      auto const &angles{controller.state().angles};
+      std::cout << angles.x << ' ' << angles.y << ' ' << point.x << ' ' << point.y << ' ' << point.z << '\n';
+    }
+  } else if(argc == 3) {
     tfx::presentation::arming_controller controller{inventory,tables.arming_art(),0};
     int x{0}, y{0};
     while(std::cin >> x >> y) {

@@ -63,12 +63,12 @@ class PlannerVideo(VgaCapture):
 
 
 class NativePlanner:
-    def __init__(self, directory, research, *, aperture=0xe0000):
+    def __init__(self, directory, research, *, aperture=0xe0000, image_type=NativeReference):
         sys.path.insert(0, str(Path(research) / 'did-unpack'))
         from did_unpack import Archive
         self.archive = Archive.read(Path(directory) / 'DID.DAT')
         self.entries = {entry.identifier: entry for entry in self.archive.entries}
-        self.image = im = NativeReference(Path(directory) / 'TFX.DAT',data_base=0x100000 if aperture==0xa0000 else None)
+        self.image = im = image_type(Path(directory) / 'TFX.DAT',data_base=0x100000 if aperture==0xa0000 else None)
         self.cpu = cpu = im.cpu
         cpu.mem_map(0x400000, 0x400000)
         # Selection -1 still reads the preceding route header in native label

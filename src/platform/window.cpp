@@ -91,7 +91,7 @@ bool window::poll() {
   glfwPollEvents();
   return !glfwWindowShouldClose(handle.get());
 }
-std::optional<vec2<int16_t>> window::cursor_position() const {
+std::optional<vec2d> window::cursor_coordinates() const {
   int width{0}, height{0}, framebuffer_width{0}, framebuffer_height{0};
   glfwGetWindowSize(handle.get(),&width,&height);
   glfwGetFramebufferSize(handle.get(),&framebuffer_width,&framebuffer_height);
@@ -100,9 +100,13 @@ std::optional<vec2<int16_t>> window::cursor_position() const {
   glfwGetCursorPos(handle.get(),&x,&y);
   auto const area{viewport(framebuffer_width,framebuffer_height)};
   x = x * framebuffer_width / width - area.position.x;
-  y = y * framebuffer_height / height - area.position.y;
-  if(x < 0 || y < 0 || x >= area.size.x || y >= area.size.y) return {};
-  return vec2<int16_t>{static_cast<int16_t>(x * render::screen_width / area.size.x),static_cast<int16_t>(y * render::screen_height / area.size.y)};
+  y = y * framebuffer_height / height - (framebuffer_height - area.position.y - area.size.y);
+  return vec2d{x * render::screen_width / area.size.x,y * render::screen_height / area.size.y};
+}
+std::optional<vec2<int16_t>> window::cursor_position() const {
+  auto const position{cursor_coordinates()};
+  if(!position || position->x < 0 || position->y < 0 || position->x >= render::screen_width || position->y >= render::screen_height) return {};
+  return vec2<int16_t>{*position};
 }
 void window::title(std::string const &text) {
   glfwSetWindowTitle(handle.get(),text.c_str());

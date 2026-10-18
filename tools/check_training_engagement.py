@@ -196,7 +196,7 @@ run
       raise RuntimeError('arming was not reached: '+title+'\n'+output()[-5000:])
      time.sleep(1)
      for x in (202,394):
-      host('xdotool','mousemove','--window',window,str(x),'477');time.sleep(.15)
+      host('xdotool','mousemove','--window',window,str(x),'398');time.sleep(.15)
       host('xdotool','mousedown','1');time.sleep(.15);host('xdotool','mouseup','1');time.sleep(.2)
     wait_for(lambda row:True,'initial flight')
     if a.recording:tap('alt+v')

@@ -17,10 +17,10 @@ private:
   math::angle thumbnail_rotation{0};
   std::array<math::angle,weapons::weapon_count> weapon_rotations{};
   void shape(render::software_renderer &renderer, models::shape const &program, render::camera const &view,
-    vec3d const &position, mat3d const &rotation, std::span<uint8_t const> parameters,
+    vec3<int32_t> const &origin, vec3<math::angle> const &angles, std::span<uint8_t const> parameters,
     std::span<models::shape const *const> attachments = {});
   void object(render::software_renderer &renderer, world::instance &actor, render::camera const &view,
-    vec3d const &position, mat3d const &rotation, std::span<models::shape const *const> attachments = {});
+    vec3d const &position, vec3<math::angle> const &angles, std::span<models::shape const *const> attachments = {});
 
 public:
   arming_preview(resources::archive const &game, resources::executable_tables const &tables, flight::player_aircraft aircraft);

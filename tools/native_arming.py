@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
-"""Original arming widgets/controller with supplied host I/O and excluded 3D previews."""
+"""Original arming UI with supplied DOS I/O and optional complete 3D previews.
+
+The default capture isolates widgets. previews=True loads and executes the real
+SSD/shape renderer with the original DPMI divide-exception recovery installed.
+"""
 import struct
 from unicorn import x86_const as r
 from native_planner import NativePlanner
+from native_dpmi import DpmiReference
+from native_reference import NativeReference
 
 
 class NativeArming(NativePlanner):
-    def __init__(self,data_dir,research):
-        super().__init__(data_dir,research,aperture=0xa0000)
+    def __init__(self,data_dir,research,*,previews=False):
+        super().__init__(data_dir,research,aperture=0xa0000,image_type=DpmiReference if previews else NativeReference)
         self.position=(100,75)
+        self.movement=(0,0)
         self.buttons=0
         self.events=[]
         self.palettes=[]
         p=self;im=self.image;cpu=self.cpu
         for address in (0x74614,0x8c43c,0x74508,0x7dde4,0xa4dfc,0xa4edc,0xa6068):im.intercept(address,'Host input, timer and output notifications outside this fixed arming UI capture.',lambda im:im.return_from())
-        im.intercept(0xb52d4,'Record SSD event notifications; actual preview objects are supplied in this 2D capture.',lambda im:(self.events.append((cpu.reg_read(r.UC_X86_REG_EAX),cpu.reg_read(r.UC_X86_REG_EDX))),im.return_from()))
+        im.intercept(0xb52d4,'Observe SSD event notifications; preview objects are hosted only in the widget-only capture.',lambda im:(self.events.append((cpu.reg_read(r.UC_X86_REG_EAX),cpu.reg_read(r.UC_X86_REG_EDX))),None if previews else im.return_from()))
         im.intercept(0x744e4,'Supply no DOS mouse driver during original player initialization.',lambda im:(cpu.reg_write(r.UC_X86_REG_EAX,0),im.return_from()))
         handles={}
 
@@ -23,8 +30,8 @@ class NativeArming(NativePlanner):
          name=p.text(address) if address else '<unset player>'
          if name not in handles:handles[name]=len(handles)+1
          cpu.reg_write(r.UC_X86_REG_EAX,handles[name]);im.return_from()
-        for address in (0xb4d98,0xc93bc):im.intercept(address,'Supply stable model handles; 3D preview drawing is excluded from this widget-only capture.',model)
-        for address in (0xb4ff0,0xb6ea4,0xc488d,0xc48e1):im.intercept(address,'3D preview placement/rendering is outside this widget-only capture.',lambda im:im.return_from())
+        for address in (() if previews else (0xb4d98,0xc93bc)):im.intercept(address,'Supply stable model handles; 3D preview drawing is excluded from this widget-only capture.',model)
+        for address in (() if previews else (0xb4ff0,0xb6ea4,0xc488d,0xc48e1)):im.intercept(address,'3D preview placement/rendering is outside this widget-only capture.',lambda im:im.return_from())
         def mouse(im):
          for offset,value in ((4,self.position[0]),(8,self.position[1]),(12,self.buttons)):
           pointer,=struct.unpack('<I',cpu.mem_read(cpu.reg_read(r.UC_X86_REG_ESP)+offset,4));cpu.mem_write(pointer,struct.pack('<H',value))
@@ -41,10 +48,32 @@ class NativeArming(NativePlanner):
             self.palettes.append(bytes(cpu.mem_read(pointer,768)))
         im.intercept(0xde454,'Observe native hardware palette transfers without replacing their output.',palette)
         im.call(0xde547) # Original Watcom startup installs the floating printf handlers.
-        # Original scan conversion startup, stopping before its external display-driver call.
-        cpu.reg_write(r.UC_X86_REG_ESP,im.STACK)
-        cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=5000)
-        assert cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0xb9133)
+        if previews:
+            im.write(0x1b234,'<I',0x7f0200)
+            for address in (0xb41e4,0xb43b4):
+                im.intercept(address,'Keyboard input is supplied through the capture-owned transport instead of DOS IRQ installation.',lambda im:im.return_from())
+            im.call(0xde851)
+            im.call(0xde81e)
+            configuration=b'CONTROL=0\r\nMODEL=0\r\nSOUNDFX=0\r\nMUSIC=0\r\n'
+            im.intercept(0xc9c24,'Supply the length of the explicit silent capture configuration.',lambda im:(cpu.reg_write(r.UC_X86_REG_EAX,len(configuration)),im.return_from()))
+            im.intercept(0xc9d4c,'Supply the explicit silent capture configuration at the filesystem boundary.',lambda im:(cpu.mem_write(cpu.reg_read(r.UC_X86_REG_EDX),configuration),im.return_from()))
+            im.intercept(0xc71b4,'Supply an empty DOS resource root for the original archive loader.',lambda im:(cpu.mem_write(cpu.reg_read(r.UC_X86_REG_EAX),b'\0'),im.return_from()))
+            for address in (0xc4f0c,0xa5ce0,0xa6424,0xa6458,0xa629c,0xa4ddc):
+                im.intercept(address,'External DOS audio devices and analogue calibration are outside this silent preview capture.',lambda im:im.return_from())
+            im.intercept(0xb3f2c,'Host DOS real-mode interrupt transport without installing physical vectors.',lambda im:im.return_from())
+            im.call(0xc86b4,limit=2000000)
+            im.call(0xc756c,limit=2000000)
+        if not previews:
+            # Original scan conversion startup, stopping before its external display-driver call.
+            cpu.reg_write(r.UC_X86_REG_ESP,im.STACK)
+            cpu.emu_start(im.native(0xb9110),im.native(0xb9133),count=5000)
+            assert cpu.reg_read(r.UC_X86_REG_EIP)==im.native(0xb9133)
+
+    def motion(self, im):
+        for offset, value in zip((4,8),self.movement):
+            pointer, = struct.unpack('<I',self.cpu.mem_read(self.cpu.reg_read(r.UC_X86_REG_ESP)+offset,4))
+            self.cpu.mem_write(pointer,struct.pack('<i',value))
+        im.return_from()
 
     def initialise_aircraft(self,aircraft):
         self.image.write(0x119a0,'<I',self.image.read(0x5c00+aircraft*4,'<I')[0])

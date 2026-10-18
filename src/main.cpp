@@ -71,7 +71,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --joystick N          Select joystick 0..15 (default: first available); enables joystick input\n"
                    "  --music NAME          none, soundblaster-fm, roland-lapc, roland-scc1a or roland-sc55\n"
                    "  --rom-dir DIRECTORY   Roland control/PCM ROMs (default: game directory)\n"
-                   "  --scale N             Window scale; 0 selects the largest fitting scale (default)\n"
+                   "  --scale N             Integer pixel scale; 0 selects the largest fitting scale (default)\n"
                    "\nFlight: hold left/right mouse or =/- for thrust.\n"
                    "Arcade uses mouse steering; other models use the original arrow-key controls.\n"
                    "Keypad * raises afterburner; Alt+keypad * or keypad - lowers it; / switches it off.\n"

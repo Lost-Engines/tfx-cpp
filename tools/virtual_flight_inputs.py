@@ -66,11 +66,11 @@ def install(current_frame):
    if configuration is not None:
     step=(max(1,configuration['polls'])-1)//32
     assert step<len(configuration['clicks']),'C++ configuration exhausted its declared mouse input'
-    x,y=configuration['clicks'][step];position=[x*2,y*2.4]
+    x,y=configuration['clicks'][step];position=[x*2,y*2]
    elif arming is not None:
-    # The comparison owns a scale-2, 640x480 private window. These are the
+    # The comparison owns a scale-2, 640x400 private window. These are the
     # same logical DEFAULT/DONE positions supplied to the DOS mouse boundary.
-    position=[(197 if arming['default'] else 101)*2,199*2.4]
+    position=[(197 if arming['default'] else 101)*2,199*2]
    else:
     position=cursor
    if arming is None and configuration is None and phase['input_pending'] and cursor_frame!=frame:
