@@ -307,6 +307,7 @@ def snapshot(current):
   'control_configuration':[current.read(0x14962,'<H')[0],*[current.read(field,'<Q')[0]for field in (0x14360,0x148b8,0x148b0,0x148a8)]],
   'autopilot_targets':[current.read(field,fmt)[0]for field,fmt in ((0x14958,'<H'),(0x14960,'<H'),(0x1493a,'<H'),(0x14348,'<Q'),(0x8d40,'<Q'))],
   'air_brake':[current.read(0x145a8,'<Q')[0],current.read(0x7d77,'<B')[0]],
+  'player_damage':[current.read(0x8e18,'<Q')[0],*current.read(0x7d70,'<12B'),*current.read(0x1328c,'<12H')],
   'display_selection':[current.read(field,'<H')[0]for field in (0x713a,0x713c,0x713e,0x7d7c,0x7d7e)],
   'sensors':sensor_snapshot(current),
   'projectiles':projectile_snapshot(current),

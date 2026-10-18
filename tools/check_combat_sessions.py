@@ -27,6 +27,23 @@ CASES = {
         {'frame': 2, 'event': 'enter'},
         {'frame': 70, 'event': 'space'},
     ]),
+    'training-simple-result': (501, 'simple', 256, [
+        {'frame': 1, 'event': 't'},
+        {'frame': 2, 'event': 'enter'},
+        {'frame': 70, 'event': 'space'},
+    ]),
+    # The same launch misses in the original Military Spec model. Keep that
+    # trajectory as a comparison, rather than imposing the Arcade outcome.
+    'training-military': (501, 'military-spec', 384, [
+        {'frame': 1, 'event': 't'},
+        {'frame': 2, 'event': 'enter'},
+        {'frame': 70, 'event': 'space'},
+    ]),
+    'training-realistic': (501, 'realistic', 384, [
+        {'frame': 1, 'event': 't'},
+        {'frame': 2, 'event': 'enter'},
+        {'frame': 70, 'event': 'space'},
+    ]),
     'ejection-result': (501, 'arcade', 128, [
         {'frame': 1, 'event': 'escape'},
         {'frame': 3, 'event': 'escape'},
@@ -126,10 +143,12 @@ def main():
             if name.endswith('-result'):
                 assert capture['terminal']['returned'], 'original mission did not return through its result'
                 assert snapshots[-1]['mission_progress']['ended'], 'flight ended without the mission result gate'
-            if name in ('training-intercept', 'training-result'):
+            if name in ('training-intercept', 'training-result', 'training-simple-result'):
                 assert any(s['projectiles'] for s in snapshots), 'intercept never released a store'
                 assert any(s['mission_progress']['results'][3] for s in snapshots), 'intercept never downed the enemy'
                 assert any(s['mission_progress']['results'][5] for s in snapshots), 'intercept never completed its objective'
+            elif name in ('training-military', 'training-realistic'):
+                assert any(s['projectiles'] for s in snapshots), 'advanced-model sortie never launched a weapon'
             elif name == 'ground-strike-result':
                 assert any(shot[1] == 20 for s in snapshots for shot in s['projectiles']), 'strike never released its AGM-88'
                 assert snapshots[-1]['mission_progress']['credited_targets'] == 1, 'strike never credited its bound objective'

@@ -5321,3 +5321,28 @@ algorithm. The reconstruction currently plays unprocessed SB samples; QSound
 processing is explicitly unavailable. Accurate support would require the
 appropriate external firmware and processor implementation or independently
 verified processing behaviour. This does not prevent ordinary SB16 playback.
+
+### Longer interception sessions in the other flight models
+
+The maintained `training-simple-result` case runs the same declared T/Enter/
+missile controls through the full Simple model. The original downs its target
+and returns naturally at frame **238**, with score **7,000**, one air kill and
+a successful FINISH outcome. Every captured state, guidance input, cockpit
+input, indexed pixel and final campaign value agrees in development and
+ASan/UBSan.
+
+The same launch misses in the original Military Spec and Realistic models.
+The maintained `training-military` and `training-realistic` cases retain their
+**384-frame** trajectories, including enemy attacks, rather than forcing a
+successful result. All captured state and every indexed pixel agree in both
+development comparisons; Military Spec also agrees under sanitizers. These
+remain direct-mission contexts with the declared inherited Arcade campaign
+flag, not proof of career-mode court-martial or campaign completion.
+
+A one-frame airbrake-condition mismatch in the initial Military Spec check
+was an observer error: it read the manual flight update's cached input after
+a later missile hit had changed the authoritative system condition. The
+observer now reads the same system byte represented by the original. New
+captures additionally retain all twelve system conditions, repair clocks and
+accumulated damage bits for complete-frame comparisons. No gameplay logic was
+changed to resolve this observation.
