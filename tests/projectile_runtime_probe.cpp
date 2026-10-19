@@ -7,8 +7,13 @@
 #include "weapons/runtime.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc < 2 || argc > 3) throw std::runtime_error{"projectile_runtime_probe DATA_DIRECTORY [--frame-tail]"};
-  bool const frame_tail{argc == 3 && std::string_view{argv[2]} == "--frame-tail"};
+  if(argc < 2 || argc > 4) throw std::runtime_error{"projectile_runtime_probe DATA_DIRECTORY [--frame-tail] [--recycle]"};
+  bool frame_tail{false}, recycle{false};
+  for(int index{2}; index != argc; ++index) {
+    if(std::string_view{argv[index]} == "--frame-tail") frame_tail = true;
+    else if(std::string_view{argv[index]} == "--recycle") recycle = true;
+    else throw std::runtime_error{"unknown projectile runtime probe option"};
+  }
   tfx::resources::executable_tables const tables{std::filesystem::path{argv[1]} / "TFX.DAT"};
   unsigned int frames{0},elapsed{0},dispenser{0},capacity{0};
   while(std::cin >> frames >> elapsed >> dispenser >> capacity) {
@@ -42,25 +47,29 @@ int main(int const argc, char const *const argv[]) try {
     },capacity};
     tfx::math::random_state random;
     tfx::weapons::active_projectile const *warning{nullptr};
-    for(unsigned int index{0}; index != (dispenser == 1 ? 3u : 27u); ++index) state.launch({
-      .weapon{dispenser == 1 ? index == 0 ? 15u : index == 1 ? 16u : 0u : index},
-      .position{1000000,-300000,1000000},
-      .angles{0,12000,0},
-      .speed{400},
-      .owner{
-        .pool{tfx::weapons::actor_pool::aircraft},
-      },
-      .target{
-        .position{2000000,-200000,3000000},
-        .actor{countermeasures ? std::optional{tfx::weapons::actor_identity{.pool{target_pool}}} : std::nullopt},
-        .untargeted{dispenser == 4},
-        .designated{dispenser == 5},
-      },
-      .jettisoned{dispenser == 9},
-    });
+    auto const launch_batch{[&] {
+      for(unsigned int index{0}; index != (dispenser == 1 ? 3u : 27u); ++index) state.launch({
+        .weapon{dispenser == 1 ? index == 0 ? 15u : index == 1 ? 16u : 0u : index},
+        .position{1000000,-300000,1000000},
+        .angles{0,12000,0},
+        .speed{400},
+        .owner{
+          .pool{tfx::weapons::actor_pool::aircraft},
+        },
+        .target{
+          .position{2000000,-200000,3000000},
+          .actor{countermeasures ? std::optional{tfx::weapons::actor_identity{.pool{target_pool}}} : std::nullopt},
+          .untargeted{dispenser == 4},
+          .designated{dispenser == 5},
+        },
+        .jettisoned{dispenser == 9},
+      });
+    }};
+    launch_batch();
     for(unsigned int frame{0}; frame != frames; ++frame) {
       frame_index = frame;
       events.clear();
+      if(recycle && frame && frame % 9 == 0) launch_batch();
       if(dispenser == 5) designation = vec3<int32_t>{2000000 + static_cast<int32_t>(frame) * 10000,-200000,3000000 - static_cast<int32_t>(frame) * 7000};
       if(countermeasures && frame == 2) state.countermeasure({.pool{target_pool}},{1000000,-300000,1000000},dispenser == 2 || dispenser == 6,dispenser < 6 ? 64 : dispenser == 6 ? 60 : dispenser == 7 ? 40 : 5,random);
       state.advance(static_cast<uint16_t>(elapsed),random,false);

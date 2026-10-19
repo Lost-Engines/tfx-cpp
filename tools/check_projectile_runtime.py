@@ -14,7 +14,7 @@ from native_reference import NativeReference
 from check_projectiles import KINDS
 
 
-def original(data_dir,frames,elapsed,dispenser,capacity,frame_tail=False):
+def original(data_dir,frames,elapsed,dispenser,capacity,frame_tail=False,recycle=False):
     image=NativeReference(data_dir/'TFX.DAT');cpu=image.cpu
     cpu.mem_map(0x300000,0x40000);cpu.mem_map(0x400000,0xa0000)
     head,tail=0x320000,0x320100
@@ -63,13 +63,17 @@ def original(data_dir,frames,elapsed,dispenser,capacity,frame_tail=False):
         im.cpu.mem_write(pointer,struct.pack('<3i',1001000,-300500,1002000));im.return_from()
     image.intercept(0xb81de,'Supply the transformed mounted-store anchor; the render transform is separate.',anchor)
     image.write(0x9170,'<H',int(dispenser==9))
-    for weapon in ((15,16,0) if dispenser==1 else range(27)):
-        image.call(0xa2f84,eax=1000000,edx=(-300000)&0xffffffff,ebx=1000000,ecx=0,stack=(12000,0,400,weapon,0 if dispenser==4 else target,0x310100))
+    def launch_batch():
+        for weapon in ((15,16,0) if dispenser==1 else range(27)):
+            image.call(0xa2f84,eax=1000000,edx=(-300000)&0xffffffff,ebx=1000000,ecx=0,stack=(12000,0,400,weapon,0 if dispenser==4 else target,0x310100))
+    launch_batch()
     image.write(0x9170,'<H',0)
     result=[];warning=0
     for frame in range(frames):
         frame_index[0]=frame
         events.clear()
+        if recycle and frame and frame%9==0:
+            image.write(0x9170,'<H',int(dispenser==9));launch_batch();image.write(0x9170,'<H',0)
         if dispenser==5:cpu.mem_write(0x310000,struct.pack('<3i',2000000+frame*10000,-200000,3000000-frame*7000))
         if (2<=dispenser<=3 or 6<=dispenser<=8) and frame==2:
             image.write(0xe774,'<B',1)
@@ -100,19 +104,30 @@ def main():
     parser.add_argument('--build',type=Path,default=Path('build'))
     parser.add_argument('--frame-tail',action='store_true',help='supply deterministic swept-contact losses and execute original post-flip retirement')
     parser.add_argument('--jettison-only',action='store_true')
+    parser.add_argument('--recycle',action='store_true',help='relaunch every nine frames into a bounded reused pool')
+    parser.add_argument('--frames',type=int,default=128)
+    parser.add_argument('--report',type=Path)
     args=parser.parse_args();total=0
-    for dispenser in ([9] if args.jettison_only else range(10)):
-        for elapsed in (0,1,4,10,18,55):
-            frames=128 if elapsed else 4
-            capacity=98
-            expected=original(args.data_dir,frames,elapsed,dispenser,capacity,args.frame_tail)
-            result=subprocess.run([str(args.build/'projectile_runtime_probe'),str(args.data_dir),*(['--frame-tail']if args.frame_tail else [])],input=f'{frames} {elapsed} {dispenser} {capacity}\n',text=True,capture_output=True,check=True)
+    if not 1<=args.frames<=65536:parser.error('--frames must be between 1 and 65536')
+    if args.recycle and not args.frame_tail:parser.error('--recycle needs --frame-tail for declared deterministic contacts')
+    results=[]
+    for dispenser in ([9] if args.jettison_only else [0,1,5,9] if args.recycle else range(10)):
+        for elapsed in ((4,18) if args.recycle else (0,1,4,10,18,55)):
+            frames=args.frames if elapsed else 4
+            capacity=17 if args.recycle else 98
+            print(f'Checking projectile pool: dispenser={dispenser} elapsed={elapsed} frames={frames} capacity={capacity}',flush=True)
+            expected=original(args.data_dir,frames,elapsed,dispenser,capacity,args.frame_tail,args.recycle)
+            result=subprocess.run([str(args.build/'projectile_runtime_probe'),str(args.data_dir),*(['--frame-tail']if args.frame_tail else []),*(['--recycle']if args.recycle else [])],input=f'{frames} {elapsed} {dispenser} {capacity}\n',text=True,capture_output=True,check=True)
             observed=[int(v) for v in result.stdout.split()]
             assert len(observed)==len(expected)
             for frame,(a,b) in enumerate(zip(observed,expected)):assert a==b,(dispenser,elapsed,frame,a,b)
             total+=frames
+            results.append(dict(dispenser=dispenser,elapsed=elapsed,frames=frames,capacity=capacity))
             print('Population',dispenser,'elapsed',elapsed,frames,'frames agree',flush=True)
     print(total,'native population frames agree, including launch/removal order, child releases, player/AI decoy strengths, exact shared RNG, retained/recycled HUD warning records and substep contact passes')
 
+    if args.report:
+        import json
+        args.report.write_text(json.dumps({'recycle':args.recycle,'cases':results,'total_frames':total,'matched':True},indent=2)+'\n')
 
 if __name__=='__main__':main()

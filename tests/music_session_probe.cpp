@@ -31,7 +31,9 @@ public:
 } // namespace
 
 int main(int const argc, char const *const argv[]) try {
-  if(argc != 4) throw std::runtime_error{"expected START.EXE DID.DAT lapc|scc|fm|lapc-effects"};
+  if(argc != 4 && argc != 5) throw std::runtime_error{"expected START.EXE DID.DAT lapc|scc|fm|lapc-effects [CYCLES]"};
+  unsigned int const cycles{argc == 5 ? static_cast<unsigned int>(std::stoul(argv[4])) : 1};
+  if(!cycles || cycles > 1024) throw std::runtime_error{"cycles must be between 1 and 1024"};
   bool const scc{std::string_view{argv[3]} == "scc"}, fm{std::string_view{argv[3]} == "fm"};
   bool const effects{std::string_view{argv[3]} == "lapc-effects"};
   auto const launcher{tfx::resources::read_file(argv[1])};
@@ -52,45 +54,52 @@ int main(int const argc, char const *const argv[]) try {
     .engines_running{true}
   };
   if(effects) {
-    player.begin_flight(state);
-    std::array<float,960> pcm;
-    std::array<tfx::audio::lapc_effect_cue,8> constexpr cues{
-      tfx::audio::lapc_effect_cue::engine_start,tfx::audio::lapc_effect_cue::afterburner_start,
-      tfx::audio::lapc_effect_cue::engine_stop,tfx::audio::lapc_effect_cue::fly_past,
-      tfx::audio::lapc_effect_cue::mechanical_switch,tfx::audio::lapc_effect_cue::missile_release,
-      tfx::audio::lapc_effect_cue::bomb_release,tfx::audio::lapc_effect_cue::cannon_fire,
-    };
-    for(unsigned int frame{0}; frame != 1000; ++frame) {
-      if(frame == 150) player.enable(false);
-      if(frame == 250) player.enable(true);
-      if(frame == 400) player.end_flight();
-      if(frame == 500) player.begin_flight(state);
-      if(frame < 12 || frame % 17 == 0) player.effect(cues[frame % cues.size()]);
-      player.update_flight(state);
-      player.render(pcm);
+    for(unsigned int cycle{0}; cycle != cycles; ++cycle) {
+      player.begin_flight(state);
+      std::array<float,960> pcm;
+      std::array<tfx::audio::lapc_effect_cue,8> constexpr cues{
+        tfx::audio::lapc_effect_cue::engine_start,tfx::audio::lapc_effect_cue::afterburner_start,
+        tfx::audio::lapc_effect_cue::engine_stop,tfx::audio::lapc_effect_cue::fly_past,
+        tfx::audio::lapc_effect_cue::mechanical_switch,tfx::audio::lapc_effect_cue::missile_release,
+        tfx::audio::lapc_effect_cue::bomb_release,tfx::audio::lapc_effect_cue::cannon_fire,
+      };
+      for(unsigned int frame{0}; frame != 1000; ++frame) {
+        if(frame == 150) player.enable(false);
+        if(frame == 250) player.enable(true);
+        if(frame == 400) player.end_flight();
+        if(frame == 500) player.begin_flight(state);
+        if(frame < 12 || frame % 17 == 0) player.effect(cues[frame % cues.size()]);
+        player.update_flight(state);
+        player.render(pcm);
+      }
+      player.end_flight();
     }
-    player.end_flight();
     return 0;
   }
-  player.select(12);player.begin_flight(state);
   std::array<float,960> pcm;
-  for(unsigned int frame{0}; frame != 1000; ++frame) {
-    if(frame == 100) player.cue(9);
-    if(frame == 150) player.cue(10);
-    if(frame == 250) player.enable(false);
-    if(frame == 350) state.throttle = 1;
-    if(frame == 450) state.engines_running = false;
-    if(frame == 550) { state.engines_running = true;state.throttle = .6f; }
-    if(frame == 600) player.enable(true);
-    if(frame == 650) player.cue(10);
-    if(frame == 700) player.cue(6);
-    if(frame == 730) player.cue(1);
-    if(frame == 750) player.cue(3);
-    if(frame == 800) player.end_flight();
-    if(frame == 810) player.select(1);
-    if(frame == 900) player.begin_flight(state);
-    player.update_flight(state);player.render(pcm);
+  for(unsigned int cycle{0}; cycle != cycles; ++cycle) {
+    state.throttle = .8f;
+    state.engines_running = true;
+    player.select(12);
+    player.begin_flight(state);
+    for(unsigned int frame{0}; frame != 1000; ++frame) {
+      if(frame == 100) player.cue(9);
+      if(frame == 150) player.cue(10);
+      if(frame == 250) player.enable(false);
+      if(frame == 350) state.throttle = 1;
+      if(frame == 450) state.engines_running = false;
+      if(frame == 550) { state.engines_running = true;state.throttle = .6f; }
+      if(frame == 600) player.enable(true);
+      if(frame == 650) player.cue(10);
+      if(frame == 700) player.cue(6);
+      if(frame == 730) player.cue(1);
+      if(frame == 750) player.cue(3);
+      if(frame == 800) player.end_flight();
+      if(frame == 810) player.select(1);
+      if(frame == 900) player.begin_flight(state);
+      player.update_flight(state);player.render(pcm);
+    }
+    player.end_flight();
   }
-  player.end_flight();
   return 0;
 } catch(std::exception const &error) { std::cerr << error.what() << '\n';return 1; }

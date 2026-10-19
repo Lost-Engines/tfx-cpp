@@ -1,6 +1,6 @@
 # TFX C++
 
-A native C++26 reconstruction of Digital Image Design’s **TFX: Tactical Fighter Experiment**, using the September 1994 CD release, **version 2.05**, as its reference. This is an integration build under active verification.
+A native C++26 reconstruction of Digital Image Design’s **TFX: Tactical Fighter Experiment**, using the September 1994 CD release, **version 2.05**, as its reference.
 
 The supplied fetch script downloads the reference game CD and synthesiser ROMs. You can also use your own TFX 2.05 installation. Research exports are neither required nor bundled.
 
@@ -93,6 +93,6 @@ ctest --test-dir build --output-on-failure
 
 For a minimal installation, `cmake --install build-rel --component Runtime --prefix /path/to/output` copies the executable and the matching platform’s fetch script and asset manifests from a Release build. Original game data and ROMs remain separate.
 
-[Verification details](docs/implementation.md) distinguish complete-session evidence from isolated checks; the [implementation plan](docs/implementation-plan.md) tracks further coverage. The research tree is the sibling `tfx-reverse` directory.
+The [verification matrix](docs/verification.md) distinguishes complete-session evidence, persistent campaign checks and long-session audio/lifetime coverage. [Implementation notes](docs/implementation.md) retain the research details. The research tree is the sibling `tfx-reverse` directory.
 
 GPL-3.0-or-later; see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
