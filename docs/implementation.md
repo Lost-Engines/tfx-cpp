@@ -6139,3 +6139,26 @@ including 2,832,000 PCM samples compared across callback sizes.
 python3 tools/check_fm_pcm.py
 ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build-san/fm_synth_test
 ```
+
+
+### Continuous CD playback through live configuration
+
+The configuration loop reapplied the current music switch on every redraw.
+Unlike the synthesised player's idempotent enable operation, the original CD
+music-on command deliberately restarts the selected track. An open menu was
+therefore repeatedly restarting CD playback. The host now applies changed
+sound/music switch values once; explicit music-on still uses the original
+restart controller.
+
+`check_audio_menu.py` reproduced the failure before the fix and passes after
+it. Its test-authored stereo ramp identifies actual CD position while the
+sum channel isolates ordinary mono SB effects. The private live window checks
+continued music through an open menu, off/on restart and continued advance,
+simultaneous airbrake/cannon playback, independent effect muting/resumption,
+a single shared PCM device and clean shutdown. The recording monitor uses a
+bounded latency so assertions inspect current PCM. No user's profile,
+desktop input or audible output is used.
+
+```sh
+python3 tools/check_audio_menu.py
+```

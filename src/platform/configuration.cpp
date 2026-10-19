@@ -45,7 +45,12 @@ presentation::configuration_action configure_flight(window &window, resources::e
       if(action != presentation::configuration_action::none) { result = action;break; }
     }
     mouse_held = mouse;
-    if(sound) { sound->enable_sound(audio.sound_enabled);sound->enable_music(audio.music_enabled); }
+    if(sound) {
+      // Native music-on restarts CD playback. Apply a changed switch once,
+      // rather than replaying that command on every open-menu redraw.
+      if(audio.sound_enabled != sound->sound_enabled()) sound->enable_sound(audio.sound_enabled);
+      if(audio.music_enabled != sound->music_enabled()) sound->enable_music(audio.music_enabled);
+    }
     auto image{background};
     menu.draw(image);
     window.title(menu.page() == presentation::configuration_page::confirm_quit ? "TFX C++ — Quit" : menu.page() == presentation::configuration_page::realism ? "TFX C++ — Realism" : "TFX C++ — Configuration");
