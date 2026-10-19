@@ -17,9 +17,27 @@ foreach(extension cpp h)
   endif()
   string(SUBSTRING "${core}" 0 ${position} core)
   string(REPLACE "#include \"adlib.h\"" "" core "${core}")
+  if(extension STREQUAL "cpp")
+    # Upstream computes these byte offsets through null objects. Keep exactly
+    # the same standard-layout offsets without undefined member access.
+    string(PREPEND core "#include <cstddef>\n#include <type_traits>\n")
+    string(REPLACE "DBOPL::Chip* chip = 0;"
+      "static_assert(std::is_standard_layout_v<DBOPL::Chip>);" core "${core}")
+    string(REPLACE "reinterpret_cast<Bitu>( &(chip->chan[ index ]) )"
+      "offsetof(DBOPL::Chip, chan) + index * sizeof(DBOPL::Channel)" core "${core}")
+    string(REPLACE "DBOPL::Channel* chan = 0;"
+      "static_assert(std::is_standard_layout_v<DBOPL::Channel>);" core "${core}")
+    string(REPLACE "reinterpret_cast<Bitu>( &(chan->op[opNum]) )"
+      "offsetof(DBOPL::Channel, op) + opNum * sizeof(DBOPL::Operator)" core "${core}")
+  endif()
   file(WRITE "${dbopl_directory}/dbopl.${extension}" "${core}${ending}")
 endforeach()
 add_library(dosbox_opl_core STATIC "${dbopl_directory}/dbopl.cpp")
 target_include_directories(dosbox_opl_core SYSTEM PUBLIC "${dbopl_directory}")
 target_include_directories(dosbox_opl_core SYSTEM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/dbopl")
 target_compile_features(dosbox_opl_core PRIVATE cxx_std_26)
+
+# The core's fixed-point attack-rate search intentionally uses signed wraparound.
+# Define that contract rather than relying on undefined overflowing products.
+target_compile_options(dosbox_opl_core PRIVATE
+  $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-fwrapv>)

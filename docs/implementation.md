@@ -6115,3 +6115,27 @@ python3 tools/check_cd_control.py
 python3 tools/check_window_music.py --data-dir /path/to/TFX \
   --music soundblaster-cd --mission 501 --cd-cue /path/to/tfx.cue
 ```
+
+
+### Defined DBOPL initialization arithmetic
+
+The pinned DOSBox core calculated channel/operator byte offsets through null
+pointers. The isolated adapter now uses `offsetof` and element sizes, with
+standard-layout assertions. Its attack-rate search also intentionally wraps
+signed fixed-point products; the target now explicitly requests `-fwrapv`
+instead of depending on undefined overflowing multiplication. Neither change
+alters the original synthesis algorithm.
+
+`check_fm_pcm.py` preserves SHA-256 PCM baselines captured before either
+change, for all 27 retail FM resources: 256 shared IRQ ticks and a two-second
+release tail each, at 48 kHz and native game volume 75. Every PCM byte and
+sequencer trace agrees after both changes. The new asset-free
+`audio.fm_initialization_and_pcm` regression constructs real DBOPL hardware
+and compares native/resampled dual-mono output across callback partitions.
+The complete FM player lifecycle also passes strict ASan/UBSan and leak checks,
+including 2,832,000 PCM samples compared across callback sizes.
+
+```sh
+python3 tools/check_fm_pcm.py
+ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build-san/fm_synth_test
+```
