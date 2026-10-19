@@ -14,7 +14,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--research', type=Path, default=Path('../tfx-reverse'))
     parser.add_argument('--build', type=Path, default=Path('build'))
+    parser.add_argument('--cycles',type=int,default=1)
+    parser.add_argument('--report',type=Path)
     args = parser.parse_args()
+    if not 1<=args.cycles<=1024:parser.error('--cycles must be between 1 and 1024')
     native = NativeLAPCEffects(args.research)
     events, pending, system = [], [], []
     status, now = 0, 0
@@ -58,44 +61,48 @@ def main():
 
     collect()
     now = settling = 4800
-    native.begin()
-    collect()
     irq = 0
     cues = (0, 1, 2, 3, 5, 16, 18, 20)
-    for frame in range(1000):
-        if frame == 150:
-            native.enable_music(False)
-            collect()
-        if frame == 250:
-            native.enable_music(True)
-            collect()
-        if frame == 400:
-            native.end()
-            collect()
-        if frame == 500:
-            native.begin()
-            collect()
-        if frame < 12 or frame % 17 == 0:
-            native.cue(cues[frame % len(cues)])
-            collect()
-        end = now + 480
-        while (when := settling + ((irq + 1) * 48000 * 21845 + 1193181) // 1193182) < end:
-            now = when
-            native.tick()
-            collect()
-            irq += 1
-        now = end
-    native.end()
-    collect()
+    for cycle in range(args.cycles):
+        native.begin()
+        collect()
+        for frame in range(1000):
+            if frame == 150:
+                native.enable_music(False)
+                collect()
+            if frame == 250:
+                native.enable_music(True)
+                collect()
+            if frame == 400:
+                native.end()
+                collect()
+            if frame == 500:
+                native.begin()
+                collect()
+            if frame < 12 or frame % 17 == 0:
+                native.cue(cues[frame % len(cues)])
+                collect()
+            end = now + 480
+            while (when := settling + ((irq + 1) * 48000 * 21845 + 1193181) // 1193182) < end:
+                now = when
+                native.tick()
+                collect()
+                irq += 1
+            now = end
+        native.end()
+        collect()
     directory = args.research / 'installs/cd_1994_09/TFX'
     result = subprocess.run([str((args.build / 'music_session_probe').resolve()),
-        str(directory / 'START.EXE'), str(directory / 'DID.DAT'), 'lapc-effects'], capture_output=True, text=True)
+        str(directory / 'START.EXE'), str(directory / 'DID.DAT'), 'lapc-effects',str(args.cycles)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     actual = [list(map(int, line.split())) for line in result.stdout.splitlines()]
     for index, (found, wanted) in enumerate(zip(actual, events)):
         assert found == wanted, (index, 'cpp', found[:28], 'original', wanted[:28])
     assert len(actual) == len(events), (len(actual), len(events))
-    print(f'{len(events)} complete LAPC effects MIDI events and sample timestamps agree through unchanged setup/cue/release wrappers, real OSL/LA playback, overlapping requests, channel exhaustion, music mute/resume and bank reuse; {irq} shared IRQ ticks')
+    if args.report:
+        import json
+        args.report.write_text(json.dumps({'cycles':args.cycles,'events':len(events),'shared_irqs':irq,'audio_frames':now-settling,'matched':True},indent=2)+'\n')
+    print(f'{args.cycles} lifecycles; {len(events)} complete LAPC effects MIDI events and sample timestamps agree through unchanged setup/cue/release wrappers, real OSL/LA playback, overlapping requests, channel exhaustion, music mute/resume and bank reuse; {irq} shared IRQ ticks')
 
 
 if __name__ == '__main__':

@@ -20,7 +20,11 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--research',type=Path,default=Path('../tfx-reverse'))
 p.add_argument('--build',type=Path,default=Path('build'))
 p.add_argument('--mode',choices=('lapc','scc','fm'),default='lapc')
-a=p.parse_args();directory=a.research/'installs/cd_1994_09/TFX';launcher=(directory/'START.EXE').read_bytes()
+p.add_argument('--cycles',type=int,default=1,help='repeat full flight/menu lifecycles without resetting driver or timer state')
+p.add_argument('--report',type=Path)
+a=p.parse_args()
+if not 1 <= a.cycles <= 1024:p.error('--cycles must be between 1 and 1024')
+directory=a.research/'installs/cd_1994_09/TFX';launcher=(directory/'START.EXE').read_bytes()
 sys.path.insert(0,str(a.research/'did-unpack'));from did_unpack import Archive
 archive=Archive.read(directory/'DID.DAT');entries={e.identifier:e for e in archive.entries}
 n=NativeOSL(launcher,'scc' if a.mode=='scc' else 'adl' if a.mode=='fm' else 'rld');im=NativeReference(directory/'TFX.DAT');im.call(0xde851)
@@ -97,31 +101,36 @@ def plane():im.write(0x133f8,'<f',throttle);im.write(0x14880,'<2d',float(engines
 def begin():
  if not im.read(0x16f66,'<H')[0]:im.write(0x16f66,'<H',10)
  im.call(0xa5d68,eax=10);im.call(0xa5a9c,eax=0)
-im.call(0xa5d68,eax=12);plane();begin();flight=True
-for frame in range(1000):
- if frame==100:im.call(0xa5a9c,eax=9)
- if frame==150:im.call(0xa5a9c,eax=10)
- if frame==250:im.write(0x8866,'<B',0);im.call(0xa5ce0)
- if frame==350:throttle=1
- if frame==450:engines=False
- if frame==550:engines=True;throttle=.6
- if frame==600:im.write(0x8866,'<B',1);im.call(0xa5c4c)
- if frame==650:im.call(0xa5a9c,eax=10)
- if frame==700:im.call(0xa5a9c,eax=6)
- if frame==730:im.call(0xa5a9c,eax=1)
- if frame==750:im.call(0xa5a9c,eax=3)
- if frame==800:im.call(0xa5f34);flight=False
- if frame==810:im.call(0xa5d68,eax=1);im.call(0xa5b64,eax=0)
- if frame==900:plane();begin();flight=True
- plane()
- if flight:im.call(0xa5374)
- end=now+480
- while (when:=settling+((irq+1)*48000*21845+1193181)//1193182)<end:
-  now=when;n.host_tick();collect();irq+=1
- now=end
-im.call(0xa5f34)
-actual=[list(map(int,line.split()))for line in subprocess.check_output([str((a.build/'music_session_probe').resolve()),str(directory/'START.EXE'),str(directory/'DID.DAT'),a.mode],text=True).splitlines()]
+for cycle in range(a.cycles):
+ throttle=.8;engines=True
+ im.call(0xa5d68,eax=12);plane();begin();flight=True
+ for frame in range(1000):
+  if frame==100:im.call(0xa5a9c,eax=9)
+  if frame==150:im.call(0xa5a9c,eax=10)
+  if frame==250:im.write(0x8866,'<B',0);im.call(0xa5ce0)
+  if frame==350:throttle=1
+  if frame==450:engines=False
+  if frame==550:engines=True;throttle=.6
+  if frame==600:im.write(0x8866,'<B',1);im.call(0xa5c4c)
+  if frame==650:im.call(0xa5a9c,eax=10)
+  if frame==700:im.call(0xa5a9c,eax=6)
+  if frame==730:im.call(0xa5a9c,eax=1)
+  if frame==750:im.call(0xa5a9c,eax=3)
+  if frame==800:im.call(0xa5f34);flight=False
+  if frame==810:im.call(0xa5d68,eax=1);im.call(0xa5b64,eax=0)
+  if frame==900:plane();begin();flight=True
+  plane()
+  if flight:im.call(0xa5374)
+  end=now+480
+  while (when:=settling+((irq+1)*48000*21845+1193181)//1193182)<end:
+   now=when;n.host_tick();collect();irq+=1
+  now=end
+ im.call(0xa5f34)
+actual=[list(map(int,line.split()))for line in subprocess.check_output([str((a.build/'music_session_probe').resolve()),str(directory/'START.EXE'),str(directory/'DID.DAT'),a.mode,str(a.cycles)],text=True).splitlines()]
 for index,(left,right)in enumerate(zip(actual,events)):
  assert left==right,(index,'cpp',left[:28],'original',right[:28],'loads',loads)
 assert len(actual)==len(events),(len(actual),len(events))
-print(f'{a.mode}: {len(events)} complete device events and sample timestamps agree through original 32/16-bit mission start, cue changes, mute/engine state, restart and presentation return; {irq} shared IRQ ticks; {len(loads)} original file loads')
+if a.report:
+ import json
+ a.report.write_text(json.dumps({'mode':a.mode,'cycles':a.cycles,'audio_frames':now-settling,'shared_irqs':irq,'device_events':len(events),'resource_loads':len(loads),'matched':True},indent=2)+'\n')
+print(f'{a.mode}: {a.cycles} lifecycles; {len(events)} complete device events and sample timestamps agree through original 32/16-bit mission start, cue changes, mute/engine state, restart and presentation return; {irq} shared IRQ ticks; {len(loads)} original file loads')

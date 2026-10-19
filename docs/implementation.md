@@ -2,7 +2,11 @@
 
 Reference: TFX 2.05, September 1994 CD. Native offsets refer to `TFX.DAT`, SHA-256 `2cc41a39fa95a2c9fd883c4220d7bdd9cca00c543c89b019eb270763f59d1d9a`.
 
-## Current integrated reference check
+Current scope and evidence are summarized in the [verification matrix](verification.md).
+The sections below retain the implementation history; later results supersede
+earlier open-work statements.
+
+## Integrated reference check
 
 All **128 retail missions** match the original launch and their first sixteen
 Arcade frames in every captured state and indexed pixel: **2,048 complete
@@ -20,7 +24,7 @@ environment, renderer, arming and AI code executes. `--flight-model` selects
 any of the four models, and `--output` retains the private frames and observer
 log. `--strict-pixels` requires every captured image to match, not just the last.
 
-All **207 CTests** pass in development, Release and ASan/UBSan. All 128 retail
+The current asset-free regression suite is listed in the verification matrix. All 128 retail
 missions also compose 64 development frames and 16 sanitizer frames without
 preview warnings. Real private-window controls exercise firing, MFDs,
 missile cameras, designator use, ejection and an automatic FINISH handoff.
@@ -6162,3 +6166,47 @@ desktop input or audible output is used.
 ```sh
 python3 tools/check_audio_menu.py
 ```
+
+
+### Persistent campaign and long-session closeout
+
+`check_campaign_journeys.py` executes original branch/assignment/return and
+save/read handlers continuously across 25 complete controller journeys. The
+production parser and actual pilot store agree on 175 explicitly supplied
+flight returns, 1,095 native-byte save/reload checkpoints and 3,225 observable
+state/stack/save records. Cases cover all campaign groups, training graduation,
+retries, safe/repeated ejection, discipline, death/MIA, promotion, defeat,
+Arcade lives/log restoration and wrapped score arithmetic. This is controller
+coverage: flight results and menu selections are declared inputs, while media
+and planner actions are observed boundaries.
+
+`check_campaign_flights.py` separately restores a disposable pilot at an authored
+pre-flight checkpoint in Flashpoint mission 901 and Tour missions 801/821/841.
+It respects DEFAULT_WEAPONS rather than imposing a fitting screen. Real key
+input reaches ejection/parachute and natural recovery/FINISH. Original parser
+handlers then predict the retry launch from the observed result, including its
+actual numeric campaign state and the exact authored pilot-save bytes. GDB
+only observes; no damage, result, flight state or timer is injected. The existing
+naturally completed training/recording test also passes through the successful
+kill, original WNN/replay and next-hop position/Mach/inventory inheritance.
+
+All three synth modes agree with original controller/master/device execution
+through 128 persistent flight/menu lifecycles each: 61,440,000 audio frames
+(21 min 20 s), 69,914 shared IRQ ticks, retaining phase across all resource changes. Exact event/sample
+counts are FM 540,027, LAPC-I 181,547 and Sound Canvas 246,137. Resource/filename
+loads are 1,536, 384 and 1,024 respectively. These are device events and timing,
+not a claim of comparison to analogue hardware recordings. Repeated LAPC effects
+agree separately on 48,895 exact MIDI events/timestamps through 128 lifecycles,
+with original setup/cue/release and OSL/LA callbacks.
+
+`check_projectile_runtime.py --frame-tail --recycle --frames 4096` compares
+32,768 complete population frames through a deliberately constrained 17-slot
+pool. Every nine frames it attempts another batch, exercising full-pool
+rejection, retirement/reuse, child dispensers, designation and jettison. The
+original constructor, motion, list order, retirement, shared RNG and retained
+HUD warning references execute. Anchors and deterministic swept-contact losses
+remain explicit boundaries. Development and strict ASan/UBSan results agree.
+
+The [verification matrix](verification.md) consolidates the current claims,
+reproduction commands and intentional omissions without retaining the old
+chronological backlog as current work.

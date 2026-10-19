@@ -31,11 +31,27 @@ The 320×200 image is shown with square pixels and nearest-neighbour scaling. Th
 
 ## Sound
 
-Sound Blaster FM music follows the original `MUSIC` setting, and `--music=soundblaster-fm` selects it explicitly. For Roland LAPC-I music, use `--music=roland-lapc` with compatible CM-32L/MT-32 control and PCM ROMs. `--music=none` disables music. The original Sound Canvas setting uses SCC-1A emulation; `--music=roland-scc1a` or `--music=roland-sc55` selects the available hardware model, with its matching ROMs found automatically beside the game files or in the default installation directory. `--rom-dir` overrides that lookup for custom locations. These are compatible alternatives to the original SCC-1, whose exact ROM set is unavailable. Flight music now uses the original theme selection, temporary cues and engine sounds, including engine playback with music switched off. CD playback remains deferred; the explicit FM option selects the synthesised path.
+Sound Blaster FM music follows the original `MUSIC` setting, and `--music=soundblaster-fm` selects it explicitly. For Roland LAPC-I music, use `--music=roland-lapc` with compatible CM-32L/MT-32 control and PCM ROMs. `--music=none` disables music. The original Sound Canvas setting uses SCC-1A emulation; `--music=roland-scc1a` or `--music=roland-sc55` selects the available hardware model, with its matching ROMs found automatically beside the game files or in the default installation directory. `--rom-dir` overrides that lookup for custom locations. These are compatible alternatives to the original SCC-1, whose exact ROM set is unavailable. Flight music now uses the original theme selection, temporary cues and engine sounds, including engine playback with music switched off. The original SB/CD mode uses synthesised presentation music and CD flight music; the explicit FM option selects synthesised flight music.
 
 For Gravis sampled effects and speech, set `SOUNDFX=4` in the installation's `TFX.CFG` and retain its original `GUS.COM`. This emulates a one-MiB card, with the complete sound bank resident. Music selection remains separate.
 
 For the original LAPC-I effects arrangement, set `SOUNDFX=2` and `MUSIC=2`, with the Roland ROMs in either of those automatic locations. It uses the original synthesised effects bank during flight, replacing the usual flight music and recorded speech. Leave `SOUNDFX=1` for Sound Blaster effects and speech alongside Roland music.
+
+### CD soundtrack sources
+
+The fetch scripts supply `cd/tfx.cue` and its individual BIN tracks in the default
+game directory. The game streams their audio directly and prepares the reference
+runtime files without an external extractor. Existing configuration and pilots
+are retained. `--music=soundblaster-cd` (alias `cd`) selects the original SB/CD
+mode; the original introduction still uses synthesised music.
+
+`--cd-cue FILE` selects a different CUE/BIN image. `--cd-audio-dir DIRECTORY`
+selects local numbered FLAC, WAV, Ogg Vorbis or MP3 tracks. Either source option
+selects CD mode unless `--music` explicitly overrides it. Choose one source,
+rather than supplying both. Rips retain physical CD numbering: the first audio
+track is `track02`, with an appropriate extension. `track-02`, `track_02` and
+case variations also work. If several formats exist for a track, FLAC takes
+precedence, followed by WAV, Ogg and MP3.
 
 ## Developer commands
 
@@ -65,21 +81,4 @@ python3 tools/check_reference.py --build build --research ../tfx-reverse
 
 The optional reference check compares every decoded archive entry byte for byte with the independently checked research extractor. Original game data remains external to the repository. The current executable-table reader requires the reference 2.05 `TFX.DAT` as well as `DID.DAT`.
 
-The research tools and captures currently live in the sibling `tfx-reverse` directory. Native comparison commands, verified behaviour and current rendering limitations are in [implementation.md](implementation.md). The remaining work and automated verification gates are in the [implementation plan](implementation-plan.md).
-
-
-## CD soundtrack sources
-
-The fetch scripts supply `cd/tfx.cue` and its individual BIN tracks in the default
-game directory. The game streams their audio directly and prepares the reference
-runtime files without an external extractor. Existing configuration and pilots
-are retained. `--music=soundblaster-cd` (alias `cd`) selects the original SB/CD
-mode; the original introduction still uses synthesised music.
-
-`--cd-cue FILE` selects a different CUE/BIN image. `--cd-audio-dir DIRECTORY`
-selects local numbered FLAC, WAV, Ogg Vorbis or MP3 tracks. Either source option
-selects CD mode unless `--music` explicitly overrides it. Choose one source,
-rather than supplying both. Rips retain physical CD numbering: the first audio
-track is `track02`, with an appropriate extension. `track-02`, `track_02` and
-case variations also work. If several formats exist for a track, FLAC takes
-precedence, followed by WAV, Ogg and MP3.
+The research tools and captures currently live in the sibling `tfx-reverse` directory. Native comparison commands, verified behaviour and current rendering limitations are in [implementation.md](implementation.md). The [verification matrix](verification.md) summarizes current coverage; the [closeout scope](implementation-plan.md) records intentional omissions and how to investigate future discrepancies.
