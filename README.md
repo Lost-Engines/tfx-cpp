@@ -41,11 +41,11 @@ Mission 501 is the first Fighter Weapons School engagement. Direct launches use 
 
 The original menus, briefings, mission planning, arming, flight, combat and results are connected. All four flight models are available, along with the original cockpit/MFDs, cameras, weather, damage, refuelling and automatic landing. Landing and stopping can refuel, repair and rearm your aircraft through the original arming screen. Campaign flights return to the authored presentations and retain DOS-compatible `TFXSAV.0`–`TFXSAV.9` pilot files.
 
-Arcade uses mouse steering. The other flight models support keyboard and joystick controls; `--flight-model` and `--control` override the saved choices. Press **backtick** in flight for configuration and realism settings, and **P** to pause. Press Escape twice to eject; **Shift+Q** opens the quit/enrol confirmation.
+Arcade uses mouse steering. The other flight models support keyboard and joystick controls; `--flight-model` and `--control` override the saved choices. Press **backtick** in flight for configuration and realism settings, and **P** or **Pause** to pause. Press Escape twice to eject; **Shift+Q** opens the quit/enrol confirmation.
 
 **Alt+V** starts or stops a flight recording. Its default filename is `video.rec`, editable in the configuration menu. A new recording replaces that file. After a campaign flight, the original WNN sequence and recorded flight play automatically.
 
-The 320×200 image uses nearest-neighbour scaling and square pixels. The initial floating window chooses the largest integer scale that fits the desktop; `--scale=3` overrides it. Focus loss releases mouse, keyboard and joystick input without pausing flight or playback. Use P or the configuration menu to pause.
+The 320×200 image uses nearest-neighbour scaling and square pixels. The initial floating window chooses the largest integer scale that fits the desktop; `--scale=3` overrides it. Focus loss releases mouse, keyboard and joystick input without pausing flight or playback. Use P, Pause or the configuration menu to pause.
 
 See [controls and configuration](docs/controls.md) for weapons, autopilot, cameras, MFDs, joystick bindings, recordings and developer commands. The original manual remains the best guide to flying the missions.
 
