@@ -2,6 +2,8 @@
 
 A native C++26 reconstruction of Digital Image Design’s **TFX: Tactical Fighter Experiment**, using the September 1994 CD release, **version 2.05**, as its reference.
 
+[TFX Redux](https://github.com/Lost-Engines/tfx-redux) builds on this reconstruction with higher resolutions, adjustable field of view and draw distance, and arming-screen improvements. This repository preserves the original presentation and behaviour.
+
 The supplied fetch script downloads the reference game CD and audio firmware. You can also use your own TFX 2.05 installation. Research exports are neither required nor bundled.
 
 ## Getting started
