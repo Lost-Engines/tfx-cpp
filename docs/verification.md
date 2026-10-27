@@ -108,3 +108,5 @@ press after release can fire normally. Modifier keys alone leave flight paused.
 The same check switches F4/F5/F1 while paused, waits for camera transitions,
 compares a settled view across repeated frames, and saves an in-game screenshot.
 Simulation ticks and scenery animation calls must stay unchanged throughout.
+
+`tools/check_window_designator_mouse.py` checks real mouse movement and both mouse buttons in Z view, confirms that flight receives no mouse input, and checks that F1 restores steering without carrying over camera input. Run it with both `--flight-model arcade` and `--flight-model military-spec` to cover relative steering and the retained mouse stick. It also checks paused designator images for unwanted animation. The test uses a private X11 display and temporary configuration; GDB only observes state.
