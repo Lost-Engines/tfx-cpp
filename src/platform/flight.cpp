@@ -33,6 +33,7 @@
 #include "flight/player_flight.h"
 #include "flight/joystick.h"
 #include "flight/mouse_input.h"
+#include "pause_input.h"
 #include "flight/keyboard.h"
 #include "flight/damage.h"
 #include "flight/defence.h"
@@ -2257,6 +2258,7 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
   std::array<bool,GLFW_KEY_LAST + 1> held{false};
   // A key that closed the launch screen is not a new in-flight press.
   for(int key{GLFW_KEY_SPACE}; key <= GLFW_KEY_LAST; ++key) held[static_cast<unsigned int>(key)] = glfwGetKey(host,key) == GLFW_PRESS;
+  pause_input pause_keys;pause_keys.synchronise(held,window.focused());
   tfx::simulation::timer_counter counter{0};
   tfx::simulation::flight_clock flight_clock{counter};
   flight_clock.begin({
@@ -2280,7 +2282,10 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       stick_buttons = {};
       mouse_control = {};
     }
-    auto const down{[host,focused](int const key){ return focused && glfwGetKey(host,key) == GLFW_PRESS; }};
+    pause_input::snapshot keys{};
+    if(focused) for(int key=GLFW_KEY_SPACE;key<=GLFW_KEY_LAST;++key) keys[static_cast<size_t>(key)]=glfwGetKey(host,key)==GLFW_PRESS;
+    if(pause_keys.update(keys,paused && !inspect && !result_evaluated,focused)) paused=false;
+    auto const down{[&](int const key){ return keys[static_cast<size_t>(key)] && !pause_keys.consumed(key); }};
     auto const pressed{[&](int const key){
       bool const active{down(key)}, edge{active && !held[static_cast<unsigned int>(key)]};
       held[static_cast<unsigned int>(key)] = active;
@@ -2389,7 +2394,11 @@ flight_result fly_mission(resources::archive const &game, resources::executable_
       store_trigger = false;
       // The modal screen consumed its closing make-code. Do not turn a
       // still-held M/Escape into another map request or an ejection press.
-      for(int key{GLFW_KEY_SPACE}; key <= GLFW_KEY_LAST; ++key) held[static_cast<unsigned int>(key)] = down(key);
+      for(int key{GLFW_KEY_SPACE}; key <= GLFW_KEY_LAST; ++key) {
+        keys[static_cast<size_t>(key)]=window.focused() && glfwGetKey(host,key)==GLFW_PRESS;
+        held[static_cast<size_t>(key)]=keys[static_cast<size_t>(key)];
+      }
+      pause_keys.synchronise(keys,window.focused());
       flight_clock.resume(counter,{
         .model{preferences.model},
       });
