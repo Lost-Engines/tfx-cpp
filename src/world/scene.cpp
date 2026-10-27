@@ -511,7 +511,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       .request_output{requests},
     };
     render::preview_state actor_frame{actor.state,render_paused};
-    if(render_paused && actor.preview_entry) actor_frame->execute(*actor.preview_entry);
+    if(render_paused && actor.preview_entry) actor_frame->execute(*actor.preview_entry,{.status{terrain.lighting.status}});
     auto const output{actor_frame->execute(1,context)};
     for(auto const &draw : output.draws) {
       bool const shadow{draw.kind == part_draw_kind::ground_shadow};
