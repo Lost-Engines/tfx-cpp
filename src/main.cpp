@@ -24,6 +24,8 @@
 
 namespace {
 
+enum class qsound_mode { automatic, on, off };
+
 // Native LANG values 1..5 index the directory table at DATA:AB1C.
 std::array<std::string_view,5> constexpr language_names{"english","french","german","italian","spanish"};
 
@@ -41,6 +43,7 @@ auto main(int const argc, char const *const argv[])->int try {
   std::optional<std::filesystem::path> rom_directory;
   std::optional<std::filesystem::path> cd_cue, cd_audio_directory;
   std::optional<uint8_t> music_override;
+  qsound_mode selected_qsound{qsound_mode::automatic};
   tfx::audio::sound_canvas_model canvas_model{tfx::audio::sound_canvas_model::scc1a};
   std::string mission_name{"miss501"}, override_environment, override_grid;
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0}, flight_frames{0};
@@ -74,7 +77,8 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --music NAME          none, soundblaster-cd, soundblaster-fm, roland-lapc, roland-scc1a or roland-sc55\n"
                    "  --cd-cue FILE         Play CD music from a CUE/BIN image (default: fetched disc)\n"
                    "  --cd-audio-dir DIR    Play numbered local FLAC, Ogg, MP3 or WAV CD tracks\n"
-                   "  --rom-dir DIRECTORY   Override automatic Roland ROM lookup\n"
+                   "  --qsound MODE         auto, on or off; reconstructed Sound Blaster spatial effects (default: auto)\n"
+                   "  --rom-dir DIRECTORY   Override automatic audio-firmware lookup\n"
                    "  --scale N             Integer pixel scale; 0 selects the largest fitting scale (default)\n"
                    "\nGame files: current directory, then " << tfx::resources::default_game_directory().string() << "\n"
                    "ROMs: selected game directory, then the same default asset directory.\n"
@@ -119,6 +123,13 @@ auto main(int const argc, char const *const argv[])->int try {
     }
     if(key == "--data-dir") data_directory = value();
     else if(key == "--rom-dir") rom_directory = value();
+    else if(key == "--qsound") {
+      auto const selected{value()};
+      if(selected == "auto") selected_qsound = qsound_mode::automatic;
+      else if(selected == "on") selected_qsound = qsound_mode::on;
+      else if(selected == "off") selected_qsound = qsound_mode::off;
+      else throw std::runtime_error{"qsound must be auto, on or off"};
+    }
     else if(key == "--cd-cue") cd_cue = value();
     else if(key == "--cd-audio-dir") cd_audio_directory = value();
     else if(key == "--music") {
@@ -258,9 +269,22 @@ auto main(int const argc, char const *const argv[])->int try {
       try { gravis = tfx::audio::load_gus_parameters(tfx::resources::read_file(archive_path.parent_path() / "GUS.COM")); }
       catch(std::exception const &error) { std::cerr << "Gravis effects unavailable: " << error.what() << '\n';effects_device = tfx::audio::sound_device::none; }
     }
+    std::unique_ptr<tfx::audio::qsound_effect> spatial;
+    bool const sound_blaster{effects_device == tfx::audio::sound_device::sound_blaster || effects_device == tfx::audio::sound_device::sound_blaster16};
+    if(selected_qsound == qsound_mode::on && !sound_blaster) throw std::runtime_error{"QSound requires Sound Blaster sound effects (SOUNDFX=1 or 3)"};
+    if(sound_blaster && selected_qsound != qsound_mode::off) {
+      try {
+        spatial = tfx::audio::load_qsound_effect(tfx::resources::rom_directories(archive_path.parent_path(),rom_directory),tfx::platform::audio_output::sample_rate);
+      } catch(std::exception const &error) {
+        if(selected_qsound == qsound_mode::on) throw;
+        std::cerr << "QSound unavailable: " << error.what() << "; rerun scripts/fetch-assets to repair the firmware.\n";
+      }
+      if(!spatial && selected_qsound == qsound_mode::on) throw std::runtime_error{"QSound firmware not found; run scripts/fetch-assets or supply WFM0001A.CSP in the audio-firmware directory"};
+      if(spatial) std::cout << "QSound: recovered 8 kHz model, endpoint-clamped positions.\n";
+    }
     if(preferences.sound_effects || music || cd) {
       try {
-        sound = std::make_unique<tfx::audio::runtime>(tables.samples,game,tfx::platform::audio_output::sample_rate,effects_device,std::move(music),gravis,std::move(cd),static_cast<tfx::audio::music_mode>(preferences.music),preferences.music != 0);
+        sound = std::make_unique<tfx::audio::runtime>(tables.samples,game,tfx::platform::audio_output::sample_rate,effects_device,std::move(music),gravis,std::move(cd),static_cast<tfx::audio::music_mode>(preferences.music),preferences.music != 0,std::move(spatial));
         output = std::make_unique<tfx::platform::audio_output>([](void *const user, std::span<float> const pcm) noexcept {
           static_cast<tfx::audio::runtime*>(user)->render(pcm);
         },sound.get());
