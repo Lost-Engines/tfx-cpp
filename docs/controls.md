@@ -29,6 +29,8 @@ The original cheat is available: hold **right Shift** and type **PLOP** to toggl
 The 320×200 image is shown with square pixels and nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Focus loss releases mouse, keyboard and joystick input without pausing flight or playback. Use P, Pause or the configuration menu to pause.
 
 
+While paused, Enter, Space, letters, arrows and function keys resume flight. The resume key is consumed until release, so Space does not also fire. Modifier keys, Escape, backtick, M (map), the screenshot key and Shift+Q retain their existing behaviour.
+
 ## Sound
 
 Sound Blaster FM music follows the original `MUSIC` setting, and `--music=soundblaster-fm` selects it explicitly. For Roland LAPC-I music, use `--music=roland-lapc` with compatible CM-32L/MT-32 control and PCM ROMs. `--music=none` disables music. The original Sound Canvas setting uses SCC-1A emulation; `--music=roland-scc1a` or `--music=roland-sc55` selects the available hardware model, with its matching ROMs found automatically beside the game files or in the default installation directory. `--rom-dir` overrides that lookup for custom locations. These are compatible alternatives to the original SCC-1, whose exact ROM set is unavailable. Flight music now uses the original theme selection, temporary cues and engine sounds, including engine playback with music switched off. The original SB/CD mode uses synthesised presentation music and CD flight music; the explicit FM option selects synthesised flight music.

@@ -95,3 +95,12 @@ The check verifies that flight continues unfocused, background Escape presses
 are ignored, holding the first Escape does not eject, and a second press does.
 The flight loop also samples already-held launch keys before accepting new
 presses, so a key used to leave the launch screen is not a first ejection press.
+
+## Pause input
+
+`pause_input_tests` checks resume keys, held-key suppression, release/repress,
+focus changes and modal shortcuts. `python3 tools/check_window_pause.py`
+checks the actual window on a private X11 display with a disposable install.
+GDB observes simulation ticks and projectile launches: P/Pause stop simulation;
+Enter, Space and G resume; holding the Space resume press cannot fire; a fresh
+press after release can fire normally. Modifier keys alone leave flight paused.
