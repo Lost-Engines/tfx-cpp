@@ -395,6 +395,7 @@ add_library(tfx_core
   src/render/integer_model_polygon.h
   src/render/integer_polygon.cpp src/render/integer_polygon.h
   src/render/pattern_raster.cpp src/render/pattern_raster.h
+  src/render/preview_state.h
   src/render/software_renderer.cpp
   src/render/software_renderer.h
   src/math/native.cpp

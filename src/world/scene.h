@@ -38,6 +38,7 @@ private:
     vec3d position;
     vec3<math::angle> angles;
     bool visible{true};
+    std::optional<unsigned int> preview_entry{};
   };
   std::map<unsigned int,moving_instance> actors;
   std::vector<scene_handle> actor_order;
@@ -67,6 +68,7 @@ private:
   animation_clock local_clock;
   animation_clock &clock; // Optional application-owned gate survives mission changes.
   bool animation_pending{false};
+  bool render_paused{false};
   bool player_animation_pending{false}; // The player stream advances after drawing, independently of viewport consumption.
   bool instrument_animation{false};
   render::model_jitter jitter;
@@ -86,6 +88,7 @@ public:
   scene(environment const &terrain, assets &resources, environment const *upper = nullptr, animation_clock *retained_clock = nullptr);
   scene(scene const&) = delete;
   scene &operator=(scene const&) = delete;
+  void set_render_paused(bool paused);
   void set_effect_sink(std::function<void(effect_record const&)> sink);
   void set_query_reference(vec3<int32_t> const *position);
   void set_carried_models(std::span<models::shape const *const> models);
