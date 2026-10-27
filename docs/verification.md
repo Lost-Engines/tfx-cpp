@@ -85,4 +85,4 @@ QSound's reusable source is pinned and compiled directly into `tfx_audio`; it ha
 python3 tools/check_audio_menu.py --build build-rel --qsound-firmware /path/to/MAIN.PVL
 ```
 
-The live check creates a private display, audio sink and installation. It observes CD progress, mute/restart, effects alongside music, a single output device and clean shutdown. Default automatic lookup of `qsound/MAIN.PVL` is exercised. The firmware is external input and is not recorded into the repository.
+The live check creates a private display, audio sink and installation. It observes CD progress, mute/restart, effects alongside music, a single output device and clean shutdown. Default automatic lookup of `qsound/MAIN.PVL` is exercised, including fallback past an intentionally damaged standalone CSP. The firmware is external input and is not recorded into the repository.

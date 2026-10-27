@@ -1,6 +1,7 @@
 #include "qsound_effect.h"
 
 #include <algorithm>
+#include <exception>
 #include <utility>
 #include "qsound/position_sweep.h"
 #include "qsound/spatial_model.h"
@@ -87,12 +88,21 @@ unsigned int qsound_effect::tail_samples() const noexcept {
 
 std::unique_ptr<qsound_effect> load_qsound_effect(std::span<std::filesystem::path const> const directories,
     unsigned int const output_rate) {
+  std::exception_ptr invalid_firmware;
   for(auto const &directory : directories) {
     for(auto const *name : {"WFM0001A.CSP", "wfm0001a.csp", "CSP/WFM0001A.CSP", "csp/wfm0001a.csp", "qsound/MAIN.PVL"}) {
       auto const path{directory / name};
-      if(std::filesystem::is_regular_file(path)) return std::make_unique<qsound_effect>(resources::read_file(path), output_rate);
+      if(std::filesystem::is_regular_file(path)) {
+        try {
+          return std::make_unique<qsound_effect>(resources::read_file(path), output_rate);
+        } catch(std::exception const &) {
+          // A stale local copy must not hide a valid fetched firmware asset.
+          if(!invalid_firmware) invalid_firmware = std::current_exception();
+        }
+      }
     }
   }
+  if(invalid_firmware) std::rethrow_exception(invalid_firmware);
   return {};
 }
 

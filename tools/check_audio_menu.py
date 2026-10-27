@@ -31,6 +31,7 @@ with tempfile.TemporaryDirectory(prefix='tfx-audio-menu-') as temporary:
   firmware=a.qsound_firmware.read_bytes()
   path=install/'WFM0001A.CSP' if firmware.startswith(b'RIFF') else install/'qsound/MAIN.PVL'
   path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(firmware)
+  if not firmware.startswith(b'RIFF'):(install/'WFM0001A.CSP').write_bytes(b'damaged local firmware')
  (install/'TFX.CFG').write_bytes(b'CONTROL=0\r\nMODEL=0\r\nSOUNDFX=1\r\nMUSIC=1\r\nREALISM=0,0,1,1,0,0,0\r\nDETAIL=2\r\n')
  rate=48000
  with wave.open(str(tracks/'track09.wav'),'wb') as file:
