@@ -26,7 +26,7 @@ Apostrophe toggles aerial refuelling: the nearest allied tanker supplies the ori
 
 The original cheat is available: hold **right Shift** and type **PLOP** to toggle it. Its original damage protection and collision behaviour are retained. With the cheat enabled, Ctrl+D opens in-flight arming; missions that require default stores refit those immediately.
 
-The 320×200 image is shown with square pixels and nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Mouse capture is released on focus loss.
+The 320×200 image is shown with square pixels and nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Focus loss releases mouse, keyboard and joystick input without pausing flight or playback. Use P or the configuration menu to pause.
 
 
 ## Sound

@@ -86,3 +86,12 @@ python3 tools/check_audio_menu.py --build build-rel --qsound auto
 ```
 
 The live check creates a private display, audio sink and installation. It observes CD progress, mute/restart, effects alongside music, a single output device and clean shutdown. The default built-in QSound path is exercised with no CSP/PVL in the private installation. `--qsound off` checks ordinary mono effects separately. Original firmware extraction remains an optional research workflow in the QSound component repository.
+
+## Focus and ejection input
+
+`python3 tools/check_window_playtest.py` opens a disposable installation on a
+private X11 display. GDB observes flight/ejection state without modifying it.
+The check verifies that flight continues unfocused, background Escape presses
+are ignored, holding the first Escape does not eject, and a second press does.
+The flight loop also samples already-held launch keys before accepting new
+presses, so a key used to leave the launch screen is not a first ejection press.
