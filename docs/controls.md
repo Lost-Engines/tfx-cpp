@@ -29,7 +29,7 @@ The original cheat is available: hold **right Shift** and type **PLOP** to toggl
 The 320×200 image is shown with square pixels and nearest-neighbour scaling. The initial floating window uses the largest integer scale that fits the available desktop; `--scale=3` overrides this. Focus loss releases mouse, keyboard and joystick input without pausing flight or playback. Use P, Pause or the configuration menu to pause.
 
 
-While paused, Enter, Space, letters, arrows and function keys resume flight. The resume key is consumed until release, so Space does not also fire. Modifier keys, Escape, backtick, M (map), the screenshot key and Shift+Q retain their existing behaviour.
+While paused, Enter, Space, letters and arrows resume flight. F1–F10 still select cameras without resuming, including their Shift variants. The pause label is hidden so screenshots remain clear. The resume key is consumed until release, so Space does not also fire. Modifier keys, Escape, backtick, M (map), the screenshot key and Shift+Q retain their existing behaviour.
 
 ## Sound
 

@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "render/preview_state.h"
 #include "terrain_cells.h"
 #include "world/sky.h"
 #include "world/model_placement.h"
@@ -18,6 +19,11 @@
 namespace tfx::world {
 
 scene::scene(environment const &environment, assets &bank, world::environment const *const upper, animation_clock *const retained_clock) : terrain{environment}, upper_terrain{upper}, resources{bank}, clock{retained_clock ? *retained_clock : local_clock} {
+}
+
+void scene::set_render_paused(bool paused) {
+  if(render_paused && !paused) for(auto &[id,actor] : actors) actor.preview_entry.reset();
+  render_paused = paused;
 }
 
 scene_handle scene::create_actor(std::string const &name, vec3d const &position, vec3<math::angle> const &angles) {
@@ -94,7 +100,7 @@ vec3<int16_t> scene::reference_words(vec3d const &fallback) const {
 }
 void scene::emit_effect(scene_request const &request, vec3d const &origin, math::angle const heading) {
   unsigned int constexpr emit_effect_opcode{79};
-  if(!effect_sink || request.opcode != emit_effect_opcode) return;
+  if(render_paused || !effect_sink || request.opcode != emit_effect_opcode) return;
   auto const &a{request.arguments};
   if(a.size() != 4 || a[3] >= effect_kind_count) throw std::runtime_error{"invalid authored SSD effect request"};
   auto const world_origin{word_position({std::floor(origin.x),std::floor(origin.y),std::floor(origin.z)})};
@@ -239,6 +245,7 @@ void scene::queue_model(std::string const &name, vec3d const &position) {
 
 instance_result scene::actor_event(scene_handle const handle, unsigned int const entry) {
   auto &actor{actors.at(handle.value)};
+  if(render_paused) { actor.preview_entry=entry;return {}; }
   auto const output{[&](scene_request const &request) { emit_effect(request,actor.position); }};
   return actor.state.execute(entry,{
     .status{terrain.lighting.status},
@@ -289,9 +296,10 @@ void scene::replay(render::software_renderer &renderer, render::camera const &vi
 scene_events scene::draw(render::software_renderer &renderer, render::camera const &view, unsigned int const radius, std::function<void()> const &final_submissions, std::optional<int32_t> const camera_anchor_y, int16_t const shadow_ground_height, scene_pass const pass, recording::scene_frame *const capture, recording::scene_frame const *const playback) {
   installed_camera = view;
   /// Native cached model metrics own detail, distance predicates, remap and signed sort priority
-  if(pass == scene_pass::primary) instrument_animation = std::exchange(animation_pending,false);
-  bool const animate{instrument_animation};
-  jitter.begin(animate);
+  if(!render_paused && pass == scene_pass::primary) instrument_animation = std::exchange(animation_pending,false);
+  bool const animate{!render_paused && instrument_animation};
+  render::preview_state jitter_frame{jitter,render_paused};
+  jitter_frame->begin(animate);
   scene_events events;
   struct queued_part {
     models::shape const *shape;
@@ -345,7 +353,7 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       context.initial_state = item.initial_state;
       context.attachments = carried_models;
       context.status = terrain.lighting.status;
-      context.jitter = &jitter.state();
+      context.jitter = &jitter_frame->state();
       context.distance = native ? item.metrics.distance : static_cast<int16_t>(std::clamp(item.depth,-32768.0,32767.0));
       if(detail) context.entry_address = detail->offset + 2;
       context.project = [&view, &camera_point, native](vec3d const &v, double const scale){
@@ -502,7 +510,9 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
       .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,0,actor_reference); }},
       .request_output{requests},
     };
-    auto const output{actor.state.execute(1,context)};
+    render::preview_state actor_frame{actor.state,render_paused};
+    if(render_paused && actor.preview_entry) actor_frame->execute(*actor.preview_entry);
+    auto const output{actor_frame->execute(1,context)};
     for(auto const &draw : output.draws) {
       bool const shadow{draw.kind == part_draw_kind::ground_shadow};
       auto const shadow_placement{shadow ? place_model_shadow(projection,assembly,shadow_ground_height,actor.state.bounding_radius()) : std::optional<model_placement>{}};
@@ -582,7 +592,8 @@ scene_events scene::draw(render::software_renderer &renderer, render::camera con
         .anchor_distance{[&](vec3d const &anchor) { return instance_point_distance(word_position(anchor),origin,tile.rotation,reference); }},
         .request_output{requests},
       };
-      auto const output{instance.execute(1,context)};
+      render::preview_state terrain_frame{instance,render_paused};
+      auto const output{terrain_frame->execute(1,context)};
       for(auto const &draw : output.draws) {
         bool const shadow{draw.kind == part_draw_kind::ground_shadow};
         auto const shadow_placement{shadow ? place_model_shadow(projection,assembly,shadow_ground_height,instance.bounding_radius()) : std::optional<model_placement>{}};
