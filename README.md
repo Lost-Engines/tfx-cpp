@@ -49,6 +49,8 @@ The 320×200 image uses nearest-neighbour scaling and square pixels. The initial
 
 See [controls and configuration](docs/controls.md) for weapons, autopilot, cameras, MFDs, joystick bindings, recordings and developer commands. The original manual remains the best guide to flying the missions.
 
+G effects have their own setting in the in-flight **Realism** menu. Choose **Reduced** or **Realistic** for blackout, redout and strained breathing during hard manoeuvres. Existing saved settings are retained, including **None**. Breathing uses sound effects, independently of music.
+
 ## Sound
 
 Sampled Sound Blaster and Gravis effects and speech, FM music, Roland LAPC-I and Sound Canvas emulation are connected. The saved `SOUNDFX=4` setting selects Gravis; `SOUNDFX=2` with `MUSIC=2` selects the original LAPC-I synthesised flight effects. `--music=soundblaster-fm` selects synthesised FM music explicitly; `--music=none` disables music. Roland modes find matching ROMs automatically beside the game files or in the default installation directory. Details are in [controls and configuration](docs/controls.md).
