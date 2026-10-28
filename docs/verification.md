@@ -110,3 +110,19 @@ compares a settled view across repeated frames, and saves an in-game screenshot.
 Simulation ticks and scenery animation calls must stay unchanged throughout.
 
 `tools/check_window_designator_mouse.py` checks real mouse movement and both mouse buttons in Z view, confirms that flight receives no mouse input, and checks that F1 restores steering without carrying over camera input. Run it with both `--flight-model arcade` and `--flight-model military-spec` to cover relative steering and the retained mouse stick. It also checks paused designator images for unwanted animation. The test uses a private X11 display and temporary configuration; GDB only observes state.
+
+## G effects and breathing
+
+`tools/check_g_effects.py` compares 8,192 complete original G-controller updates;
+`tools/check_palette_lighting.py` compares 4,224 original palette updates across
+33 environments, including all colour bytes and breathing requests.
+
+`tools/check_window_g_effects.py --data-dir /path/to/TFX` checks the running game
+in a disposable installation, private X11 display and silent PulseAudio sink.
+It supplies +15, −8 and +1 G at the controller input using GDB; flight dynamics
+are outside this integration check. The real controller, palette painter,
+sample scheduler and PCM device then run normally. It checks full blackout and
+redout pixels, all three urgent breathing requests, audible PCM, recovery,
+paused camera redraws and shutdown. Ordinary key-click sounds are allowed
+while changing paused views. Add `--redux` to check the higher-resolution
+virtual cockpit and vector HUD. No saved configuration or pilot is used.
