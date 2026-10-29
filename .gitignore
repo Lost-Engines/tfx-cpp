@@ -3,3 +3,8 @@
 __pycache__/
 *.ppm
 /roms/
+
+# CI compiler caches and package staging.
+/.cache/
+/package/
+/dist/
