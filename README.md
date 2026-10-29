@@ -6,7 +6,7 @@ A native C++26 reconstruction of Digital Image Design’s **TFX: Tactical Fighte
 
 The supplied fetch script downloads the reference game CD and audio firmware. You can also use your own TFX 2.05 installation. Research exports are neither required nor bundled.
 
-Download the [latest tested release](https://github.com/Lost-Engines/tfx-cpp/releases/latest) for Linux, Windows or Intel macOS, or build from source below. Packages include setup helpers; game data and ROMs are supplied separately. See [builds and releases](docs/build-release.md) for the CI matrix and release policy.
+Download the [latest tested release](https://github.com/Lost-Engines/tfx-cpp/releases/latest) for Linux, Windows or Intel macOS, or build from source below. Packages include setup helpers; game data and ROMs are supplied separately.
 
 ## Getting started
 
@@ -92,6 +92,8 @@ Names such as `track-02` and uppercase extensions are also accepted. Playback
 uses the original track selection, stop and flight-loop behaviour.
 
 ## Development status
+
+Build automation and release packaging are described in [builds and releases](docs/build-release.md).
 
 The original and C++ launch/flight loops match across all 128 retail mission setups and their first sixteen Arcade frames. Longer controlled comparisons cover successful interception and ground attack, incoming fire and aircraft loss, refuelling, mission return, ejection and recording. Subsystem checks execute the original code independently, with compact regressions runnable without game data:
 
