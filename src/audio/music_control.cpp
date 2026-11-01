@@ -5,7 +5,6 @@
 
 namespace tfx::audio {
 namespace {
-using std::trunc;
 
 bool sound_blaster(uint8_t const device) { return device == 1 || device == 3 || device == 4; }
 bool transient_allowed(music_control_state const &state, music_control_context const &context) {
@@ -60,7 +59,7 @@ std::optional<music_selection> select_fm(music_control_state &state, music_contr
     double constexpr idle_throttle{.6}, orders_per_throttle{10};
     // The original truncates after an x87 double-precision calculation, then
     // retains only the low byte when selecting the engine bank's order.
-    selection.order = static_cast<uint8_t>(static_cast<int16_t>(trunc((static_cast<math::calculation>(context.throttle) - idle_throttle) * orders_per_throttle)));
+    selection.order = static_cast<uint8_t>(static_cast<int16_t>(math::trunc((static_cast<math::calculation>(context.throttle) - idle_throttle) * orders_per_throttle)));
     selection.resource_index = 21;
     state.engine_playing = true;
     break;

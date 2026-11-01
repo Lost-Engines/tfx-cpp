@@ -4,6 +4,7 @@
 // On x87 hosts this is long double (64-bit significand). Elsewhere — and when
 // TFX_SOFT_X87 is forced for verification — it is the SoftFloat float80 wrapper.
 
+#include <cmath>
 #include <limits>
 #include <numbers>
 
@@ -24,6 +25,21 @@ using calculation = long double;
 
 inline constexpr bool calculation_is_x87_precision =
   std::numeric_limits<calculation>::digits == 64;
+
+// Shared ops for calculation on both backends. SoftFloat builds already get
+// float80 overloads from float80.h; hardware x87 needs these long-double
+// wrappers so call sites can use math::sqrt/trunc/... unconditionally.
+#if !defined(TFX_SOFT_X87)
+inline calculation sqrt(calculation const value) { return std::sqrt(value); }
+inline calculation abs(calculation const value) { return std::fabs(value); }
+inline calculation trunc(calculation const value) { return std::trunc(value); }
+inline calculation pow(calculation const base, calculation const exponent) {
+  return std::pow(base, exponent);
+}
+inline bool isfinite(calculation const value) { return std::isfinite(value); }
+inline bool isnan(calculation const value) { return std::isnan(value); }
+inline bool isinf(calculation const value) { return std::isinf(value); }
+#endif
 
 // x87 FLDPI / long-double pi_v significand. On SoftFloat hosts, pi_v<long
 // double> is only double-width and must not be used for extended constants.
