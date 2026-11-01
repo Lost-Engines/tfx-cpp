@@ -426,7 +426,6 @@ add_library(tfx_core
   src/math/native.h
   src/math/calculation.h
   src/math/float80.h
-  src/math/trigonometry.h
   src/models/shape.cpp
   src/models/shape.h
   src/world/instance.cpp
