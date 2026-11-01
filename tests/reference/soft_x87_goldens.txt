@@ -1,6 +1,0 @@
-# Soft extended transcendental goldens (IEEE754 binary64 of the calculation result).
-# Columns: op arg0 [arg1] expected_double_bits
-sin 0 0
-sin 1 4605754515907993587
-cos 0 4607182418800017408
-atan2 1 1 4605249457297304856

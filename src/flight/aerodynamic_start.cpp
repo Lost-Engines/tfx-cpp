@@ -47,7 +47,7 @@ void initialise_aerodynamic_motion(aerodynamic_start_state &state, aerodynamic_a
         state.ground_steering = true;
       }
     }
-    calculation const inverse_spring{1.0L / (wide(airframe.ground.contact.spring_stiffness) * suspension_points)};
+    calculation const inverse_spring{calculation{1} / (wide(airframe.ground.contact.spring_stiffness) * suspension_points)};
     calculation const down{wide(context.ground_elevation_steps) * metres_per_foot * feet_per_ground_step - airframe.ground.offsets[1].z};
     motion.pose.metres_ned.z = static_cast<double>(wide(state.mass_kg) * gravity * inverse_spring + down);
     if(airframe.stores_and_mounts.stores.aircraft == player_aircraft::nighthawk) motion.pose.metres_ned.z = static_cast<double>(wide(motion.pose.metres_ned.z) + nighthawk_ground_offset);

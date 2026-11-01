@@ -11,6 +11,7 @@ namespace tfx::flight {
 namespace {
 
 using calculation = math::calculation;
+using std::isfinite;
 float constexpr normalised_word{3.0518509447574615e-05f};
 float constexpr fixed_speed_fraction{1.0f / 256}, speed_metres_per_native_tick{122};
 float constexpr mach_per_metre_per_second{.0029411765281111f};
@@ -21,7 +22,7 @@ unsigned int constexpr angle_step{64}, normalisation_mask{31};
 float constexpr collision_reset_height{-2}, collision_reset_position{-5};
 
 int32_t truncate(calculation const value) {
-  if(!math::isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= math::calculation{2147483648.0}) return std::numeric_limits<int32_t>::min();
+  if(!isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= math::calculation{2147483648.0}) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(value);
 }
 void rotate(arcade_state &state, math::rotation_axis const axis, float const amount) {

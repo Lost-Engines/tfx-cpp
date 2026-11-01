@@ -7,6 +7,7 @@ namespace tfx::flight {
 namespace {
 
 using calculation = math::calculation;
+using std::sqrt;
 double constexpr density_height_scale{20}, density_correction_start{10};
 double constexpr density_correction{.088}, density_correction_scale{.01};
 double constexpr minimum_corrected_density{.088};
@@ -32,7 +33,7 @@ atmosphere_sample sample_atmosphere(double const altitude_km, double const down_
   if(-static_cast<calculation>(down_metres) < parameters.temperature_lapse_limit_metres) result.local_kelvin = static_cast<double>(static_cast<calculation>(parameters.temperature_lapse_per_metre) * down_metres + result.sea_level_kelvin);
   // The Watcom sqrt helper receives a double argument, not an x87 temporary.
   double const sound_squared{static_cast<double>(static_cast<calculation>(result.local_kelvin) * sound_temperature_factor)};
-  result.sound_metres_per_second = static_cast<double>(math::sqrt(static_cast<calculation>(sound_squared)));
+  result.sound_metres_per_second = static_cast<double>(sqrt(static_cast<calculation>(sound_squared)));
   return result;
 }
 

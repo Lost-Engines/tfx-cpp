@@ -242,7 +242,7 @@ jobs:
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" --draft --target "$GITHUB_SHA" \
               --title "TFX C++ ${GITHUB_SHA:0:7}" \
-              --notes 'Automated Release builds for Linux x86-64, Windows x86-64, macOS Intel (x86-64) and macOS Apple Silicon (arm64). All eight builds passed their asset-independent tests. Apple Silicon uses the soft x87 numerical backend. Original game data and optional synthesiser ROMs are supplied separately. See the repository README for setup.'
+              --notes 'Automated Release builds for Linux x86-64, Windows x86-64, macOS Intel (x86-64) and macOS Apple Silicon (arm64). All eight builds passed their asset-independent tests. Apple Silicon uses Berkeley SoftFloat with Bochs transcendentals. Original game data and optional synthesiser ROMs are supplied separately. See the repository README for setup.'
           fi
           gh release upload "$tag" "${packages[@]}" dist/SHA256SUMS --clobber
           gh release edit "$tag" --draft=false --latest

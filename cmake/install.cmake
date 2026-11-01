@@ -38,3 +38,9 @@ if(DEFINED glfw_SOURCE_DIR AND EXISTS "${glfw_SOURCE_DIR}/LICENSE.md")
   install(FILES "${glfw_SOURCE_DIR}/LICENSE.md"
     DESTINATION licenses/glfw COMPONENT Runtime)
 endif()
+if(DEFINED berkeley_softfloat_SOURCE_DIR AND EXISTS "${berkeley_softfloat_SOURCE_DIR}/COPYING.txt")
+  install(FILES "${berkeley_softfloat_SOURCE_DIR}/COPYING.txt"
+    DESTINATION licenses/softfloat COMPONENT Runtime)
+endif()
+install(FILES "${PROJECT_SOURCE_DIR}/third_party/bochs_softfloat_ext/LICENSE.txt"
+  DESTINATION licenses/bochs-softfloat COMPONENT Runtime)

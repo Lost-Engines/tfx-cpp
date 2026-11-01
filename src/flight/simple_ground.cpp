@@ -8,6 +8,7 @@ namespace tfx::flight {
 namespace {
 
 using calculation = math::calculation;
+using std::isfinite;
 int constexpr stall_pitch_rate{24};
 double constexpr stall_speed_interval{50}, stall_pitch_fraction{.02};
 float constexpr stall_pitch_scale{1024}, low_speed_sink_per_tick{.1f};
@@ -17,7 +18,7 @@ int16_t constexpr carrier_surface{3};
 
 int16_t word(int32_t const value) { return math::signed_word(static_cast<uint16_t>(value)); }
 int32_t truncate(calculation const value) {
-  if(!math::isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= math::calculation{2147483648.0}) return std::numeric_limits<int32_t>::min();
+  if(!isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= math::calculation{2147483648.0}) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(value);
 }
 void rotate_body(simple_ground_state &state, math::rotation_axis const axis, float const amount) {

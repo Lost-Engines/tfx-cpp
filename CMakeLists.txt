@@ -14,15 +14,19 @@ if(TFX_STATIC_RUNTIME)
     add_link_options("$<$<LINK_LANG_AND_ID:CXX,GNU>:-static-libgcc;-static-libstdc++>")
   endif()
 endif()
-# Faithful flight math: hardware x87 on capable hosts, soft extended elsewhere.
-set(TFX_NUMERICAL_BACKEND "auto" CACHE STRING "Flight numerical backend: auto, hardware, or soft")
-set_property(CACHE TFX_NUMERICAL_BACKEND PROPERTY STRINGS auto hardware soft)
-if(TFX_NUMERICAL_BACKEND STREQUAL "hardware")
-  add_compile_definitions(TFX_NUMERICAL_BACKEND_HARDWARE=1)
-elseif(TFX_NUMERICAL_BACKEND STREQUAL "soft")
-  add_compile_definitions(TFX_NUMERICAL_BACKEND_SOFT=1)
-elseif(NOT TFX_NUMERICAL_BACKEND STREQUAL "auto")
-  message(FATAL_ERROR "TFX_NUMERICAL_BACKEND must be auto, hardware, or soft")
+# SoftFloat x87 stand-in for hosts without an 80-bit long double (Apple Silicon),
+# and optionally on x86 to compare SoftFloat arithmetic against hardware.
+option(TFX_FORCE_SOFT_X87 "Use SoftFloat calculation even on hardware-x87 hosts" OFF)
+set(TFX_USE_SOFT_X87 ${TFX_FORCE_SOFT_X87})
+if(NOT TFX_USE_SOFT_X87)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+    set(TFX_USE_SOFT_X87 ON)
+  elseif(APPLE AND CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+    set(TFX_USE_SOFT_X87 ON)
+  endif()
+endif()
+if(TFX_USE_SOFT_X87)
+  include(cmake/softfloat.cmake)
 endif()
 
 include(CTest)
@@ -420,11 +424,9 @@ add_library(tfx_core
   src/render/software_renderer.h
   src/math/native.cpp
   src/math/native.h
-  src/math/extended.cpp
-  src/math/extended.h
-  src/math/backend.h
-  src/math/soft_control.h
   src/math/calculation.h
+  src/math/float80.h
+  src/math/trigonometry.h
   src/models/shape.cpp
   src/models/shape.h
   src/world/instance.cpp
@@ -460,6 +462,10 @@ add_library(tfx_core
 )
 target_compile_definitions(tfx_core PUBLIC VECTORSTORM_NO_BOOST)
 configure_first_party(tfx_core)
+if(TFX_USE_SOFT_X87)
+  target_compile_definitions(tfx_core PUBLIC TFX_SOFT_X87=1)
+  target_link_libraries(tfx_core PUBLIC tfx_softfloat)
+endif()
 
 target_link_libraries(tfx_audio PUBLIC tfx_core PRIVATE MT32Emu::mt32emu PRIVATE dosbox_opl_core PRIVATE sc55_backend PRIVATE gf1_backend)
 
@@ -555,20 +561,27 @@ if(BUILD_TESTING)
   configure_first_party(floating_environment_tests)
   add_test(NAME math.native_fpu_precision_and_restoration COMMAND floating_environment_tests)
   set_tests_properties(math.native_fpu_precision_and_restoration PROPERTIES SKIP_RETURN_CODE 77)
-  add_executable(soft_x87_tests tests/soft_x87_test.cpp)
-  target_link_libraries(soft_x87_tests PRIVATE tfx_core)
-  configure_first_party(soft_x87_tests)
-  add_test(NAME math.soft_x87_arithmetic_and_transcendentals COMMAND soft_x87_tests)
-  add_executable(soft_x87_golden_tests tests/soft_x87_golden_test.cpp)
-  target_link_libraries(soft_x87_golden_tests PRIVATE tfx_core)
-  configure_first_party(soft_x87_golden_tests)
-  add_test(NAME math.soft_x87_transcendental_goldens COMMAND soft_x87_golden_tests
-    "${PROJECT_SOURCE_DIR}/tests/reference/soft_x87_goldens.txt")
-  set_tests_properties(math.soft_x87_transcendental_goldens PROPERTIES SKIP_RETURN_CODE 77)
-  add_executable(compare_numerical_backends tools/compare_numerical_backends.cpp)
-  target_link_libraries(compare_numerical_backends PRIVATE tfx_core)
-  configure_first_party(compare_numerical_backends)
-  add_test(NAME math.numerical_backend_smoke COMMAND compare_numerical_backends)
+
+  add_executable(soft_x87_arithmetic_tests tests/soft_x87_arithmetic_test.cpp)
+  target_link_libraries(soft_x87_arithmetic_tests PRIVATE tfx_core)
+  configure_first_party(soft_x87_arithmetic_tests)
+  add_test(NAME math.soft_x87_watcom_precision_arithmetic COMMAND soft_x87_arithmetic_tests)
+  set_tests_properties(math.soft_x87_watcom_precision_arithmetic PROPERTIES SKIP_RETURN_CODE 77)
+
+  add_executable(soft_x87_transcendental_tests tests/soft_x87_transcendental_test.cpp)
+  target_link_libraries(soft_x87_transcendental_tests PRIVATE tfx_core)
+  configure_first_party(soft_x87_transcendental_tests)
+  add_test(NAME math.soft_x87_transcendentals COMMAND soft_x87_transcendental_tests)
+  set_tests_properties(math.soft_x87_transcendentals PROPERTIES SKIP_RETURN_CODE 77)
+
+  # Dual-build oracle for SoftFloat vs hardware (see .github/workflows/softfloat-x87-oracle.yml).
+  add_executable(soft_x87_acos_bank_oracle_probe tests/soft_x87_acos_bank_oracle_probe.cpp)
+  target_link_libraries(soft_x87_acos_bank_oracle_probe PRIVATE tfx_core)
+  configure_first_party(soft_x87_acos_bank_oracle_probe)
+
+  add_executable(soft_x87_trig_oracle_probe tests/soft_x87_trig_oracle_probe.cpp)
+  target_link_libraries(soft_x87_trig_oracle_probe PRIVATE tfx_core)
+  configure_first_party(soft_x87_trig_oracle_probe)
 
   add_executable(hud_font_probe tests/hud_font_probe.cpp)
   target_link_libraries(hud_font_probe PRIVATE tfx_core)

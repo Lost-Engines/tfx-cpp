@@ -9,11 +9,10 @@ and configuration.
 
 Linux and Windows packages target x86-64. macOS ships both Intel (`macos-x86_64`)
 and Apple Silicon (`macos-arm64`) archives for macOS 15 or newer. Faithful flight
-calculations use an x87-compatible backend: host x87 with a 64-bit-significand
-`long double` on capable x86 hosts, and the in-tree soft extended backend on
-Apple Silicon and other non-x86 hosts. Force either path with
-`-DTFX_NUMERICAL_BACKEND=hardware` or `-DTFX_NUMERICAL_BACKEND=soft`. The Linux
-package is built on Ubuntu 24.04. No game installation, firmware, private
+calculations use host x87 with a 64-bit-significand `long double` on capable x86
+hosts, and Berkeley SoftFloat plus Bochs transcendentals on Apple Silicon and
+other non-x86 hosts. Force SoftFloat on x86 with `-DTFX_FORCE_SOFT_X87=ON`. The
+Linux package is built on Ubuntu 24.04. No game installation, firmware, private
 research exports or screenshot gallery is needed for these CI tests.
 
 ## When a release is published
