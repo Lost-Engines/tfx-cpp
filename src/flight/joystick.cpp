@@ -1,3 +1,4 @@
+#include "math/calculation.h"
 #include "joystick.h"
 #include <algorithm>
 #include <cmath>
@@ -6,6 +7,8 @@
 
 namespace tfx::flight {
 namespace {
+using std::abs;
+using std::isfinite;
 unsigned int constexpr combination_count{16};
 int16_t constexpr native_axis_limit{512}, firing_repeat_ticks{10}, command_repeat_ticks{25};
 struct binding {
@@ -47,8 +50,8 @@ vec2<int16_t> joystick_axes(vec2f const &normalised, float const scale) {
   vec2<int16_t> result;
   for(unsigned int axis{0}; axis != 2; ++axis) {
     float const ratio{std::clamp(normalised[axis],-1.0f,1.0f)};
-    long double const scaled{std::abs(static_cast<long double>(ratio)) * ratio * scale};
-    int32_t const integer{std::isfinite(scaled) && scaled >= std::numeric_limits<int32_t>::min() && scaled < 2147483648.0L ? static_cast<int32_t>(scaled) : std::numeric_limits<int32_t>::min()};
+    math::calculation const scaled{abs(static_cast<math::calculation>(ratio)) * ratio * scale};
+    int32_t const integer{isfinite(scaled) && scaled >= std::numeric_limits<int32_t>::min() && scaled < math::calculation{2147483648.0} ? static_cast<int32_t>(scaled) : std::numeric_limits<int32_t>::min()};
     result[axis] = std::clamp(math::signed_word(static_cast<uint16_t>(integer)),static_cast<int16_t>(-native_axis_limit),native_axis_limit);
   }
   return result;

@@ -3,17 +3,19 @@
 #include <cmath>
 #include <limits>
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::render {
 namespace {
+using std::isfinite;
 int16_t word(int32_t const value) { return math::signed_word(static_cast<uint16_t>(value)); }
 int32_t wrap(uint32_t const value) { return std::bit_cast<int32_t>(value); }
 int16_t advect(int16_t const initial, float const wind) {
   // Original x87 operations load both constants from single precision, retain
   // 53-bit arithmetic, then truncate to a signed dword before the word store.
   float constexpr wind_scale{4}, per_frame{.1f};
-  long double const result{static_cast<long double>(wind) * wind_scale * per_frame + initial};
-  int32_t const truncated{!std::isfinite(result) || result < std::numeric_limits<int32_t>::min() || result >= 2147483648.L ? std::numeric_limits<int32_t>::min() : static_cast<int32_t>(result)};
+  math::calculation const result{static_cast<math::calculation>(wind) * wind_scale * per_frame + initial};
+  int32_t const truncated{!isfinite(result) || result < std::numeric_limits<int32_t>::min() || result >= math::calculation{2147483648.0} ? std::numeric_limits<int32_t>::min() : static_cast<int32_t>(result)};
   return word(truncated);
 }
 }

@@ -2,11 +2,13 @@
 #include <cmath>
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
+using std::sqrt;
 double constexpr native_pi{3.14159}, inverse_degrees{.005555555555555555};
 double constexpr gravity{9.81}, nozzle_degrees{20};
 double constexpr trim_minimum_speed{20}, flap_minimum_speed{10}, limit_minimum_speed{1};
@@ -20,7 +22,7 @@ double constexpr stall_trim_scale{.02}, degrees_per_radian{180.0 / native_pi};
 double constexpr nozzle_angle{native_pi * nozzle_degrees * inverse_degrees};
 uint16_t constexpr external_control_mode{3};
 
-calculation asin(calculation const value) { return math::x87::atan2(value,std::sqrt(1.0L - value * value)); }
+calculation asin(calculation const value) { return math::x87::atan2(value,sqrt(calculation{1} - value * value)); }
 calculation velocity_area(aerodynamic_airdata const &data, double const area) {
   calculation const speed{data.metres_per_second};
   return static_cast<calculation>(data.atmosphere.density) * speed * speed * area;
@@ -76,7 +78,7 @@ afterburner_change update_aerodynamic_manual(aerodynamic_manual_state &state, ae
     } else state.pitch_rate_bias = 0;
     calculation const dynamic{velocity_area(data,p.wing_area) * p.mean_chord};
     if(context.aircraft == player_aircraft::raptor) state.elevator_trim = static_cast<double>(-(alpha * c.pitch_stability + p.zero_pitch_moment) / (thrust_moment(state,powerplant,context) / dynamic + static_cast<calculation>(c.elevator_moment) * p.maximum_elevator_angle));
-    else state.elevator_trim = static_cast<double>((alpha * c.pitch_stability + p.zero_pitch_moment) * (-1.0L / (static_cast<calculation>(c.elevator_moment) * p.maximum_elevator_angle)));
+    else state.elevator_trim = static_cast<double>((alpha * c.pitch_stability + p.zero_pitch_moment) * (-calculation{1} / (static_cast<calculation>(c.elevator_moment) * p.maximum_elevator_angle)));
     if(context.military) {
       calculation const denominator{thrust_moment(state,powerplant,context) / dynamic + static_cast<calculation>(c.elevator_moment) * p.maximum_elevator_angle};
       state.elevator_trim = static_cast<double>(state.elevator_trim - (static_cast<calculation>(state.pitch_rate_bias) * c.pitch_damping * p.mean_chord / (speed * 2)) / denominator);
@@ -112,13 +114,13 @@ afterburner_change finish_aerodynamic_controls(aerodynamic_manual_state &state, 
     state.negative_g_lift_limit = static_cast<double>(static_cast<calculation>(context.minimum_g) * 2 * data.mass_kg * gravity / dynamic);
     if(state.negative_g_lift_limit < context.surfaces.negative_lift_limit) state.negative_g_lift_limit = context.surfaces.negative_lift_limit;
     calculation const damping{static_cast<calculation>(c.pitch_damping) * p.mean_chord / (speed * 2) * data.mass_kg * gravity};
-    calculation const inverse_mass_speed{1.0L / (static_cast<calculation>(data.mass_kg) * speed)};
-    calculation const inverse_lift{1.0L / c.lift_slope};
+    calculation const inverse_mass_speed{calculation{1} / (static_cast<calculation>(data.mass_kg) * speed)};
+    calculation const inverse_lift{calculation{1} / c.lift_slope};
     calculation const positive_static{(static_cast<calculation>(state.positive_g_lift_limit) - context.surfaces.flap_lift_offset) * c.pitch_stability * inverse_lift + p.zero_pitch_moment};
     calculation const negative_static{(static_cast<calculation>(state.negative_g_lift_limit) - context.surfaces.flap_lift_offset) * c.pitch_stability * inverse_lift + p.zero_pitch_moment};
     double const thrust_scale{static_cast<double>(static_cast<calculation>(powerplant.thrust) * 2 * state.thrust_vector_fraction)};
-    calculation const thrust{math::x87::sin(nozzle_angle) * thrust_scale * context.engine_pitch_arm * (1.0L / (dynamic * p.mean_chord))};
-    calculation const inverse_control{1.0L / (thrust + static_cast<calculation>(c.elevator_moment) * p.maximum_elevator_angle)};
+    calculation const thrust{math::x87::sin(nozzle_angle) * thrust_scale * context.engine_pitch_arm * (calculation{1} / (dynamic * p.mean_chord))};
+    calculation const inverse_control{calculation{1} / (thrust + static_cast<calculation>(c.elevator_moment) * p.maximum_elevator_angle)};
     controls.minimum_elevator = static_cast<double>(-(damping * context.maximum_g * inverse_mass_speed + positive_static) * inverse_control);
     controls.maximum_elevator = static_cast<double>(-(damping * context.minimum_g * inverse_mass_speed + negative_static) * inverse_control);
     if(controls.minimum_elevator < -1) controls.minimum_elevator = -1;
@@ -131,7 +133,7 @@ afterburner_change finish_aerodynamic_controls(aerodynamic_manual_state &state, 
     if(margin < 0) {
       double const roll_damping{static_cast<double>(static_cast<calculation>(c.roll_damping) * p.wing_span / (speed * 2))};
       double const squared{static_cast<double>(static_cast<calculation>(margin) / context.cockpit_upward_metres * gravity)};
-      controls.aileron_limit = static_cast<double>(std::sqrt(static_cast<calculation>(squared)) * roll_limit_scale * roll_damping / (static_cast<calculation>(c.aileron_effectiveness) * p.maximum_aileron_angle));
+      controls.aileron_limit = static_cast<double>(sqrt(static_cast<calculation>(squared)) * roll_limit_scale * roll_damping / (static_cast<calculation>(c.aileron_effectiveness) * p.maximum_aileron_angle));
     }
     if(controls.aileron_limit > 1) controls.aileron_limit = 1;
     if(context.accumulated_damage != 0) {

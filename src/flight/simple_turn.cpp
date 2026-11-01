@@ -1,4 +1,5 @@
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 #include "simple_turn.h"
 #include <algorithm>
 #include <bit>
@@ -8,7 +9,8 @@
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
+using std::isfinite;
 float constexpr native_pi{3.141590118408203f};
 float constexpr normalised_word{3.0518509447574615e-05f};
 float constexpr mach_response{250}, response_fraction{1.6666666269302368f};
@@ -26,7 +28,7 @@ calculation normalised(int32_t const component) {
   return static_cast<calculation>(math::signed_word(static_cast<uint16_t>(component))) * normalised_word;
 }
 int32_t truncate(calculation const value) {
-  if(!std::isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= 2147483648.0L) return std::numeric_limits<int32_t>::min();
+  if(!isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= math::calculation{2147483648.0}) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(value);
 }
 void rotate_heading(simple_turn_state &state, float const amount) {

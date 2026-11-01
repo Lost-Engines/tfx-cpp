@@ -4,11 +4,13 @@
 #include <utility>
 #include <cmath>
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
+using std::sqrt;
 double constexpr metres_per_foot{.3048}, retracted_wheel_down{.5};
 double constexpr body_contact_stiffness{1.5}, sink_warning_factor{1.4}, sink_failure_factor{1.8};
 double constexpr failed_gear_crash_speed{150}, failed_system_factor{.5};
@@ -97,9 +99,9 @@ bool update_aerodynamic_contact(aerodynamic_contact_state &state, aerodynamic_mo
   state.moment.y = static_cast<double>(wide(offset.z) * state.working_force.x - wide(offset.x) * state.working_force.z + state.moment.y);
   state.moment.z = static_cast<double>(wide(offset.x) * state.working_force.y - wide(offset.y) * state.working_force.x + state.moment.z);
 
-  double const forward_length{static_cast<double>(std::sqrt(static_cast<calculation>(static_cast<double>(wide(basis.forward.y) * basis.forward.y + wide(basis.forward.x) * basis.forward.x))))};
+  double const forward_length{static_cast<double>(sqrt(static_cast<calculation>(static_cast<double>(wide(basis.forward.y) * basis.forward.y + wide(basis.forward.x) * basis.forward.x))))};
   if(forward_length > minimum_forward_projection) {
-    calculation const inverse_length{1.0L / forward_length};
+    calculation const inverse_length{calculation{1} / forward_length};
     calculation const sideways_force{(wide(basis.forward.x) * state.velocity_ned.y + -wide(basis.forward.y) * state.velocity_ned.x) * inverse_length * lateral_friction * normal};
     state.working_force.y = static_cast<double>((-wide(basis.forward.y) * basis.right.x + wide(basis.forward.x) * basis.right.y) * sideways_force * inverse_length);
     state.working_force.z = static_cast<double>((-wide(basis.forward.y) * basis.down.x + wide(basis.forward.x) * basis.down.y) * sideways_force * inverse_length);
@@ -117,12 +119,12 @@ bool update_aerodynamic_contact(aerodynamic_contact_state &state, aerodynamic_mo
     state.moment.x = static_cast<double>(wide(state.moment.x) - -bump * offset.y);
     state.moment.y = static_cast<double>(-bump * offset.x + state.moment.y);
   }
-  double const right_length{static_cast<double>(std::sqrt(static_cast<calculation>(static_cast<double>(wide(basis.right.y) * basis.right.y + wide(basis.right.x) * basis.right.x))))};
+  double const right_length{static_cast<double>(sqrt(static_cast<calculation>(static_cast<double>(wide(basis.right.y) * basis.right.y + wide(basis.right.x) * basis.right.x))))};
   if(right_length <= minimum_right_projection) return impact;
   state.resistance_force = static_cast<double>(wide(state.rolling_coefficient) * normal);
   if(context.wheel_brakes && context.kind == aerodynamic_contact_kind::wheel) {
     auto const &velocity{motion.velocity_ned};
-    double const speed{static_cast<double>(std::sqrt(wide(velocity.y) * velocity.y + wide(velocity.x) * velocity.x + wide(velocity.z) * velocity.z))};
+    double const speed{static_cast<double>(sqrt(wide(velocity.y) * velocity.y + wide(velocity.x) * velocity.x + wide(velocity.z) * velocity.z))};
     state.braking_coefficient = parameters.braking_coefficient;
     if(brakes == system_condition::intermittent) state.braking_coefficient = static_cast<double>(wide(state.braking_coefficient) * failed_system_factor);
     if(speed > brake_fade_speed && brakes != system_condition::failed) state.braking_coefficient = static_cast<double>(brake_fade_offset - wide(speed) * brake_fade_gradient + state.braking_coefficient);
@@ -140,7 +142,7 @@ bool update_aerodynamic_contact(aerodynamic_contact_state &state, aerodynamic_mo
   }
   if(context.kind == aerodynamic_contact_kind::body) state.resistance_force = static_cast<double>(wide(normal) * body_friction);
   if(wide(state.velocity_body.x) * state.resistance_force > 0) state.resistance_force = negative(state.resistance_force);
-  calculation const inverse_right_length{1.0L / right_length};
+  calculation const inverse_right_length{calculation{1} / right_length};
   state.working_force.x = static_cast<double>((wide(basis.forward.x) * basis.right.y - wide(basis.forward.y) * basis.right.x) * state.resistance_force * inverse_right_length);
   state.working_force.z = static_cast<double>((wide(basis.down.x) * basis.right.y - wide(basis.down.y) * basis.right.x) * state.resistance_force * inverse_right_length);
   state.force.x = static_cast<double>(wide(state.working_force.x) + state.force.x);

@@ -1,11 +1,12 @@
 #include "aerodynamic_coefficients.h"
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
 double constexpr native_pi{3.14159}, half{.5}, one_third{.3333333333333333};
 double constexpr nighthawk_lift_slope{1.78};
 double constexpr raptor_lift_quadratic{.64}, raptor_lift_base{2.88};

@@ -1,11 +1,12 @@
 #include "aerodynamic_surfaces.h"
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
 double constexpr half{.5}, chute_drag_coefficient{1.2};
 
 } // anonymous namespace

@@ -4,10 +4,11 @@
 #include "flight/player_shared.h"
 #include "flight/gear_controls.h"
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
-using calculation = long double;
+using calculation = math::calculation;
 float constexpr normalised_word{3.0518509447574615e-05f}, metres_per_foot{.30480000376701355f}, feet_per_world_unit{8};
 double constexpr minimum_descent{.1}, autopilot_recovery_seconds{8}, urgent_recovery_seconds{5}, warning_seconds{7};
 

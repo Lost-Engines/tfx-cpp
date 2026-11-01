@@ -1,4 +1,5 @@
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 #include "arcade.h"
 #include "gear_controls.h"
 #include "world/environment.h"
@@ -13,7 +14,8 @@
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
+using std::isfinite;
 float constexpr sound_speed{340}, speed_metres_per_native_tick{122};
 float constexpr normalised_word{3.0518509447574615e-05f};
 float constexpr throttle_step{0.002f}, idle_throttle{0.6f};
@@ -103,7 +105,7 @@ calculation interpolate(float const low_value, float const low_altitude, float c
   return (static_cast<calculation>(high_value) - low_value) * (static_cast<calculation>(altitude) / (static_cast<calculation>(high_altitude) - low_altitude)) + low_value;
 }
 int32_t integer(calculation const value) {
-  if(value >= 2147483648.0L || value < -2147483648.0L || !std::isfinite(value)) return std::numeric_limits<int32_t>::min();
+  if(value >= math::calculation{2147483648.0} || value < -math::calculation{2147483648.0} || !isfinite(value)) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(value);
 }
 void rotate(arcade_state &state, math::rotation_axis const axis, float const amount) {

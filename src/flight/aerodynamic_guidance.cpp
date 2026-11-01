@@ -3,11 +3,13 @@
 #include <numbers>
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
+using std::sqrt;
 double constexpr native_pi{3.14159}, inverse_angle_half_turn{3.0517578125e-05}, inverse_degrees{.005555555555555555};
 double constexpr gravity{9.81}, climb_error_scale{.001}, minimum_target_down{-19812}, maximum_target_down{-304.8};
 double constexpr vertical_deadband{.5}, bank_margin{.95}, heading_bank_scale{2}, followed_bank_scale{3};
@@ -28,10 +30,10 @@ double constexpr positive_roll_step{native_pi * maximum_roll_step_degrees * inve
 double constexpr negative_roll_step{native_pi * -maximum_roll_step_degrees * inverse_degrees};
 
 calculation wide(double const value) { return value; }
-calculation native_asin(calculation const x) { return math::x87::atan2(x,std::sqrt(1.0L - x * x)); }
+calculation native_asin(calculation const x) { return math::x87::atan2(x,sqrt(calculation{1} - x * x)); }
 calculation native_acos(calculation const x) {
   // Native 0xd254e subtracts asin from the actual extended half-pi constant.
-  return std::numbers::pi_v<calculation> / 2 - native_asin(x);
+  return math::calculation_pi2() - native_asin(x);
 }
 void wrap_radians(double &value) {
   if(value > native_pi) value = static_cast<double>(wide(value) - wide(native_pi) * 2);
@@ -72,7 +74,7 @@ aerodynamic_guidance_events update_aerodynamic_guidance(aerodynamic_guidance &st
   state.saved_roll_rate = motion.angular_rate.x;
   int32_t const phase{-static_cast<int32_t>(math::signed_word(static_cast<uint16_t>(targets.heading - static_cast<uint16_t>(data.track_heading))))};
   state.heading_error = static_cast<double>(wide(native_pi) * phase * inverse_angle_half_turn);
-  state.ground_speed = static_cast<double>(std::sqrt(wide(motion.velocity_ned.y) * motion.velocity_ned.y + wide(motion.velocity_ned.x) * motion.velocity_ned.x + wide(motion.velocity_ned.z) * motion.velocity_ned.z));
+  state.ground_speed = static_cast<double>(sqrt(wide(motion.velocity_ned.y) * motion.velocity_ned.y + wide(motion.velocity_ned.x) * motion.velocity_ned.x + wide(motion.velocity_ned.z) * motion.velocity_ned.z));
   state.climb_speed_limit = static_cast<double>((wide(context.engine.dry_thrust) + context.engine.afterburner_thrust - context.previous_drag) * state.ground_speed / (wide(data.mass_kg) * gravity));
   wrap_radians(state.heading_error);
   if(targets.down_metres > maximum_target_down) targets.down_metres = maximum_target_down;
@@ -173,24 +175,24 @@ void apply_aerodynamic_guidance(aerodynamic_guidance const &state, aerodynamic_m
     calculation const vector{(wide(powerplant.thrust) * manual.thrust_vector_fraction) * math::x87::sin(maximum_vector_angle)};
     calculation const roll_thrust{vector * context.engine.roll_thrust_arm * 2};
     calculation const dynamic{wide(data.atmosphere.density) * data.metres_per_second * data.metres_per_second * p.wing_area};
-    calculation const inverse_speed{1.0L / (wide(data.metres_per_second) * 2)};
+    calculation const inverse_speed{calculation{1} / (wide(data.metres_per_second) * 2)};
     calculation const roll_control{wide(c.aileron_effectiveness) * p.maximum_aileron_angle + roll_thrust / (dynamic * p.wing_span)};
     controls.aileron = static_cast<double>((-wide(state.commanded_roll_rate) * c.roll_damping * p.wing_span * inverse_speed) / roll_control);
     double const pitch_thrust{static_cast<double>(vector * context.engine.pitch_thrust_arm * 2)};
     double const pitch_dynamic{static_cast<double>(dynamic * p.mean_chord)};
-    double const inverse_dynamic{static_cast<double>(1.0L / pitch_dynamic)};
+    double const inverse_dynamic{static_cast<double>(calculation{1} / pitch_dynamic)};
     double const pitch_contribution{static_cast<double>(wide(pitch_thrust) * inverse_dynamic)};
     calculation const elevator_control{wide(c.elevator_moment) * p.maximum_elevator_angle};
     double const stored_elevator_control{static_cast<double>(elevator_control)};
     double const denominator{static_cast<double>(elevator_control + pitch_contribution)};
-    double const inverse_denominator{static_cast<double>(1.0L / denominator)};
+    double const inverse_denominator{static_cast<double>(calculation{1} / denominator)};
     controls.elevator = static_cast<double>(-(wide(manual.pitch_rate_bias) * c.pitch_damping * p.mean_chord * inverse_speed) * inverse_denominator);
     controls.rudder = static_cast<double>(wide(state.yaw_demand) / context.rudder_effectiveness);
     controls.keyboard_elevator = controls.elevator;
     controls.keyboard_aileron = controls.aileron;
     controls.keyboard_rudder = controls.rudder;
     if(law.aircraft == player_aircraft::raptor) manual.elevator_trim = static_cast<double>(-(wide(data.angle_of_attack) * c.pitch_stability + p.zero_pitch_moment) * inverse_denominator);
-    else manual.elevator_trim = static_cast<double>((wide(data.angle_of_attack) * c.pitch_stability + p.zero_pitch_moment) * (-1.0L / stored_elevator_control));
+    else manual.elevator_trim = static_cast<double>((wide(data.angle_of_attack) * c.pitch_stability + p.zero_pitch_moment) * (-calculation{1} / stored_elevator_control));
   }
   manual.pitch_rate_bias = 0;
 }

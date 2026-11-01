@@ -2,6 +2,7 @@
 #include "airframes.h"
 #include "aerodynamic_airframes.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 #include <cmath>
 #include <optional>
 #include <stdexcept>
@@ -43,10 +44,10 @@ public:
 double constant(resources::binary_view const &source, unsigned int const field) {
   return std::bit_cast<double>(static_cast<uint64_t>(source.le32(data_object_file + field)) | (static_cast<uint64_t>(source.le32(data_object_file + field + 4)) << 32));
 }
-long double root_argument(resources::binary_view const &source, unsigned int const low, unsigned int const high) {
+math::calculation root_argument(resources::binary_view const &source, unsigned int const low, unsigned int const high) {
   if(source.byte(low) != 0x68 || source.byte(high) != 0x68) throw std::runtime_error{"missing aircraft moment argument"};
   auto const argument{std::bit_cast<double>(static_cast<uint64_t>(source.le32(low + 1)) | (static_cast<uint64_t>(source.le32(high + 1)) << 32))};
-  return std::sqrt(static_cast<long double>(argument));
+  return sqrt(static_cast<math::calculation>(argument));
 }
 
 } // anonymous namespace
@@ -100,7 +101,7 @@ struct gear_drag_fields {
   unsigned int area_normalisation;
 };
 double gear_drag(resources::binary_view const &source, gear_drag_fields const &fields) {
-  using calculation = long double;
+  using calculation = math::calculation;
   auto const value{[&](unsigned int const field) { return constant(source,field); }};
   calculation const pi{value(0x579c)};
   calculation const main{pi * value(fields.main_multiplier) * value(fields.main_radius) * value(fields.scale) * value(fields.main_radius) * value(fields.scale)};
@@ -113,6 +114,7 @@ double gear_drag(resources::binary_view const &source, gear_drag_fields const &f
 
 std::array<aerodynamic_airframe,3> load_aerodynamic_airframes(std::span<uint8_t const> const executable) {
   math::floating_environment const environment;
+  using calculation = math::calculation;
   resources::binary_view const source{executable};
   auto const stores{load_airframes(executable)};
   std::array<aerodynamic_airframe,3> result;
@@ -182,7 +184,7 @@ std::array<aerodynamic_airframe,3> load_aerodynamic_airframes(std::span<uint8_t 
     preset_literals const literals{source,starts[aircraft],ends[aircraft]};
     auto const &angles{angular[aircraft]};
     auto const value{[&](unsigned int const field) { return constant(source,field); }};
-    auto const angle{[&](unsigned int const degrees) { return static_cast<double>(static_cast<long double>(value(0x579c)) * value(degrees) * value(angles.inverse_degrees)); }};
+    auto const angle{[&](unsigned int const degrees) { return static_cast<double>(static_cast<calculation>(value(0x579c)) * value(degrees) * value(angles.inverse_degrees)); }};
     auto &p{profile.surfaces};
     p.wing_area = literals.number(0x147a0);
     p.wing_span = literals.number(0x14218);
@@ -195,17 +197,17 @@ std::array<aerodynamic_airframe,3> load_aerodynamic_airframes(std::span<uint8_t 
     p.maximum_automatic_flap_angle = aircraft == 1 ? literals.number(0x14080) : angle(angles.automatic_flap_degrees);
     p.zero_lift = literals.number(0x14248);
     p.critical_angle = angle(angles.critical_degrees);
-    p.induced_drag = aircraft == 0 ? static_cast<double>(1.0L / (static_cast<long double>(value(0x579c)) * value(0x28b0))) : literals.number(0x14150);
+    p.induced_drag = aircraft == 0 ? static_cast<double>(calculation{1} / (static_cast<calculation>(value(0x579c)) * value(0x28b0))) : literals.number(0x14150);
     p.air_brake_drag = literals.number(0x14430);
     p.gear_drag = gear_drag(source,gear[aircraft]);
-    p.elevator_drag = aircraft == 0 ? static_cast<double>(static_cast<long double>(p.induced_drag) * value(0x28b8) * value(0x28c0)) : literals.number(0x141b0);
+    p.elevator_drag = aircraft == 0 ? static_cast<double>(static_cast<calculation>(p.induced_drag) * value(0x28b8) * value(0x28c0)) : literals.number(0x141b0);
     if(aircraft != 2) {
       auto const radius{value(aircraft == 0 ? 0x28d8 : 0x2868)};
-      p.chute_area = static_cast<double>(static_cast<long double>(value(0x579c)) * radius * radius);
+      p.chute_area = static_cast<double>(static_cast<calculation>(value(0x579c)) * radius * radius);
       p.chute_pitch_arm = literals.number(0x140e0);
     }
     p.zero_pitch_moment = literals.number(0x141b8);
-    if(aircraft == 0) p.air_brake_moment_arm = vec2d{static_cast<double>(value(0x2938) - static_cast<long double>(literals.number(0x13b68))),literals.number(0x14108)};
+    if(aircraft == 0) p.air_brake_moment_arm = vec2d{static_cast<double>(value(0x2938) - static_cast<calculation>(literals.number(0x13b68))),literals.number(0x14108)};
     p.maximum_aileron_angle = angle(angles.aileron_degrees);
     p.maximum_elevator_angle = angle(angles.elevator_degrees);
     profile.coefficient_base = {
@@ -250,7 +252,7 @@ std::array<aerodynamic_airframe,3> load_aerodynamic_airframes(std::span<uint8_t 
     // straight-line preset. EF gear-forward positions subtract its authored CG.
     preset_literals const final_body{source,aircraft == 2 ? 0x96ee8 : starts[aircraft],ends[aircraft]};
     for(unsigned int point{0}; point != ground.offsets.size(); ++point) for(unsigned int axis{0}; axis != 3; ++axis) {
-      if(aircraft == 0 && point < 3 && axis == 0) ground.offsets[point][axis] = static_cast<double>(static_cast<long double>(value(point == 0 ? 0x2928 : 0x2930)) - literals.number(0x13b68));
+      if(aircraft == 0 && point < 3 && axis == 0) ground.offsets[point][axis] = static_cast<double>(static_cast<calculation>(value(point == 0 ? 0x2928 : 0x2930)) - literals.number(0x13b68));
       else ground.offsets[point][axis] = (point < 3 ? literals : final_body).number(contact_offsets[point] + axis * 8u);
     }
     for(unsigned int axis{0}; axis != 3; ++axis) ground.hook_offset[axis] = literals.number(0x13dd8 + axis * 8u);
@@ -305,7 +307,8 @@ void aerodynamic_airframe::use_carrier_setup() {
 
 aerodynamic_coefficient_parameters aerodynamic_airframe::initial_coefficients(double const previous_flap_lift_offset) const {
   math::floating_environment const environment;
-  using calculation = long double;
+  using calculation = math::calculation;
+  using std::sqrt;
   auto result{coefficient_base};
   auto const &p{surfaces};
   double constexpr control_multiplier{2.8}, moment_scale{.00001}, damping_scale{-4};
@@ -313,7 +316,7 @@ aerodynamic_coefficient_parameters aerodynamic_airframe::initial_coefficients(do
   calculation const gradient{static_cast<calculation>(result.elevator_moment_gradient) * p.maximum_elevator_angle * control_multiplier / capacity};
   result.pitch_stability_correction = static_cast<double>(gradient - result.pitch_stability_base);
   calculation const combined{static_cast<calculation>(result.pitch_stability_base) + result.pitch_stability_correction};
-  result.pitch_damping_mach_gradient = static_cast<double>(std::sqrt(-combined * stores_and_mounts.stores.moment_b * moment_scale) * damping_scale - result.pitch_damping_base);
+  result.pitch_damping_mach_gradient = static_cast<double>(sqrt(-combined * stores_and_mounts.stores.moment_b * moment_scale) * damping_scale - result.pitch_damping_base);
   return result;
 }
 

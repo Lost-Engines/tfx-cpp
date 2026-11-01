@@ -2,10 +2,12 @@
 #include <cmath>
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
-using calculation = long double;
+using calculation = math::calculation;
+using std::sqrt;
 double constexpr gravity{9.81}, native_pi{3.14159}, inverse_degrees{.005555555555555555};
 double constexpr reference_glide_degrees{7}, minimum_path_speed{1}, degrees_per_half_turn{180};
 double constexpr reference_glide_angle{native_pi * reference_glide_degrees * inverse_degrees};
@@ -26,10 +28,10 @@ void update_aerodynamic_approach_reference(aerodynamic_approach_reference &state
   state.lift_coefficient = static_cast<double>(static_cast<calculation>(data.mass_kg) * 2 * gravity / dynamic);
   state.angle_of_attack = static_cast<double>((static_cast<calculation>(state.lift_coefficient) - (static_cast<calculation>(geometry.flap_lift_gradient) * geometry.maximum_flap_angle * state.flap_fraction + geometry.zero_lift)) / context.coefficients.lift_slope);
   auto const &velocity{context.motion.velocity_ned};
-  state.ground_speed = static_cast<double>(std::sqrt(static_cast<calculation>(velocity.y) * velocity.y + static_cast<calculation>(velocity.x) * velocity.x + static_cast<calculation>(velocity.z) * velocity.z));
+  state.ground_speed = static_cast<double>(sqrt(static_cast<calculation>(velocity.y) * velocity.y + static_cast<calculation>(velocity.x) * velocity.x + static_cast<calculation>(velocity.z) * velocity.z));
   if(state.ground_speed > minimum_path_speed && velocity.z < state.ground_speed && velocity.z > -state.ground_speed) {
     calculation const ratio{static_cast<calculation>(velocity.z) / state.ground_speed};
-    state.flight_path_degrees = static_cast<double>(math::x87::atan2(ratio,std::sqrt(1.0L - ratio * ratio)) * degrees_per_half_turn / native_pi);
+    state.flight_path_degrees = static_cast<double>(math::x87::atan2(ratio,sqrt(calculation{1} - ratio * ratio)) * degrees_per_half_turn / native_pi);
   }
 }
 

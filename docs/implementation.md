@@ -135,7 +135,7 @@ The ten-slot loadout has explicit occupancy, mass, drag, tank classification and
 
 The original routine `0x95dc8` executes without intercepted dependencies. Tests use all 27 original store records, all three native aircraft presets' mount positions, each of the ten slots, empty loadouts and fractional mixed mounts: **1,197 exact stored-bit comparisons per build**. A tank sets the presence flag for any aircraft, but the capacity multiplier applies only to Eurofighter. The subsystem does not yet apply changing stores to an integrated flight trajectory.
 
-The current arithmetic backend requires `long double` with a 64-bit significand, matching the controlled x87 precision used in these captures. Other formats fail explicitly if this subsystem is called; its unit test reports a platform skip. Native scene inspection does not call it. A portable equivalent and the original startup FPU environment still need to be established before claiming flight fidelity on other architectures. Ordinary `double` is not substituted silently.
+The arithmetic backend requires a 64-bit significand calculation type matching the controlled x87 precision used in these captures. On capable x86 hosts that is `long double` with hardware FPCW `0x127f`; elsewhere SoftFloat `float80` (Watcom PC=53 via SoftFloat rounding) supplies the same width, with Bochs SoftFloat FSIN/FCOS/FPTAN/FPATAN for transcendentals. Ordinary `double` is not substituted silently. Prefer `calculation{1} / x` over `1.0L / x` so SoftFloat is not bypassed. Linux x86-64 hardware x87 remains the primary fidelity reference; SoftFloat-vs-x87 oracles live under `.github/workflows/softfloat-x87-oracle.yml`.
 
 ## Local build validation
 

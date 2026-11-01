@@ -1,11 +1,12 @@
 #include "aerodynamic_commands.h"
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
 double constexpr minimum_command_speed{1}, native_pi{3.14159};
 double constexpr thrust_vector_degrees{20}, native_inverse_degrees{.005555555555555555};
 // Binary64 constant evaluation preserves the original 53-bit intermediate

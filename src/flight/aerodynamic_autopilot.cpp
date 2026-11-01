@@ -2,10 +2,11 @@
 #include <cmath>
 #include "flight/aerodynamic_control_law_internal.h"
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
-using calculation = long double;
+using calculation = math::calculation;
 double constexpr gravity{9.81};
 int32_t constexpr minimum_downward_axis{32}, maximum_right_axis{32760};
 void append(aerodynamic_guidance_events &events, afterburner_change const change) {

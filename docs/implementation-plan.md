@@ -44,9 +44,9 @@ only when a prepared question cannot be resolved analytically.
 
 - Exact original-hardware QSound verification; the built-in analytical model is implemented.
 - Lower-RAM Gravis streaming and unlinked authoring/Inferno paths.
-- Windows/macOS verification and non-x86 numerical portability; Linux is the
-  authentic reference target ahead of a separate eventual browser project.
-- CI and automatic releases, which remain unconfigured as requested.
+- Exhaustive Windows/macOS behavioural verification parity with Linux; Linux
+  remains the authentic reference target ahead of a separate eventual browser
+  project. SoftFloat portability for Apple Silicon is implemented separately.
 
 No general architecture rewrite or additional user-facing feature is needed
 for this closeout. Keep subsequent work driven by a concrete discrepancy or a

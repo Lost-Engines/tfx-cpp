@@ -1,16 +1,18 @@
+#include "math/calculation.h"
 #include "model_projection.h"
 #include "near_clip.h"
 #include <cmath>
 #include <limits>
 
 namespace tfx::render {
+using std::isfinite;
 
 std::optional<vec3<int32_t>> model_camera_point(models::model_vertex const &vertex) {
   if(vertex.projection_scale <= 0) return std::nullopt;
   vec3<int32_t> point;
   for(unsigned int axis{0}; axis != 3; ++axis) {
     double const fixed{std::nearbyint(vertex.position[axis] / vertex.projection_scale * 65536)};
-    if(!std::isfinite(fixed) || fixed < std::numeric_limits<int32_t>::min() || fixed > std::numeric_limits<int32_t>::max()) return std::nullopt;
+    if(!isfinite(fixed) || fixed < std::numeric_limits<int32_t>::min() || fixed > std::numeric_limits<int32_t>::max()) return std::nullopt;
     point[axis] = static_cast<int32_t>(fixed);
   }
   return point;

@@ -142,7 +142,7 @@ inline static float sqrt_sse(float number) noexcept {
   /// Scalar SSE square root approximation
   return sqrt_inv_sse(number) * number;
 }
-#else
+#elif defined(__i386__) || defined(__x86_64__)
 #warning "SSE is not available, performance may be impacted - check your compilation flags."
 #endif // __SSE__
 

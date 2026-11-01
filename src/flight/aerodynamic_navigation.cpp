@@ -3,24 +3,27 @@
 #include <limits>
 #include <stdexcept>
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
-using calculation = long double;
+using calculation = math::calculation;
+using std::sqrt;
+using std::isfinite;
 double constexpr world_units_per_metre{.4101049868766404}, metres_per_foot{.3048}, feet_per_world_unit{8};
 double constexpr route_distance_scale{.001}, waypoint_advance_distance{4}, untracked_distance{1000};
 double constexpr speed_metres_per_second{.515}, native_pi{3.14159}, inverse_degrees{.005555555555555556}, inverse_angle_half_turn{3.0517578125e-05};
 int32_t constexpr map_cell_width{2048}, map_cell_centre{1024};
 uint16_t constexpr route_mode{0}, heading_mode{1}, follow_mode{2};
 int32_t truncate(calculation const value) {
-  if(!std::isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= 2147483648.0L) return std::numeric_limits<int32_t>::min();
+  if(!isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= math::calculation{2147483648.0}) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(value);
 }
 void measure_route_distance(aerodynamic_navigation &state) {
   calculation const x{static_cast<calculation>(state.target_position.x) - state.player_position.x};
   calculation const z{static_cast<calculation>(state.target_position.z) - state.player_position.z};
   double const squared{static_cast<double>(z * z + x * x)};
-  state.route_distance = static_cast<double>(std::sqrt(static_cast<calculation>(squared)) * route_distance_scale);
+  state.route_distance = static_cast<double>(sqrt(static_cast<calculation>(squared)) * route_distance_scale);
 }
 void update_bearing(aerodynamic_navigation &state, aerodynamic_autopilot_targets &targets) {
   auto const bearing{math::bearing(state.player_position,state.target_position)};

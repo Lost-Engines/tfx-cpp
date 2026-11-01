@@ -1,8 +1,45 @@
 #pragma once
 
+#include <cfloat>
 #include <cmath>
+#include "math/calculation.h"
+
+#if defined(TFX_SOFT_X87)
+#include "softfloat3_ext.h"
+#endif
 
 namespace tfx::math::x87 {
+
+#if defined(TFX_SOFT_X87)
+
+// SoftFloat hosts keep Watcom's 53-bit arithmetic via floating_environment.
+// Transcendentals use the Bochs SoftFloat extensions (full 64-bit significand),
+// matching the portable path needed on Apple Silicon.
+inline calculation atan2(calculation const y, calculation const x) {
+  // Bochs extFloat80_atan(a, b) computes atan(b/a), matching x87 FPATAN
+  // with ST(0)=a (x) and ST(1)=b (y).
+  return calculation{extFloat80_atan(x.bits(), y.bits())};
+}
+
+inline calculation sin(calculation const value) {
+  extFloat80_t bits{value.bits()};
+  extFloat80_sin(bits);
+  return calculation{bits};
+}
+
+inline calculation cos(calculation const value) {
+  extFloat80_t bits{value.bits()};
+  extFloat80_cos(bits);
+  return calculation{bits};
+}
+
+inline calculation tan(calculation const value) {
+  extFloat80_t bits{value.bits()};
+  extFloat80_tan(bits);
+  return calculation{bits};
+}
+
+#else
 
 // The current native numerical backend already requires a 64-bit-significand
 // long double. Keep the actual x87 transcendental rounding on x86 hosts.
@@ -44,5 +81,7 @@ inline long double tan(long double const value) {
   return std::tan(value);
 #endif
 }
+
+#endif
 
 } // namespace tfx::math::x87

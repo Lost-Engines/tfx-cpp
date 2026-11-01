@@ -1,11 +1,12 @@
 #include "aerodynamic_response.h"
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
 double constexpr rolling_speed{30}, sideslip_speed{1}, minimum_damping_speed{10};
 double constexpr warp_acceleration_altitude{-20000}, warp_multiplier{5};
 double constexpr rudder_scale{.004878048780487805}, rolling_rudder_scale{1.0 / 6};

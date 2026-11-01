@@ -1,10 +1,11 @@
 #include "aerodynamic_controls.h"
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
 double constexpr maximum_rudder_speed{205}, rudder_retention{.8};
 double constexpr mouse_pitch_scale{.0022222222222222222}, mouse_roll_scale{.0025};
 double constexpr joystick_scale{.001953125};

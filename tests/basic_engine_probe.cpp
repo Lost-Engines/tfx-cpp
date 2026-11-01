@@ -5,9 +5,10 @@
 #include <limits>
 #include <stdexcept>
 #include "flight/arcade.h"
+#include "math/calculation.h"
 
 int main(int const argc, char const *const argv[]) try {
-  if(std::numeric_limits<long double>::digits != 64) return 77;
+  if(std::numeric_limits<tfx::math::calculation>::digits != 64) return 77;
   if(argc > 2) throw std::runtime_error{"expected optional engine-indicator fixture"};
   std::ifstream fixture;
   if(argc == 2) fixture.open(argv[1]);

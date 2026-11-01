@@ -74,9 +74,11 @@ coverage and complete natural sorties are deliberately reported separately.
 Future specific failures should become reproducible original/C++ comparisons.
 
 QSound now uses the reusable source-included QSound C++ model with built-in numerical coefficient tables. No firmware file, resident DOS driver or physical card is required. The model uses recovered coefficients, default 8 kHz bank selection and the original wrapping pan controller, with explicit endpoint clamping and floor/per-MAC saturation assumptions. Out-of-table DSP addressing, exact rounding/saturation and the hardware sample interface remain unverified against a physical card. Four-input processing, the complete DSP instruction set and VU/control-register emulation are outside this two-input playback implementation. Ordinary SB, Gravis, LAPC effects and music also remain available independently. Lower-RAM
-Gravis streaming, unlinked authoring/Inferno material and non-x86 numerical
-portability are outside this reference configuration. Windows/macOS builds
-remain conveniences; Linux is the verification target. CI remains unconfigured.
+Gravis streaming and unlinked authoring/Inferno material are outside this
+reference configuration. SoftFloat (with Bochs transcendentals) enables Apple
+Silicon and other non-x86 hosts; Linux x86-64 with hardware x87 remains the
+primary verification target. Windows/macOS packages are published conveniences
+alongside that.
 
 QSound's reusable source is pinned and compiled directly into `tfx_audio`; it has no separately installed library or runtime driver. The offline integration test independently derives the PIT/BIOS callback count and DAC sample-hold indices, checks all three host rates 8/44.1/48 kHz, and compares contiguous and fragmented callbacks. It also checks rejected requests, preemption, history persistence and that pre-existing stereo audio is added without being processed by QSound. The standard CTest uses the built-in reference bank and synthetic PCM without external assets. The component separately verifies every included coefficient against the extracted original firmware and its PCM output against independent scalar equations.
 

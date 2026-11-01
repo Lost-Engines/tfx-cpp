@@ -3,12 +3,15 @@
 #include <limits>
 #include <utility>
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 
 int32_t finish_player_frame(aerodynamic_flight &flight, damage_state &damage, fuel_gauge &fuel, player_frame_context const &context) {
   math::floating_environment const environment;
-  using calculation = long double;
+  using calculation = math::calculation;
+using std::sqrt;
+using std::isfinite;
   flight.autopilot.recovery.model_reset_requested = false;
   if((flight.ground.ground.landed && flight.view.orientation.down.y < 0)
     || (context.terrain_present && !(context.ground_elevation_steps >= flight.view.position.y))) {
@@ -28,8 +31,8 @@ int32_t finish_player_frame(aerodynamic_flight &flight, damage_state &damage, fu
   for(unsigned int axis{0}; axis != 3; ++axis) delta[axis] = static_cast<float>(static_cast<calculation>(context.previous_position[axis]) - flight.view.position[axis]);
   calculation const x{delta.x}, y{delta.y}, z{delta.z};
   double constexpr movement_fraction{256};
-  calculation const measured{std::sqrt((x * x + y * y) + z * z) / context.elapsed * movement_fraction};
-  if(!std::isfinite(measured) || measured < std::numeric_limits<int32_t>::min() || measured >= 2147483648.0L) return std::numeric_limits<int32_t>::min();
+  calculation const measured{sqrt((x * x + y * y) + z * z) / context.elapsed * movement_fraction};
+  if(!isfinite(measured) || measured < std::numeric_limits<int32_t>::min() || measured >= math::calculation{2147483648.0}) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(measured);
 }
 

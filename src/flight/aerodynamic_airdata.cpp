@@ -3,11 +3,14 @@
 #include <limits>
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
+using std::sqrt;
+using std::isfinite;
 double constexpr normalised_word{3.051850947599719e-05};
 double constexpr native_pi{3.14159};
 double constexpr degrees_per_radian{180.0 / native_pi}, angles_per_radian{32768.0 / native_pi};
@@ -16,7 +19,7 @@ double constexpr forward_angle_threshold{5};
 float constexpr fixed_speed_scale{.4762499928474426f};
 
 int32_t truncate(calculation const value) {
-  if(!std::isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= 2147483648.0L) return std::numeric_limits<int32_t>::min();
+  if(!isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= math::calculation{2147483648.0}) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(value);
 }
 calculation normalised(int32_t const value) {
@@ -33,7 +36,7 @@ void update_aerodynamic_airdata(aerodynamic_airdata &state, aerodynamic_motion &
     state.basis.down[axis] = static_cast<double>(normalised(motion.pose.frame.down[axis]));
   }
   calculation const downward{state.basis.forward.z};
-  state.flight_path_pitch_degrees = static_cast<double>(degrees_per_radian * math::x87::atan2(downward,std::sqrt(1.0L - downward * downward)));
+  state.flight_path_pitch_degrees = static_cast<double>(degrees_per_radian * math::x87::atan2(downward,sqrt(calculation{1} - downward * downward)));
   unsigned int local_axis{0};
   for(auto const *direction : {&state.basis.forward,&state.basis.right,&state.basis.down}) {
     motion.ground_velocity_body[local_axis] = static_cast<double>(static_cast<calculation>(direction->y) * motion.velocity_ned.y + static_cast<calculation>(direction->x) * motion.velocity_ned.x + static_cast<calculation>(direction->z) * motion.velocity_ned.z);
@@ -48,7 +51,7 @@ void update_aerodynamic_airdata(aerodynamic_airdata &state, aerodynamic_motion &
   vec3<calculation> const air_velocity{motion.air_velocity_body};
   // Native sqrt is called with a stored double argument.
   double const speed_squared{static_cast<double>(air_velocity.length_sq())};
-  state.metres_per_second = static_cast<double>(std::sqrt(static_cast<calculation>(speed_squared)));
+  state.metres_per_second = static_cast<double>(sqrt(static_cast<calculation>(speed_squared)));
   state.fixed_speed = truncate(static_cast<calculation>(state.metres_per_second) / fixed_speed_scale);
   state.mach = static_cast<double>(static_cast<calculation>(state.metres_per_second) / state.atmosphere.sound_metres_per_second);
   state.simulation_seconds = static_cast<double>(static_cast<calculation>(context.seconds) + state.simulation_seconds);

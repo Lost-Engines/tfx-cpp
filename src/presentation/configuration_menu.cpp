@@ -5,8 +5,10 @@
 #include <limits>
 #include <utility>
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::presentation {
+using std::isfinite;
 
 configuration_menu_assets::configuration_menu_assets(std::span<uint8_t const> const executable) {
   resources::binary_view const source{executable};
@@ -99,7 +101,7 @@ void configuration_menu::rebuild() {
     std::array<char,64> scale{};
     // Native menu labels truncate, while the persisted JOYSCALE value rounds.
     float const value{preferences.joystick_scale};
-    int32_t const integer{!std::isfinite(value) || value < -2147483648.f || value >= 2147483648.f ? std::numeric_limits<int32_t>::min() : static_cast<int32_t>(value)};
+    int32_t const integer{!isfinite(value) || value < -2147483648.f || value >= 2147483648.f ? std::numeric_limits<int32_t>::min() : static_cast<int32_t>(value)};
     std::snprintf(scale.data(),scale.size(),"%3d",integer);
     add(scale.data(),12,5,configuration_item::sensitivity,2);
     add(">",15,5,configuration_item::sensitivity,1);

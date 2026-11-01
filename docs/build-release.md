@@ -3,15 +3,17 @@
 The [Build and release workflow](https://github.com/Lost-Engines/tfx-cpp/actions/workflows/build.yml)
 follows the Darker projects: Debug and Release builds on Linux, Windows and
 macOS, asset-independent CTest checks, Runtime-only archives, and a generated
-release after all six jobs pass. Builds use C++26, GCC 16 on Linux/macOS, and
+release after all eight jobs pass. Builds use C++26, GCC 16 on Linux/macOS, and
 MSYS2 UCRT64 GCC on Windows. The compiler cache is separate for each platform
 and configuration.
 
-All three packages target x86-64. TFX's faithful flight calculations use x87
-extended precision and instructions; a native Apple Silicon build cannot yet
-run that backend. The macOS package is built on Intel, for macOS 15 or newer.
-The Linux package is built on Ubuntu 24.04. No game installation, firmware,
-private research exports or screenshot gallery is needed for these CI tests.
+Linux and Windows packages target x86-64. macOS ships both Intel (`macos-x86_64`)
+and Apple Silicon (`macos-arm64`) archives for macOS 15 or newer. Faithful flight
+calculations use host x87 with a 64-bit-significand `long double` on capable x86
+hosts, and Berkeley SoftFloat plus Bochs transcendentals on Apple Silicon and
+other non-x86 hosts. Force SoftFloat on x86 with `-DTFX_FORCE_SOFT_X87=ON`. The
+Linux package is built on Ubuntu 24.04. No game installation, firmware, private
+research exports or screenshot gallery is needed for these CI tests.
 
 ## When a release is published
 
@@ -23,7 +25,7 @@ gallery-only changes do not trigger the game workflow. A manual run has a
 **release** checkbox (off by default); publication is restricted to `master`.
 
 Each release has a `release-<full commit SHA>` tag, a package per platform and
-`SHA256SUMS`. A new release is uploaded as a draft, populated with all three
+`SHA256SUMS`. A new release is uploaded as a draft, populated with all four
 archives and checksums, then published. Existing releases and tags are retained.
 An older build cannot replace a newer release as the latest download.
 

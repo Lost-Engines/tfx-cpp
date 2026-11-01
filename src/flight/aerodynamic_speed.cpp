@@ -1,10 +1,11 @@
 #include "aerodynamic_speed.h"
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
 double constexpr speed_response{.01}, force_response{25}, idle_throttle{.6};
 double constexpr decrease_afterburner_delta{-10}, increase_afterburner_delta{20};
 double constexpr air_brake_overspeed{5}, recovery_speed_multiplier{2};

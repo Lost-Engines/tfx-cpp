@@ -1,19 +1,21 @@
 #include "aerodynamic_pose.h"
 #include <cmath>
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 #include <limits>
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
+using std::isfinite;
 double constexpr normalised_word{3.051850947599719e-05};
 double constexpr world_units_per_metre{.4101049868766404};
 double constexpr standard_eye_height{-2}, raptor_eye_height{-3};
 
 int32_t truncate(calculation const value) {
   // Native FISTP truncation returns integer-indefinite for an invalid conversion.
-  if(!std::isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= 2147483648.0L) return std::numeric_limits<int32_t>::min();
+  if(!isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= math::calculation{2147483648.0}) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(value);
 }
 calculation normalised(int32_t const component) {

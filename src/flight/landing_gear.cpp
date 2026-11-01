@@ -1,4 +1,5 @@
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 #include "landing_gear.h"
 
 namespace tfx::flight {
@@ -7,7 +8,7 @@ std::vector<unsigned int> update_landing_gear(landing_gear_state &state, landing
   math::floating_environment const environment;
   std::vector<unsigned int> sounds;
   if(!state.down) return sounds;
-  using calculation = long double;
+  using calculation = math::calculation;
   float constexpr normalised_word{3.0518509447574615e-05f};
   double constexpr touchdown_failure_multiplier{2}, overspeed_failure_multiplier{1.4};
   unsigned int constexpr failure_sound{0x3f}, warning_sound{0x3a};

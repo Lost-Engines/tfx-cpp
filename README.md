@@ -6,7 +6,7 @@ A native C++26 reconstruction of Digital Image Design’s **TFX: Tactical Fighte
 
 The supplied fetch script downloads the reference game CD and audio firmware. You can also use your own TFX 2.05 installation. Research exports are neither required nor bundled.
 
-Download the [latest tested release](https://github.com/Lost-Engines/tfx-cpp/releases/latest) for Linux, Windows or Intel macOS, or build from source below. Packages include setup helpers; game data and ROMs are supplied separately.
+Download the [latest tested release](https://github.com/Lost-Engines/tfx-cpp/releases/latest) for Linux, Windows, Intel macOS or Apple Silicon, or build from source below. Packages include setup helpers; game data and ROMs are supplied separately.
 
 ## Getting started
 
@@ -17,7 +17,7 @@ cmake --build build -j
 ./build/tfx
 ```
 
-Requires CMake 3.30+, a compiler and standard library with C++26 support, and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, install `libglfw3-dev` and `libgl1-mesa-dev` for the desktop dependencies. The faithful numerical flight backend currently requires x87 support.
+Requires CMake 3.30+, a compiler and standard library with C++26 support, and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, install `libglfw3-dev` and `libgl1-mesa-dev` for the desktop dependencies. The faithful numerical flight backend uses host x87 on capable x86 systems and Berkeley SoftFloat (with Bochs transcendentals) on Apple Silicon and other non-x86 hosts. Force SoftFloat on x86 with `-DTFX_FORCE_SOFT_X87=ON`.
 
 The default installation directory is `~/.local/share/tfx` on Linux/macOS
 (`$XDG_DATA_HOME/tfx` when set), or beside `tfx.exe` on Windows. The fetch

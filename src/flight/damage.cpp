@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <utility>
 #include "math/floating_environment.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 
@@ -19,7 +20,7 @@ void apply_damage(damage_state &state, int32_t const severity, math::random_stat
   // Native 0x8f460/0x8f3ec: every report samples eleven systems in this order, including repeated/zero reports.
   if(invulnerable) return;
   math::floating_environment const environment;
-  if constexpr(std::numeric_limits<long double>::digits != 64) throw std::runtime_error{"native damage calculations currently require an x87-precision arithmetic backend"};
+  if constexpr(std::numeric_limits<math::calculation>::digits != 64) throw std::runtime_error{"native damage calculations currently require an x87-precision arithmetic backend"};
   if(notify) notify();
   int16_t const percentage{math::signed_word(static_cast<uint16_t>(severity))};
   std::array<aircraft_system,11> constexpr sequence{

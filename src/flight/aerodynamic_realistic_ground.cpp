@@ -6,11 +6,13 @@
 #include "flight/aerodynamic_ground_internal.h"
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "math/calculation.h"
 
 namespace tfx::flight {
 namespace {
 
-using calculation = long double;
+using calculation = math::calculation;
+using std::sqrt;
 double constexpr gravity{9.81}, metres_per_foot{.3048}, retracted_wheel_down{.5};
 double constexpr gear_failure_multiplier{1.2}, rolling_crash_speed{150}, disabled_damage_crash_sink{20}, sink_failure_multiplier{1.4};
 double constexpr launch_throttle{.6}, launch_force{700000}, dry_rolling{.02}, rough_rolling{.06};
@@ -27,7 +29,7 @@ double negative(double const value) {
 }
 calculation native_asin(double const value) {
   calculation const x{value};
-  return math::x87::atan2(x,std::sqrt(1.0L - x * x));
+  return math::x87::atan2(x,sqrt(calculation{1} - x * x));
 }
 void project(aerodynamic_contact_state &state, aerodynamic_motion const &motion, aerodynamic_contact_context const &context, aerodynamic_contact_kind const kind) {
   if(kind == aerodynamic_contact_kind::retracted_wheel) state.offset_body.z = retracted_wheel_down;
@@ -57,7 +59,7 @@ aerodynamic_ground_events update_aerodynamic_realistic_ground(aerodynamic_realis
   }
   if(ground.landed && (input.metres_per_second < context.stall_metres_per_second || controls.keyboard_elevator > 0)) controls.keyboard_elevator = 0;
   auto const &velocity{motion.velocity_ned};
-  double const speed{static_cast<double>(std::sqrt(wide(velocity.y) * velocity.y + wide(velocity.x) * velocity.x + wide(velocity.z) * velocity.z))};
+  double const speed{static_cast<double>(sqrt(wide(velocity.y) * velocity.y + wide(velocity.x) * velocity.x + wide(velocity.z) * velocity.z))};
   ground.last_contact_kind = aerodynamic_contact_kind::retracted_wheel;
   auto &gear{damage.systems[std::to_underlying(aircraft_system::landing_gear)]};
   auto &brakes{damage.systems[std::to_underlying(aircraft_system::wheel_brakes)]};
@@ -105,7 +107,7 @@ aerodynamic_ground_events update_aerodynamic_realistic_ground(aerodynamic_realis
     point.force.z = static_cast<double>(wide(point.force.z) - wide(static_cast<double>(random.next())) * roughness_per_random_step * motion.air_velocity_body.x);
   }
   double const squared_right{static_cast<double>(wide(basis.right.y) * basis.right.y + wide(basis.right.x) * basis.right.x)};
-  ground.cable_speed = static_cast<double>(std::sqrt(wide(squared_right)));
+  ground.cable_speed = static_cast<double>(sqrt(wide(squared_right)));
   if(ground.cable_speed > minimum_right_projection) {
     double resistance{static_cast<double>((wide(input.contact.total_mass_kg) * gravity - context.lift) * point.rolling_coefficient)};
     if(input.contact.wheel_brakes && input.gear_fraction != 0) {
@@ -123,7 +125,7 @@ aerodynamic_ground_events update_aerodynamic_realistic_ground(aerodynamic_realis
     }
     if(input.gear_fraction == 0) resistance = static_cast<double>((wide(input.contact.total_mass_kg) * gravity - context.lift) * body_friction);
     if(motion.air_velocity_body.x > 0) resistance = negative(resistance);
-    calculation const inverse_length{1.0L / ground.cable_speed};
+    calculation const inverse_length{calculation{1} / ground.cable_speed};
     point.working_force.x = static_cast<double>((wide(basis.forward.x) * basis.right.y - wide(basis.forward.y) * basis.right.x) * resistance * inverse_length);
     point.working_force.z = static_cast<double>((wide(basis.down.x) * basis.right.y - wide(basis.down.y) * basis.right.x) * resistance * inverse_length);
     point.force.x = static_cast<double>(wide(point.working_force.x) + point.force.x);
