@@ -10,8 +10,12 @@ and configuration.
 All three packages target x86-64. TFX's faithful flight calculations use x87
 extended precision and instructions; a native Apple Silicon build cannot yet
 run that backend. The macOS package is built on Intel, for macOS 15 or newer.
-The Linux package is built on Ubuntu 24.04. No game installation, firmware,
-private research exports or screenshot gallery is needed for these CI tests.
+CI uses `ubuntu-latest` and `windows-latest` so new runner images are tested
+as GitHub rolls them out. Intel Mac builds use `macos-26-intel`; GitHub does
+not provide a standard Intel `-latest` label. See the
+[available runner labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+No game installation, firmware, private research exports or screenshot gallery
+is needed for these CI tests.
 
 ## When a release is published
 
@@ -24,7 +28,8 @@ gallery-only changes do not trigger the game workflow. A manual run has a
 
 Each release has a `release-<full commit SHA>` tag, a package per platform and
 `SHA256SUMS`. A new release is uploaded as a draft, populated with all three
-archives and checksums, then published. Existing releases and tags are retained.
+archives and checksums, then published. Superseded published releases and
+generated release tags are removed after their replacement is complete.
 An older build cannot replace a newer release as the latest download.
 
 The archives contain `tfx` (or `tfx.exe`), the relevant fetch helper and its
