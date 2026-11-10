@@ -17,7 +17,7 @@ cmake --build build -j
 ./build/tfx
 ```
 
-Requires CMake 3.30+, a compiler and standard library with C++26 support, and OpenGL development libraries. CMake uses an installed GLFW 3.4+ or fetches a pinned copy. On Debian/Ubuntu, install `libglfw3-dev` and `libgl1-mesa-dev` for the desktop dependencies. The faithful numerical flight backend currently requires x87 support.
+Requires CMake 3.30+, a compiler and standard library with C++26 support, and OpenGL development libraries. CMake builds GLFW from upstream `master`. On Debian/Ubuntu, install `libglfw3-dev` and `libgl1-mesa-dev` for the desktop dependencies. The faithful numerical flight backend currently requires x87 support.
 
 The default installation directory is `~/.local/share/tfx` on Linux/macOS
 (`$XDG_DATA_HOME/tfx` when set), or beside `tfx.exe` on Windows. The fetch
