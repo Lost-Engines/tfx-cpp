@@ -2,6 +2,8 @@
 
 These follow the original September 1994 TFX 2.05 controls. Start the game with `--data-dir /path/to/TFX`; use `--help` for command-line options.
 
+Press **Alt+Enter** to toggle fullscreen, or launch with `--fullscreen`. Returning to windowed play restores the previous window size and position. The shortcut also works in menus and while paused; it does not activate the selected menu item or resume flight.
+
 In the arming screen, click the aircraft to rotate it with the mouse; click again or right-click to stop. Rotation captures the mouse inside the window and releases it on focus loss. Select a weapon, then click an available pylon to mount it; right-click ends placement.
 
 Press **backtick (`)** during flight to open configuration. Select **Simple**, **Realistic** or **Military-spec** to enable the **Keyboard** and **Joystick** buttons. Arcade only supports **Mouse**, so the original menu disables the other two choices there. This is a flight-model restriction, not missing input support. Arrows steer; Alt+left/right operates the rudder. Joystick input is opt-in: connecting a stick does not enable it. After selecting Joystick, the first available device is used, with keyboard fallback if none is connected.

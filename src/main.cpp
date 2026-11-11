@@ -49,7 +49,7 @@ auto main(int const argc, char const *const argv[])->int try {
   unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0}, flight_frames{0};
   tfx::simulation::flight_model model{tfx::simulation::flight_model::arcade};
   bool inspect{false}, direct_mission{false}, skip_intro{false}, model_selected{false}, language_selected{false};
-  bool career_rules{false};
+  bool career_rules{false}, fullscreen{false};
   std::optional<tfx::flight::control_source> control_override;
   std::optional<unsigned int> joystick;
   std::string presentation, presentation_function, language{"english"};
@@ -80,6 +80,7 @@ auto main(int const argc, char const *const argv[])->int try {
                    "  --qsound MODE         auto, on or off; reconstructed Sound Blaster spatial effects (default: auto)\n"
                    "  --rom-dir DIRECTORY   Override automatic audio-firmware lookup\n"
                    "  --scale N             Integer pixel scale; 0 selects the largest fitting scale (default)\n"
+                   "  --fullscreen          Start fullscreen; Alt+Enter toggles at any time\n"
                    "\nGame files: current directory, then " << tfx::resources::default_game_directory().string() << "\n"
                    "ROMs: selected game directory, then the same default asset directory.\n"
                    "\nFlight: hold left/right mouse or =/- for thrust.\n"
@@ -148,6 +149,7 @@ auto main(int const argc, char const *const argv[])->int try {
       if(std::ranges::find(language_names,language) == language_names.end()) throw std::runtime_error{"unknown TFX language: " + language};
     }
     else if(key == "--skip-intro") skip_intro = true;
+    else if(key == "--fullscreen") fullscreen = true;
     else if(key == "--mission") {
       direct_mission = true;
       auto const selected{value()};
@@ -289,7 +291,7 @@ auto main(int const argc, char const *const argv[])->int try {
     }
   }
   if(!presentation.empty()) {
-    tfx::platform::play_presentation(game,tables,presentation,presentation_function,language,scale,frame_limit,screenshot,sound.get());
+    tfx::platform::play_presentation(game,tables,presentation,presentation_function,language,scale,frame_limit,screenshot,sound.get(),fullscreen);
     return EXIT_SUCCESS;
   }
   tfx::world::flak_state flak_state;
@@ -331,6 +333,7 @@ auto main(int const argc, char const *const argv[])->int try {
     .frame_limit{frame_limit},
     .flight_steps{flight_steps},
     .flight_frames{flight_frames},
+    .fullscreen{fullscreen},
     .preferences{preferences},
     .flak{flak_state},
     .sky{sky_state},

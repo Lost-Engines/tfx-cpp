@@ -24,7 +24,7 @@ presentation::configuration_action configure_flight(window &window, resources::e
   auto *const host{window.get()};
   auto *const previous_input{glfwGetWindowUserPointer(host)};
   glfwSetWindowUserPointer(host,&menu);
-  auto const previous_key{glfwSetKeyCallback(host,[](GLFWwindow *const window, int const key, int const, int const action, int const modifiers) {
+  auto const previous_key{window.set_key_callback([](GLFWwindow *const window, int const key, int const, int const action, int const modifiers) {
     if(action == GLFW_PRESS || action == GLFW_REPEAT)
       static_cast<presentation::configuration_menu*>(glfwGetWindowUserPointer(window))->press(make_code(key),(modifiers & GLFW_MOD_SHIFT) != 0);
   })};
@@ -57,7 +57,7 @@ presentation::configuration_action configure_flight(window &window, resources::e
     window.present(image.colourise(palette));
     glfwWaitEventsTimeout(.01);
   }
-  glfwSetKeyCallback(host,previous_key);
+  window.set_key_callback(previous_key);
   glfwSetWindowUserPointer(host,previous_input);
   if(!quit_prompt && !configuration::save_preferences(directory,preferences)) std::cerr << "Flight preferences could not be saved: TFX.CFG is missing, empty or too large.\n";
   return result;

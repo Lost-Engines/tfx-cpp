@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -21,14 +22,23 @@ private:
   glfw_runtime runtime;
   std::unique_ptr<GLFWwindow, decltype(&glfwDestroyWindow)> handle;
   unsigned int texture{0};
+  GLFWkeyfun key_callback{nullptr};
+  std::array<bool,2> fullscreen_keys{};
+  vec2<int> windowed_position{0,0}, windowed_size{render::display_width,render::display_height};
+  bool windowed_maximized{false};
+  void set_fullscreen(bool enabled);
+  static void dispatch_key(GLFWwindow *host, int key, int scan, int action, int modifiers);
 
 public:
-  window(unsigned int scale);
+  window(unsigned int scale, bool fullscreen = false);
   ~window();
   window(window const&) = delete;
   window &operator=(window const&) = delete;
   GLFWwindow *get() const;
   bool focused() const;
+  // Window shortcuts stay active while modal screens replace their input handler.
+  GLFWkeyfun set_key_callback(GLFWkeyfun callback);
+  bool key_down(int key) const;
   bool poll();
   std::optional<vec2d> cursor_coordinates() const;
   std::optional<vec2<int16_t>> cursor_position() const;

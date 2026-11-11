@@ -96,12 +96,12 @@ void play_game(resources::archive const &game, resources::executable_tables cons
         auto flight{options};
         flight.mission = "miss" + command;
         flight.screenshot.reset();
-        glfwSetKeyCallback(window->get(),nullptr);
+        window->set_key_callback(nullptr);
         glfwSetWindowUserPointer(window->get(),nullptr);
         auto const completed{fly_mission(game,tables,flight,campaign,window)};
         if(options.sound) options.sound->end_flight();
         glfwSetWindowUserPointer(window->get(),&controls);
-        glfwSetKeyCallback(window->get(),frontend_keys::key);
+        window->set_key_callback(frontend_keys::key);
         controls.input = {};
         if(completed == flight_result::enrol) { frontend.return_to_enrolment();return; }
         if(completed == flight_result::quit) { finished = true;return; }
@@ -117,10 +117,10 @@ void play_game(resources::archive const &game, resources::executable_tables cons
     frontend.image().screenshot(*options.screenshot,frontend.colours());
     return;
   }
-  window window{options.scale};
+  window window{options.scale,options.fullscreen};
   auto *const host{window.get()};
   glfwSetWindowUserPointer(host,&controls);
-  glfwSetKeyCallback(host,frontend_keys::key);
+  window.set_key_callback(frontend_keys::key);
   step(0,window.cursor_position(),&window);
   window.present(frontend.image().colourise(frontend.colours()));
   double const started{glfwGetTime()};
@@ -141,13 +141,13 @@ void play_game(resources::archive const &game, resources::executable_tables cons
     window.present(frontend.image().colourise(frontend.colours()));
     if(options.frame_limit && ++frames >= options.frame_limit) break;
   }
-  glfwSetKeyCallback(host,nullptr);
+  window.set_key_callback(nullptr);
   glfwSetWindowUserPointer(host,nullptr);
 }
 
 void play_presentation(resources::archive const &game, resources::executable_tables const &tables,
   std::string const &name, std::string_view const function, std::string const &language,
-  unsigned int const scale, unsigned int const frame_limit, std::optional<std::filesystem::path> const &screenshot, audio::runtime *const sound) {
+  unsigned int const scale, unsigned int const frame_limit, std::optional<std::filesystem::path> const &screenshot, audio::runtime *const sound, bool const fullscreen) {
   presentation::variables state{
     {"pilotname",std::string{"PILOT"}},
     {"firstname",std::string{"TFX"}},
@@ -209,10 +209,10 @@ void play_presentation(resources::archive const &game, resources::executable_tab
     display.screenshot(*screenshot,colours);
     return;
   }
-  window window{scale};
+  window window{scale,fullscreen};
   auto *const host{window.get()};
   glfwSetWindowUserPointer(host,&controls);
-  glfwSetKeyCallback(host,scene_keys::key);
+  window.set_key_callback(scene_keys::key);
   step(0,window.cursor_position());
   window.present(display.colourise(colours));
   double const started{glfwGetTime()};
@@ -231,7 +231,7 @@ void play_presentation(resources::archive const &game, resources::executable_tab
     window.present(display.colourise(colours));
     if(frame_limit && ++frames >= frame_limit) break;
   }
-  glfwSetKeyCallback(host,nullptr);
+  window.set_key_callback(nullptr);
   glfwSetWindowUserPointer(host,nullptr);
 }
 
