@@ -94,17 +94,17 @@ bool attitude::align_down(vec3f const &direction) {
   using calculation = long double;
   float constexpr normalised_word{3.0518509447574615e-05f}, word_scale{32767};
   double constexpr minimum_length{.001};
-  auto const length{[](vec3f const &vector) {
+  auto const length{[](vec3f const &vector){
     calculation const x{vector.x}, y{vector.y}, z{vector.z};
     return std::sqrt(x * x + y * y + z * z);
   }};
-  auto const normalised{[](int32_t const value) { return static_cast<calculation>(signed_word(static_cast<uint16_t>(value))) * normalised_word; }};
-  auto const words{[&](vec3f const &vector, float const magnitude) {
+  auto const normalised{[](int32_t const value){ return static_cast<calculation>(signed_word(static_cast<uint16_t>(value))) * normalised_word; }};
+  auto const words{[&](vec3f const &vector, float const magnitude){
     calculation const inverse{1.0L / magnitude};
-    auto const component{[&](float const value) { return static_cast<int32_t>(signed_word(static_cast<uint16_t>(static_cast<int32_t>(static_cast<calculation>(value) * inverse * word_scale)))); }};
+    auto const component{[&](float const value){ return static_cast<int32_t>(signed_word(static_cast<uint16_t>(static_cast<int32_t>(static_cast<calculation>(value) * inverse * word_scale)))); }};
     return vec3<int32_t>{component(vector.x),component(vector.y),component(vector.z)};
   }};
-  auto const crossed{[&](vec3<int32_t> const &a, vec3<int32_t> const &b) {
+  auto const crossed{[&](vec3<int32_t> const &a, vec3<int32_t> const &b){
     vec3f result;
     for(unsigned int axis{0}; axis != 3; ++axis) {
       unsigned int const next{(axis + 1) % 3}, last{(axis + 2) % 3};

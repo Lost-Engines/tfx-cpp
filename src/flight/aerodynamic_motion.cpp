@@ -1,8 +1,8 @@
-#include "aerodynamic_rotation_internal.h"
 #include <bit>
 #include <cmath>
-#include "math/floating_environment.h"
 #include <limits>
+#include "math/floating_environment.h"
+#include "aerodynamic_rotation_internal.h"
 
 namespace tfx::flight {
 namespace {

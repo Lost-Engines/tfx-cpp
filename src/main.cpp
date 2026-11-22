@@ -14,11 +14,11 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
-#include "audio/runtime.h"
-#include "audio/sc55_synth.h"
 #include "platform/audio_output.h"
 #include "platform/flight.h"
 #include "platform/presentations.h"
+#include "audio/runtime.h"
+#include "audio/sc55_synth.h"
 #include "resources/installation.h"
 #include "world/environment.h"
 
@@ -130,8 +130,7 @@ auto main(int const argc, char const *const argv[])->int try {
       else if(selected == "on") selected_qsound = qsound_mode::on;
       else if(selected == "off") selected_qsound = qsound_mode::off;
       else throw std::runtime_error{"qsound must be auto, on or off"};
-    }
-    else if(key == "--cd-cue") cd_cue = value();
+    } else if(key == "--cd-cue") cd_cue = value();
     else if(key == "--cd-audio-dir") cd_audio_directory = value();
     else if(key == "--music") {
       auto const selected{value()};
@@ -139,16 +138,12 @@ auto main(int const argc, char const *const argv[])->int try {
       else if(selected == "soundblaster-cd" || selected == "cd") music_override = 1;
       else if(selected == "soundblaster-fm") music_override = 3;
       else if(selected == "roland-lapc") music_override = 2;
-      else if(selected == "roland-scc1a") { music_override = 4;canvas_model = tfx::audio::sound_canvas_model::scc1a; }
-      else if(selected == "roland-sc55") { music_override = 4;canvas_model = tfx::audio::sound_canvas_model::sc55; }
-      else throw std::runtime_error{"music must be none, soundblaster-cd, soundblaster-fm, roland-lapc, roland-scc1a or roland-sc55"};
-    }
-    else if(key == "--language") {
+      else if(selected == "roland-scc1a") { music_override = 4;canvas_model = tfx::audio::sound_canvas_model::scc1a; } else if(selected == "roland-sc55") { music_override = 4;canvas_model = tfx::audio::sound_canvas_model::sc55; } else throw std::runtime_error{"music must be none, soundblaster-cd, soundblaster-fm, roland-lapc, roland-scc1a or roland-sc55"};
+    } else if(key == "--language") {
       language = value();
       language_selected = true;
       if(std::ranges::find(language_names,language) == language_names.end()) throw std::runtime_error{"unknown TFX language: " + language};
-    }
-    else if(key == "--skip-intro") skip_intro = true;
+    } else if(key == "--skip-intro") skip_intro = true;
     else if(key == "--fullscreen") fullscreen = true;
     else if(key == "--mission") {
       direct_mission = true;

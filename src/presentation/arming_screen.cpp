@@ -44,7 +44,9 @@ void arming_screen::draw(vec2<int16_t> const &position, vec2<int16_t> const &mov
   controls.advance(position,movement,dismiss_notice ? static_cast<uint8_t>(buttons & ~2) : buttons,picked);
   if(mode != arming_mode::mission_incomplete) preview.draw_cursor(renderer,controls.state(),position);
 }
-void arming_screen::press(uint8_t const scan) { key = scan; }
+void arming_screen::press(uint8_t const scan) {
+  key = scan;
+}
 bool arming_screen::rotating() const {
   return controls.state().mode == arming_mode::rotating;
 }
@@ -64,7 +66,11 @@ bool arming_screen::advance(vec2<int16_t> const &position, vec2<int16_t> const &
   if(controls.state().mode == arming_mode::complete) leaving = true;
   return false;
 }
-render::framebuffer const &arming_screen::image() const { return renderer.output; }
-render::palette arming_screen::colours() const { return render::decode_palette(fade_palette(palette,fade_level,40)); }
+render::framebuffer const &arming_screen::image() const {
+  return renderer.output;
+}
+render::palette arming_screen::colours() const {
+  return render::decode_palette(fade_palette(palette,fade_level,40));
+}
 
 } // namespace tfx::presentation

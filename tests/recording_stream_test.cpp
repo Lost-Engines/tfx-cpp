@@ -6,18 +6,29 @@
 namespace {
 struct temporary_directory {
   std::filesystem::path path{std::filesystem::temp_directory_path() / ("tfx-recording-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()))};
-  temporary_directory() { if(!std::filesystem::create_directory(path)) throw std::runtime_error{"cannot create private recording fixture directory"}; }
-  ~temporary_directory() { std::error_code error;std::filesystem::remove_all(path,error); }
+  temporary_directory() {
+    if(!std::filesystem::create_directory(path)) throw std::runtime_error{"cannot create private recording fixture directory"};
+  }
+  ~temporary_directory() {
+    std::error_code error;
+    std::filesystem::remove_all(path,error);
+  }
 };
-void require(bool const condition) { if(!condition) throw std::runtime_error{"streaming recording assertion failed"}; }
+void require(bool const condition) {
+  if(!condition) throw std::runtime_error{"streaming recording assertion failed"};
+}
 template<typename Action> void rejects(Action const &action) {
   try { action(); } catch(std::runtime_error const&) { return; }
   throw std::runtime_error{"invalid recording stream was accepted"};
 }
-}
+} // anonymous namespace
 
 int main() try {
-  using namespace tfx::recording;
+  using tfx::recording::decode;
+  using tfx::recording::encode_frame;
+  using tfx::recording::playback;
+  using tfx::recording::recorder;
+  using tfx::recording::scene_frame;
   temporary_directory directory;
   auto const path{directory.path / "video.rec"};
   scene_frame first;
@@ -74,15 +85,15 @@ int main() try {
   {
     playback movie{path};require(movie.frame_count() == 0 && !movie.next());
   }
-  rejects([&] { output.begin(directory.path / "absent" / "video.rec"); });
-  auto broken{encoded};broken[0] = 3; // A claimed third frame beyond the body.
+  rejects([&]{ output.begin(directory.path / "absent" / "video.rec"); });
+  auto broken{encoded};broken[0] = 3;                                          // A claimed third frame beyond the body.
   {
     std::ofstream target{path,std::ios::binary};
     target.write(reinterpret_cast<char const*>(broken.data()),static_cast<std::streamsize>(broken.size()));
   }
   {
     playback movie{path};require(movie.next().has_value() && movie.next().has_value());
-    rejects([&] { movie.next(); });
+    rejects([&]{ movie.next(); });
   }
   return EXIT_SUCCESS;
 } catch(std::exception const &error) {

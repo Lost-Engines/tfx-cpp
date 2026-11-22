@@ -3,9 +3,9 @@
 #include <cmath>
 #include <limits>
 #include <utility>
-#include "flight/aerodynamic_rotation_internal.h"
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "flight/aerodynamic_rotation_internal.h"
 
 namespace tfx::flight {
 namespace {
@@ -23,8 +23,12 @@ int32_t truncate(calculation const value) {
   if(!std::isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= 2147483648.0L) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(value);
 }
-int32_t subtract(int32_t const a, int32_t const b) { return std::bit_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }
-calculation normalised(int32_t const value) { return static_cast<calculation>(math::signed_word(static_cast<uint16_t>(value))) * normalised_word; }
+int32_t subtract(int32_t const a, int32_t const b) {
+  return std::bit_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b));
+}
+calculation normalised(int32_t const value) {
+  return static_cast<calculation>(math::signed_word(static_cast<uint16_t>(value))) * normalised_word;
+}
 void copy_basis(aerodynamic_basis &basis, aerodynamic_frame const &frame) {
   for(unsigned int axis{0}; axis != 3; ++axis) {
     basis.forward[axis] = static_cast<double>(normalised(frame.forward[axis]));

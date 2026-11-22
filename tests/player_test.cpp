@@ -1,20 +1,33 @@
-#include <cstdlib>
 #include <algorithm>
+#include <cstdlib>
 #include <iostream>
 #include <stdexcept>
 #include "presentation/player.h"
 
 namespace {
-void require(bool const condition, char const *const message) { if(!condition) throw std::runtime_error{message}; }
+void require(bool const condition, char const *const message) {
+  if(!condition) throw std::runtime_error{message};
+}
 tfx::resources::bytes font_image() {
   tfx::resources::bytes image(973476 + 0xe100);
-  image[0x70aa4 + 0x5bb51 + 1] = 1; // A single synthetic fixed-font ink pixel.
+  image[0x70aa4 + 0x5bb51 + 1] = 1;                                            // A single synthetic fixed-font ink pixel.
   return image;
 }
 } // anonymous namespace
 
 int main() try {
-  using namespace tfx::presentation;
+  using tfx::presentation::clip;
+  using tfx::presentation::dac_palette;
+  using tfx::presentation::fonts;
+  using tfx::presentation::node_kind;
+  using tfx::presentation::playback_phase;
+  using tfx::presentation::scene_input;
+  using tfx::presentation::scene_key;
+  using tfx::presentation::scene_player;
+  using tfx::presentation::sequence_controls;
+  using tfx::presentation::text_alignment;
+  using tfx::presentation::text_block;
+  using tfx::presentation::variables;
   tfx::resources::bytes screen(772 + 64000,0);
   screen[0] = 'w';screen[1] = 'a';screen[2] = 'r';screen[3] = ' ';
   for(unsigned int i{4}; i != 772; ++i) screen[i] = 63;

@@ -12,7 +12,7 @@ namespace {
 
 uint64_t snapshot(tfx::weapons::projectile const &state, tfx::weapons::motion_result const &result, std::ostream *const output) {
   uint64_t digest{14695981039346656037ULL};
-  auto const word{[&](auto const value) {
+  auto const word{[&](auto const value){
     if(output) *output << static_cast<int64_t>(value) << ' ';
     for(unsigned int shift{0}; shift != 32; shift += 8) digest = (digest ^ ((static_cast<uint32_t>(value) >> shift) & 255)) * 1099511628211ULL;
   }};

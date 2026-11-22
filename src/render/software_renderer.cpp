@@ -1,12 +1,12 @@
 #include "software_renderer.h"
-#include "model_raster.h"
-#include "rounded_curve.h"
-#include "integer_polygon.h"
-#include "pattern_raster.h"
 #include <algorithm>
 #include <bit>
 #include <cmath>
 #include <utility>
+#include "integer_polygon.h"
+#include "model_raster.h"
+#include "pattern_raster.h"
+#include "rounded_curve.h"
 
 namespace tfx::render {
 namespace {

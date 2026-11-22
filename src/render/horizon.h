@@ -12,8 +12,12 @@ private:
 public:
   explicit horizon_phase(int32_t const packed = 0) : counter{math::signed_word(static_cast<uint16_t>(packed))}, period_mode{static_cast<uint16_t>(static_cast<uint32_t>(packed) >> 16)} {}
   void advance(int16_t movement);
-  int32_t packed_state() const { return std::bit_cast<int32_t>((static_cast<uint32_t>(period_mode) << 16) | static_cast<uint16_t>(counter)); }
-  int16_t sample() const { return counter; }
+  int32_t packed_state() const {
+    return std::bit_cast<int32_t>((static_cast<uint32_t>(period_mode) << 16) | static_cast<uint16_t>(counter));
+  }
+  int16_t sample() const {
+    return counter;
+  }
 };
 
 struct horizon_context {

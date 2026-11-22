@@ -3,9 +3,9 @@
 #include <bit>
 #include <cmath>
 #include <utility>
-#include "flight/aerodynamic_ground_internal.h"
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "flight/aerodynamic_ground_internal.h"
 
 namespace tfx::flight {
 namespace {
@@ -21,7 +21,9 @@ double constexpr roll_settling_rate{.125}, pitch_settling_rate{.25}, main_wheel_
 double constexpr velocity_settling_divisor{4}, height_settling_rate{.2};
 int constexpr feet_per_ground_step{8};
 
-calculation wide(double const value) { return value; }
+calculation wide(double const value) {
+  return value;
+}
 double negative(double const value) {
   return std::bit_cast<double>(std::bit_cast<uint64_t>(value) ^ (uint64_t{1} << 63));
 }

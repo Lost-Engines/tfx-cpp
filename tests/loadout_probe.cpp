@@ -3,8 +3,8 @@
 #include <iostream>
 #include <memory>
 #include <utility>
-#include "resources/executable_tables.h"
 #include "audio/requests.h"
+#include "resources/executable_tables.h"
 
 int main(int const argc, char const *const argv[]) try {
   if(argc != 2 && argc != 3) throw std::runtime_error{"loadout_probe DATA_DIRECTORY|--synthetic|--check|--feedback [FIXTURE]"};

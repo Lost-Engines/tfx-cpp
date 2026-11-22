@@ -1,4 +1,5 @@
 #include <bit>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <string_view>
@@ -103,7 +104,7 @@ int main(int const argc, char const *const argv[]) try {
     if(control_mode) tfx::flight::apply_aerodynamic_guidance(state,manual,powerplant,context);
     else events = tfx::flight::update_aerodynamic_guidance(state,manual,powerplant,motion,recovery,context);
     std::vector<uint64_t> values;
-    auto const number{[&](double const value) { values.push_back(std::bit_cast<uint64_t>(value)); }};
+    auto const number{[&](double const value){ values.push_back(std::bit_cast<uint64_t>(value)); }};
     for(auto const *value : fields) number(*value);
     for(auto const value : {manual.pitch_rate_bias,manual.controls.autopilot.down_metres,manual.controls.autopilot.metres_per_second,manual.air_brake_fraction,powerplant.engine_factor.x,powerplant.engine_factor.y,powerplant.thrust,powerplant.throttle_target,powerplant.fuel}) number(value);
     for(auto const *vector : {&motion.velocity_ned,&motion.acceleration_ned,&motion.angular_rate,&motion.pose.metres_ned}) for(auto const value : *vector) number(value);
@@ -129,5 +130,5 @@ int main(int const argc, char const *const argv[]) try {
   }
   if(!cases) throw std::runtime_error{"no aerodynamic guidance cases"};
   if(fixture_path) std::cout << cases << " native aerodynamic guidance fixtures agree\n";
-  return 0;
-} catch(std::exception const &error) { std::cerr << error.what() << '\n'; return 1; }
+  return EXIT_SUCCESS;
+} catch(std::exception const &error) { std::cerr << error.what() << '\n'; return EXIT_FAILURE; }

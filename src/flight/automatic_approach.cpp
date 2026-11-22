@@ -2,9 +2,9 @@
 #include <bit>
 #include <cmath>
 #include <limits>
-#include "flight/aerodynamic_rotation_internal.h"
 #include "math/floating_environment.h"
 #include "math/x87.h"
+#include "flight/aerodynamic_rotation_internal.h"
 
 namespace tfx::flight {
 namespace {
@@ -19,7 +19,9 @@ int32_t truncate(calculation const value) {
   if(!std::isfinite(value) || value < std::numeric_limits<int32_t>::min() || value >= 2147483648.0L) return std::numeric_limits<int32_t>::min();
   return static_cast<int32_t>(value);
 }
-int32_t subtract(int32_t const a, int32_t const b) { return std::bit_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }
+int32_t subtract(int32_t const a, int32_t const b) {
+  return std::bit_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b));
+}
 } // anonymous namespace
 
 bool advance_automatic_approach(automatic_approach &state, aerodynamic_motion &motion, aerodynamic_basis &basis, double &metres_per_second, automatic_approach_context const &context) {

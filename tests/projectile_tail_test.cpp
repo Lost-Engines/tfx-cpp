@@ -10,7 +10,14 @@ void require(bool const condition, char const *const message) {
 }
 
 int main() try {
-  using namespace tfx::weapons;
+  using tfx::weapons::active_projectile;
+  using tfx::weapons::actor_pool;
+  using tfx::weapons::definition;
+  using tfx::weapons::flight_stage;
+  using tfx::weapons::motion_context;
+  using tfx::weapons::projectile_id;
+  using tfx::weapons::runtime;
+  using tfx::weapons::weapon_count;
   std::array<definition,weapon_count> definitions;
   definitions[1].stages = {{
     .ticks{100},
@@ -19,9 +26,9 @@ int main() try {
   std::vector<projectile_id> removed;
   bool lose_remaining{false};
   runtime projectiles{definitions,{
-    .motion_inputs{[](active_projectile const&, uint16_t) { return motion_context{}; }},
-    .target_cleared{[&](active_projectile const &shot) { removed.push_back(shot.id); }},
-    .contacts{[&](active_projectile &shot, uint16_t) {
+    .motion_inputs{[](active_projectile const&, uint16_t){ return motion_context{}; }},
+    .target_cleared{[&](active_projectile const &shot){ removed.push_back(shot.id); }},
+    .contacts{[&](active_projectile &shot, uint16_t){
       if(shot.id == 1 || lose_remaining) shot.spent = true;
       if(shot.id == 2) shot.state.ticks = 0;
     }},

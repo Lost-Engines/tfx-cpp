@@ -1,9 +1,9 @@
-#include "math/floating_environment.h"
 #include "simple_turn.h"
 #include <algorithm>
 #include <bit>
 #include <cmath>
 #include <limits>
+#include "math/floating_environment.h"
 
 namespace tfx::flight {
 namespace {
@@ -50,7 +50,7 @@ void update_simple_turn(simple_turn_state &state, simple_turn_context const &con
   auto const weighted{truncate(static_cast<calculation>(math::signed_word(state.orientation.angles().z)) * bank_weight)};
   int32_t const bank{math::signed_word(static_cast<uint16_t>(weighted))};
   state.bank_correction = static_cast<int16_t>(state.bank_correction * 3 / 4);
-  if(bank < -bank_sector_begin && bank > -bank_sector_end) state.bank_correction = static_cast<int16_t>(std::abs((bank + bank_sector_midpoint) / 2) - bank_correction_peak);
+  if(bank < -bank_sector_begin && bank > - bank_sector_end) state.bank_correction = static_cast<int16_t>(std::abs((bank + bank_sector_midpoint) / 2) - bank_correction_peak);
   else if(bank > bank_sector_begin && bank < bank_sector_end) state.bank_correction = static_cast<int16_t>(bank_correction_peak - std::abs((bank - bank_sector_midpoint) / 2));
   int const bank_sine{std::clamp(static_cast<int>(math::sine_table()[static_cast<uint16_t>(weighted) >> 6]),-maximum_bank_sine,maximum_bank_sine)};
   if(state.bank_correction) rotate_heading(state,static_cast<float>(-state.bank_correction * context.elapsed / bank_correction_divisor));

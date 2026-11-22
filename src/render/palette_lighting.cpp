@@ -5,7 +5,7 @@ namespace tfx::render {
 namespace {
 
 int16_t view_phase(math::angle const pitch, math::angle const roll) {
-  auto const cosine{[](math::angle const angle) { return math::sine_table()[((angle >> 6) + math::angle_steps / 4) % math::angle_steps]; }};
+  auto const cosine{[](math::angle const angle){ return math::sine_table()[((angle >> 6) + math::angle_steps / 4) % math::angle_steps]; }};
   int constexpr phase_radius{lighting_stages / 2};
   int const vertical{cosine(pitch) * phase_radius >> math::matrix_fraction_bits};
   int const banked{cosine(roll) * phase_radius >> math::matrix_fraction_bits};
@@ -19,9 +19,15 @@ palette_lighting::palette_lighting(std::array<dac_palette,altitude_palette_count
   // Native startup forces the base palette's first RGB triple to black.
   for(unsigned int channel{0}; channel != 3; ++channel) banks[0][channel] = current[channel] = 0;
 }
-palette_lighting_state const &palette_lighting::value() const { return state; }
-dac_palette const &palette_lighting::colours() const { return current; }
-void palette_lighting::flash(uint8_t const level) { state.flash = level; }
+palette_lighting_state const &palette_lighting::value() const {
+  return state;
+}
+dac_palette const &palette_lighting::colours() const {
+  return current;
+}
+void palette_lighting::flash(uint8_t const level) {
+  state.flash = level;
+}
 void palette_lighting::blend(dac_palette const &from, dac_palette const &to, int16_t const level) {
   // Native 0x72ccc skips the magenta source sentinel, leaving existing bytes.
   for(unsigned int index{0}; index != 256; ++index) {

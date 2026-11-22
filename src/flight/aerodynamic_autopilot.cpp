@@ -1,7 +1,7 @@
 #include "aerodynamic_autopilot.h"
 #include <cmath>
-#include "flight/aerodynamic_control_law_internal.h"
 #include "math/floating_environment.h"
+#include "flight/aerodynamic_control_law_internal.h"
 
 namespace tfx::flight {
 namespace {

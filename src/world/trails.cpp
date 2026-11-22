@@ -36,7 +36,11 @@ void emit_trail(trail_segment const &segment, std::function_ref<void(vec3<int32_
   } while(remaining >= trail_spacing);
 }
 
-void trail_pool::reset() { first = 0;next = 0;count = 0; }
+void trail_pool::reset() {
+  first = 0;
+  next = 0;
+  count = 0;
+}
 trail_slot trail_pool::spawn(vec3<int32_t> const &position_q8) {
   if(count == trail_capacity) retire_oldest();
   auto const slot{next};
@@ -62,10 +66,12 @@ void trail_pool::clean(vec3<int32_t> const &reference, std::function_ref<bool(tr
       };
       if(static_cast<uint16_t>(math::distance_word(point - origin)) <= maximum_trail_distance) break;
     }
-    retire_oldest(); // Native 0x7b744 retires only a consecutive dead/distant prefix.
+    retire_oldest();                                                           // Native 0x7b744 retires only a consecutive dead/distant prefix.
   }
 }
-trail_record const &trail_pool::record(trail_slot const slot) const { return records.at(slot); }
+trail_record const &trail_pool::record(trail_slot const slot) const {
+  return records.at(slot);
+}
 
 vec3d trail_position(vec3<int32_t> const &position_q8, vec3<int32_t> const &reference) {
   vec3<int16_t> const whole{

@@ -1,5 +1,5 @@
-#include <cstdlib>
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -282,7 +282,7 @@ auto main(int const argc, char const *const argv[])->int try {
         tfx::world::environment const environment{game,name,lighting};
         if(mode == "environment_variants") {
           uint64_t hash{14695981039346656037ull};
-          auto const append{[&](uint8_t const byte) { hash = (hash ^ byte) * 1099511628211ull; }};
+          auto const append{[&](uint8_t const byte){ hash = (hash ^ byte) * 1099511628211ull; }};
           for(unsigned int z{0}; z != tfx::world::map_height; ++z) for(unsigned int x{0}; x != tfx::world::map_width; ++x) {
             for(unsigned char const byte : environment.variant(x,z)) append(byte);
             append(0);

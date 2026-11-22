@@ -1,6 +1,6 @@
-#include "math/floating_environment.h"
 #include "simple_controls.h"
 #include <cmath>
+#include "math/floating_environment.h"
 
 namespace tfx::flight {
 namespace {

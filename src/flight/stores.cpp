@@ -1,7 +1,7 @@
-#include "math/floating_environment.h"
 #include "stores.h"
 #include <limits>
 #include <stdexcept>
+#include "math/floating_environment.h"
 
 namespace tfx::flight {
 

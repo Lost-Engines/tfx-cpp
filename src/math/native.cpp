@@ -11,7 +11,7 @@ std::array<int16_t, angle_steps> const &sine_table() {
   static auto const table{[]{
     std::array<int16_t, angle_steps> result;
     for(unsigned int i{0}; i != angle_steps; ++i) result[i] = static_cast<int16_t>(std::sin(i * 2 * std::numbers::pi / angle_steps) * 32767);
-    result[angle_steps * 3 / 4] = -32766;                                         // native table differs from trunc(sin * 32767) at this one entry
+    result[angle_steps * 3 / 4] = -32766;                                      // native table differs from trunc(sin * 32767) at this one entry
     return result;
   }()};
   return table;
@@ -19,9 +19,9 @@ std::array<int16_t, angle_steps> const &sine_table() {
 
 vec2<angle> bearing(vec3<int32_t> const &from, vec3<int32_t> const &to) {
   // Native 0xc9714: wrapped coordinate differences, Chebyshev pitch distance, then signed-word angle inputs.
-  auto const delta{[](int32_t const a, int32_t const b) { return std::bit_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }};
-  auto const magnitude{[&](int32_t const value) { return value < 0 ? delta(0,value) : value; }};
-  auto const angle_to{[](int32_t y, int32_t x) {
+  auto const delta{[](int32_t const a, int32_t const b){ return std::bit_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }};
+  auto const magnitude{[&](int32_t const value){ return value < 0 ? delta(0,value) : value; }};
+  auto const angle_to{[](int32_t y, int32_t x){
     while(y < -32768 || y > 32767 || x < -32768 || x > 32767) { y >>= 1; x >>= 1; }
     return direction_angle(static_cast<int16_t>(y),static_cast<int16_t>(x));
   }};
@@ -31,7 +31,7 @@ vec2<angle> bearing(vec3<int32_t> const &from, vec3<int32_t> const &to) {
 
 int32_t distance_estimate(vec3<int32_t> const &from, vec3<int32_t> const &to) {
   // Native 0x7d208: largest absolute component plus one quarter of the other two, with dword wrapping.
-  auto const magnitude{[](uint32_t const value) { return std::bit_cast<int32_t>(std::bit_cast<int32_t>(value) < 0 ? 0u - value : value); }};
+  auto const magnitude{[](uint32_t const value){ return std::bit_cast<int32_t>(std::bit_cast<int32_t>(value) < 0 ? 0u - value : value); }};
   vec3<int32_t> const offset{magnitude(static_cast<uint32_t>(from.x) - static_cast<uint32_t>(to.x)),magnitude(static_cast<uint32_t>(from.y) - static_cast<uint32_t>(to.y)),magnitude(static_cast<uint32_t>(from.z) - static_cast<uint32_t>(to.z))};
   int32_t const longest{std::max({offset.x,offset.y,offset.z})};
   uint32_t const remainder{static_cast<uint32_t>(offset.x) + static_cast<uint32_t>(offset.y) + static_cast<uint32_t>(offset.z) - static_cast<uint32_t>(longest)};
@@ -57,7 +57,7 @@ void advance_position(vec3<int32_t> &position, vec3<angle> const &angles, int32_
 
 int16_t distance_word(vec3<int16_t> const &offset) {
   /// Native 0xcbe94 / 0xd14b4: floor of the unsigned squared magnitude, returned in a signed word.
-  auto const square{[](int32_t const value) { return static_cast<uint32_t>(value * value); }};
+  auto const square{[](int32_t const value){ return static_cast<uint32_t>(value * value); }};
   auto const squared{square(offset.x) + square(offset.y) + square(offset.z)};
   return signed_word(static_cast<uint16_t>(std::sqrt(static_cast<double>(squared))));
 }
@@ -113,11 +113,11 @@ mat3<int32_t> view_rotation_words(vec3<angle> const &angles) {
   // Native 0xdabd8 constructs the view matrix separately from the component matrix.
   // Its ordered shifts differ by a unit in some entries; negating an Euler matrix loses that distinction.
   auto const &table{sine_table()};
-  auto const sine{[&](int const phase) { return static_cast<int32_t>(table[static_cast<unsigned int>(phase) & (angle_steps - 1)]); }};
-  auto const cosine{[&](int const phase) { return sine(phase + angle_steps / 4); }};
+  auto const sine{[&](int const phase){ return static_cast<int32_t>(table[static_cast<unsigned int>(phase) & (angle_steps - 1)]); }};
+  auto const cosine{[&](int const phase){ return sine(phase + angle_steps / 4); }};
   int const pitch{angles.x >> 6}, yaw{angles.y >> 6}, roll{angles.z >> 6};
   auto const sp{sine(pitch)}, s{sine(yaw + roll)}, t{sine(yaw - roll)}, c{cosine(yaw + roll)}, d{cosine(yaw - roll)};
-  auto const multiply{[](int32_t const a, int32_t const b) { return (a * b) >> matrix_fraction_bits; }};
+  auto const multiply{[](int32_t const a, int32_t const b){ return (a * b) >> matrix_fraction_bits; }};
   // This setter stores rows, unlike the component generator's column-major output.
   mat3<int32_t> matrix;
   matrix.data = {
@@ -137,15 +137,15 @@ mat3<int32_t> view_rotation_words(vec3<angle> const &angles) {
 
 vec3<int32_t> orbit_offset_q16(vec2<angle> const &angles, int32_t const distance) {
   auto const &table{sine_table()};
-  auto const sine{[&](int const phase) { return static_cast<int32_t>(table[static_cast<unsigned int>(phase) & (angle_steps - 1)]); }};
-  auto const cosine{[&](int const phase) { return sine(phase + angle_steps / 4); }};
+  auto const sine{[&](int const phase){ return static_cast<int32_t>(table[static_cast<unsigned int>(phase) & (angle_steps - 1)]); }};
+  auto const cosine{[&](int const phase){ return sine(phase + angle_steps / 4); }};
   int const pitch{angles.x >> 6}, yaw{angles.y >> 6};
   // Native 0xb9b7a orbits in signed Q16 coordinates. XOR with the phase mask
   // selects -angle minus one table step, including that original offset at zero.
-  auto const product{[](int32_t const a, int32_t const b) { return std::bit_cast<int32_t>(static_cast<uint32_t>(a) * static_cast<uint32_t>(b)); }};
+  auto const product{[](int32_t const a, int32_t const b){ return std::bit_cast<int32_t>(static_cast<uint32_t>(a) * static_cast<uint32_t>(b)); }};
   int const reverse_pitch{static_cast<int>(angle_steps - 1) - pitch}, reverse_yaw{static_cast<int>(angle_steps - 1) - yaw};
   int32_t const horizontal{product(cosine(reverse_pitch),distance) >> matrix_fraction_bits};
-  auto const doubled{[&](int32_t const a, int32_t const b) { return std::bit_cast<int32_t>(0u - static_cast<uint32_t>(product(a,b)) * 2u); }};
+  auto const doubled{[&](int32_t const a, int32_t const b){ return std::bit_cast<int32_t>(0u - static_cast<uint32_t>(product(a,b)) * 2u); }};
   return {doubled(sine(reverse_yaw),horizontal),doubled(sine(reverse_pitch),distance),doubled(cosine(reverse_yaw),horizontal)};
 }
 

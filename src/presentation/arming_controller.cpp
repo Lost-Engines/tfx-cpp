@@ -8,9 +8,15 @@ arming_controller::arming_controller(weapons::armament &inventory, arming_assets
   for(unsigned int slot{0}; slot != flight::store_slots; ++slot) inventory.assign(slot,std::nullopt);
   if(entry == arming_entry::mission_incomplete) current.mode = arming_mode::mission_incomplete;
 }
-arming_controller::~arming_controller() { remove_previews(); }
-arming_state const &arming_controller::state() const { return current; }
-std::span<bool const> arming_controller::previews() const { return preview_slots; }
+arming_controller::~arming_controller() {
+  remove_previews();
+}
+arming_state const &arming_controller::state() const {
+  return current;
+}
+std::span<bool const> arming_controller::previews() const {
+  return preview_slots;
+}
 void arming_controller::remove_previews() {
   for(unsigned int slot{0}; slot != preview_slots.size(); ++slot) if(std::exchange(preview_slots[slot],false)) inventory.pylons[slot].visible = false;
 }

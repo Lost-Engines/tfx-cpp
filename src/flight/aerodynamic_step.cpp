@@ -1,7 +1,7 @@
 #include "aerodynamic_step.h"
-#include "flight/aerodynamic_recovery_trigger.h"
 #include <utility>
 #include "math/floating_environment.h"
+#include "flight/aerodynamic_recovery_trigger.h"
 
 namespace tfx::flight {
 namespace {

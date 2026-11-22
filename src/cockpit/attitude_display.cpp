@@ -6,8 +6,12 @@
 namespace tfx::cockpit {
 namespace {
 
-int word(int const value) { return math::signed_word(static_cast<uint16_t>(value)); }
-int32_t wrapped_sum(int32_t const a, int32_t const b) { return std::bit_cast<int32_t>(static_cast<uint32_t>(a) + static_cast<uint32_t>(b)); }
+int word(int const value) {
+  return math::signed_word(static_cast<uint16_t>(value));
+}
+int32_t wrapped_sum(int32_t const a, int32_t const b) {
+  return std::bit_cast<int32_t>(static_cast<uint32_t>(a) + static_cast<uint32_t>(b));
+}
 
 } // anonymous namespace
 
@@ -37,8 +41,8 @@ void attitude_display::draw_pitch(render::software_renderer &renderer, attitude_
   // Native 0x80ab8 and the separate sky/HUD projection setter 0xc82b9.
   // This two-angle matrix is distinct from the model renderer's view matrix.
   auto const &table{math::sine_table()};
-  auto const sine{[&](int const phase) { return static_cast<int32_t>(table[static_cast<unsigned int>(phase) & (math::angle_steps - 1)]); }};
-  auto const cosine{[&](int const phase) { return sine(phase + math::angle_steps / 4); }};
+  auto const sine{[&](int const phase){ return static_cast<int32_t>(table[static_cast<unsigned int>(phase) & (math::angle_steps - 1)]); }};
+  auto const cosine{[&](int const phase){ return sine(phase + math::angle_steps / 4); }};
   int const pitch{state.projection_angles.x >> 6}, roll{state.projection_angles.y >> 6};
   vec2<int32_t> const depth{-sine(pitch),cosine(pitch)};
   vec2<int32_t> const horizontal{(sine(pitch + roll) >> 1) - (sine(pitch - roll) >> 1),(cosine(pitch - roll) >> 1) - (cosine(pitch + roll) >> 1)};
@@ -53,19 +57,19 @@ void attitude_display::draw_pitch(render::software_renderer &renderer, attitude_
     auto const &mark{assets.pitch_marks.at(index)};
     auto const &point{arc.at(index)};
     int32_t const divisor{std::max(16,wrapped_sum(point.y * depth.x,point.x * depth.y) >> 16)};
-    auto const project{[&](vec2<int32_t> const &axis, int const centre) {
+    auto const project{[&](vec2<int32_t> const &axis, int const centre){
       int32_t const numerator{wrapped_sum(point.y * axis.x,point.x * axis.y) >> 8};
       return word(std::clamp(numerator / divisor,-32000,32000) + centre);
     }};
     vec2<int> const origin{word(project(horizontal,state.projection_origin.x) + state.offset.x),project(vertical,state.projection_origin.y)};
-    auto const rotate{[&](vec2<int16_t> const &vertex) {
+    auto const rotate{[&](vec2<int16_t> const &vertex){
       auto const rotated{math::rotate_words(vertex,state.angles.z)};
       return vec2<int>{word(rotated.x + origin.x),word(rotated.y + origin.y)};
     }};
     for(unsigned int side{0}; side != 2; ++side) for(unsigned int segment{0}; segment != 2; ++segment) {
       unsigned int const start{side * 3 + segment};
       auto const from{rotate(mark.vertices[start])}, to{rotate(mark.vertices[start + 1])};
-      auto const paint{[&](render::framebuffer &target, uint8_t const ink) {
+      auto const paint{[&](render::framebuffer &target, uint8_t const ink){
         if(mark.dashed) presentation::draw_patterned_line(target,vec2<int>{from},vec2<int>{to},low,high,ink,0xaa);
         else presentation::draw_clipped_line(target,vec2<int>{from},vec2<int>{to},low,high,ink);
       }};

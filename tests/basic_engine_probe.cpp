@@ -1,5 +1,6 @@
 #include <array>
 #include <bit>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -41,8 +42,8 @@ int main(int const argc, char const *const argv[]) try {
     ++count;
   }
   if(!count) throw std::runtime_error{"empty engine-indicator input"};
-  return 0;
+  return EXIT_SUCCESS;
 } catch(std::exception const &error) {
   std::cerr << "ERROR: " << error.what() << '\n';
-  return 1;
+  return EXIT_FAILURE;
 }

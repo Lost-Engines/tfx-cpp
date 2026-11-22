@@ -55,10 +55,10 @@ auto encode_ilbm(framebuffer const &image, dac_palette const &colours)->std::vec
   }
   std::vector<uint8_t> result;
   result.reserve(image_prefix_bytes + body.size());
-  auto const word{[&](unsigned int const value, unsigned int const bytes) {
+  auto const word{[&](unsigned int const value, unsigned int const bytes){
     for(unsigned int remaining{bytes}; remaining; --remaining) result.push_back(static_cast<uint8_t>(value >> ((remaining - 1) * 8)));
   }};
-  auto const tag{[&](std::string_view const name) { result.insert(result.end(),name.begin(),name.end()); }};
+  auto const tag{[&](std::string_view const name){ result.insert(result.end(),name.begin(),name.end()); }};
   tag("FORM");word(image_prefix_bytes - chunk_header_bytes + static_cast<unsigned int>(body.size()),4);tag("ILBM");
   tag("BMHD");word(bitmap_header_bytes,4);
   word(screen_width,2);word(screen_height,2);word(0,2);word(0,2);

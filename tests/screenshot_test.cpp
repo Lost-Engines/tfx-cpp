@@ -10,7 +10,7 @@ auto require(bool const condition, char const *const message)->void {
   if(!condition) throw std::runtime_error{message};
 }
 auto decode(std::vector<uint8_t> const &file)->tfx::render::framebuffer {
-  auto const word{[&](unsigned int const offset, unsigned int const bytes) {
+  auto const word{[&](unsigned int const offset, unsigned int const bytes){
     uint32_t value{0};
     for(unsigned int index{0}; index != bytes; ++index) value = value << 8 | file.at(offset + index);
     return value;

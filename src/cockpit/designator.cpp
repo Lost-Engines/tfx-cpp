@@ -1,6 +1,6 @@
 #include "designator.h"
-#include "render/sprites.h"
 #include <bit>
+#include "render/sprites.h"
 
 namespace tfx::cockpit {
 
@@ -22,7 +22,9 @@ view_pose designator_pose(sensors::designator const &state) {
 designator_display::designator_display(instrument_assets const &source, resources::archive const &game, designator_animation const initial)
   : assets{source}, marker{resources::decode_sprites(game.read(assets.designator_bank)).at(0)}, animation{initial} {
 }
-designator_animation const &designator_display::state() const { return animation; }
+designator_animation const &designator_display::state() const {
+  return animation;
+}
 void designator_display::draw(render::software_renderer &renderer, vec2<int16_t> const &point, bool const tracking, render::framebuffer *const coverage) {
   // Search and tracking retain independent two-draw phases (884A/8848).
   auto &phase{tracking ? animation.tracking : animation.search};
@@ -34,7 +36,7 @@ void designator_display::draw(render::software_renderer &renderer, vec2<int16_t>
   // projection therefore hides the marker rather than clipping it at the corner.
   render::draw_sprite(renderer.output,marker,{static_cast<uint16_t>(point.x),static_cast<uint16_t>(point.y)},coverage,renderer.clipping);
   int constexpr label_colour{16},label_y_offset{-10},target_x_offset{-21},laser_x_offset{17};
-  auto const label{[&](unsigned int const index, int const x_offset) {
+  auto const label{[&](unsigned int const index, int const x_offset){
     renderer.text(math::signed_word(static_cast<uint16_t>(point.x + x_offset)),math::signed_word(static_cast<uint16_t>(point.y + label_y_offset)),assets.designator_labels[index],label_colour,coverage);
   }};
   if(tracking || !phase) label(0,target_x_offset);

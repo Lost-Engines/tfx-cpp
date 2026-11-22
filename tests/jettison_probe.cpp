@@ -52,7 +52,7 @@ auto main(int const argc, char const *const argv[])->int try {
           .actor{tfx::weapons::actor_identity{.pool{tfx::weapons::actor_pool::aircraft}}},
         },
         .unlimited{(flags & 8) != 0},
-      },mounts,change,[&](auto const &shot) {
+      },mounts,change,[&](auto const &shot){
         shots.insert(shots.end(),{shot.position.x,shot.position.y,shot.position.z,shot.angles.x,shot.angles.y,shot.angles.z,shot.speed,shot.weapon,shot.target.actor.has_value(),shot.jettisoned});
       });
       if(fuel > capacity) fuel = capacity;

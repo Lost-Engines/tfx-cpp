@@ -149,8 +149,9 @@ void window::set_fullscreen(bool const enabled) {
       if(overlap > best_overlap) { monitor = monitors[i];best_overlap = overlap; }
     }
   }
-  if(monitor) if(auto const *mode{glfwGetVideoMode(monitor)})
+  if(monitor) if(auto const *mode{glfwGetVideoMode(monitor)}) {
     glfwSetWindowMonitor(host,monitor,0,0,mode->width,mode->height,mode->refreshRate);
+  }
 }
 bool window::poll() {
   glfwPollEvents();

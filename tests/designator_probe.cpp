@@ -1,8 +1,9 @@
-#include "cockpit/designator.h"
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string_view>
+#include "cockpit/designator.h"
 
 namespace {
 auto pose_values(tfx::sensors::designator const &state, vec3<int32_t> const &point, vec2<int16_t> const &origin) {
@@ -19,7 +20,7 @@ auto pose_values(tfx::sensors::designator const &state, vec3<int32_t> const &poi
 void write(int32_t const value) {
   for(unsigned int byte{0}; byte != 4; ++byte) std::cout.put(static_cast<char>(static_cast<uint32_t>(value) >> (byte * 8)));
 }
-}
+} // anonymous namespace
 int main(int const argc, char const *const argv[]) try {
   bool const pose_only{argc >= 2 && std::string_view{argv[1]} == "--camera"};
   if(pose_only) {
@@ -35,7 +36,7 @@ int main(int const argc, char const *const argv[]) try {
       } else { for(auto const value : values) std::cout << value << ' ';std::cout << '\n'; }
       ++count;
     }
-    return count ? 0 : 1;
+    return count ? EXIT_SUCCESS : EXIT_FAILURE;
   }
   if(argc != 2) throw std::runtime_error{"usage: designator_probe DATA_DIRECTORY | --camera [FIXTURE]"};
   tfx::resources::archive const game{tfx::resources::find_game_archive(argv[1])};
@@ -61,5 +62,5 @@ int main(int const argc, char const *const argv[]) try {
     std::cout.write(reinterpret_cast<char const*>(renderer.output.pixels.data()),renderer.output.pixels.size());
     std::cout.write(reinterpret_cast<char const*>(coverage.pixels.data()),coverage.pixels.size());
   }
-  return 0;
-} catch(std::exception const &error) { std::cerr << error.what() << '\n';return 1; }
+  return EXIT_SUCCESS;
+} catch(std::exception const &error) { std::cerr << error.what() << '\n';return EXIT_FAILURE; }

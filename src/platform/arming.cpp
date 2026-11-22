@@ -14,7 +14,7 @@ private:
 public:
   arming_keys(window &owner, presentation::arming_screen &screen) : owner{owner}, host{owner.get()}, screen{screen} {
     glfwSetWindowUserPointer(host,this);
-    owner.set_key_callback([](GLFWwindow *const host, int const key, int const, int const action, int const) {
+    owner.set_key_callback([](GLFWwindow *const host, int const key, int const, int const action, int const){
       if(action != GLFW_PRESS) return;
       auto &controls{*static_cast<arming_keys*>(glfwGetWindowUserPointer(host))};
       controls.screen.press(key == GLFW_KEY_ESCAPE ? 1 : key == GLFW_KEY_Q ? 0x10 : 0);

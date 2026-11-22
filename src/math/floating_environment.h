@@ -22,12 +22,12 @@ public:
     if(changed) __asm__ volatile("fldcw %0" : : "m"(native_control) : "memory");
 #else
     throw std::runtime_error{"native numerical flight currently requires an x87 arithmetic backend"};
-#endif
+#endif // (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
   }
   ~floating_environment() {
 #if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
     if(changed) __asm__ volatile("fldcw %0" : : "m"(previous) : "memory");
-#endif
+#endif // (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
   }
   floating_environment(floating_environment const &) = delete;
   floating_environment &operator=(floating_environment const &) = delete;

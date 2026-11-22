@@ -14,7 +14,12 @@ int main(int const argc, char const *const argv[]) {
     else if(argument == "--split-basis") split_basis = true;
     else return 2;
   }
-  using namespace tfx::cockpit;
+  using tfx::cockpit::missile_camera_pose;
+  using tfx::cockpit::view_camera;
+  using tfx::cockpit::view_camera_context;
+  using tfx::cockpit::view_control;
+  using tfx::cockpit::view_control_state;
+  using tfx::cockpit::view_mode;
   view_control views;
   view_camera motion;
   bool reset;
@@ -60,7 +65,7 @@ int main(int const argc, char const *const argv[]) {
     auto const &state{motion.value()};
     auto const &control{views.value()};
     auto const &pose{motion.last_pose()};
-    auto const put{[](auto const value) { std::cout << static_cast<int32_t>(value) << ' '; }};
+    auto const put{[](auto const value){ std::cout << static_cast<int32_t>(value) << ' '; }};
     put(control.distance);put(control.recenter);put(control.departure_delay);put(control.ready);
     for(unsigned int row{0}; row != 3; ++row) { put(control.orbit.right[row]);put(control.orbit.down[row]);put(control.orbit.forward[row]); }
     put(state.head.x);put(state.head.y);put(state.head.z);put(state.offset_q16.x);put(state.offset_q16.y);put(state.offset_q16.z);

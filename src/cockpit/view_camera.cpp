@@ -5,13 +5,23 @@
 
 namespace tfx::cockpit {
 namespace {
-int32_t wrap(uint32_t const value) { return std::bit_cast<int32_t>(value); }
-int32_t add(int32_t const a, int32_t const b) { return wrap(static_cast<uint32_t>(a) + static_cast<uint32_t>(b)); }
-int32_t subtract(int32_t const a, int32_t const b) { return wrap(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }
-int16_t word(int const value) { return math::signed_word(static_cast<uint16_t>(value)); }
-math::angle negative(math::angle const value) { return static_cast<math::angle>(-value); }
+int32_t wrap(uint32_t const value) {
+  return std::bit_cast<int32_t>(value);
+}
+int32_t add(int32_t const a, int32_t const b) {
+  return wrap(static_cast<uint32_t>(a) + static_cast<uint32_t>(b));
+}
+int32_t subtract(int32_t const a, int32_t const b) {
+  return wrap(static_cast<uint32_t>(a) - static_cast<uint32_t>(b));
+}
+int16_t word(int const value) {
+  return math::signed_word(static_cast<uint16_t>(value));
+}
+math::angle negative(math::angle const value) {
+  return static_cast<math::angle>(-value);
+}
 math::attitude product(math::attitude const &a, math::attitude const &b) {
-  auto const transform{[&](vec3<int32_t> const &column) {
+  auto const transform{[&](vec3<int32_t> const &column){
     auto const sum{vec3<int64_t>{a.right} * column.x + vec3<int64_t>{a.down} * column.y + vec3<int64_t>{a.forward} * column.z};
     return vec3<int32_t>{word(wrap(static_cast<uint32_t>(sum.x)) >> 15),word(wrap(static_cast<uint32_t>(sum.y)) >> 15),word(wrap(static_cast<uint32_t>(sum.z)) >> 15)};
   }};
@@ -33,8 +43,12 @@ render::camera view_pose::camera(vec2d const &projection_origin) const {
   return result;
 }
 view_camera::view_camera(view_motion_state initial) : state{std::move(initial)} {}
-view_motion_state const &view_camera::value() const { return state; }
-view_pose const &view_camera::last_pose() const { return pose; }
+view_motion_state const &view_camera::value() const {
+  return state;
+}
+view_pose const &view_camera::last_pose() const {
+  return pose;
+}
 void view_camera::set_angles(vec3<math::angle> const &angles) {
   pose.angles = vec3<math::angle>{angles};
   pose.horizon_angles.emplace(angles.x,angles.z);
@@ -129,13 +143,15 @@ bool view_camera::compose(view_control &views, view_camera_context const &contex
   pose.player_model_entry = (near ? (state.heading > -0x2000 && state.heading < 0x2000 ? 19u : 20u) : 21u) + context.refuel_phase;
   return clamped;
 }
-void view_camera::initialise_ground_reference(vec3<int32_t> const &position) { state.ground_reference = vec3<int32_t>{position}; }
+void view_camera::initialise_ground_reference(vec3<int32_t> const &position) {
+  state.ground_reference = vec3<int32_t>{position};
+}
 void view_camera::advance_ground_reference(view_camera_context const &context, bool const inhibited) {
   pose.ground_motion.reset();
-  if(inhibited) return; // Native 0x92969 excludes view 4 and retains its reference.
+  if(inhibited) return;                                                        // Native 0x92969 excludes view 4 and retains its reference.
   int32_t const x{word(static_cast<uint32_t>(state.ground_reference.x) - static_cast<uint32_t>(context.position.x))};
   int32_t const z{word(static_cast<uint32_t>(state.ground_reference.z) - static_cast<uint32_t>(context.position.z))};
-  auto const transformed{[&](vec3<int32_t> const &axis) {
+  auto const transformed{[&](vec3<int32_t> const &axis){
     uint32_t const product{static_cast<uint32_t>(word(axis.x)) * static_cast<uint32_t>(x) + static_cast<uint32_t>(word(axis.z)) * static_cast<uint32_t>(z)};
     return math::signed_word(static_cast<uint16_t>(wrap(product) >> math::matrix_fraction_bits));
   }};
@@ -152,18 +168,18 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
   pose.model_source = player_model_source::fixed;
   pose.ground_motion.reset();
   state.pan = context.pan;
-  auto const tracking_angles{[&] {
+  auto const tracking_angles{[&]{
     if(!context.tracking_target_q8) return vec2<math::angle>{0,0};
     vec3<int32_t> const origin{wrap(static_cast<uint32_t>(context.position.x) << 8),wrap(static_cast<uint32_t>(context.position.y) << 8),wrap(static_cast<uint32_t>(context.position.z) << 8)};
     auto const bearing{math::bearing(origin,*context.tracking_target_q8)};
     return vec2<math::angle>{static_cast<math::angle>(-bearing.x - 1 - 0x800),static_cast<math::angle>(-bearing.y - 1)};
   }};
-  auto const resume_tracking{[&] {
+  auto const resume_tracking{[&]{
     int const roll{math::signed_word(context.angles.z)};
     if(control.tracking_complete == 1 && context.tracking_target_q8 && roll < 0x2a00 && roll >= -0x2a00) views.enqueue(view_mode::target_tracking,context.speed);
   }};
-  auto const head_pose{[&] { compose(views,context,false); }};
-  auto const transpose{[&] { return control.orbit.transposed(); }};
+  auto const head_pose{[&]{ compose(views,context,false); }};
+  auto const transpose{[&]{ return control.orbit.transposed(); }};
   switch(control.current) {
   case view_mode::cockpit:
     player_origin(context);
@@ -417,7 +433,7 @@ bool view_camera::advance(view_control &views, view_camera_context const &contex
     if(horizontal > 0x400) state.pan |= 1;
     if((state.pan & 3) != 3) {
       int const vertical{math::signed_word(angles.x) + math::signed_word(target.x)};
-      if(vertical < -0x400 && vertical > -0x4000) state.pan |= 4;
+      if(vertical < -0x400 && vertical > - 0x4000) state.pan |= 4;
       if(vertical > 0x400 && vertical < 0x4000) state.pan |= 8;
     }
     pan_head(views,state.pan,true);

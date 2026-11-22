@@ -1,7 +1,7 @@
 #include "configuration.h"
 #include <iostream>
-#include "configuration/save.h"
 #include "platform/keyboard.h"
+#include "configuration/save.h"
 
 namespace tfx::platform {
 
@@ -24,9 +24,10 @@ presentation::configuration_action configure_flight(window &window, resources::e
   auto *const host{window.get()};
   auto *const previous_input{glfwGetWindowUserPointer(host)};
   glfwSetWindowUserPointer(host,&menu);
-  auto const previous_key{window.set_key_callback([](GLFWwindow *const window, int const key, int const, int const action, int const modifiers) {
-    if(action == GLFW_PRESS || action == GLFW_REPEAT)
+  auto const previous_key{window.set_key_callback([](GLFWwindow *const window, int const key, int const, int const action, int const modifiers){
+    if(action == GLFW_PRESS || action == GLFW_REPEAT) {
       static_cast<presentation::configuration_menu*>(glfwGetWindowUserPointer(window))->press(make_code(key),(modifiers & GLFW_MOD_SHIFT) != 0);
+    }
   })};
   glfwSetInputMode(host,GLFW_CURSOR,GLFW_CURSOR_NORMAL);
   auto result{presentation::configuration_action::quit};

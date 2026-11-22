@@ -1,5 +1,5 @@
-#include "math/floating_environment.h"
 #include "landing_gear.h"
+#include "math/floating_environment.h"
 
 namespace tfx::flight {
 
@@ -11,7 +11,7 @@ std::vector<unsigned int> update_landing_gear(landing_gear_state &state, landing
   float constexpr normalised_word{3.0518509447574615e-05f};
   double constexpr touchdown_failure_multiplier{2}, overspeed_failure_multiplier{1.4};
   unsigned int constexpr failure_sound{0x3f}, warning_sound{0x3a};
-  auto const fail{[&] {
+  auto const fail{[&]{
     sounds.push_back(failure_sound);
     state.condition = system_condition::failed;
     state.down = false;

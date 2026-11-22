@@ -1,15 +1,19 @@
 #include "horizon.h"
-#include "integer_polygon.h"
 #include <algorithm>
 #include <array>
 #include <bit>
 #include <cstdlib>
 #include <utility>
+#include "integer_polygon.h"
 
 namespace tfx::render {
 namespace {
-int16_t word(int32_t const value) { return math::signed_word(static_cast<uint16_t>(value)); }
-int32_t wrap(uint32_t const value) { return std::bit_cast<int32_t>(value); }
+int16_t word(int32_t const value) {
+  return math::signed_word(static_cast<uint16_t>(value));
+}
+int32_t wrap(uint32_t const value) {
+  return std::bit_cast<int32_t>(value);
+}
 
 struct horizon_projection {
   vec2<int32_t> horizontal;
@@ -51,8 +55,8 @@ public:
   band_builder(horizon_context const &source, math::angle const pitch, math::angle const roll) : context{source} {
     auto const &table{math::sine_table()};
     unsigned int const p{static_cast<unsigned int>(pitch) >> 6}, r{static_cast<unsigned int>(roll) >> 6};
-    auto const sin{[&](unsigned int const a) { return static_cast<int32_t>(table[a & (math::angle_steps - 1)]); }};
-    auto const cos{[&](unsigned int const a) { return sin(a + math::angle_steps / 4); }};
+    auto const sin{[&](unsigned int const a){ return static_cast<int32_t>(table[a & (math::angle_steps - 1)]); }};
+    auto const cos{[&](unsigned int const a){ return sin(a + math::angle_steps / 4); }};
     int const positive_sine{sin(p + r) >> 1}, negative_sine{sin(p - r) >> 1};
     int const positive_cosine{cos(p + r) >> 1}, negative_cosine{cos(p - r) >> 1};
     // Native 0xc81e6 forms sum/difference identities with separately rounded
@@ -68,7 +72,7 @@ public:
     reverse = word(roll + 0x6000) < 0;
   }
   vec2<int16_t> project(int const y, int const z) const {
-    auto const product{[&](vec2<int32_t> const &row) {
+    auto const product{[&](vec2<int32_t> const &row){
       return wrap(static_cast<uint32_t>(y) * static_cast<uint32_t>(row.x) + static_cast<uint32_t>(z) * static_cast<uint32_t>(row.y));
     }};
     int32_t const depth{std::max(16,product(projection.depth) >> 16)};
@@ -116,7 +120,9 @@ public:
       emit(colour,points);
     }
   }
-  std::vector<horizon_surface> finish() { return std::move(surfaces); }
+  std::vector<horizon_surface> finish() {
+    return std::move(surfaces);
+  }
 };
 
 } // anonymous namespace

@@ -1,7 +1,7 @@
 #include "aerodynamic_pose.h"
 #include <cmath>
-#include "math/floating_environment.h"
 #include <limits>
+#include "math/floating_environment.h"
 
 namespace tfx::flight {
 namespace {
