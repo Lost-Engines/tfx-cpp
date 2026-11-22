@@ -3,9 +3,9 @@
 #include <array>
 #include <bit>
 #include <cstdint>
+#include "vectorstorm/matrix/matrix3.h"
 #include "vectorstorm/vector/vector2.h"
 #include "vectorstorm/vector/vector3.h"
-#include "vectorstorm/matrix/matrix3.h"
 
 namespace tfx::math {
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "audio/runtime.h"
 #include "platform/window.h"
+#include "audio/runtime.h"
 #include "presentation/configuration_menu.h"
 #include "resources/executable_tables.h"
 

@@ -1,7 +1,7 @@
-#include "math/floating_environment.h"
 #include "stores.h"
 #include <limits>
 #include <stdexcept>
+#include "math/floating_environment.h"
 
 namespace tfx::flight {
 
@@ -16,7 +16,8 @@ store_effects accumulate_stores(airframe_load const &airframe, loadout const &st
     if(!store.occupied) continue;
     auto const &definition{store.properties};
     vec3<calculation> const offset{store.position};
-    vec2<calculation> const plane_a{offset.x,offset.y}, plane_b{offset.x,offset.z};
+    vec2<calculation> const plane_a{offset.x, offset.y};
+    vec2<calculation> const plane_b{offset.x, offset.z};
     result.drag = static_cast<double>(static_cast<calculation>(definition.drag) + result.drag);
     result.moment_a = static_cast<double>(plane_a.length_sq() * definition.mass_kg + result.moment_a);
     result.moment_b = static_cast<double>(plane_b.length_sq() * definition.mass_kg + result.moment_b);

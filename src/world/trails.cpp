@@ -7,11 +7,12 @@ namespace tfx::world {
 vec3<int32_t> trail_segment::midpoint() const {
   // Native 0x7b7fc averages sign-extended endpoint words with SAR rounding.
   auto const sum{vec3<int32_t>{previous} + vec3<int32_t>{current}};
-  return {sum.x >> 1,sum.y >> 1,sum.z >> 1};
+  return {sum.x >> 1, sum.y >> 1, sum.z >> 1};
 }
 std::optional<trail_segment> prepare_trail(vec3<int32_t> const &previous, vec3<int32_t> const &current, bool const enabled) {
   if(!enabled) return std::nullopt;
-  vec3<int16_t> const begin{previous}, end{current};
+  vec3<int16_t> const begin{previous};
+  vec3<int16_t> const end{current};
   int16_t const length{math::distance_word(end - begin)};
   if(!length) return std::nullopt;
   return trail_segment{
@@ -20,7 +21,7 @@ std::optional<trail_segment> prepare_trail(vec3<int32_t> const &previous, vec3<i
     .length{length},
   };
 }
-void emit_trail(trail_segment const &segment, std::function_ref<void(vec3<int32_t> const&)> output) {
+void emit_trail(trail_segment const &segment, std::function_ref<void(vec3<int32_t> const &)> output) {
   if(!segment.length) throw std::invalid_argument{"zero-length trail segment"};
   vec3<int32_t> const delta{segment.current - segment.previous};
   int constexpr step_scale{trail_spacing * actors::position_unit};
@@ -36,7 +37,11 @@ void emit_trail(trail_segment const &segment, std::function_ref<void(vec3<int32_
   } while(remaining >= trail_spacing);
 }
 
-void trail_pool::reset() { first = 0;next = 0;count = 0; }
+void trail_pool::reset() {
+  first = 0;
+  next = 0;
+  count = 0;
+}
 trail_slot trail_pool::spawn(vec3<int32_t> const &position_q8) {
   if(count == trail_capacity) retire_oldest();
   auto const slot{next};
@@ -62,10 +67,12 @@ void trail_pool::clean(vec3<int32_t> const &reference, std::function_ref<bool(tr
       };
       if(static_cast<uint16_t>(math::distance_word(point - origin)) <= maximum_trail_distance) break;
     }
-    retire_oldest(); // Native 0x7b744 retires only a consecutive dead/distant prefix.
+    retire_oldest();                                                           // Native 0x7b744 retires only a consecutive dead/distant prefix.
   }
 }
-trail_record const &trail_pool::record(trail_slot const slot) const { return records.at(slot); }
+trail_record const &trail_pool::record(trail_slot const slot) const {
+  return records.at(slot);
+}
 
 vec3d trail_position(vec3<int32_t> const &position_q8, vec3<int32_t> const &reference) {
   vec3<int16_t> const whole{
@@ -79,7 +86,7 @@ vec3d trail_position(vec3<int32_t> const &position_q8, vec3<int32_t> const &refe
     static_cast<double>(static_cast<uint32_t>(position_q8.y) & fraction_mask),
     static_cast<double>(static_cast<uint32_t>(position_q8.z) & fraction_mask),
   };
-  return vec3d{effect_position(whole,reference)} + fraction / actors::position_unit;
+  return vec3d{effect_position(whole, reference)} + fraction / actors::position_unit;
 }
 
 } // namespace tfx::world

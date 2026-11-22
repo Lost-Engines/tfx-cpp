@@ -12,8 +12,8 @@ inline long double atan2(long double const y, long double const x) {
   __asm__("fpatan" : "=t"(result) : "0"(x), "u"(y) : "st(1)");
   return result;
 #else
-  return std::atan2(y,x);
-#endif
+  return std::atan2(y, x);
+#endif // (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
 }
 
 inline long double sin(long double const value) {
@@ -23,7 +23,7 @@ inline long double sin(long double const value) {
   return result;
 #else
   return std::sin(value);
-#endif
+#endif // (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
 }
 inline long double cos(long double const value) {
 #if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
@@ -32,7 +32,7 @@ inline long double cos(long double const value) {
   return result;
 #else
   return std::cos(value);
-#endif
+#endif // (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
 }
 
 inline long double tan(long double const value) {
@@ -42,7 +42,7 @@ inline long double tan(long double const value) {
   return result;
 #else
   return std::tan(value);
-#endif
+#endif // (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
 }
 
 } // namespace tfx::math::x87
