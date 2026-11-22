@@ -14,7 +14,7 @@ int constexpr display_width{screen_width}, display_height{screen_height};
 int constexpr centre_x{screen_width / 2}, centre_y{screen_height / 2};
 double constexpr focal_length{128};
 using palette = std::array<vec3<uint8_t>, 256>;
-using dac_palette = std::array<uint8_t,256 * 3>;
+using dac_palette = std::array<uint8_t, 256 * 3>;
 using rgba_pixel = vec4<uint8_t>;
 static_assert(sizeof(rgba_pixel) == 4);
 

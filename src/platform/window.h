@@ -13,8 +13,8 @@ class glfw_runtime {
 public:
   glfw_runtime();
   ~glfw_runtime();
-  glfw_runtime(glfw_runtime const&) = delete;
-  glfw_runtime &operator=(glfw_runtime const&) = delete;
+  glfw_runtime(glfw_runtime const &) = delete;
+  glfw_runtime &operator=(glfw_runtime const &) = delete;
 };
 
 class window {
@@ -23,8 +23,9 @@ private:
   std::unique_ptr<GLFWwindow, decltype(&glfwDestroyWindow)> handle;
   unsigned int texture{0};
   GLFWkeyfun key_callback{nullptr};
-  std::array<bool,2> fullscreen_keys{};
-  vec2<int> windowed_position{0,0}, windowed_size{render::display_width,render::display_height};
+  std::array<bool, 2> fullscreen_keys{};
+  vec2<int> windowed_position{0, 0};
+  vec2<int> windowed_size{render::display_width, render::display_height};
   bool windowed_maximized{false};
   void set_fullscreen(bool enabled);
   static void dispatch_key(GLFWwindow *host, int key, int scan, int action, int modifiers);
@@ -32,8 +33,8 @@ private:
 public:
   window(unsigned int scale, bool fullscreen = false);
   ~window();
-  window(window const&) = delete;
-  window &operator=(window const&) = delete;
+  window(window const &) = delete;
+  window &operator=(window const &) = delete;
   GLFWwindow *get() const;
   bool focused() const;
   // Window shortcuts stay active while modal screens replace their input handler.

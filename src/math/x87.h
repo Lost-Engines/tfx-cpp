@@ -12,7 +12,7 @@ inline long double atan2(long double const y, long double const x) {
   __asm__("fpatan" : "=t"(result) : "0"(x), "u"(y) : "st(1)");
   return result;
 #else
-  return std::atan2(y,x);
+  return std::atan2(y, x);
 #endif // (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
 }
 

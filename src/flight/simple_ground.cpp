@@ -9,8 +9,8 @@ namespace {
 using calculation = long double;
 int constexpr stall_pitch_rate{24};
 double constexpr stall_speed_interval{50}, stall_pitch_fraction{.02};
-float constexpr stall_pitch_scale{1024}, low_speed_sink_per_tick{.1f};
-float constexpr indicated_speed_scale{.515f};
+float constexpr stall_pitch_scale{1024}, low_speed_sink_per_tick{0.1f};
+float constexpr indicated_speed_scale{0.515f};
 unsigned int constexpr angle_step{64};
 int16_t constexpr carrier_surface{3};
 
@@ -28,7 +28,7 @@ void rotate_body(simple_ground_state &state, math::rotation_axis const axis, flo
   int32_t const phase{truncate(accumulated * (1.0f / angle_step))};
   auto const rotation{static_cast<math::angle>(static_cast<uint32_t>(phase) * angle_step)};
   remainder = static_cast<float>(static_cast<calculation>(remainder) - math::signed_word(rotation));
-  state.body.rotate(axis,rotation);
+  state.body.rotate(axis, rotation);
 }
 
 } // anonymous namespace
@@ -54,7 +54,7 @@ void update_simple_stall_attitude(simple_ground_state &state, simple_ground_cont
     }
   }
   state.stall_pitch = pitch;
-  state.visible.rotate(math::rotation_axis::pitch,static_cast<math::angle>(pitch));
+  state.visible.rotate(math::rotation_axis::pitch, static_cast<math::angle>(pitch));
 }
 void update_simple_ground(simple_ground_state &state, simple_ground_context const &context) {
   math::floating_environment const environment;
@@ -64,8 +64,9 @@ void update_simple_ground(simple_ground_state &state, simple_ground_context cons
   if(context.metres_per_second < context.stall_metres_per_second) state.position_y = static_cast<float>(static_cast<calculation>(context.elapsed) * low_speed_sink_per_tick + state.position_y);
   calculation const ground_y{static_cast<calculation>(context.ground.height) - context.gear_height};
   if(context.ground.present && ground_y <= state.position_y) {
-    if(context.gear_down && state.body.down.y >= 0) state.low_speed_ground_contact = context.fixed_speed < static_cast<calculation>(context.rollout_speed_threshold) * 2.0;
-    else {
+    if(context.gear_down && state.body.down.y >= 0) {
+      state.low_speed_ground_contact = context.fixed_speed < static_cast<calculation>(context.rollout_speed_threshold) * 2.0;
+    } else {
       state.position_y = context.ground.height;
       state.collision = 2;
     }
@@ -75,8 +76,8 @@ void update_simple_ground(simple_ground_state &state, simple_ground_context cons
       state.landing_angles.x = static_cast<int16_t>((state.landing_angles.x + math::signed_word(angles.x)) / 2);
       state.landing_angles.y = static_cast<int16_t>((state.landing_angles.y + math::signed_word(angles.z)) / 2);
     }
-    rotate_body(state,math::rotation_axis::pitch,static_cast<float>(-state.landing_angles.x));
-    rotate_body(state,math::rotation_axis::roll,static_cast<float>(-state.landing_angles.y));
+    rotate_body(state, math::rotation_axis::pitch, static_cast<float>(-state.landing_angles.x));
+    rotate_body(state, math::rotation_axis::roll, static_cast<float>(-state.landing_angles.y));
     state.landed = true;
     if(context.surface_type == carrier_surface && context.arrestor_hook) state.arrested = true;
   } else if(state.position_y > 0) {

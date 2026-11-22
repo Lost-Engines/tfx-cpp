@@ -17,7 +17,7 @@ private:
   arming_preview preview;
   render::software_renderer renderer;
   double previous_drag{0};
-  vec3<int16_t> previous_point{0,0,0};
+  vec3<int16_t> previous_point{0, 0, 0};
   unsigned int fade_level{1};
   bool entering{true};
   bool leaving{false};

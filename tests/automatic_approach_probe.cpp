@@ -7,7 +7,8 @@
 
 namespace {
 double read_double(std::istream &input) {
-  uint64_t bits; input >> bits;
+  uint64_t bits;
+  input >> bits;
   return std::bit_cast<double>(bits);
 }
 } // anonymous namespace
@@ -18,11 +19,16 @@ int main(int const argc, char const *const argv[]) try {
   if(argc == 2) fixture.open(argv[1]);
   if(argc == 2 && !fixture) throw std::runtime_error{"cannot open automatic approach fixtures"};
   auto &input{argc == 2 ? fixture : std::cin};
-  unsigned int heading,carrier,flare,cases{0};
+  unsigned int heading;
+  unsigned int carrier;
+  unsigned int flare;
+  unsigned int cases{0};
   while(input >> heading >> carrier >> flare) {
     tfx::flight::automatic_approach state;
     state.flaring = flare != 0;
-    for(auto *vector : {&state.destination_metres,&state.player_metres}) for(auto &value : *vector) input >> value;
+    for(auto *vector : {&state.destination_metres, &state.player_metres}) {
+      for(auto &value : *vector) input >> value;
+    }
     tfx::flight::aerodynamic_motion motion;
     for(auto &value : motion.pose.metres_ned) value = read_double(input);
     for(auto &value : motion.rotation_remainder) value = read_double(input);
@@ -36,22 +42,33 @@ int main(int const argc, char const *const argv[]) try {
       .carrier{carrier != 0},
     };
     tfx::flight::aerodynamic_basis basis;
-    bool const stopped{tfx::flight::advance_automatic_approach(state,motion,basis,speed,context)};
+    bool const stopped{tfx::flight::advance_automatic_approach(state, motion, basis, speed, context)};
     std::vector<uint64_t> values;
-    auto const number{[&](double const value){ values.push_back(std::bit_cast<uint64_t>(value)); }};
-    for(auto const *vector : {&state.destination_metres,&state.player_metres}) for(auto const value : *vector) values.push_back(static_cast<uint32_t>(value));
-    number(state.distance_km); number(state.pitch_degrees); number(speed);
+    auto const number{[&](double const value){values.push_back(std::bit_cast<uint64_t>(value));}};
+    for(auto const *vector : {&state.destination_metres, &state.player_metres}) {
+      for(auto const value : *vector) values.push_back(static_cast<uint32_t>(value));
+    }
+    number(state.distance_km);
+    number(state.pitch_degrees);
+    number(speed);
     for(auto const value : motion.pose.metres_ned) number(value);
     for(auto const value : motion.rotation_remainder) number(value);
-    for(auto const *vector : {&basis.forward,&basis.right,&basis.down}) for(auto const value : *vector) number(value);
-    for(unsigned int row{0}; row != 3; ++row) for(auto const *vector : {&motion.pose.frame.forward,&motion.pose.frame.right,&motion.pose.frame.down}) values.push_back(static_cast<uint32_t>((*vector)[row]));
-    values.push_back(state.flaring); values.push_back(stopped);
+    for(auto const *vector : {&basis.forward, &basis.right, &basis.down}) {
+      for(auto const value : *vector) number(value);
+    }
+    for(unsigned int row{0}; row != 3; ++row) {
+      for(auto const *vector : {&motion.pose.frame.forward, &motion.pose.frame.right, &motion.pose.frame.down}) values.push_back(static_cast<uint32_t>((*vector)[row]));
+    }
+    values.push_back(state.flaring);
+    values.push_back(stopped);
     unsigned int field{0};
     for(auto const value : values) {
       if(argc == 2) {
         uint64_t expected;
         if(!(input >> expected) || value != expected) throw std::runtime_error{"native automatic approach differs at case " + std::to_string(cases) + " field " + std::to_string(field)};
-      } else std::cout << value << ' ';
+      } else {
+        std::cout << value << ' ';
+      }
       ++field;
     }
     if(argc != 2) std::cout << '\n';
@@ -60,4 +77,7 @@ int main(int const argc, char const *const argv[]) try {
   if(!cases) throw std::runtime_error{"no automatic approach cases"};
   if(argc == 2) std::cout << cases << " native automatic approach fixtures agree\n";
   return EXIT_SUCCESS;
-} catch(std::exception const &error) { std::cerr << error.what() << '\n'; return EXIT_FAILURE; }
+} catch(std::exception const &error) {
+  std::cerr << error.what() << '\n';
+  return EXIT_FAILURE;
+}

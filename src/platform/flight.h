@@ -24,11 +24,16 @@ namespace tfx::platform {
 struct flight_options {
   std::string mission{"miss501"};
   std::filesystem::path data_directory{};
-  std::string environment{}, grid{};
+  std::string environment{};
+  std::string grid{};
   std::optional<vec2<unsigned int>> cell{};
   std::optional<std::filesystem::path> screenshot{};
   std::optional<unsigned int> joystick{};
-  unsigned int scale{0}, scene_radius{6}, frame_limit{0}, flight_steps{0}, flight_frames{0};
+  unsigned int scale{0};
+  unsigned int scene_radius{6};
+  unsigned int frame_limit{0};
+  unsigned int flight_steps{0};
+  unsigned int flight_frames{0};
   bool fullscreen{false};
   configuration::settings &preferences;
   world::flak_state &flak;
@@ -53,7 +58,11 @@ struct flight_options {
   audio::runtime *sound{nullptr};
   bool inspect{false};
 };
-enum class flight_result { finished, quit, enrol };
+enum class flight_result {
+  finished,
+  quit,
+  enrol
+};
 // FINISH resumes the authored campaign; the settings dialog can return to enrolment.
 flight_result fly_mission(resources::archive const &game, resources::executable_tables const &tables,
   flight_options const &options, missions::variables &campaign, window *shared_window = nullptr);

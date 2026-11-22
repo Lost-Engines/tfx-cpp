@@ -25,10 +25,11 @@ class band_builder {
 private:
   horizon_context const &context;
   horizon_projection projection;
-  int32_t sine, cosine;
+  int32_t sine;
+  int32_t cosine;
   bool vertical;
   bool reverse;
-  std::array<vec2<int16_t>,4> quad;
+  std::array<vec2<int16_t>, 4> quad;
   std::vector<horizon_surface> surfaces;
 
   void emit(uint8_t const colour, std::span<vec2<int16_t> const> const vertices) {
@@ -43,81 +44,94 @@ private:
     // Native horizontal/vertical strip constructors retain signed IDIV and
     // their five-unit bias. Their far edge is 320/200, although stored corners
     // on a horizontal strip use X=319.
-    int const along{vertical ? point.y : point.x}, across{vertical ? point.x : point.y};
+    int const along{vertical ? point.y : point.x};
+    int const across{vertical ? point.x : point.y};
     int const extent{vertical ? screen_height : screen_width};
     int const distance{opposite ? extent - along : along};
     int const slope{distance * sine / cosine};
     int const coordinate{across + (opposite ? -slope : slope) - (cosine * 5 >> math::matrix_fraction_bits)};
-    return vertical ? vec2<int16_t>{word(coordinate),static_cast<int16_t>(opposite ? screen_height : 0)} : vec2<int16_t>{static_cast<int16_t>(opposite ? screen_width - 1 : 0),word(coordinate)};
+    return vertical ? vec2<int16_t>{word(coordinate), static_cast<int16_t>(opposite ? screen_height : 0)} : vec2<int16_t>{static_cast<int16_t>(opposite ? screen_width - 1 : 0), word(coordinate)};
   }
 
 public:
   band_builder(horizon_context const &source, math::angle const pitch, math::angle const roll) : context{source} {
     auto const &table{math::sine_table()};
-    unsigned int const p{static_cast<unsigned int>(pitch) >> 6}, r{static_cast<unsigned int>(roll) >> 6};
-    auto const sin{[&](unsigned int const a){ return static_cast<int32_t>(table[a & (math::angle_steps - 1)]); }};
-    auto const cos{[&](unsigned int const a){ return sin(a + math::angle_steps / 4); }};
-    int const positive_sine{sin(p + r) >> 1}, negative_sine{sin(p - r) >> 1};
-    int const positive_cosine{cos(p + r) >> 1}, negative_cosine{cos(p - r) >> 1};
+    unsigned int const p{static_cast<unsigned int>(pitch) >> 6};
+    unsigned int const r{static_cast<unsigned int>(roll) >> 6};
+    auto const sin{[&](unsigned int const a){return static_cast<int32_t>(table[a & (math::angle_steps - 1)]);}};
+    auto const cos{[&](unsigned int const a){return sin(a + math::angle_steps / 4);}};
+    int const positive_sine{sin(p + r) >> 1};
+    int const negative_sine{sin(p - r) >> 1};
+    int const positive_cosine{cos(p + r) >> 1};
+    int const negative_cosine{cos(p - r) >> 1};
     // Native 0xc81e6 forms sum/difference identities with separately rounded
     // halves, rather than multiplying ideal sine and cosine values.
     projection = {
-      .horizontal{positive_sine - negative_sine,negative_cosine - positive_cosine},
-      .vertical{positive_cosine + negative_cosine,positive_sine + negative_sine},
-      .depth{-sin(p),cos(p)},
+      .horizontal{positive_sine - negative_sine, negative_cosine - positive_cosine},
+      .vertical{positive_cosine + negative_cosine, positive_sine + negative_sine},
+      .depth{-sin(p), cos(p)},
     };
-    sine = sin(r);cosine = cos(r);
+    sine = sin(r);
+    cosine = cos(r);
     vertical = (roll >= 0x2000 && roll <= 0x6000) || (roll >= 0xa000 && roll <= 0xe000);
-    if(vertical) std::swap(sine,cosine);
+    if(vertical) std::swap(sine, cosine);
     reverse = word(roll + 0x6000) < 0;
   }
   vec2<int16_t> project(int const y, int const z) const {
     auto const product{[&](vec2<int32_t> const &row){
       return wrap(static_cast<uint32_t>(y) * static_cast<uint32_t>(row.x) + static_cast<uint32_t>(z) * static_cast<uint32_t>(row.y));
     }};
-    int32_t const depth{std::max(16,product(projection.depth) >> 16)};
-    int32_t const x{std::clamp((product(projection.horizontal) >> context.projection_shift.x) / depth,-32000,32000)};
-    int32_t const vertical_position{std::clamp((product(projection.vertical) >> context.projection_shift.y) / depth,-32000,32000)};
+    int32_t const depth{std::max(16, product(projection.depth) >> 16)};
+    int32_t const x{std::clamp((product(projection.horizontal) >> context.projection_shift.x) / depth, -32000, 32000)};
+    int32_t const vertical_position{std::clamp((product(projection.vertical) >> context.projection_shift.y) / depth, -32000, 32000)};
     int16_t const origin_x{word(word(context.minimum.x + context.maximum.x) >> 1)};
-    return {word(x + origin_x),word(vertical_position + context.origin_y)};
+    return {word(x + origin_x), word(vertical_position + context.origin_y)};
   }
   void start(vec2<int16_t> const &near, vec2<int16_t> const &far) {
-    quad[0] = edge(far,false);quad[1] = edge(far,true);
-    quad[2] = edge(near,true);quad[3] = edge(near,false);
+    quad[0] = edge(far, false);
+    quad[1] = edge(far, true);
+    quad[2] = edge(near, true);
+    quad[3] = edge(near, false);
   }
   void next(vec2<int16_t> const &far) {
-    quad[3] = vec2<int16_t>{quad[0]};quad[2] = vec2<int16_t>{quad[1]};
-    quad[0] = edge(far,false);quad[1] = edge(far,true);
+    quad[3] = vec2<int16_t>{quad[0]};
+    quad[2] = vec2<int16_t>{quad[1]};
+    quad[0] = edge(far, false);
+    quad[1] = edge(far, true);
   }
   void paint(uint8_t const colour) {
     if(reverse) {
-      std::array<vec2<int16_t>,4> const reversed{vec2<int16_t>{quad[3]},vec2<int16_t>{quad[2]},vec2<int16_t>{quad[1]},vec2<int16_t>{quad[0]}};
-      emit(colour,reversed);
-    } else emit(colour,quad);
+      std::array<vec2<int16_t>, 4> const reversed{vec2<int16_t>{quad[3]}, vec2<int16_t>{quad[2]}, vec2<int16_t>{quad[1]}, vec2<int16_t>{quad[0]}};
+      emit(colour, reversed);
+    } else {
+      emit(colour, quad);
+    }
   }
   void cap(uint8_t const colour) {
     paint(colour);
     if(!reverse) {
-      if(std::min(quad[2].y,quad[3].y) >= screen_height) return;
+      if(std::min(quad[2].y, quad[3].y) >= screen_height) return;
       std::vector<vec2<int16_t>> points;
-      points.emplace_back(quad[3]);points.emplace_back(quad[2]);
-      points.emplace_back(std::min<int16_t>(quad[2].x,screen_width - 1),std::max<int16_t>(quad[2].y,screen_height - 1));
-      points.emplace_back(std::min<int16_t>(quad[3].x,0),std::max<int16_t>(quad[3].y,screen_height - 1));
-      if(quad[3].x > 0) points.emplace_back(0,std::min<int16_t>(quad[3].y,0));
-      emit(colour,points);
+      points.emplace_back(quad[3]);
+      points.emplace_back(quad[2]);
+      points.emplace_back(std::min<int16_t>(quad[2].x, screen_width - 1), std::max<int16_t>(quad[2].y, screen_height - 1));
+      points.emplace_back(std::min<int16_t>(quad[3].x, 0), std::max<int16_t>(quad[3].y, screen_height - 1));
+      if(quad[3].x > 0) points.emplace_back(0, std::min<int16_t>(quad[3].y, 0));
+      emit(colour, points);
     } else {
-      if(std::max(quad[3].y,quad[2].y) <= 0) return;
+      if(std::max(quad[3].y, quad[2].y) <= 0) return;
       std::vector<vec2<int16_t>> points;
-      points.emplace_back(quad[2]);points.emplace_back(quad[3]);
+      points.emplace_back(quad[2]);
+      points.emplace_back(quad[3]);
       if(vertical) {
-        points.emplace_back(std::max<int16_t>(quad[3].x,screen_width - 1),std::min<int16_t>(quad[3].y,0));
-        points.emplace_back(std::max<int16_t>(quad[2].x,screen_width - 1),std::min<int16_t>(quad[2].y,screen_height - 1));
+        points.emplace_back(std::max<int16_t>(quad[3].x, screen_width - 1), std::min<int16_t>(quad[3].y, 0));
+        points.emplace_back(std::max<int16_t>(quad[2].x, screen_width - 1), std::min<int16_t>(quad[2].y, screen_height - 1));
       } else {
-        points.emplace_back(std::min<int16_t>(quad[3].x,0),std::min<int16_t>(quad[3].y,screen_height - 1));
-        points.emplace_back(std::min<int16_t>(quad[2].x,0),std::min<int16_t>(quad[2].y,0));
-        if(quad[2].y > 0) points.emplace_back(screen_width - 1,0);
+        points.emplace_back(std::min<int16_t>(quad[3].x, 0), std::min<int16_t>(quad[3].y, screen_height - 1));
+        points.emplace_back(std::min<int16_t>(quad[2].x, 0), std::min<int16_t>(quad[2].y, 0));
+        if(quad[2].y > 0) points.emplace_back(screen_width - 1, 0);
       }
-      emit(colour,points);
+      emit(colour, points);
     }
   }
   std::vector<horizon_surface> finish() {
@@ -130,7 +144,8 @@ public:
 void horizon_phase::advance(int16_t const movement) {
   // Native 0xcac04 selects its period from the adjacent retained mode word,
   // adjusts at most once, and stores only the counter word.
-  int32_t constexpr near_period{1375}, far_period{2750};
+  int32_t constexpr near_period{1375};
+  int32_t constexpr far_period{2750};
   int32_t const period{period_mode == 0 ? near_period : far_period};
   int32_t next{static_cast<int32_t>(sample()) + (movement >> 2)};
   if(word(next) > period) next -= period;
@@ -139,13 +154,16 @@ void horizon_phase::advance(int16_t const movement) {
 }
 
 std::vector<horizon_surface> horizon_surfaces(horizon_context const &context) {
-  math::angle pitch{context.pitch}, roll{context.roll};
+  math::angle pitch{context.pitch};
+  math::angle roll{context.roll};
   if(std::abs(static_cast<int>(math::signed_word(pitch))) >= 0x4000) {
     pitch = static_cast<math::angle>(0x8000 - pitch);
     roll = static_cast<math::angle>(roll + 0x8000);
   }
   int const signed_pitch{math::signed_word(pitch)};
-  uint8_t constexpr sky_near_colour{240}, ground_near_colour{224}, steep_ground_colour{253};
+  uint8_t constexpr sky_near_colour{240};
+  uint8_t constexpr ground_near_colour{224};
+  uint8_t constexpr steep_ground_colour{253};
   if(signed_pitch > 0x3000) {
     horizon_surface surface{
       .colour{steep_ground_colour},
@@ -153,21 +171,27 @@ std::vector<horizon_surface> horizon_surfaces(horizon_context const &context) {
       .rectangle{true},
     };
     surface.vertices.emplace_back(context.minimum);
-    surface.vertices.emplace_back(context.maximum.x,context.minimum.y);
+    surface.vertices.emplace_back(context.maximum.x, context.minimum.y);
     surface.vertices.emplace_back(context.maximum);
-    surface.vertices.emplace_back(context.minimum.x,context.maximum.y);
-    std::vector<horizon_surface> result;result.push_back(std::move(surface));return result;
+    surface.vertices.emplace_back(context.minimum.x, context.maximum.y);
+    std::vector<horizon_surface> result;
+    result.push_back(std::move(surface));
+    return result;
   }
-  band_builder bands{context,pitch,roll};
+  band_builder bands{context, pitch, roll};
   int constexpr minimum_horizon_height{100};
   // The original NEG is narrowed before SAR: INT16_MIN stays negative and
   // takes the minimum-height path, rather than becoming a high-altitude view.
-  int const height{std::max(minimum_horizon_height,static_cast<int>(word(-static_cast<int32_t>(context.camera_y))) >> 2)};
-  bands.start(bands.project(height,16),bands.project(height,0x4b32 - context.ground_phase));
-  bands.next(bands.project(word(height - 164),0x55ef));bands.paint(sky_near_colour);
+  int const height{std::max(minimum_horizon_height, static_cast<int>(word(-static_cast<int32_t>(context.camera_y))) >> 2)};
+  bands.start(bands.project(height, 16), bands.project(height, 0x4b32 - context.ground_phase));
+  bands.next(bands.project(word(height - 164), 0x55ef));
+  bands.paint(sky_near_colour);
   int const sky_height{height + 350};
-  struct sky_band { int16_t height_offset, depth; };
-  std::array<sky_band,10> constexpr sky_bands{{
+  struct sky_band {
+    int16_t height_offset;
+    int16_t depth;
+  };
+  std::array<sky_band, 10> constexpr sky_bands{{
     {
       .height_offset{698},
       .depth{21998},
@@ -213,13 +237,15 @@ std::vector<horizon_surface> horizon_surfaces(horizon_context const &context) {
     uint8_t colour{sky_near_colour};
     for(auto const &band : sky_bands) {
       if(band.height_offset == 10013 && sky_height < -10000) break;
-      bands.next(bands.project(word(sky_height - band.height_offset),band.depth));bands.paint(++colour);
+      bands.next(bands.project(word(sky_height - band.height_offset), band.depth));
+      bands.paint(++colour);
     }
     if(sky_height >= -13000) {
-      bands.next(bands.project(word(sky_height - 13098),17675));bands.paint(++colour);
+      bands.next(bands.project(word(sky_height - 13098), 17675));
+      bands.paint(++colour);
     }
     if(sky_height >= -16000) {
-      for(auto const &band : std::array<sky_band,3>{{
+      for(auto const &band : std::array<sky_band, 3>{{
         {
           .height_offset{16686},
           .depth{14337},
@@ -233,20 +259,26 @@ std::vector<horizon_surface> horizon_surfaces(horizon_context const &context) {
           .depth{32},
         },
       }}) {
-        bands.next(bands.project(word(sky_height - band.height_offset),band.depth));bands.paint(colour);
+        bands.next(bands.project(word(sky_height - band.height_offset), band.depth));
+        bands.paint(colour);
       }
-      if(signed_pitch > 0x2680) { bands.next(bands.project(word(sky_height - 22000),-8000));bands.paint(colour); }
+      if(signed_pitch > 0x2680) {
+        bands.next(bands.project(word(sky_height - 22000), -8000));
+        bands.paint(colour);
+      }
     }
   }
   if(signed_pitch <= 0x1aa0) {
     int16_t constexpr ground_spacing{1375};
-    bands.start(bands.project(height,16),bands.project(height,ground_spacing - context.ground_phase));bands.cap(ground_near_colour);
+    bands.start(bands.project(height, 16), bands.project(height, ground_spacing - context.ground_phase));
+    bands.cap(ground_near_colour);
     for(unsigned int i{2}; i <= 16; ++i) {
-      unsigned int const colour{std::min(i - 1,13u)};
-      bands.next(bands.project(height,static_cast<int>(i) * ground_spacing - context.ground_phase));
+      unsigned int const colour{std::min(i - 1, 13u)};
+      bands.next(bands.project(height, static_cast<int>(i) * ground_spacing - context.ground_phase));
       bands.paint(static_cast<uint8_t>(ground_near_colour + (i == 16 ? 14 : colour)));
     }
-    bands.next(bands.project(word(height - 50),22000));bands.paint(239);
+    bands.next(bands.project(word(height - 50), 22000));
+    bands.paint(239);
   }
   return bands.finish();
 }
@@ -254,10 +286,16 @@ std::vector<horizon_surface> horizon_surfaces(horizon_context const &context) {
 void paint_horizon(framebuffer &output, horizon_context const &context) {
   for(auto const &surface : horizon_surfaces(context)) {
     if(surface.rectangle) {
-      int const left{std::max(0,static_cast<int>(context.minimum.x))},right{std::min(screen_width - 1,static_cast<int>(context.maximum.x))};
-      int const top{std::max(0,static_cast<int>(context.minimum.y))},bottom{std::min(screen_height - 1,static_cast<int>(context.maximum.y))};
-      if(left <= right) for(int y{top}; y <= bottom; ++y) std::fill_n(output.pixels.begin() + y * screen_width + left,right - left + 1,surface.colour);
-    } else integer_polygon(output,surface.vertices,surface.colour,context.minimum,context.maximum);
+      int const left{std::max(0, static_cast<int>(context.minimum.x))};
+      int const right{std::min(screen_width - 1, static_cast<int>(context.maximum.x))};
+      int const top{std::max(0, static_cast<int>(context.minimum.y))};
+      int const bottom{std::min(screen_height - 1, static_cast<int>(context.maximum.y))};
+      if(left <= right) {
+        for(int y{top}; y <= bottom; ++y) std::fill_n(output.pixels.begin() + y * screen_width + left, right - left + 1, surface.colour);
+      }
+    } else {
+      integer_polygon(output, surface.vertices, surface.colour, context.minimum, context.maximum);
+    }
   }
 }
 
